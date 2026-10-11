@@ -1,10 +1,13 @@
 //! The gateway (`layr-desk serve`) with a fake bucket: the challenge proves the vault identity,
 //! the token is short and bound to one vault, only state objects and passkey slots are
-//! reachable, and the host is checked. Then the certificate and its reload, and the AWS client
-//! against a fake AWS that checks each signature.
+//! reachable, and the host is checked. The person records: registration, the person token,
+//! the index, passkey slots and invites, and which vaults show to which login. Then the
+//! certificate and its reload, tailscaled's whois, and the AWS client against a fake AWS that
+//! checks each signature.
 
 use crate::aws::Aws;
-use crate::routes::{Config, Gateway};
+use crate::people::People;
+use crate::routes::{Config, Gateway, PeopleConfig};
 use crate::serve::serve;
 use crate::tls;
 use crate::vault::{Body, Bucket, Clock, Object, Vault};
@@ -71,6 +74,11 @@ impl Bucket for FakeBucket {
         }
         objects.insert(key.to_string(), body);
         Ok(true)
+    }
+
+    async fn put(&self, key: &str, body: Vec<u8>) -> Result<()> {
+        self.0.lock().unwrap().insert(key.to_string(), body);
+        Ok(())
     }
 
     async fn delete(&self, key: &str) -> Result<()> {
@@ -169,6 +177,10 @@ struct Setup {
     address: SocketAddr,
     identity: String,
     bucket: FakeBucket,
+    /// The person records.
+    people: FakeBucket,
+    /// The login that the fake tailscaled gives every caller.
+    login: Arc<Mutex<Option<String>>>,
     clock: Arc<AtomicU64>,
     _site: Scratch,
 }
@@ -211,10 +223,30 @@ async fn setup(tls: Option<TlsAcceptor>) -> Setup {
         projects: [("p".to_string(), json!({})), ("q".to_string(), json!({}))]
             .into_iter()
             .collect(),
+        people: Some(PeopleConfig {
+            bucket: "artifacts".into(),
+            region: "eu-central-1".into(),
+            prefix: "people/".into(),
+        }),
     });
+    let people_bucket = FakeBucket::default();
+    let people = Arc::new(People::new(
+        people_bucket.clone(),
+        "people/",
+        secret.clone(),
+        now.clone(),
+    ));
+    let login: Arc<Mutex<Option<String>>> = Arc::default();
+    let whois = login.clone();
     let gateway = Arc::new(Gateway {
         config: Box::new(move || Ok(config.clone())),
         vault_for: Box::new(move |name, _| Ok(vaults.get(name).cloned())),
+        people_for: Box::new(move |_| Ok(Some(people.clone()))),
+        whois: Box::new(move |address| {
+            assert!(address.ip().is_loopback());
+            let login = whois.lock().unwrap().clone();
+            Box::pin(async move { login })
+        }),
         site: site.0.clone(),
     });
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -224,6 +256,8 @@ async fn setup(tls: Option<TlsAcceptor>) -> Setup {
         address,
         identity,
         bucket,
+        people: people_bucket,
+        login,
         clock,
         _site: site,
     }
@@ -478,6 +512,327 @@ async fn the_site_the_project_list_and_the_host_check() {
     );
     let with_port = s.on_host("desk.example:443", "GET", "/", None, None).await;
     assert_eq!(with_port.status, 200);
+}
+
+const ANN: &str = "ann@example.com";
+const BOB: &str = "bob@example.com";
+
+impl Setup {
+    fn as_login(&self, login: Option<&str>) {
+        *self.login.lock().unwrap() = login.map(str::to_string);
+    }
+
+    async fn json(&self, method: &str, path: &str, token: Option<&str>, body: Value) -> Reply {
+        self.on_host(HOST, method, path, token, Some(&body.to_string()))
+            .await
+    }
+
+    /// Register a person key for the current login: its identity.
+    async fn register(&self) -> String {
+        let person = keys::generate_identity();
+        let paper = keys::seal_slot(
+            &person,
+            &keys::recipient_of(&keys::generate_identity()).unwrap(),
+        )
+        .unwrap();
+        let body =
+            json!({"recipient": keys::recipient_of(&person).unwrap(), "paper": B64.encode(paper)});
+        let reply = self.json("PUT", "/api/person", None, body).await;
+        assert_eq!(reply.status, 200, "{}", reply.text());
+        person
+    }
+
+    async fn person_token(&self, identity: &str) -> String {
+        let reply = self.call("GET", "/api/person/challenge", None).await;
+        let sealed = B64
+            .decode(reply.json()["challenge"].as_str().unwrap())
+            .unwrap();
+        String::from_utf8(keys::decrypt(identity, &sealed).unwrap()).unwrap()
+    }
+}
+
+fn sha256(data: &[u8]) -> String {
+    use sha2::Digest;
+    hex::encode(sha2::Sha256::digest(data))
+}
+
+#[tokio::test]
+async fn a_person_registers_once_and_proves_the_person_key_for_each_change() {
+    let s = setup(None).await;
+    let refused = s.call("GET", "/api/person", None).await;
+    assert_eq!(refused.status, 403);
+    assert!(refused.json()["error"]
+        .as_str()
+        .unwrap()
+        .contains("cannot tell who you are"));
+    s.as_login(Some(ANN));
+    assert_eq!(
+        s.call("GET", "/api/person", None).await.json(),
+        json!({"login": ANN, "recipient": null, "slots": [], "index": null, "inbox": []})
+    );
+    assert_eq!(s.status("GET", "/api/person/challenge", None).await, 404);
+    let slot = B64.encode("slot");
+    for bad in [
+        json!({"recipient": "age1nope", "paper": slot}),
+        json!({"recipient": keys::recipient_of(&s.identity).unwrap(), "paper": ""}),
+    ] {
+        assert_eq!(s.json("PUT", "/api/person", None, bad).await.status, 400);
+    }
+    let person = s.register().await;
+    let recipient = keys::recipient_of(&person).unwrap();
+    let view = s.call("GET", "/api/person", None).await.json();
+    assert_eq!(view["recipient"], recipient);
+    assert_eq!(view["slots"][0]["name"], "paper");
+    assert!(s.people.has("people/ann@example.com/person.json"));
+    // The same key again is fine; another one is refused.
+    let again = json!({"recipient": recipient, "paper": slot});
+    let reply = s.json("PUT", "/api/person", None, again).await;
+    assert_eq!(
+        (reply.status, reply.json()["new"].clone()),
+        (200, json!(false))
+    );
+    let other = json!({"recipient": keys::recipient_of(&s.identity).unwrap(), "paper": slot});
+    assert_eq!(s.json("PUT", "/api/person", None, other).await.status, 409);
+
+    // The index: only with the person token, and only over the index that the caller read.
+    let index = B64.encode("index-1");
+    let put = |token: Option<String>, previous: Value| {
+        let body = json!({"data": index, "previous": previous});
+        let s = &s;
+        async move {
+            s.json("PUT", "/api/person/index", token.as_deref(), body)
+                .await
+                .status
+        }
+    };
+    assert_eq!(put(None, Value::Null).await, 401);
+    let vault_token = s.token("p").await;
+    assert_eq!(put(Some(vault_token), Value::Null).await, 401);
+    let tk = s.person_token(&person).await;
+    assert_eq!(put(Some(tk.clone()), Value::Null).await, 200);
+    assert_eq!(put(Some(tk.clone()), Value::Null).await, 409);
+    assert_eq!(put(Some(tk.clone()), json!(sha256(b"index-1"))).await, 200);
+    assert_eq!(
+        s.call("GET", "/api/person", None).await.json()["index"],
+        index
+    );
+    // The token of one person is not the token of another.
+    s.as_login(Some(BOB));
+    s.register().await;
+    assert_eq!(put(Some(tk.clone()), json!(sha256(b"index-1"))).await, 401);
+    s.as_login(Some(ANN));
+
+    // Passkey slots of the person key.
+    let body = json!({"data": B64.encode("passkey-slot")});
+    let path = "/api/person/slots/passkey-abc";
+    assert_eq!(s.json("PUT", path, None, body.clone()).await.status, 401);
+    assert_eq!(
+        s.json("PUT", path, Some(&tk), body.clone()).await.status,
+        200
+    );
+    assert_eq!(
+        s.json("PUT", path, Some(&tk), body.clone()).await.status,
+        409
+    );
+    let paper = "/api/person/slots/paper";
+    assert_eq!(
+        s.json("PUT", paper, Some(&tk), body.clone()).await.status,
+        400
+    );
+    assert_eq!(s.status("DELETE", paper, Some(&tk)).await, 400);
+    assert!(s.people.has("people/ann@example.com/slots/passkey-abc.age"));
+    assert_eq!(s.status("DELETE", path, Some(&tk)).await, 200);
+    assert!(!s.people.has("people/ann@example.com/slots/passkey-abc.age"));
+    assert!(s.people.has("people/ann@example.com/slots/paper.age"));
+    assert_eq!(
+        s.status("GET", "/api/person/slots/x/y", Some(&tk)).await,
+        404
+    );
+    s.clock.fetch_add(11 * 60 * 1000, Ordering::SeqCst);
+    assert_eq!(s.status("DELETE", path, Some(&tk)).await, 401);
+}
+
+#[tokio::test]
+async fn any_tailnet_person_drops_an_invite_into_a_registered_inbox() {
+    let s = setup(None).await;
+    s.as_login(Some(ANN));
+    let person = s.register().await;
+    let invite = json!({"data": B64.encode("sealed-invite")});
+    let inbox = "/api/people/ann@example.com/inbox";
+    s.as_login(None);
+    assert_eq!(
+        s.json("POST", inbox, None, invite.clone()).await.status,
+        403
+    );
+    s.as_login(Some(BOB));
+    let dropped = s.json("POST", inbox, None, invite.clone()).await;
+    assert_eq!(dropped.status, 200, "{}", dropped.text());
+    let id = dropped.json()["id"].as_str().unwrap().to_string();
+    let unknown = "/api/people/carol@example.com/inbox";
+    assert_eq!(
+        s.json("POST", unknown, None, invite.clone()).await.status,
+        404
+    );
+    for path in [
+        "/api/people/carol/inbox",
+        "/api/people/ann@example.com/outbox",
+    ] {
+        assert_eq!(
+            s.json("POST", path, None, invite.clone()).await.status,
+            404,
+            "{path}"
+        );
+    }
+    assert_eq!(s.status("GET", inbox, None).await, 404);
+    let big = json!({"data": B64.encode(vec![1u8; 4097])});
+    assert_eq!(s.json("POST", inbox, None, big).await.status, 400);
+
+    // The person sees who dropped it, and removes it with the person token.
+    s.as_login(Some(ANN));
+    let view = s.call("GET", "/api/person", None).await.json();
+    assert_eq!(
+        view["inbox"],
+        json!([{"id": id, "from": BOB, "time": 1_000_000, "data": B64.encode("sealed-invite")}])
+    );
+    let tk = s.person_token(&person).await;
+    assert_eq!(
+        s.status("DELETE", "/api/person/inbox/x.json", Some(&tk))
+            .await,
+        400
+    );
+    let path = format!("/api/person/inbox/{id}");
+    assert_eq!(s.status("DELETE", &path, None).await, 401);
+    assert_eq!(s.status("DELETE", &path, Some(&tk)).await, 200);
+    assert_eq!(
+        s.call("GET", "/api/person", None).await.json()["inbox"],
+        json!([])
+    );
+
+    // An inbox holds 64 invites.
+    s.as_login(Some(BOB));
+    for _ in 0..64 {
+        assert_eq!(
+            s.json("POST", inbox, None, invite.clone()).await.status,
+            200
+        );
+    }
+    assert_eq!(s.json("POST", inbox, None, invite).await.status, 429);
+}
+
+#[tokio::test]
+async fn a_vault_with_person_slots_shows_only_to_those_people() {
+    let s = setup(None).await;
+    for name in ["person-ann@example.com", "person-carol@example.com"] {
+        s.bucket
+            .put_new(&format!("p/slots/{name}.age"), name.into())
+            .await
+            .unwrap();
+    }
+    let projects = |login: Option<&str>| {
+        s.as_login(login);
+        async { s.call("GET", "/api/projects", None).await.json()["projects"].clone() }
+    };
+    assert_eq!(projects(Some(ANN)).await, json!(["p", "q"]));
+    assert_eq!(projects(Some(BOB)).await, json!(["q"]));
+    assert_eq!(projects(None).await, json!(["q"]));
+    // A vault without person slots shows to every tailnet member, as before.
+    s.as_login(Some(BOB));
+    for route in ["slots", "vault", "challenge"] {
+        assert_eq!(
+            s.status("GET", &format!("/api/p/p/{route}"), None).await,
+            404,
+            "{route}"
+        );
+    }
+    assert_eq!(s.status("GET", "/api/p/q/challenge", None).await, 200);
+    // Ann gets the paper slot and her own person slot, not Carol's.
+    s.as_login(Some(ANN));
+    let slots = s.call("GET", "/api/p/p/slots", None).await.json();
+    assert_eq!(
+        slots,
+        json!({"slots": [
+            {"name": "paper", "data": B64.encode("paper-slot")},
+            {"name": "person-ann@example.com", "data": B64.encode("person-ann@example.com")},
+        ]})
+    );
+    assert_eq!(s.status("GET", "/api/p/p/challenge", None).await, 200);
+    // A token from before still reads the states: it proves the vault identity.
+    let tk = s.token("p").await;
+    s.as_login(Some(BOB));
+    assert_eq!(s.status("GET", "/api/p/p/states", Some(&tk)).await, 200);
+}
+
+/// A fake tailscaled on a Unix socket: whois of 100.64.0.1 is Ann on her laptop, of 100.64.0.2
+/// a tagged server that she added, and no other address is known.
+async fn fake_tailscaled(socket: &Path) {
+    let listener = tokio::net::UnixListener::bind(socket).unwrap();
+    tokio::spawn(async move {
+        loop {
+            let (stream, _) = listener.accept().await.unwrap();
+            tokio::spawn(async move {
+                let service = hyper::service::service_fn(
+                    |request: Request<hyper::body::Incoming>| async move {
+                        let host = request.headers().get("host").map(|h| h.as_bytes().to_vec());
+                        let query = request.uri().query().unwrap_or_default().to_string();
+                        let profile = json!({"ID": 1, "LoginName": ANN, "DisplayName": "Ann"});
+                        let (status, body) = match query.as_str() {
+                            _ if host.as_deref() != Some(b"local-tailscaled.sock") => {
+                                (403, json!("invalid localapi request"))
+                            }
+                            "addr=100%2E64%2E0%2E1%3A50000" => (
+                                200,
+                                json!({"Node": {"Name": "laptop"}, "UserProfile": profile}),
+                            ),
+                            "addr=100%2E64%2E0%2E2%3A50000" => (
+                                200,
+                                json!({"Node": {"Tags": ["tag:server"]}, "UserProfile": profile}),
+                            ),
+                            _ => (404, json!("no match for IP:port")),
+                        };
+                        let mut response =
+                            hyper::Response::new(Full::new(Bytes::from(body.to_string())));
+                        *response.status_mut() = hyper::StatusCode::from_u16(status).unwrap();
+                        Ok::<_, std::convert::Infallible>(response)
+                    },
+                );
+                let _ = hyper::server::conn::http1::Builder::new()
+                    .serve_connection(TokioIo::new(stream), service)
+                    .await;
+            });
+        }
+    });
+}
+
+#[tokio::test]
+async fn tailscaled_names_the_person_of_an_untagged_device_only() {
+    let folder = Scratch::new("whois");
+    let socket = folder.0.join("tailscaled.sock");
+    fake_tailscaled(&socket).await;
+    let at = |ip: &str| SocketAddr::new(ip.parse().unwrap(), 50000);
+    assert_eq!(
+        crate::whois::login(&socket, at("100.64.0.1"))
+            .await
+            .unwrap(),
+        Some(ANN.to_string())
+    );
+    assert_eq!(
+        crate::whois::login(&socket, at("100.64.0.2"))
+            .await
+            .unwrap(),
+        None
+    );
+    assert_eq!(
+        crate::whois::login(&socket, at("100.64.0.3"))
+            .await
+            .unwrap(),
+        None
+    );
+    let missing = folder.0.join("missing.sock");
+    assert!(crate::whois::login(&missing, at("100.64.0.1"))
+        .await
+        .is_err());
+    let tagged_devices = json!({"Node": {}, "UserProfile": {"LoginName": "tagged-devices"}});
+    assert_eq!(crate::whois::login_of(&tagged_devices), None);
 }
 
 /// A CA, and certificates for the host that it signs.
@@ -773,10 +1128,14 @@ impl FakeAws {
                 ),
             );
         }
-        if signer != ROLE.0 {
+        // The vault bucket "b" takes the reader role; "own" (the person records) takes the
+        // gateway's own credentials.
+        let (bucket, rest) = path[1..].split_once('/').unwrap_or((&path[1..], ""));
+        if (bucket, signer) != ("b", ROLE.0) && (bucket, signer) != ("own", BASE.0) {
             return (403, "<Error><Code>AccessDenied</Code></Error>".into());
         }
-        let key = decode(path.strip_prefix("/b/").unwrap_or_default());
+        let key = format!("{bucket}/{}", decode(rest));
+        let key = if rest.is_empty() { String::new() } else { key };
         let mut objects = self.objects.lock().unwrap();
         match method {
             "GET" if key.is_empty() => {
@@ -787,7 +1146,7 @@ impl FakeAws {
                     .filter_map(|p| p.split_once('='))
                     .map(|(k, v)| (decode(k), decode(v)))
                     .collect();
-                let prefix = &query["prefix"];
+                let prefix = &format!("{bucket}/{}", query["prefix"]);
                 let start: usize = query
                     .get("continuation-token")
                     .map_or(0, |t| t.parse().unwrap());
@@ -799,7 +1158,7 @@ impl FakeAws {
                 if let Some(k) = keys.get(start) {
                     xml.push_str(&format!(
                         "<Contents><Key>{}</Key></Contents>",
-                        xml_escape(k)
+                        xml_escape(&k[bucket.len() + 1..])
                     ));
                 }
                 if start + 1 < keys.len() {
@@ -833,7 +1192,7 @@ impl FakeAws {
 }
 
 #[tokio::test]
-async fn the_aws_client_signs_assumes_the_role_and_makes_the_four_s3_calls() {
+async fn the_aws_client_signs_assumes_the_role_and_makes_the_s3_calls() {
     let fake = Arc::new(FakeAws::default());
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let endpoint = format!("http://{}", listener.local_addr().unwrap());
@@ -881,6 +1240,28 @@ async fn the_aws_client_signs_assumes_the_role_and_makes_the_four_s3_calls() {
     assert!(s3.get("p/slots/missing.age").await.unwrap().is_none());
     s3.delete(odd).await.unwrap();
     assert_eq!(s3.list("p/").await.unwrap(), ["p/slots/z.age"]);
+    s3.put("p/slots/z.age", b"replaced".to_vec()).await.unwrap();
+    let object = s3.get("p/slots/z.age").await.unwrap().unwrap();
+    assert_eq!(object.body.collect().await.unwrap().to_bytes(), "replaced");
+
+    // The person records: the gateway's own bucket, with its own credentials and no role.
+    let own = aws.own_bucket("own", "eu-central-1");
+    let key = "people/ann@example.com/person.json";
+    assert!(own.put_new(key, b"{}".to_vec()).await.unwrap());
+    own.put("people/ann@example.com/index.age", b"i".to_vec())
+        .await
+        .unwrap();
+    assert_eq!(
+        own.list("people/ann@example.com/").await.unwrap(),
+        ["people/ann@example.com/index.age", key]
+    );
+    own.delete(key).await.unwrap();
+    assert!(own.get(key).await.unwrap().is_none());
+    assert!(fake
+        .objects
+        .lock()
+        .unwrap()
+        .contains_key("own/people/ann@example.com/index.age"));
 
     // Credentials are fetched once and kept until they near their end.
     let calls = fake.calls.lock().unwrap().clone();
