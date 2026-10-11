@@ -1,6 +1,6 @@
 //! Set up a vault from this Mac (docs/design.md, "Set up a vault for a project"). `keys` makes
 //! the vault identity and its paper key. `deploy` makes or updates the vault's stack
-//! (js/vault/cloud/template.yaml) with a person's AWS profile, uploads vault.json and the paper
+//! (crates/layr-desk/cloud/vault.yaml) with a person's AWS profile, uploads vault.json and the paper
 //! slot, registers the vault with the gateway, and gives the writer its keys. The local files
 //! are in ~/.config/studio-vault: gateway.json (from vault-gateway), and per vault recipient.txt
 //! and paper.age (from `keys`), facts.json and cloud.json (from `deploy`). As for the AWS CLI,
@@ -25,7 +25,7 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-const TEMPLATE: &str = include_str!("../../../js/vault/cloud/template.yaml");
+const TEMPLATE: &str = include_str!("../cloud/vault.yaml");
 const LIMIT: Duration = Duration::from_secs(60);
 /// The longest wait for a stack.
 const STACK_WAIT: Duration = Duration::from_secs(3600);

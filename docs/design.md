@@ -205,9 +205,10 @@ What it does not protect against yet:
 - Removed states: a reader cannot tell that newer states existed.
 - A stolen signing key, until `--new-writer-key` replaces it.
 
-## AWS (`studio-vault/cloud/`)
+## AWS (`js/vault/cloud/` and `crates/layr-desk/cloud/`)
 
-One stack per project, in the project's AWS account (`template.yaml`):
+One stack per project, in the project's AWS account (`crates/layr-desk/cloud/vault.yaml`, which
+`layr-desk deploy` carries):
 
 - Bucket with versioning; public access blocked; no CORS, no public path.
 - Writer user: `s3:PutObject` on `<project>/states/*` with `If-None-Match` required,
