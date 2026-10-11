@@ -24,6 +24,7 @@ use anyhow::{bail, Result};
 use clap::{Args, Parser, Subcommand};
 use desk_core::Reader;
 use sha2::{Digest, Sha256};
+use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 
 #[derive(Parser)]
@@ -129,6 +130,12 @@ async fn open(target: &Target) -> Result<Reader<gateway::Vault>> {
     };
     match kept {
         Some(identity) => vault = vault.unlocked(&identity),
+        None if target.paper_file.is_none() && !std::io::stdin().is_terminal() => bail!(
+            "the vault {} is locked on this Mac; run in a terminal: layr-desk unlock --site {} --project {}",
+            target.project,
+            target.site,
+            target.project
+        ),
         None => {
             vault.unlock_with_paper(&paper(target)?).await?;
         }

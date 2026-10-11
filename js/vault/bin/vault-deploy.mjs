@@ -8,7 +8,7 @@
 //
 // The vault may live in another AWS account than the gateway: --profile names the vault's account.
 // --writer names a shell command that reads the writer configuration (bucket, region, prefix,
-// recipient and a new access key) as JSON on stdin and stores it where the writer runs. It runs
+// recipient, the Desk site and a new access key) as JSON on stdin and stores it where the writer runs. It runs
 // when the writer has no key yet or --new-writer-key asks for one. The secret goes through the
 // pipe, never to a file, and the key is deleted again if the command fails.
 import {
@@ -147,6 +147,7 @@ if (args.writer) {
         region: args.region,
         prefix: args.project,
         recipient,
+        site: `https://${gatewaySettings.host}/`,
         accessKeyId: key.AccessKeyId,
         secretAccessKey: key.SecretAccessKey,
       }),
