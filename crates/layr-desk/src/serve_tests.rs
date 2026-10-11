@@ -156,7 +156,8 @@ where
     if let Some(token) = token {
         request = request.header("authorization", format!("Bearer {token}"));
     }
-    if body.is_some() {
+    // As the site sends every write.
+    if body.is_some() || !matches!(method, "GET" | "HEAD") {
         request = request.header("content-type", "application/json");
     }
     let request = request
@@ -833,6 +834,95 @@ async fn tailscaled_names_the_person_of_an_untagged_device_only() {
         .is_err());
     let tagged_devices = json!({"Node": {}, "UserProfile": {"LoginName": "tagged-devices"}});
     assert_eq!(crate::whois::login_of(&tagged_devices), None);
+}
+
+/// One request with exactly these headers (and the host).
+async fn raw(s: &Setup, method: &str, path: &str, headers: &[(&str, &str)], body: &str) -> u16 {
+    let stream = TcpStream::connect(s.address).await.unwrap();
+    let (mut sender, connection) = hyper::client::conn::http1::handshake(TokioIo::new(stream))
+        .await
+        .unwrap();
+    tokio::spawn(connection);
+    let mut request = Request::builder()
+        .method(method)
+        .uri(path)
+        .header("host", HOST);
+    for (name, value) in headers {
+        request = request.header(*name, *value);
+    }
+    let request = request
+        .body(Full::new(Bytes::from(body.to_string())))
+        .unwrap();
+    sender
+        .send_request(request)
+        .await
+        .unwrap()
+        .status()
+        .as_u16()
+}
+
+#[tokio::test]
+async fn a_page_of_another_site_cannot_write() {
+    let s = setup(None).await;
+    s.as_login(Some(ANN));
+    s.register().await;
+    s.as_login(Some(BOB));
+    let inbox = "/api/people/ann@example.com/inbox";
+    let body = json!({"data": B64.encode("sealed-invite")}).to_string();
+    let json = ("content-type", "application/json");
+    // A form or text/plain POST needs no preflight; a page of any site could send it.
+    for kind in [
+        "text/plain",
+        "application/x-www-form-urlencoded",
+        "multipart/form-data",
+    ] {
+        let status = raw(&s, "POST", inbox, &[("content-type", kind)], &body).await;
+        assert_eq!(status, 415, "{kind}");
+    }
+    assert_eq!(raw(&s, "POST", inbox, &[], &body).await, 415);
+    for headers in [
+        [json, ("origin", "https://evil.example")],
+        [json, ("origin", "null")],
+        [json, ("origin", "https://desk.example.evil.example")],
+        [json, ("sec-fetch-site", "cross-site")],
+        [json, ("sec-fetch-site", "same-site")],
+    ] {
+        assert_eq!(
+            raw(&s, "POST", inbox, &headers, &body).await,
+            403,
+            "{headers:?}"
+        );
+    }
+    let invites = |s: &Setup| {
+        let objects = s.people.0.lock().unwrap();
+        objects.keys().filter(|k| k.contains("/inbox/")).count()
+    };
+    assert_eq!(invites(&s), 0, "nothing was stored");
+    // The site itself, and the command line (no Origin), still write.
+    let site = [
+        json,
+        ("origin", "https://desk.example"),
+        ("sec-fetch-site", "same-origin"),
+    ];
+    assert_eq!(raw(&s, "POST", inbox, &site, &body).await, 200);
+    assert_eq!(raw(&s, "POST", inbox, &[json], &body).await, 200);
+    assert_eq!(invites(&s), 2);
+    // Every other write too: vault slots and person records.
+    let tk = s.token("p").await;
+    let auth = format!("Bearer {tk}");
+    let evil = [
+        ("authorization", auth.as_str()),
+        json,
+        ("origin", "https://evil.example"),
+    ];
+    let slot = json!({"data": B64.encode("slot")}).to_string();
+    let path = "/api/p/p/slots/passkey-x";
+    assert_eq!(raw(&s, "PUT", path, &evil, &slot).await, 403);
+    assert_eq!(raw(&s, "DELETE", path, &evil, "").await, 403);
+    assert_eq!(raw(&s, "PUT", "/api/person", &evil[1..], &slot).await, 403);
+    assert!(!s.bucket.has("p/slots/passkey-x.age"));
+    let good = [("authorization", auth.as_str()), json];
+    assert_eq!(raw(&s, "PUT", path, &good, &slot).await, 200);
 }
 
 /// A CA, and certificates for the host that it signs.

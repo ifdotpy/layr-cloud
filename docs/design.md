@@ -301,6 +301,12 @@ API, for the caller's own login:
 - `POST /api/people/<login>/inbox` `{data}`: any tailnet person drops an invite. An inbox holds
   at most 64 invites of at most 4096 bytes each.
 
+Every API write (`PUT`, `POST`, `DELETE`) must send `content-type: application/json`, and the
+gateway refuses a write whose `Origin` is not its own or whose `Sec-Fetch-Site` is not
+`same-origin` or `none`. A page of another site, opened on a tailnet device, can send a form or a
+text/plain POST without a CORS preflight; JSON needs a preflight, which the gateway never grants.
+The `layr-desk` commands send no `Origin`.
+
 A vault with person slots shows only to the logins that have one: `GET /api/projects` lists it
 only for them, and its routes `slots`, `vault` and `challenge` give 404 to others. A vault without
 person slots shows to every tailnet member, as before. The `slots` route gives the caller's own

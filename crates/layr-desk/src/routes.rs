@@ -309,6 +309,11 @@ impl<B: Bucket> Gateway<B> {
         parts: &[String],
     ) -> Result<Response<Body>> {
         let method = request.method().clone();
+        if method != Method::GET && method != Method::HEAD {
+            if let Some((status, message)) = other_site(&request) {
+                return Ok(error(status, message));
+            }
+        }
         match parts.first().map(String::as_str) {
             Some("projects") if parts.len() == 1 && method == Method::GET => {
                 return self.projects(config, caller).await;
@@ -531,6 +536,35 @@ impl<B: Bucket> Gateway<B> {
         let id = people.drop_invite(to, &from, data).await?;
         Ok(send(200, json!({ "id": id })))
     }
+}
+
+/// Why a write must be refused: it comes from a page of another site, or it is not JSON. A page
+/// of another site can send a form or text/plain POST without asking the gateway first, and the
+/// browser would send it from the tailnet device of a person. A JSON body needs a CORS preflight,
+/// which the gateway never grants; Origin and Sec-Fetch-Site name the site of the page. The
+/// `layr-desk` commands send neither header.
+fn other_site(request: &Request<Incoming>) -> Option<(u16, &'static str)> {
+    let header = |name: &str| request.headers().get(name).and_then(|v| v.to_str().ok());
+    const REFUSED: &str = "a page of another site cannot change this gateway";
+    if header("sec-fetch-site").is_some_and(|site| !matches!(site, "same-origin" | "none")) {
+        return Some((403, REFUSED));
+    }
+    if let Some(origin) = header("origin") {
+        let host = header("host").unwrap_or_default();
+        let same = origin
+            .split_once("://")
+            .is_some_and(|(_, rest)| !host.is_empty() && rest.eq_ignore_ascii_case(host));
+        if !same {
+            return Some((403, REFUSED));
+        }
+    }
+    let json = header("content-type")
+        .and_then(|kind| kind.split(';').next())
+        .is_some_and(|kind| kind.trim().eq_ignore_ascii_case("application/json"));
+    if !json {
+        return Some((415, "send JSON (content-type: application/json)"));
+    }
+    None
 }
 
 async fn read_json(request: Request<Incoming>, limit: usize) -> Result<Value> {

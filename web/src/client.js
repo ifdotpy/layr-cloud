@@ -35,7 +35,9 @@ const sha256 = async (data) =>
 
 async function request(url, { method = "GET", body, token, raw } = {}) {
   const headers = {};
-  if (body) headers["content-type"] = "application/json";
+  // Every write is JSON: the gateway refuses other writes, which a page of another site could
+  // send without a CORS preflight.
+  if (body || method !== "GET") headers["content-type"] = "application/json";
   if (token) headers.authorization = `Bearer ${token}`;
   const response = await fetch(url, {
     method,
