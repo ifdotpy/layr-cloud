@@ -147,24 +147,17 @@ impl<B: Bucket> People<B> {
             return fail(400, "the recipient is not an age recipient");
         }
         let slot = slot_bytes(paper)?;
-        if let Some(record) = self.record(login).await? {
-            if record.recipient == recipient {
-                return Ok(false);
-            }
-            return fail(409, "you have another person key on this gateway");
-        }
-        // person.json comes last: it marks a complete registration. A paper slot of a run that
-        // stopped before it is replaced.
-        self.bucket
-            .put(&self.key(login, "slots/paper.age"), slot)
-            .await?;
-        let created = (self.now)() / 1000;
         let record = Record {
             format: 1,
             recipient: recipient.to_string(),
-            created,
+            created: (self.now)() / 1000,
         };
-        if !self
+        let paper_key = self.key(login, "slots/paper.age");
+        let _writing = self.writing.lock().await;
+        // person.json first, and only if there is none: the registration that makes it is the
+        // only one that writes the paper slot, so another registration of the same login (on
+        // another gateway process) cannot leave a paper slot of another key.
+        if self
             .bucket
             .put_new(
                 &self.key(login, "person.json"),
@@ -172,9 +165,17 @@ impl<B: Bucket> People<B> {
             )
             .await?
         {
-            return fail(409, "you have another person key on this gateway");
+            self.bucket.put(&paper_key, slot).await?;
+            return Ok(true);
         }
-        Ok(true)
+        match self.record(login).await? {
+            Some(found) if found.recipient == recipient => {
+                // The same key again: a registration that stopped before its paper slot ends now.
+                self.bucket.put_new(&paper_key, slot).await?;
+                Ok(false)
+            }
+            _ => fail(409, "you have another person key on this gateway"),
+        }
     }
 
     fn scope(login: &str) -> String {
