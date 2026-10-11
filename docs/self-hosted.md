@@ -45,7 +45,7 @@ a certificate from the tailnet.
 1. Add the other gateway to the vault's trust:
 
    ```sh
-   node js/vault/bin/vault-deploy.mjs --project <prefix> --profile <vault account> \
+   layr-desk deploy --project <prefix> --profile <vault account> \
      --also-gateway <their gateway role ARN>
    ```
 

@@ -21,8 +21,8 @@ who does not want to trust a shared gateway runs their own: [docs/self-hosted.md
 | Folder             | What                                                                       |
 | ------------------ | -------------------------------------------------------------------------- |
 | `crates/desk-core` | Rust library: keys, the format, the reader, the writer, AWS signing        |
-| `crates/layr-desk` | the `layr-desk` command: the gateway, the writer; read, verify, mount      |
-| `js/vault`         | keys, reader, gateway, CloudFormation templates and the `vault-*` commands |
+| `crates/layr-desk` | the `layr-desk` command: gateway, writer, vault setup; read, verify, mount |
+| `js/vault`         | reader, gateway, CloudFormation templates and the `vault-*` commands       |
 | `web`              | the Desk site                                                              |
 | `python`           | the first writer and its S3 client, replaced by `layr-desk push`           |
 | `docs`             | design                                                                     |

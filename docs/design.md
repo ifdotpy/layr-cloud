@@ -141,14 +141,15 @@ The writer signs each tree with an Ed25519 key, so that a reader can tell the wr
 from states that someone else put into the bucket.
 
 - The signing key is `signingKey` in the writer configuration: standard base64 of a 32-byte
-  Ed25519 seed. Only the writer has it. `vault-deploy.mjs` makes one with each new writer access
+  Ed25519 seed. Only the writer has it. `layr-desk deploy` makes one with each new writer access
   key (the first configuration, or `--new-writer-key`) and sends it through the pipe of
   `--writer`; it never goes to a file or to the output.
 - `vault.json` names the public key as `writer` (standard base64 of 32 bytes) and the first `seq`
-  that must be signed as `signedFrom`. `vault-deploy.mjs` writes both after the `--writer`
+  that must be signed as `signedFrom`. `layr-desk deploy` writes both after the `--writer`
   command took the key: `signedFrom` is then the highest `seq` in the bucket plus 1. The comment
-  there explains why this order leaves no gap. A new writer key starts again from the `seq` after
-  the last state, so the states that the old key signed then show as unsigned.
+  in `crates/layr-desk/src/setup.rs` explains why this order leaves no gap. A new writer key
+  starts again from the `seq` after the last state, so the states that the old key signed then
+  show as unsigned.
 - The tree header field `sig` is standard base64 of the 64-byte Ed25519 signature of this UTF-8
   message (lines joined with `\n`, no line break at the end):
 
@@ -190,7 +191,7 @@ The policy, in every reader (desk-core for `layr-desk ls`, `verify`, `states`, `
 
 What it protects against: a forged state or slot from anyone who can put objects into the bucket
 but does not hold the signing key, as long as the `vault.json` that the reader gets stays as
-`vault-deploy.mjs` wrote it. A stolen writer access key (it puts only below `states/`) and a
+`layr-desk deploy` wrote it. A stolen writer access key (it puts only below `states/`) and a
 person with write access to the bucket can no longer add a state that readers accept, change a
 signed state or one of its files, or give a reader another vault identity through a slot.
 
@@ -222,7 +223,7 @@ One gateway for all projects, in the user's account (`vault-gateway.mjs`):
 - `dns.yaml`: the Route 53 zone of the domain; the registrar names its servers.
 - `bootstrap.yaml`: the artifacts bucket: `gateway/releases/<sha256>.tgz`, `gateway/release.json`,
   `gateway/gateway.json` (host and zone) and `gateway/projects/<project>.json` (bucket, region,
-  reader role, recipient), which `vault-deploy.mjs` writes.
+  reader role, recipient), which `layr-desk deploy` writes.
 - `gateway.yaml`: an IPv6-only VPC and one `t4g.nano` (Debian 13, standard CPU credits, IMDSv2,
   8 GB encrypted disk). No public IPv4 address; the security group lets in only WireGuard (UDP
   41641). Its role reads `gateway/*`, assumes `studio-vault-reader-*`, reads the tailnet auth key
@@ -317,15 +318,20 @@ the Mac. It looks for new states every 2 minutes.
 
 ## Set up a vault for a project
 
-1. The user, in a terminal of their own (never through an agent, so the paper key stays out of
-   transcripts): `node workspaces/runtime/apps/vault/bin/vault-keys.mjs <prefix>`. It shows the
-   paper key once; write it down twice. `~/.config/studio-vault/<prefix>/` keeps only the
-   recipient and the encrypted paper slot.
-2. `aws sso login --profile <profile>`, then, with the Studio Python first on `PATH`:
-   `node workspaces/runtime/apps/vault/bin/vault-deploy.mjs --project <prefix> --profile <profile>
---region eu-central-1 --folder <project folder>`. The profile names the vault's account, which
-   may be a client's. It makes the stack, uploads the paper slot and `vault.json`, registers the
-   vault with the gateway, and pipes a write-only key to the VM (`codex_vault.py configure`).
+Codex Studio runs these steps from the LAYR menu of a project ("Set up vault…"). By hand:
+
+1. The person, in a terminal of their own (never through an agent, so the paper key stays out of
+   transcripts and logs): `layr-desk keys --project <prefix> --clear`. It shows the paper key
+   once; write it down twice. Enter then clears the terminal and its scrollback.
+   `~/.config/studio-vault/<prefix>/` keeps only the recipient and the encrypted paper slot.
+2. `layr-desk deploy --project <prefix> --profile <profile> --region eu-central-1 --writer
+   '<command>'`. The profile names the vault's account, which may be a client's. It makes the
+   stack, uploads the paper slot and `vault.json`, registers the vault with the gateway, and
+   pipes a write-only key and a signing key to the writer command (for Codex Studio:
+   `codex_vault.py configure <project folder>`). It exits with 3 when the profile's IAM Identity
+   Center sign-in has ended: `layr-desk aws-login --profile <profile>` signs in again (the
+   device flow in the browser), and `layr-desk aws-profiles` shows which profiles need it. Both
+   keep the token in `~/.aws/sso/cache`, as `aws sso login` does.
 3. The root broker pushes every configured project every 10 minutes; `codex_vault.py push` pushes
    at once, and `codex_vault.py status` shows the last push and the last error.
 4. On `https://<host>/<prefix>/`, unlock with the paper key and add a passkey, or use an existing

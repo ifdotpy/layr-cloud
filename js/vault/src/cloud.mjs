@@ -1,4 +1,4 @@
-// CloudFormation and local settings shared by vault-deploy and vault-gateway (docs/vault.md).
+// CloudFormation and local settings of vault-gateway (docs/design.md).
 import {
   CloudFormationClient,
   CreateStackCommand,

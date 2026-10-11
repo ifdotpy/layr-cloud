@@ -4,8 +4,8 @@
 //   node vault-register.mjs --facts <facts.json> [--replace]
 //
 // The facts are public: prefix, bucket, region, reader role and recipient. The owner of the
-// vault finds them in ~/.config/studio-vault/<prefix>/facts.json after vault-deploy, and adds
-// this gateway's role to the vault with `vault-deploy ... --also-gateway <this role>`. This
+// vault finds them in ~/.config/studio-vault/<prefix>/facts.json after `layr-desk deploy`, and adds
+// this gateway's role to the vault with `layr-desk deploy ... --also-gateway <this role>`. This
 // gateway's role is in ~/.config/studio-vault/gateway.json. Nothing here gives a key: a
 // person still needs a slot that opens the vault.
 import {

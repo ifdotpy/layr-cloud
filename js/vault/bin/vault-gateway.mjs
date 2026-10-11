@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Deploy or update the vault gateway (cloud/gateway.yaml, docs/vault.md "Gateway"): one server in
-// the tailnet that serves the site and every vault. vault-deploy registers each vault with it.
+// the tailnet that serves the site and every vault. `layr-desk deploy` registers each vault with it.
 //
 //   node vault-gateway.mjs --host <desk.example.com> --profile <aws profile> [--region <region>]
 //        [--domain <example.com>] [--new-image]
@@ -126,7 +126,7 @@ const gateway = await deployStack(cfn, STACK, "gateway.yaml", {
   AuthKeyParameter: AUTH_KEY,
 });
 
-// Public facts for vault-deploy.
+// Public facts for `layr-desk deploy`.
 mkdirSync(settings, { recursive: true });
 writeFileSync(
   join(settings, "gateway.json"),
