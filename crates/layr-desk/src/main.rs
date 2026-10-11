@@ -1,11 +1,21 @@
-//! layr-desk: read vaults through a gateway.
+//! layr-desk: read vaults through a gateway, and show them as a network disk on a Mac.
 //!
-//!   layr-desk ls     --site https://desk.example.com --project <p> [--paper-file <file>]
-//!   layr-desk verify --site https://desk.example.com --project <p> --source <folder>
+//!   layr-desk ls      --site https://desk.example.com --project <p> [--paper-file <file>]
+//!   layr-desk verify  --site https://desk.example.com --project <p> --source <folder>
+//!   layr-desk unlock  --site https://desk.example.com --project <p>   (keeps the key in Keychain)
+//!   layr-desk mount   --site https://desk.example.com [--port 8095] [--at ~/Desk]
+//!   layr-desk service install|remove --site https://desk.example.com [--port 8095]
 //!
 //! The paper key comes from `--paper-file` (24 words or the age form) or from a hidden prompt.
 
+mod disk;
 mod gateway;
+mod keystore;
+mod service;
+mod webdav;
+
+#[cfg(test)]
+mod tests;
 
 use anyhow::{bail, Result};
 use clap::{Args, Parser, Subcommand};
@@ -48,6 +58,33 @@ enum Command {
         target: Target,
         #[arg(long)]
         source: PathBuf,
+    },
+    /// Open a vault with its paper key and keep the vault key in the Keychain
+    Unlock(Target),
+    /// Forget the vault key of a vault on this Mac
+    Lock {
+        #[arg(long)]
+        site: String,
+        #[arg(long)]
+        project: String,
+    },
+    /// Serve every vault of a gateway as a read-only WebDAV disk on localhost
+    Mount {
+        #[arg(long)]
+        site: String,
+        #[arg(long, default_value_t = 8095)]
+        port: u16,
+        /// Mount the disk at this folder (the volume "Desk" in Finder) once it listens
+        #[arg(long)]
+        at: Option<PathBuf>,
+        /// Seconds between two looks for new states
+        #[arg(long, default_value_t = 120)]
+        every: u64,
+    },
+    /// Start the disk at login (a launchd agent), or stop that
+    Service {
+        #[command(subcommand)]
+        action: service::Action,
     },
 }
 
@@ -119,6 +156,95 @@ async fn main() -> Result<()> {
                 bail!("the vault and the folder differ");
             }
         }
+        Command::Unlock(target) => {
+            let mut vault = gateway::Site::new(&target.site)?.vault(&target.project);
+            let identity = vault.unlock_with_paper(&paper(&target)?).await?;
+            let account = keystore::account(&target.site, &target.project)?;
+            keystore::system()?.set(&account, &identity)?;
+            println!("{account}: the vault key is in the Keychain");
+        }
+        Command::Lock { site, project } => {
+            let account = keystore::account(&site, &project)?;
+            keystore::system()?.remove(&account)?;
+            println!("{account}: the vault key is removed from this Mac");
+        }
+        Command::Mount {
+            site,
+            port,
+            at,
+            every,
+        } => {
+            let cache = home()?.join("Library/Caches/layr-desk");
+            let disk = std::sync::Arc::new(disk::Disk::new(
+                &site,
+                keystore::system()?,
+                cache,
+                std::time::Duration::from_secs(every),
+            )?);
+            serve(disk, port, at).await?;
+        }
+        Command::Service { action } => service::run(action)?,
     }
+    Ok(())
+}
+
+fn home() -> Result<PathBuf> {
+    Ok(PathBuf::from(std::env::var("HOME")?))
+}
+
+/// Serve the disk on 127.0.0.1 until the process stops.
+async fn serve(disk: std::sync::Arc<disk::Disk>, port: u16, at: Option<PathBuf>) -> Result<()> {
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", port)).await?;
+    let url = format!("http://127.0.0.1:{port}/");
+    eprintln!("layr-desk: the disk is at {url} (read only)");
+    if let Some(at) = at {
+        tokio::task::spawn_blocking(move || {
+            if let Err(e) = mount(&url, &at) {
+                eprintln!(
+                    "layr-desk: the disk is not mounted at {}: {e:#}",
+                    at.display()
+                );
+            }
+        });
+    }
+    run(listener, disk).await
+}
+
+/// Answer WebDAV requests on `listener` until the process stops.
+async fn run(listener: tokio::net::TcpListener, disk: std::sync::Arc<disk::Disk>) -> Result<()> {
+    use hyper::server::conn::http1;
+    use hyper::service::service_fn;
+    use hyper_util::rt::TokioIo;
+    loop {
+        let (stream, _) = listener.accept().await?;
+        let disk = disk.clone();
+        tokio::spawn(async move {
+            let service = service_fn(move |request| webdav::handle(disk.clone(), request));
+            if let Err(e) = http1::Builder::new()
+                .serve_connection(TokioIo::new(stream), service)
+                .await
+            {
+                eprintln!("layr-desk: connection: {e}");
+            }
+        });
+    }
+}
+
+/// Mount the disk with the macOS WebDAV client, without dialogs; a mounted disk stays.
+fn mount(url: &str, at: &Path) -> Result<()> {
+    let mounts = std::process::Command::new("/sbin/mount").output()?;
+    let line = format!(" on {} (", at.display());
+    if String::from_utf8_lossy(&mounts.stdout).contains(&line) {
+        return Ok(());
+    }
+    std::fs::create_dir_all(at)?;
+    let status = std::process::Command::new("/sbin/mount_webdav")
+        .args(["-S", "-v", "Desk", url])
+        .arg(at)
+        .status()?;
+    if !status.success() {
+        bail!("mount_webdav failed");
+    }
+    eprintln!("layr-desk: mounted at {}", at.display());
     Ok(())
 }

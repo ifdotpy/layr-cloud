@@ -156,11 +156,23 @@ On the codex-agents history (1,095 states), one run each: btrfs send streams wit
 the previous version with tree deltas, one object per state, 25.7 MB (zstd -3) and 23.9 MB
 (zstd -19). `git gc --aggressive` took 23.9 MB.
 
-## Mac view
+## Network disk
 
-`vault-view` serves the latest state read-only over WebDAV on localhost, and Finder mounts it
-(Go > Connect to Server). Files download and decrypt when they are opened and stay in a local
-cache. It uses the same reader as the site; the Mac only reads the vault.
+`layr-desk mount` (Rust) shows every vault of a gateway as one read-only disk on the Mac: a
+folder per vault, each with the latest state of its project. It reads through the gateway like
+the site (challenge, token, state objects), so the Mac needs no AWS profile, and it decrypts on
+the Mac. It looks for new states every 2 minutes.
+
+- `layr-desk unlock --site <site> --project <p>` opens a vault once with its paper key and keeps
+  the vault identity in the login Keychain (service `layr-desk`, account `<host>/<p>`), through
+  the `security` tool so that a new build reads it without a prompt. A vault without a key
+  shows a `LOCKED.txt` with this command. `layr-desk lock` removes the key.
+- `layr-desk service install --site <site>` writes the launchd agent `ws.layr.desk`: it starts
+  at login, serves WebDAV on `127.0.0.1:8095` and mounts it at `~/Desk` with `mount_webdav`
+  (the volume "Desk" in Finder, read only). `service remove` stops it.
+- A link shows the file it points to inside the state; a link that leaves the state shows its
+  target text. Files are checked against their tree entry and stay in
+  `~/Library/Caches/layr-desk`, named by their SHA-256 (plain files, protected by FileVault).
 
 ## Set up the gateway, once
 

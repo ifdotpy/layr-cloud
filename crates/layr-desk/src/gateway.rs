@@ -119,6 +119,12 @@ impl Vault {
         Ok(identity)
     }
 
+    /// This vault with a known vault identity (from the key store).
+    pub fn unlocked(mut self, identity: &str) -> Self {
+        self.identity = Some(identity.to_string());
+        self
+    }
+
     pub fn identity(&self) -> Result<&str> {
         self.identity
             .as_deref()
