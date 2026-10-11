@@ -256,7 +256,7 @@ has versioning) holds the records of one tailnet login:
 - `person.json`: `{"format": 1, "recipient": "age1…", "created": <epoch>}` (plain).
 - `slots/paper.age`, `slots/passkey-<credential id>.age`: the person identity sealed to each
   opener.
-- `index.age`: the person index, sealed to the person recipient.
+- `index.age`: the person index, sealed to the person recipient (at most 48 KiB).
 - `inbox/<ms>-<8 hex>.json`: `{"from": "<login>", "time": <ms>, "data": "<base64>"}`. `data` is
   one invite sealed to the person recipient; `from` is the login that the gateway saw.
 

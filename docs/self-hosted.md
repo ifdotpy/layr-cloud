@@ -62,4 +62,9 @@ node js/vault/bin/vault-register.mjs --facts facts.json
 
 The gateway serves the vault within 5 minutes. Opening it still needs a slot: the vault owner
 adds one for the person (a slot sealed to that person's own key), so no key passes through
-anyone else.
+anyone else. With a person key (docs/design.md, "Person key"), the person registers it at their
+own gateway (`layr-desk person keys --site <their site>`) and sends the output of
+`layr-desk person show` to the owner, who runs
+`layr-desk grant --project <prefix> --person <login> --recipient <age1…> --site <their site>`.
+The person accepts the invite on their own site. The person records of a gateway stay in its own
+artifacts bucket; `gateway.yaml` lets its role write `people/*` there.
