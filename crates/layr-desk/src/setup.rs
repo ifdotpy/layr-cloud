@@ -30,13 +30,13 @@ const LIMIT: Duration = Duration::from_secs(60);
 /// The longest wait for a stack.
 const STACK_WAIT: Duration = Duration::from_secs(3600);
 
-fn settings() -> Result<PathBuf> {
+pub(crate) fn settings() -> Result<PathBuf> {
     Ok(PathBuf::from(std::env::var("HOME").context("HOME")?).join(".config/studio-vault"))
 }
 
 /// A vault prefix: the reader role studio-vault-reader-<prefix> has at most 64 characters, and
 /// the gateway serves /api/ and /assets/ itself.
-fn check_prefix(prefix: &str) -> Result<()> {
+pub(crate) fn check_prefix(prefix: &str) -> Result<()> {
     let mut chars = prefix.chars();
     let valid = chars.next().is_some_and(|c| c.is_ascii_alphanumeric())
         && chars.all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
@@ -50,7 +50,7 @@ fn check_prefix(prefix: &str) -> Result<()> {
     Ok(())
 }
 
-fn create_private(path: &std::path::Path, data: &[u8]) -> Result<()> {
+pub(crate) fn create_private(path: &std::path::Path, data: &[u8]) -> Result<()> {
     use std::os::unix::fs::OpenOptionsExt;
     let mut file = std::fs::OpenOptions::new()
         .write(true)
@@ -99,7 +99,23 @@ pub fn keys(args: Keys) -> Result<()> {
         &folder.join("recipient.txt"),
         format!("{}\n", keys::recipient_of(&vault)?).as_bytes(),
     )?;
-    let words = keys::words_of_identity(&paper)?;
+    show_paper(
+        &paper,
+        &format!(
+            "Paper key of the vault \"{}\": 24 words. Write them on paper twice, in this order, and keep\n\
+             the copies apart. They are shown once and stored nowhere. Without them and without a passkey\n\
+             the vault cannot be read.",
+            args.project
+        ),
+        args.clear,
+        &format!("The keys of the vault \"{}\" are ready.", args.project),
+    )
+}
+
+/// Show the 24 words of a paper identity once, in this terminal: numbered, column by column. With
+/// `clear`, wait for Enter, then clear the screen and the scrollback and say `done`.
+pub(crate) fn show_paper(paper: &str, title: &str, clear: bool, done: &str) -> Result<()> {
+    let words = keys::words_of_identity(paper)?;
     let words: Vec<&str> = words.split(' ').collect();
     let rows: Vec<String> = (0..6)
         .map(|r| {
@@ -111,19 +127,13 @@ pub fn keys(args: Keys) -> Result<()> {
         })
         .collect();
     let mut out = std::io::stdout().lock();
-    writeln!(
-        out,
-        "\nPaper key of the vault \"{}\": 24 words. Write them on paper twice, in this order, and keep\n\
-         the copies apart. They are shown once and stored nowhere. Without them and without a passkey\n\
-         the vault cannot be read.\n",
-        args.project
-    )?;
+    writeln!(out, "\n{title}\n")?;
     for row in rows {
         writeln!(out, "    {row}")?;
     }
     writeln!(out)?;
     out.flush()?;
-    if args.clear && std::io::stdin().is_terminal() {
+    if clear && std::io::stdin().is_terminal() {
         write!(
             out,
             "Press Enter when both copies are written. The terminal is then cleared. "
@@ -132,7 +142,7 @@ pub fn keys(args: Keys) -> Result<()> {
         std::io::stdin().read_line(&mut String::new())?;
         // Clear the screen and the scrollback.
         write!(out, "\x1b[H\x1b[2J\x1b[3J")?;
-        writeln!(out, "The keys of the vault \"{}\" are ready.", args.project)?;
+        writeln!(out, "{done}")?;
     }
     Ok(())
 }
