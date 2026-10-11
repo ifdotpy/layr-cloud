@@ -1,5 +1,6 @@
 // The gateway with a fake S3: the challenge proves the vault identity, the token is short and
-// bound to one vault, only state objects and passkey slots are reachable, and the host is checked.
+// bound to one vault, only state objects and passkey slots are reachable, vault.json is open to
+// read, and the host is checked.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as age from "age-encryption";
@@ -227,6 +228,40 @@ test("slots are open to read, and only passkey slots change, once", async (t) =>
   );
   assert.equal(s3.objects.has("p/slots/paper.age"), true);
   assert.equal(s3.objects.has("p/slots/passkey-abc_1.age"), false);
+});
+
+test("the public part of vault.json is open to read", async (t) => {
+  const { call, s3 } = await setup(t);
+  assert.equal((await call("GET", "/api/p/p/vault")).status, 404);
+  s3.objects.set(
+    "p/vault.json",
+    JSON.stringify({ format: 1, recipient: "age1r", created: 1 }),
+  );
+  const open = await call("GET", "/api/p/p/vault");
+  assert.equal(open.status, 200);
+  assert.deepEqual(open.json, {
+    recipient: "age1r",
+    writer: null,
+    signedFrom: null,
+  });
+  s3.objects.set(
+    "q/vault.json",
+    JSON.stringify({
+      format: 1,
+      recipient: "age1r",
+      created: 1,
+      writer: "ebVWLo/mVPlAeLES6KmLp5AfhTrmlb7X4OORC60ElmQ=",
+      signedFrom: 7,
+    }),
+  );
+  assert.deepEqual((await call("GET", "/api/p/q/vault")).json, {
+    recipient: "age1r",
+    writer: "ebVWLo/mVPlAeLES6KmLp5AfhTrmlb7X4OORC60ElmQ=",
+    signedFrom: 7,
+  });
+  s3.objects.set("q/vault.json", "{not json");
+  assert.equal((await call("GET", "/api/p/q/vault")).status, 502);
+  assert.equal((await call("PUT", "/api/p/p/vault")).status, 401);
 });
 
 test("the site, the project list and the host check", async (t) => {

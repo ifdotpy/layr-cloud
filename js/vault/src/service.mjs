@@ -84,6 +84,35 @@ export function makeVault({
       return Buffer.from(challenge).toString("base64");
     },
 
+    /** The public part of vault.json: recipient, writer and signedFrom. */
+    async info() {
+      let object;
+      try {
+        object = await s3.send(
+          new GetObjectCommand({ Bucket: bucket, Key: `${prefix}/vault.json` }),
+        );
+      } catch (error) {
+        if (error.name === "NoSuchKey")
+          throw new VaultError(404, "the vault has no vault.json");
+        throw error;
+      }
+      let record;
+      try {
+        record = JSON.parse(
+          Buffer.from(await object.Body.transformToByteArray()).toString(),
+        );
+      } catch {
+        record = null;
+      }
+      if (typeof record?.recipient !== "string")
+        throw new VaultError(502, "the vault.json of this vault is not valid");
+      return {
+        recipient: record.recipient,
+        writer: record.writer ?? null,
+        signedFrom: record.signedFrom ?? null,
+      };
+    },
+
     /** Object names below states/, without the prefix. */
     async states() {
       const under = `${prefix}/states/`;

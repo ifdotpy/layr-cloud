@@ -8,9 +8,11 @@
 //
 // The vault may live in another AWS account than the gateway: --profile names the vault's account.
 // --writer names a shell command that reads the writer configuration (bucket, region, prefix,
-// recipient, the Desk site and a new access key) as JSON on stdin and stores it where the writer runs. It runs
-// when the writer has no key yet or --new-writer-key asks for one. The secret goes through the
-// pipe, never to a file, and the key is deleted again if the command fails.
+// recipient, the Desk site, a new access key and a new signing key) as JSON on stdin and stores it
+// where the writer runs. It runs when the writer has no key yet or --new-writer-key asks for one;
+// --new-writer-key also starts signatures on a vault made before them. The secrets go through the
+// pipe, never to a file or to the output, and the access key is deleted again if the command
+// fails. Then vault.json names the writer's public key (docs/design.md, "Signatures").
 import {
   CreateAccessKeyCommand,
   DeleteAccessKeyCommand,
@@ -18,11 +20,14 @@ import {
   ListAccessKeysCommand,
 } from "@aws-sdk/client-iam";
 import {
+  GetObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
 import { spawnSync } from "node:child_process";
+import { generateKeyPairSync } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
@@ -80,18 +85,38 @@ const outputs = await deployStack(cfn, stack, "template.yaml", {
 });
 
 // 2. The public vault record and the paper slot.
-await s3.send(
-  new PutObjectCommand({
-    Bucket: outputs.BucketName,
-    Key: `${args.project}/vault.json`,
-    Body: JSON.stringify({
-      format: 1,
-      recipient,
-      created: Math.floor(Date.now() / 1000),
+const recordKey = `${args.project}/vault.json`;
+async function readRecord() {
+  try {
+    const object = await s3.send(
+      new GetObjectCommand({ Bucket: outputs.BucketName, Key: recordKey }),
+    );
+    return JSON.parse(await object.Body.transformToString());
+  } catch (error) {
+    if (error.name === "NoSuchKey") return null;
+    throw error;
+  }
+}
+const writeRecord = (record) =>
+  s3.send(
+    new PutObjectCommand({
+      Bucket: outputs.BucketName,
+      Key: recordKey,
+      Body: JSON.stringify(record),
+      ContentType: "application/json",
     }),
-    ContentType: "application/json",
-  }),
-);
+  );
+// A run without a new writer key keeps the writer key and signedFrom of an earlier run.
+const earlier = await readRecord();
+let record = {
+  format: 1,
+  recipient,
+  created: earlier?.created ?? Math.floor(Date.now() / 1000),
+  ...(earlier?.writer
+    ? { writer: earlier.writer, signedFrom: earlier.signedFrom }
+    : {}),
+};
+await writeRecord(record);
 try {
   await s3.send(
     new HeadObjectCommand({
@@ -127,7 +152,28 @@ await new S3Client(
   }),
 );
 
-// 4. A write-only key for the writer, passed through a pipe.
+/** The highest seq with a tree in the bucket, 0 for none. */
+async function highestSeq() {
+  let highest = 0;
+  let token;
+  do {
+    const page = await s3.send(
+      new ListObjectsV2Command({
+        Bucket: outputs.BucketName,
+        Prefix: `${args.project}/states/`,
+        ContinuationToken: token,
+      }),
+    );
+    for (const { Key } of page.Contents ?? []) {
+      const match = /\/(\d{10})\.[0-9a-f]{8}\.tree\.age$/.exec(Key);
+      if (match) highest = Math.max(highest, Number(match[1]));
+    }
+    token = page.NextContinuationToken;
+  } while (token);
+  return highest;
+}
+
+// 4. A write-only key and a signing key for the writer, passed through a pipe.
 if (args.writer) {
   const listed = (
     await iam.send(
@@ -140,6 +186,12 @@ if (args.writer) {
         new CreateAccessKeyCommand({ UserName: outputs.WriterUserName }),
       )
     ).AccessKey;
+    // The writer signs each tree with this Ed25519 key; the private half exists only in this
+    // process and in the pipe.
+    const signing = generateKeyPairSync("ed25519");
+    const base64 = (jwk) => Buffer.from(jwk, "base64url").toString("base64");
+    const signingKey = base64(signing.privateKey.export({ format: "jwk" }).d);
+    const writerKey = base64(signing.publicKey.export({ format: "jwk" }).x);
     const configure = spawnSync(args.writer, {
       shell: true,
       input: JSON.stringify({
@@ -150,6 +202,7 @@ if (args.writer) {
         site: `https://${gatewaySettings.host}/`,
         accessKeyId: key.AccessKeyId,
         secretAccessKey: key.SecretAccessKey,
+        signingKey,
       }),
       stdio: ["pipe", "inherit", "inherit"],
     });
@@ -171,6 +224,25 @@ if (args.writer) {
           AccessKeyId: old.AccessKeyId,
         }),
       );
+    // Signatures start after the highest state in the bucket now. The order leaves no gap: the
+    // writer command has returned, so the writer holds the signing key, and every state that this
+    // listing does not show comes from a push with the key. A listing before the command could
+    // miss a state that an unsigned push adds in between, and vault.json before the command
+    // would ask for signatures on states that the writer still pushes without a key; readers
+    // would refuse both. This needs a writer command that returns only after a push that runs
+    // with the old configuration has ended.
+    try {
+      record = {
+        ...record,
+        writer: writerKey,
+        signedFrom: (await highestSeq()) + 1,
+      };
+      await writeRecord(record);
+    } catch (error) {
+      throw new Error(
+        `the writer signs with its new key, but vault.json does not name it (${error.message}); run again with --new-writer-key`,
+      );
+    }
   }
 }
 // Public facts for vault-restore and vault-view.

@@ -98,6 +98,7 @@ export function makeGateway({ config, vaultFor, site }) {
       return send(res, 200, { slots: await vault.slots() });
     if (route === "GET challenge")
       return send(res, 200, { challenge: await vault.challenge() });
+    if (route === "GET vault") return send(res, 200, await vault.info());
 
     const auth = String(req.headers.authorization ?? "");
     if (!auth.startsWith("Bearer ") || !vault.valid(auth.slice(7)))

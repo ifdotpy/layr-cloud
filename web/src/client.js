@@ -1,6 +1,7 @@
 // The gateway API, the passkeys and the reader of the site (docs/vault.md, "Gateway").
 import { VaultReader, zstdReady } from "layr-desk-js/reader";
 import {
+  checkVaultIdentity,
   decryptWith,
   identityFromPaper,
   identityFromSecret,
@@ -45,9 +46,12 @@ export async function projects() {
 }
 
 export class Vault {
+  /** A vault and the public part of its vault.json, which the reader checks against. */
   static async open(prefix) {
     await zstdReady("/zstd.wasm");
-    return new Vault(prefix);
+    const vault = new Vault(prefix);
+    vault.info = await request(`${vault.base}vault`);
+    return vault;
   }
 
   constructor(prefix) {
@@ -187,7 +191,9 @@ export class Vault {
     await this.authorized(`slots/${name}`, { method: "DELETE" });
   }
 
+  /** Keep the vault identity of an opened slot, unless the slot holds another identity. */
   async unlocked(identity) {
+    await checkVaultIdentity(identity, this.info.recipient);
     this.identity = identity;
     this.token = null;
     const { states } = await this.authorized("states");
@@ -195,6 +201,7 @@ export class Vault {
       prefix: this.prefix,
       keys: states.map((name) => `${this.prefix}/states/${name}`),
       identity,
+      vault: this.info,
       get: (key) => this.fetchObject(key),
     });
   }

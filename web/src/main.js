@@ -488,6 +488,7 @@ function lockedView() {
   app.root = null;
   show("columns", false);
   show("list", false);
+  show("empty", false);
   show("browse-tools", false);
   show("sidebar-foot", false);
   show("unlock", true);
@@ -512,19 +513,42 @@ async function unlockedView() {
     $("empty-text").textContent = "The VM has not pushed a state yet.";
     return;
   }
+  // A state before the vault's signatures started shows as unsigned.
+  const mark = (seq) => (app.vault.reader.signed(seq) ? "" : " · unsigned");
   $("state").replaceChildren(
     ...[...states]
       .reverse()
       .map(
         ({ seq }, i) =>
-          new Option(i === 0 ? `Latest (#${seq})` : `#${seq}`, String(seq)),
+          new Option(
+            (i === 0 ? `Latest (#${seq})` : `#${seq}`) + mark(seq),
+            String(seq),
+          ),
       ),
   );
-  await openState(states.at(-1).seq);
+  try {
+    await openState(states.at(-1).seq);
+  } catch {
+    // The page says why; an earlier version can still be chosen.
+  }
 }
 
+/** Show one version; a version that fails its checks shows why instead of files. */
 async function openState(seq) {
-  app.root = buildTree(await app.vault.reader.files(seq));
+  let files;
+  try {
+    files = await app.vault.reader.files(seq);
+  } catch (error) {
+    app.root = null;
+    show("columns", false);
+    show("list", false);
+    show("empty", true);
+    $("empty-text").textContent =
+      `Version #${seq} cannot be shown. ${error.message}`;
+    throw error;
+  }
+  show("empty", false);
+  app.root = buildTree(files);
   // Keep the place when it still exists in the other version.
   while (app.dir.length && !isFolder(nodeAt(app.dir))) app.dir.pop();
   if (app.sel !== null && !selected()) app.sel = null;

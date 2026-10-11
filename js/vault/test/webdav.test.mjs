@@ -31,6 +31,7 @@ test("Finder's requests get the latest state, read only", async () => {
     keys: [...objects.keys()],
     get: async (k) => objects.get(k),
     identity: readFileSync(join(fixture, "identity.txt"), "utf8").trim(),
+    vault: { recipient: expected.recipient },
   });
   const server = view({
     load: async () => ({ files: await reader.files(), time: 1791700000 }),

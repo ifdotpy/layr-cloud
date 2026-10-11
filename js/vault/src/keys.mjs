@@ -108,6 +108,17 @@ export async function openSlot(slot, openerIdentity) {
   return text;
 }
 
+/**
+ * Refuse a vault identity whose recipient is not the one in vault.json: a forged slot holds such
+ * an identity.
+ */
+export async function checkVaultIdentity(identity, recipient) {
+  if ((await recipientOf(identity)) !== String(recipient).trim())
+    throw new Error(
+      "This key does not belong to the vault: its recipient is not the one in vault.json, so the slot may be forged.",
+    );
+}
+
 /** Bytes encrypted to an identity, decrypted (the function's challenge). */
 export async function decryptWith(identity, data) {
   const decrypter = new age.Decrypter();
