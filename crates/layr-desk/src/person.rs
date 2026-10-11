@@ -249,6 +249,11 @@ pub struct Grant {
     /// asked for
     #[arg(long)]
     paper_file: Option<PathBuf>,
+    /// Give the first person slot of the vault to someone else than you. The vault then no longer
+    /// shows to any login without a person slot: not to other tailnet members, not to tagged
+    /// devices, and not to the layr-desk disk or lists of your own Mac
+    #[arg(long)]
+    hide_from_others: bool,
 }
 
 /// cloud.json of `deploy`.
@@ -300,6 +305,27 @@ pub async fn grant(args: Grant) -> Result<()> {
     )?;
     let slots = format!("{}/slots/person-", args.project);
     let granted = bucket.list(&slots).await?;
+    let site = args.site.as_deref().unwrap_or(&cloud.site);
+
+    // The first person slot hides the vault from every login without one, the owner's included.
+    // So the owner grants their own login first, or says that the vault is to hide from others.
+    if granted.is_empty() && !args.hide_from_others {
+        let own = Site::new(site)?.person().await.ok().map(|p| p.login);
+        if own.as_deref() != Some(args.person.as_str()) {
+            let you = match &own {
+                Some(login) => format!("you are {login} at {site}"),
+                None => format!("{site} cannot tell who you are"),
+            };
+            bail!(
+                "{p} has no person slot yet, and {you}. The first person slot hides the vault from \
+                 every login without one: from other tailnet members, from tagged devices, and \
+                 from the layr-desk disk and lists of a Mac whose login has no slot. Grant \
+                 yourself first: layr-desk grant --project {p} --person <your login> --recipient \
+                 \"$(layr-desk person show)\". Or pass --hide-from-others. Nothing is written.",
+                p = args.project
+            );
+        }
+    }
 
     // The vault identity, from the vault's paper slot or from the owner's person slot.
     let words = paper(
@@ -355,11 +381,11 @@ pub async fn grant(args: Grant) -> Result<()> {
         .await?;
     if granted.is_empty() {
         eprintln!(
-            "layr-desk: {} now shows only to people with a person slot; grant yourself too",
+            "layr-desk: {} now shows only to logins with a person slot; tagged devices and other \
+             members no longer see it",
             args.project
         );
     }
-    let site = args.site.as_deref().unwrap_or(&cloud.site);
     let invite = person::seal_invite(recipient, &Pin::of(&args.project, &vault))?;
     let id = Site::new(site)?
         .drop_invite(&args.person, &invite)
