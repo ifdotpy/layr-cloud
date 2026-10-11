@@ -80,9 +80,8 @@ try {
   );
   const added = (await names()).find((name) => !before.includes(name));
   await page.click("#close-passkeys");
+  // A fresh load asks for the passkey by itself.
   await page.reload();
-  await page.waitForSelector("#with-passkey:not([hidden])", { timeout: 30000 });
-  await page.click("#with-passkey");
   await unlocked();
   await downloadFile();
 
