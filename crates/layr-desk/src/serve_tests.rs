@@ -736,15 +736,36 @@ async fn a_vault_with_person_slots_shows_only_to_those_people() {
     assert_eq!(projects(Some(ANN)).await, json!(["p", "q"]));
     assert_eq!(projects(Some(BOB)).await, json!(["q"]));
     assert_eq!(projects(None).await, json!(["q"]));
-    // A vault without person slots shows to every tailnet member, as before.
+    // A vault without person slots shows to every tailnet member, as before. A hidden vault
+    // answers every route as a vault that does not exist.
     s.as_login(Some(BOB));
-    for route in ["slots", "vault", "challenge"] {
-        assert_eq!(
-            s.status("GET", &format!("/api/p/p/{route}"), None).await,
-            404,
-            "{route}"
-        );
+    let absent = (404, json!({"error": "no such vault"}));
+    let routes = [
+        ("GET", "slots"),
+        ("GET", "vault"),
+        ("GET", "challenge"),
+        ("GET", "states"),
+        ("GET", "states/0000000001.aaaaaaaa.tree.age"),
+        ("GET", "slots/x/y/z"),
+        ("GET", "other"),
+        ("PUT", "slots/passkey-x"),
+        ("DELETE", "slots/passkey-x"),
+    ];
+    for (method, route) in routes {
+        for project in ["p", "nope"] {
+            let reply = s
+                .call(method, &format!("/api/p/{project}/{route}"), None)
+                .await;
+            assert_eq!(
+                (reply.status, reply.json()),
+                absent,
+                "{method} {project}/{route}"
+            );
+        }
     }
+    s.as_login(Some(ANN));
+    assert_eq!(s.status("GET", "/api/p/p/states", None).await, 401);
+    s.as_login(Some(BOB));
     assert_eq!(s.status("GET", "/api/p/q/challenge", None).await, 200);
     // Ann gets the paper slot and her own person slot, not Carol's.
     s.as_login(Some(ANN));

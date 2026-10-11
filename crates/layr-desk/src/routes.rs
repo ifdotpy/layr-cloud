@@ -329,7 +329,16 @@ impl<B: Bucket> Gateway<B> {
         let Some(vault) = (self.vault_for)(project, config)? else {
             return Ok(error(404, "no such vault"));
         };
+        // A vault that does not show to the caller answers as a vault that does not exist, so
+        // that no route tells its name apart from a name that no vault has.
+        let hidden = || async {
+            let login = self.login(caller).await;
+            Ok::<_, anyhow::Error>(!vault.visible(login.as_deref()).await?)
+        };
         if parts.len() > 4 {
+            if hidden().await? {
+                return Ok(error(404, "no such vault"));
+            }
             return Ok(error(404, "no such route"));
         }
         let kind = parts.get(2).map(String::as_str);
@@ -366,6 +375,9 @@ impl<B: Bucket> Gateway<B> {
             .unwrap_or_default();
         match auth.strip_prefix("Bearer ") {
             Some(token) if vault.valid(token) => {}
+            // A valid token proves the vault identity, so it needs no visibility check; without
+            // one, the caller learns no more than for a vault that does not exist.
+            _ if hidden().await? => return Ok(error(404, "no such vault")),
             _ => return Ok(error(401, "the token is missing, wrong or expired")),
         }
 
