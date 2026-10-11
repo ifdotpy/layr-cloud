@@ -2,14 +2,14 @@
   "name": "layr-desk",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@12.10.1",
   "scripts": {
-    "test": "pnpm --filter layr-desk-js test && pnpm --filter layr-desk-web run build && pnpm --filter layr-desk-web run test:e2e",
+    "test": "pnpm --filter layr-desk-js test && pnpm --filter layr-desk-web run test:unit && pnpm --filter layr-desk-web run build && pnpm --filter layr-desk-web run test:e2e",
     "lint": "oxlint js web",
     "format:check": "oxfmt --check js web"
   },
   "devDependencies": {
     "oxfmt": "0.71.0",
     "oxlint": "1.86.0"
-  }
+  },
+  "packageManager": "pnpm@12.10.1"
 }

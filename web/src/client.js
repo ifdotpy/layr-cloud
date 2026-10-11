@@ -322,7 +322,13 @@ export class Person extends Keyholder {
       );
     this.identity = identity;
     this.token = null;
-    this.pins = await this.readIndex();
+    try {
+      this.pins = await this.readIndex();
+    } catch (error) {
+      // An index that fails its check keeps nothing, so the page can lock and try again.
+      this.lock();
+      throw error;
+    }
   }
 
   async readIndex() {
