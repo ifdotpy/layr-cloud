@@ -68,9 +68,9 @@ Resources:
               "Null":
                 s3:if-none-match: "true"
 
-  # The gateways (gateway.yaml, maybe in other accounts) read states and slots and change
-  # passkey slots through this role. The trust names the gateway roles by ARN, so a new gateway
-  # role with the same name keeps access, and no other principal can assume this role.
+  # The gateways (gateway.yaml, maybe in other accounts) read states, slots and vault.json and
+  # change passkey slots through this role. The trust names the gateway roles by ARN, so a new
+  # gateway role with the same name keeps access, and no other principal can assume this role.
   Reader:
     Type: AWS::IAM::Role
     Properties:
@@ -95,6 +95,7 @@ Resources:
                 Resource:
                   - !Sub "${Bucket.Arn}/${Prefix}/states/*"
                   - !Sub "${Bucket.Arn}/${Prefix}/slots/*"
+                  - !Sub "${Bucket.Arn}/${Prefix}/vault.json"
               - Effect: Allow
                 Action: [s3:PutObject, s3:DeleteObject]
                 Resource: !Sub "${Bucket.Arn}/${Prefix}/slots/passkey-*"

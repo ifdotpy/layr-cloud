@@ -2,7 +2,9 @@
 // (js/vault/test/fixture) for two vaults, in headless Chromium with a virtual authenticator
 // that has PRF: the paper key unlocks, a passkey is added and then unlocks alone, the same
 // passkey opens the second vault, files download and show in Quick Look with the writer's
-// content, and a passkey is removed.
+// content, and a passkey is removed. The first vault is signed from state 2 on (the test key of
+// fixture/signed.json), so state 1 shows as unsigned; a forged state (a changed file, without a
+// signature or with another state's signature) and a forged paper slot are refused.
 //
 //   pnpm --filter layr-desk-web run build && node tests/site.e2e.mjs
 //
@@ -35,6 +37,7 @@ import {
   sealSlot,
   wordsOfIdentity,
 } from "../../js/vault/src/keys.mjs";
+import { forgeState, sign, vectors } from "../../js/vault/test/signed.mjs";
 
 const dist = new URL("../dist/", import.meta.url).pathname;
 const fixture = new URL("../../js/vault/test/fixture/", import.meta.url)
@@ -65,6 +68,17 @@ objects.set("proj/slots/paper.age", paperSlot);
 objects.set("other/slots/paper.age", paperSlot);
 
 const recipient = await recipientOf(vaultIdentity);
+// "proj" names the writer key and signs from state 2 on; "other" has no signatures.
+await sign(objects, "proj");
+const record = (more) =>
+  Buffer.from(JSON.stringify({ format: 1, recipient, created: 1, ...more }));
+objects.set(
+  "proj/vault.json",
+  record({ writer: vectors.writer, signedFrom: vectors.signedFrom }),
+);
+objects.set("other/vault.json", record({}));
+const versions = (page) =>
+  page.$$eval("#state option", (options) => options.map((o) => o.textContent));
 
 /** The Node gateway with a fake S3 client. */
 async function startNode() {
@@ -326,6 +340,12 @@ try {
   await page.click("#paper-form button");
   await page.waitForSelector("#columns:not([hidden])");
   assert.equal(await page.inputValue("#state"), "4");
+  assert.deepEqual(await versions(page), [
+    "Latest (#4)",
+    "#3",
+    "#2",
+    "#1 · unsigned",
+  ]);
 
   // Column view: a folder opens the next column, a file shows its preview with Download.
   await page.click("#columns .item:has-text('src')");
@@ -389,6 +409,7 @@ try {
   await page.fill("#paper", words.join(" "));
   await page.click("#paper-form button");
   await page.waitForSelector("#list:not([hidden])");
+  assert.ok((await versions(page)).every((v) => v.endsWith(" · unsigned")));
   await page.click("#passkeys");
   await page.click("#use-existing");
   await page.waitForSelector("#passkey-list li button");
@@ -416,6 +437,57 @@ try {
     [...objects.keys()].filter((k) => k.startsWith("other/slots/")).join(),
     "other/slots/paper.age",
   );
+
+  // A forged state 5 in the signed vault: src/app.py holds other content, and the state has no
+  // signature. The passkey opens the vault, and the page shows why it does not show #5.
+  await forgeState(objects, "proj");
+  await page.click("#close-passkeys");
+  await page.click("#vaults a:has-text('proj')");
+  await page.waitForSelector(
+    "#empty-text:has-text('Version #5 cannot be shown. State #5 has no writer signature')",
+  );
+  assert.equal(await page.isHidden("#list"), true);
+  assert.equal((await versions(page))[0], "Latest (#5)");
+  // The signed versions still read.
+  await page.selectOption("#state", "4");
+  await page.waitForSelector("#list:not([hidden])");
+  assert.equal(await page.isHidden("#empty"), true);
+  // The same state with the signature of state 4.
+  await forgeState(objects, "proj", vectors.states.at(-1).sig);
+  await page.reload();
+  await page.waitForSelector(
+    "#empty-text:has-text('State #5 has a writer signature that does not match')",
+  );
+  await page.selectOption("#state", "5");
+  await page.waitForFunction(() =>
+    document
+      .querySelector("#status")
+      .textContent.includes("Reading the version failed: State #5"),
+  );
+
+  // A forged paper slot: the paper key opens it, but it holds another vault identity.
+  objects.set(
+    "proj/slots/paper.age",
+    Buffer.from(
+      await sealSlot(await generateIdentity(), await recipientOf(paper)),
+    ),
+  );
+  // The page reads the slots when it loads; the passkey opens the vault again, then Lock.
+  await page.reload();
+  await page.waitForSelector(
+    "#empty-text:has-text('Version #5 cannot be shown')",
+  );
+  await page.click("#lock");
+  await page.waitForSelector("#unlock:not([hidden])");
+  assert.equal(await page.isHidden("#empty"), true);
+  await page.click("#paper-box summary");
+  await page.fill("#paper", words.join(" "));
+  await page.click("#paper-form button");
+  await page.waitForFunction(() =>
+    document.querySelector("#status").textContent.includes("may be forged"),
+  );
+  assert.equal(await page.isVisible("#unlock"), true);
+  assert.equal(await page.isHidden("#list"), true);
   assert.deepEqual(errors, []);
   console.log(
     `site e2e: passed (${process.env.LAYR_DESK ? "layr-desk serve" : "Node gateway"})`,

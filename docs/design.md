@@ -22,6 +22,7 @@ The Mac and the VM are working copies; the vault is the copy that stays.
 | Paper key (`age` X25519 identity, `AGE-SECRET-KEY-1…`) | on paper, two copies                              | open the paper slot   |
 | Passkey (WebAuthn PRF)                                 | the user's passkey provider                       | open its passkey slot |
 | Writer AWS key                                         | VM, root only (`layr-admin/vault/<project>.json`) | put new objects only  |
+| Writer signing key (Ed25519)                           | writer configuration (`signingKey`)               | sign new states       |
 
 - A slot is the vault identity encrypted with `age` to the recipient of one opener:
   `slots/paper.age` for the paper key, `slots/passkey-<credential id>.age` for each passkey.
@@ -44,7 +45,9 @@ The Mac and the VM are working copies; the vault is the copy that stays.
 
 Bucket prefix `<project>/`:
 
-- `vault.json`: `{"format": 1, "recipient": "age1…", "created": <epoch>}` (plain).
+- `vault.json`: `{"format": 1, "recipient": "age1…", "created": <epoch>, "writer": "<base64>",
+  "signedFrom": <seq>}` (plain); `writer` and `signedFrom` name the writer's public key and the
+  first signed state (see "Signatures").
 - `slots/*.age`: see above (open to every tailnet device through the gateway; each is encrypted).
 - `states/<seq>.<attempt>.tree.age`: the tree of one archived state (the commit point).
 - `states/<seq>.<attempt>.<part>.data.age`: data frames of that state.
@@ -61,8 +64,12 @@ Plaintext: one header line of JSON, a newline, then one zstd frame.
 
 ```json
 {"v": 1, "seq": 12, "state": "<layr state id>", "time": 1791700000,
- "tree": "full" | "delta", "base": [11, "0a9b8c7d"], "parts": 2, "attempt": "1f2e3d4c"}
+ "tree": "full" | "delta", "base": [11, "0a9b8c7d"], "parts": 2, "attempt": "1f2e3d4c",
+ "sig": "<base64>"}
 ```
+
+`sig` is the writer's signature (see "Signatures"); a tree of a writer without a signing key has
+none.
 
 The frame holds the canonical tree JSON: `{"files": {"<path>": [mode, size, sha256, chain]}}`
 with sorted keys, as Python's `json.dumps(tree, sort_keys=True, separators=(",", ":"))` writes it
@@ -85,7 +92,9 @@ The concatenated frames. A part holds up to 16 MiB of frames; a larger frame has
 `layr-desk push --project <p> --state-dir <folder> [--config <file>]` pushes the main head of one
 layr project; the host of the project runs it as the owner of the layr store. The configuration
 (a file, or standard input) is JSON: `bucket`, `region`, `prefix`, `recipient`, `accessKeyId`,
-`secretAccessKey`, and `endpoint` for a test store. The command prints a JSON summary.
+`secretAccessKey`, `signingKey` (optional, see "Signatures"), and `endpoint` for a test store.
+With `signingKey` every tree carries `sig`; without it the trees are unsigned. The command prints
+a JSON summary.
 
 1. `layr rev-parse main` names the head. When the record names this state, stop.
 2. The export folders `a` and `b` take turns: `layr export <head>` fills one; the other holds
@@ -122,7 +131,78 @@ configuration. The time limit of a put grows with its size (2 minutes plus 1 sec
 The browser and `vault-restore` share one implementation (`workspaces/runtime/apps/vault`):
 `age-encryption` (typage) and `@bokuweb/zstd-wasm` (`decompressUsingDict` takes the base as a
 raw dictionary). Reading the latest tree fetches the tree objects back to the last full tree;
-reading a file fetches the parts of its delta chain.
+reading a file fetches the parts of its delta chain. Every reader checks the vault identity, the
+signature of each tree that `vault.json` asks for, and each file against the size and SHA-256 of
+its tree entry.
+
+## Signatures
+
+The writer signs each tree with an Ed25519 key, so that a reader can tell the writer's states
+from states that someone else put into the bucket.
+
+- The signing key is `signingKey` in the writer configuration: standard base64 of a 32-byte
+  Ed25519 seed. Only the writer has it. `vault-deploy.mjs` makes one with each new writer access
+  key (the first configuration, or `--new-writer-key`) and sends it through the pipe of
+  `--writer`; it never goes to a file or to the output.
+- `vault.json` names the public key as `writer` (standard base64 of 32 bytes) and the first `seq`
+  that must be signed as `signedFrom`. `vault-deploy.mjs` writes both after the `--writer`
+  command took the key: `signedFrom` is then the highest `seq` in the bucket plus 1. The comment
+  there explains why this order leaves no gap. A new writer key starts again from the `seq` after
+  the last state, so the states that the old key signed then show as unsigned.
+- The tree header field `sig` is standard base64 of the 64-byte Ed25519 signature of this UTF-8
+  message (lines joined with `\n`, no line break at the end):
+
+  ```
+  layr-desk tree v1
+  {prefix}
+  {seq}
+  {attempt}
+  {state}
+  {time}
+  {tree}
+  {base}
+  {sha256}
+  ```
+
+  `tree` is `full` or `delta`; `base` is `{seq}.{attempt}` of the base, or `-`; `sha256` is the
+  lowercase hex SHA-256 of the canonical tree bytes after delta decoding. The tree holds the size
+  and SHA-256 of each file, so the signature also covers the content of every file. A reader
+  that does not know `sig` ignores it.
+
+The policy, in every reader (desk-core for `layr-desk ls`, `verify`, `states`, `pull` and
+`mount`; `reader.mjs` for the site, `vault-restore` and `vault-view`):
+
+- A `vault.json` without `writer` has no signature checks, and every state shows as unsigned.
+- With `writer`, a state with `seq` from `signedFrom` on (every state when `signedFrom` is
+  missing) must carry a valid signature. Reading it fails otherwise, with an error that names the
+  state. A state before `signedFrom` reads as before and shows as unsigned.
+- A slot that opens to a vault identity whose recipient is not the `recipient` of `vault.json`
+  is refused.
+- The gateway gives the public part of `vault.json` (`recipient`, `writer`, `signedFrom`) at
+  `GET /api/p/<p>/vault`, without a token, read through the reader role. The site and the
+  `layr-desk` commands take it from there; `vault-restore` and `vault-view` read it from the
+  bucket.
+- The site checks with WebCrypto (`crypto.subtle.verify("Ed25519", …)`), which Chrome and Edge
+  137, Firefox 129 and Safari 17 have. A browser without it shows an error and reads no signed
+  state; there is no JavaScript fallback.
+- The Python reader (`python/vault_reader.py`) does not check signatures or the vault identity.
+  The Python writer does not sign: a state that it pushes into a vault with `writer` is refused.
+
+What it protects against: a forged state or slot from anyone who can put objects into the bucket
+but does not hold the signing key, as long as the `vault.json` that the reader gets stays as
+`vault-deploy.mjs` wrote it. A stolen writer access key (it puts only below `states/`) and a
+person with write access to the bucket can no longer add a state that readers accept, change a
+signed state or one of its files, or give a reader another vault identity through a slot.
+
+What it does not protect against yet:
+
+- The reader trusts the `vault.json` that the gateway serves (or that the bucket holds, for
+  `vault-restore` and `vault-view`). The gateway, and anyone who can change `vault.json` in the
+  bucket, can remove `writer` or name another key and recipient. Readers pin the writer key and
+  the recipient when the person index comes.
+- States before `signedFrom`, such as a second tree for an old `seq`.
+- Removed states: a reader cannot tell that newer states existed.
+- A stolen signing key, until `--new-writer-key` replaces it.
 
 ## AWS (`studio-vault/cloud/`)
 
@@ -131,8 +211,8 @@ One stack per project, in the project's AWS account (`template.yaml`):
 - Bucket with versioning; public access blocked; no CORS, no public path.
 - Writer user: `s3:PutObject` on `<project>/states/*` with `If-None-Match` required,
   `s3:ListBucket` on `<project>/states/`; nothing else.
-- Reader role `studio-vault-reader-<project>`: read states and slots, put and delete
-  `slots/passkey-*`. It trusts the gateway role by ARN (`aws:PrincipalArn`), so the gateway can
+- Reader role `studio-vault-reader-<project>`: read states, slots and `vault.json`, put and
+  delete `slots/passkey-*`. It trusts the gateway role by ARN (`aws:PrincipalArn`), so the gateway can
   be in another account and its role can be made again.
 - What stays out of CloudFormation: `vault.json`, the paper slot, and the writer's access key,
   which would otherwise sit in the stack outputs; IAM Roles Anywhere is to replace that key.
@@ -180,8 +260,8 @@ The server serves a renewed certificate from the next connection on. Its user mu
 read the key, and `host` in the configuration is then `<name>`. `--tls none` serves plain HTTP, on a loopback address only (the
 site e2e).
 
-API, per vault `<p>`: `GET /api/projects`, `GET /api/p/<p>/slots`, `GET /api/p/<p>/challenge`,
-and with `Authorization: Bearer <token>`: `GET /api/p/<p>/states`, `GET /api/p/<p>/states/<name>`,
+API, per vault `<p>`: `GET /api/projects`, `GET /api/p/<p>/slots`, `GET /api/p/<p>/vault`,
+`GET /api/p/<p>/challenge`, and with `Authorization: Bearer <token>`: `GET /api/p/<p>/states`, `GET /api/p/<p>/states/<name>`,
 `PUT|DELETE /api/p/<p>/slots/passkey-<id>`. Every other path is the site; `/<p>/` is the page of
 one vault. The host header must be the configured host.
 

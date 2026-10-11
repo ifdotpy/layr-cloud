@@ -11,7 +11,7 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
-import { identityFromPaper, openSlot } from "./keys.mjs";
+import { checkVaultIdentity, identityFromPaper, openSlot } from "./keys.mjs";
 import { VaultReader } from "./reader.mjs";
 
 const SERVICE = "studio-vault";
@@ -87,8 +87,23 @@ function ask(question) {
   });
 }
 
-/** The vault identity: from the Keychain, else from the paper key (then kept if `keep`). */
-export async function identity(prefix, data, { keep = false } = {}) {
+/** The public part of vault.json: recipient, writer and signedFrom. */
+export async function vaultInfo(prefix, data) {
+  const record = JSON.parse(
+    new TextDecoder().decode(await data.get(`${prefix}/vault.json`)),
+  );
+  return {
+    recipient: record.recipient,
+    writer: record.writer ?? null,
+    signedFrom: record.signedFrom ?? null,
+  };
+}
+
+/**
+ * The vault identity: from the Keychain, else from the paper key (then kept if `keep`). A paper
+ * slot that holds another identity than the vault's is refused.
+ */
+export async function identity(prefix, data, { keep = false, recipient } = {}) {
   try {
     return execFileSync(
       "security",
@@ -107,6 +122,7 @@ export async function identity(prefix, data, { keep = false } = {}) {
     await data.get(`${prefix}/slots/paper.age`),
     paper,
   );
+  await checkVaultIdentity(vault, recipient);
   if (keep)
     execFileSync("security", [
       "add-generic-password",
@@ -123,11 +139,16 @@ export async function identity(prefix, data, { keep = false } = {}) {
 
 export async function reader(prefix, options) {
   const data = store(prefix);
-  const vault = await identity(prefix, data, options);
+  const info = await vaultInfo(prefix, data);
+  const vault = await identity(prefix, data, {
+    ...options,
+    recipient: info.recipient,
+  });
   return new VaultReader({
     prefix,
     keys: await data.list("states/"),
     get: (k) => data.get(k),
     identity: vault,
+    vault: info,
   });
 }
