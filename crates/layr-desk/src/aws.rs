@@ -1,5 +1,5 @@
 //! A small AWS client for the gateway: credentials from the environment or from the instance
-//! (IMDSv2), a role per vault through STS AssumeRole, and the four S3 calls that the gateway
+//! (IMDSv2), a role per vault through STS AssumeRole, and the five S3 calls that the gateway
 //! makes. Endpoints are dual-stack, so an IPv6-only host reaches them. desk-core signs.
 
 use crate::vault::{Bucket, Object};
@@ -191,7 +191,18 @@ impl Aws {
             aws: self.clone(),
             bucket: bucket.to_string(),
             region: region.to_string(),
-            role: role.to_string(),
+            role: Some(role.to_string()),
+            cached: Mutex::new(None),
+        }
+    }
+
+    /// A bucket of the gateway's own account (the person records), with its own credentials.
+    pub fn own_bucket(self: &Arc<Self>, bucket: &str, region: &str) -> S3 {
+        S3 {
+            aws: self.clone(),
+            bucket: bucket.to_string(),
+            region: region.to_string(),
+            role: None,
             cached: Mutex::new(None),
         }
     }
@@ -274,18 +285,21 @@ async fn failure(what: &str, response: reqwest::Response) -> anyhow::Error {
     anyhow!("{what}: HTTP {status} {code} {message}")
 }
 
-/// One vault's bucket.
+/// One bucket: a vault's, through its reader role, or one of the gateway's own account.
 pub struct S3 {
     aws: Arc<Aws>,
     bucket: String,
     region: String,
-    role: String,
+    role: Option<String>,
     cached: Mutex<Option<Timed>>,
 }
 
 impl S3 {
-    /// Temporary credentials of the vault's reader role.
+    /// Temporary credentials of the vault's reader role, or the gateway's own.
     async fn credentials(&self) -> Result<Arc<Credentials>> {
+        let Some(role) = &self.role else {
+            return self.aws.base().await;
+        };
         let mut cached = self.cached.lock().await;
         if let Some(timed) = cached.as_ref().filter(|t| t.fresh()) {
             return Ok(timed.credentials.clone());
@@ -298,7 +312,7 @@ impl S3 {
             .unwrap_or_else(|| format!("https://sts.{}.api.aws", self.region));
         let body = format!(
             "Action=AssumeRole&RoleArn={}&RoleSessionName={SESSION_NAME}&Version=2011-06-15",
-            aws::uri_encode(&self.role, false)
+            aws::uri_encode(role, false)
         );
         let call = Call {
             method: Method::POST,
@@ -314,7 +328,7 @@ impl S3 {
         };
         let response = self.aws.send(call, &base, &self.region, "sts").await?;
         if response.status() != StatusCode::OK {
-            return Err(failure(&format!("AssumeRole {}", self.role), response).await);
+            return Err(failure(&format!("AssumeRole {role}"), response).await);
         }
         let text = response.text().await?;
         let field = |name: &str| {
@@ -416,6 +430,14 @@ impl Bucket for S3 {
         match response.status() {
             StatusCode::OK => Ok(true),
             StatusCode::PRECONDITION_FAILED => Ok(false),
+            _ => Err(failure(&format!("S3 put {key}"), response).await),
+        }
+    }
+
+    async fn put(&self, key: &str, body: Vec<u8>) -> Result<()> {
+        let response = self.call(Method::PUT, key, &[], &[], body).await?;
+        match response.status() {
+            StatusCode::OK => Ok(()),
             _ => Err(failure(&format!("S3 put {key}"), response).await),
         }
     }

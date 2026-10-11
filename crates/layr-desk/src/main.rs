@@ -20,6 +20,7 @@ mod aws;
 mod disk;
 mod gateway;
 mod keystore;
+mod people;
 mod profile;
 mod push;
 mod restore;
@@ -31,6 +32,7 @@ mod setup;
 mod tls;
 mod vault;
 mod webdav;
+mod whois;
 
 #[cfg(test)]
 mod serve_tests;

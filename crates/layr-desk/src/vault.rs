@@ -50,6 +50,8 @@ pub trait Bucket: Send + Sync + 'static {
     fn get(&self, key: &str) -> impl Future<Output = Result<Option<Object>>> + Send;
     /// Put an object that must not exist yet: false when it exists.
     fn put_new(&self, key: &str, body: Vec<u8>) -> impl Future<Output = Result<bool>> + Send;
+    /// Put an object, new or replacing one.
+    fn put(&self, key: &str, body: Vec<u8>) -> impl Future<Output = Result<()>> + Send;
     fn delete(&self, key: &str) -> impl Future<Output = Result<()>> + Send;
 }
 
@@ -84,6 +86,69 @@ pub fn slot_name(name: &str) -> bool {
 pub use desk_core::person::project_name;
 
 pub type Clock = Arc<dyn Fn() -> u64 + Send + Sync>;
+
+fn token_mac(secret: &[u8; 32], scope: &str, expiry: &str) -> Hmac<Sha256> {
+    let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_slice()).expect("any key");
+    mac.update(format!("{scope}:{expiry}").as_bytes());
+    mac
+}
+
+/// A token for `scope` (a vault prefix, or `person:<login>`), encrypted to `recipient`: only the
+/// holder of its identity can read it. `<expiry>.<HMAC of scope:expiry>`; a prefix has no `:`
+/// and a login has an `@`, so a token of one scope is never valid for another.
+pub fn challenge(secret: &[u8; 32], scope: &str, recipient: &str, now: u64) -> Result<String> {
+    let expiry = (now + TOKEN_LIFE_MS).to_string();
+    let mac = hex::encode(token_mac(secret, scope, &expiry).finalize().into_bytes());
+    let sealed = desk_core::keys::encrypt(recipient, format!("{expiry}.{mac}").as_bytes())?;
+    Ok(STANDARD.encode(sealed))
+}
+
+/// Whether `token` is a token of `scope` that has not expired.
+pub fn token_valid(secret: &[u8; 32], scope: &str, token: &str, now: u64) -> bool {
+    let Some((expiry, given)) = token.split_once('.') else {
+        return false;
+    };
+    if !expiry.bytes().all(|c| c.is_ascii_digit()) {
+        return false;
+    }
+    let Ok(at) = expiry.parse::<u64>() else {
+        return false;
+    };
+    let left = i128::from(at) - i128::from(now);
+    if !(left > 0 && left <= i128::from(TOKEN_LIFE_MS)) {
+        return false;
+    }
+    match hex::decode(given) {
+        Ok(given) => token_mac(secret, scope, expiry)
+            .verify_slice(&given)
+            .is_ok(),
+        Err(_) => false,
+    }
+}
+
+/// Base64 in a request, as browsers and Node write it: either alphabet, padding optional, white
+/// space ignored. Nothing for text that is not base64.
+pub fn request_bytes(data: &str) -> Vec<u8> {
+    let text: String = data
+        .chars()
+        .filter(|c| !c.is_ascii_whitespace())
+        .map(|c| match c {
+            '-' => '+',
+            '_' => '/',
+            c => c,
+        })
+        .collect();
+    LENIENT.decode(text).unwrap_or_default()
+}
+
+/// The bytes of a slot in a request: 1 to 4096 bytes.
+pub fn slot_bytes(data: &str) -> Result<Vec<u8>> {
+    let body = request_bytes(data);
+    if body.is_empty() || body.len() > 4096 {
+        return fail(400, "a slot is 1 to 4096 bytes");
+    }
+    Ok(body)
+}
 
 /// Milliseconds since the Unix epoch.
 pub fn system_clock() -> Clock {
@@ -127,53 +192,72 @@ impl<B: Bucket> Vault<B> {
         }
     }
 
-    fn mac(&self, expiry: &str) -> Hmac<Sha256> {
-        let mut mac = Hmac::<Sha256>::new_from_slice(self.secret.as_slice()).expect("any key");
-        mac.update(format!("{}:{expiry}", self.prefix).as_bytes());
-        mac
-    }
-
     pub fn valid(&self, token: &str) -> bool {
-        let Some((expiry, given)) = token.split_once('.') else {
-            return false;
-        };
-        if !expiry.bytes().all(|c| c.is_ascii_digit()) {
-            return false;
-        }
-        let Ok(at) = expiry.parse::<u64>() else {
-            return false;
-        };
-        let left = i128::from(at) - i128::from((self.now)());
-        if !(left > 0 && left <= i128::from(TOKEN_LIFE_MS)) {
-            return false;
-        }
-        match hex::decode(given) {
-            Ok(given) => self.mac(expiry).verify_slice(&given).is_ok(),
-            Err(_) => false,
-        }
+        token_valid(&self.secret, &self.prefix, token, (self.now)())
     }
 
-    pub async fn slots(&self) -> Result<Vec<(String, String)>> {
+    /// The slots that `login` may see, as (name, base64): the paper and passkey slots, and the
+    /// login's own person slot. None when the vault does not show to the login (see `visible`).
+    pub async fn slots(&self, login: Option<&str>) -> Result<Option<Vec<(String, String)>>> {
         let under = format!("{}/slots/", self.prefix);
+        let names: Vec<(String, String)> = self
+            .bucket
+            .list(&under)
+            .await?
+            .into_iter()
+            .map(|key| {
+                let name = key[under.len()..].to_string();
+                (name.strip_suffix(".age").unwrap_or(&name).to_string(), key)
+            })
+            .collect();
+        let mine = login.map(|l| format!("person-{l}"));
+        let others = |name: &str| name.starts_with("person-") && Some(name) != mine.as_deref();
+        let people = names
+            .iter()
+            .filter(|(n, _)| n.starts_with("person-"))
+            .count();
+        let own = names
+            .iter()
+            .any(|(n, _)| Some(n.as_str()) == mine.as_deref());
+        if people > 0 && !own {
+            return Ok(None);
+        }
         let mut slots = Vec::new();
-        for key in self.bucket.list(&under).await? {
+        for (name, key) in names {
+            if others(&name) {
+                continue;
+            }
             let Some(object) = self.bucket.get(&key).await? else {
                 continue;
             };
             let data = object.body.collect().await?.to_bytes();
-            let name = &key[under.len()..];
-            let name = name.strip_suffix(".age").unwrap_or(name);
-            slots.push((name.to_string(), STANDARD.encode(&data)));
+            slots.push((name, STANDARD.encode(&data)));
         }
-        Ok(slots)
+        Ok(Some(slots))
     }
 
     pub fn challenge(&self) -> Result<String> {
-        let expiry = ((self.now)() + TOKEN_LIFE_MS).to_string();
-        let mac = hex::encode(self.mac(&expiry).finalize().into_bytes());
-        let sealed =
-            desk_core::keys::encrypt(&self.recipient, format!("{expiry}.{mac}").as_bytes())?;
-        Ok(STANDARD.encode(sealed))
+        challenge(&self.secret, &self.prefix, &self.recipient, (self.now)())
+    }
+
+    /// The logins that have a person slot in this vault.
+    pub async fn people(&self) -> Result<Vec<String>> {
+        let under = format!("{}/slots/person-", self.prefix);
+        Ok(self
+            .bucket
+            .list(&under)
+            .await?
+            .iter()
+            .filter_map(|key| key[under.len()..].strip_suffix(".age"))
+            .map(str::to_string)
+            .collect())
+    }
+
+    /// Whether the vault shows to `login`: a vault with person slots shows only to the logins
+    /// that have one, and a vault without them to every tailnet member, as before.
+    pub async fn visible(&self, login: Option<&str>) -> Result<bool> {
+        let people = self.people().await?;
+        Ok(people.is_empty() || login.is_some_and(|l| people.iter().any(|p| p == l)))
     }
 
     /// The public part of vault.json: the recipient, the writer's key and the first signed
@@ -224,19 +308,7 @@ impl<B: Bucket> Vault<B> {
         if !slot_name(name) {
             return fail(400, "only passkey slots change here");
         }
-        let text: String = data
-            .chars()
-            .filter(|c| !c.is_ascii_whitespace())
-            .map(|c| match c {
-                '-' => '+',
-                '_' => '/',
-                c => c,
-            })
-            .collect();
-        let body = LENIENT.decode(text).unwrap_or_default();
-        if body.is_empty() || body.len() > 4096 {
-            return fail(400, "a slot is 1 to 4096 bytes");
-        }
+        let body = slot_bytes(data)?;
         let key = format!("{}/slots/{name}.age", self.prefix);
         if !self.bucket.put_new(&key, body).await? {
             return fail(409, "this passkey already opens the vault");
