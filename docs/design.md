@@ -170,6 +170,10 @@ the Mac. It looks for new states every 2 minutes.
 - `layr-desk service install --site <site>` writes the launchd agent `ws.layr.desk`: it starts
   at login, serves WebDAV on `127.0.0.1:8095` and mounts it at `~/Desk` with `mount_webdav`
   (the volume "Desk" in Finder, read only). `service remove` stops it.
+- `layr-desk states` lists the states of a vault, and `layr-desk pull --to <new folder>
+[--state <seq>]` writes one state into a new folder: files with their executable bit, links
+  as links. The folder appears only when every file is written and checked; an existing folder
+  is refused. Both use the kept key, else ask for the paper key.
 - A link shows the file it points to inside the state; a link that leaves the state shows its
   target text. Files are checked against their tree entry and stay in
   `~/Library/Caches/layr-desk`, named by their SHA-256 (plain files, protected by FileVault).

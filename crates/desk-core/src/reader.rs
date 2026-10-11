@@ -99,6 +99,21 @@ impl<S: Store> Reader<S> {
         Ok(part)
     }
 
+    /// The header of one state, without decoding its tree.
+    pub async fn header(&self, seq: u64, attempt: &str) -> Result<Header> {
+        if let Some((header, _)) = self
+            .cache
+            .lock()
+            .unwrap()
+            .trees
+            .get(&(seq, attempt.to_string()))
+        {
+            return Ok(header.clone());
+        }
+        let object = self.decrypted(&format::name(seq, attempt, None)).await?;
+        Ok(format::split_tree(&object)?.0)
+    }
+
     /// The header and the canonical tree bytes of one state.
     pub async fn tree(&self, seq: u64, attempt: &str) -> Result<(Header, Arc<Vec<u8>>)> {
         // Walk back to the nearest full tree (or one already decoded), then decode forward.

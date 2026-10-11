@@ -2,6 +2,8 @@
 //!
 //!   layr-desk ls      --site https://desk.example.com --project <p> [--paper-file <file>]
 //!   layr-desk verify  --site https://desk.example.com --project <p> --source <folder>
+//!   layr-desk states  --site https://desk.example.com --project <p> [--json]
+//!   layr-desk pull    --site https://desk.example.com --project <p> [--state <seq>] --to <new folder>
 //!   layr-desk unlock  --site https://desk.example.com --project <p>   (keeps the key in Keychain)
 //!   layr-desk mount   --site https://desk.example.com [--port 8095] [--at ~/Desk]
 //!   layr-desk service install|remove --site https://desk.example.com [--port 8095]
@@ -11,6 +13,7 @@
 mod disk;
 mod gateway;
 mod keystore;
+mod restore;
 mod service;
 mod webdav;
 
@@ -59,6 +62,26 @@ enum Command {
         #[arg(long)]
         source: PathBuf,
     },
+    /// The states of a vault, oldest first
+    States {
+        #[command(flatten)]
+        target: Target,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Write one state of a vault (the latest by default) into a new folder
+    Pull {
+        #[command(flatten)]
+        target: Target,
+        /// The state number (seq); the latest when left out
+        #[arg(long)]
+        state: Option<u64>,
+        /// A folder that does not exist yet
+        #[arg(long)]
+        to: PathBuf,
+        #[arg(long)]
+        json: bool,
+    },
     /// Open a vault with its paper key and keep the vault key in the Keychain
     Unlock(Target),
     /// Forget the vault key of a vault on this Mac
@@ -97,9 +120,19 @@ fn paper(target: &Target) -> Result<String> {
     }
 }
 
+/// The vault through its gateway: with the key that `unlock` kept, else with the paper key.
 async fn open(target: &Target) -> Result<Reader<gateway::Vault>> {
     let mut vault = gateway::Site::new(&target.site)?.vault(&target.project);
-    vault.unlock_with_paper(&paper(target)?).await?;
+    let kept = match (&target.paper_file, keystore::system()) {
+        (None, Ok(keys)) => keys.get(&keystore::account(&target.site, &target.project)?)?,
+        _ => None,
+    };
+    match kept {
+        Some(identity) => vault = vault.unlocked(&identity),
+        None => {
+            vault.unlock_with_paper(&paper(target)?).await?;
+        }
+    }
     let names = vault.states().await?;
     let identity = vault.identity()?.to_string();
     Reader::new(vault, &identity, &names)
@@ -154,6 +187,54 @@ async fn main() -> Result<()> {
             println!("state {seq}: {} files, {problems} differ", files.len());
             if problems > 0 {
                 bail!("the vault and the folder differ");
+            }
+        }
+        Command::States { target, json } => {
+            let reader = open(&target).await?;
+            let mut states = Vec::new();
+            for (seq, attempt) in reader.states() {
+                let header = reader.header(seq, &attempt).await?;
+                states.push(serde_json::json!({"seq": seq, "attempt": attempt, "time": header.time, "state": header.state}));
+            }
+            if json {
+                println!("{}", serde_json::json!({ "states": states }));
+            } else {
+                for s in &states {
+                    println!(
+                        "{:>6} {} {}",
+                        s["seq"],
+                        s["time"],
+                        s["state"].as_str().unwrap_or("")
+                    );
+                }
+            }
+        }
+        Command::Pull {
+            target,
+            state,
+            to,
+            json,
+        } => {
+            let reader = open(&target).await?;
+            let state = match state {
+                Some(seq) => reader
+                    .states()
+                    .into_iter()
+                    .find(|(s, _)| *s == seq)
+                    .ok_or_else(|| anyhow::anyhow!("the vault has no state {seq}"))?,
+                None => reader.latest()?,
+            };
+            let summary = restore::pull(&reader, state, &to).await?;
+            if json {
+                println!("{}", serde_json::to_string(&summary)?);
+            } else {
+                println!(
+                    "state {}: {} files ({} bytes) in {}",
+                    summary.seq,
+                    summary.files,
+                    summary.bytes,
+                    to.display()
+                );
             }
         }
         Command::Unlock(target) => {

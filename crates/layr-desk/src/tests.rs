@@ -189,3 +189,70 @@ async fn the_disk_shows_the_latest_state_of_each_vault() {
     );
     let _ = std::fs::remove_dir_all(cache);
 }
+
+struct Folder(PathBuf);
+
+impl desk_core::Store for Folder {
+    async fn get(&self, name: &str) -> anyhow::Result<Vec<u8>> {
+        Ok(std::fs::read(self.0.join(name))?)
+    }
+}
+
+#[tokio::test]
+async fn pull_writes_each_state_into_a_new_folder() {
+    use std::os::unix::fs::PermissionsExt;
+    let states = PathBuf::from(FIXTURE).join("objects/proj/states");
+    let names: Vec<String> = std::fs::read_dir(&states)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().into_string().unwrap())
+        .collect();
+    let identity = std::fs::read_to_string(PathBuf::from(FIXTURE).join("identity.txt")).unwrap();
+    let reader = desk_core::Reader::new(Folder(states), &identity, &names).unwrap();
+    let expected: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(PathBuf::from(FIXTURE).join("expected.json")).unwrap(),
+    )
+    .unwrap();
+    let root = std::env::temp_dir().join(format!("layr-desk-pull-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).unwrap();
+    for (state, want) in reader
+        .states()
+        .into_iter()
+        .zip(expected["states"].as_array().unwrap())
+    {
+        let to = root.join(format!("s{}", state.0));
+        let summary = crate::restore::pull(&reader, state, &to).await.unwrap();
+        let want = want.as_object().unwrap();
+        assert_eq!(summary.files, want.len());
+        for (path, w) in want {
+            let target = to.join(path);
+            let meta = std::fs::symlink_metadata(&target).unwrap();
+            let data = if w[1] == "120000" {
+                assert!(meta.file_type().is_symlink(), "{path}");
+                use std::os::unix::ffi::OsStrExt;
+                std::fs::read_link(&target)
+                    .unwrap()
+                    .as_os_str()
+                    .as_bytes()
+                    .to_vec()
+            } else {
+                assert_eq!(
+                    meta.permissions().mode() & 0o111 != 0,
+                    w[1] == "100755",
+                    "{path}"
+                );
+                std::fs::read(&target).unwrap()
+            };
+            assert_eq!(hex::encode(Sha256::digest(&data)), w[0], "{path}");
+        }
+        let again = crate::restore::pull(&reader, reader.latest().unwrap(), &to).await;
+        assert!(again.unwrap_err().to_string().contains("new folder"));
+    }
+    let leftovers: Vec<_> = std::fs::read_dir(&root)
+        .unwrap()
+        .map(|e| e.unwrap().file_name())
+        .filter(|n| n.to_string_lossy().contains("partial"))
+        .collect();
+    assert!(leftovers.is_empty());
+    let _ = std::fs::remove_dir_all(root);
+}
