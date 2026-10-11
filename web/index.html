@@ -13,6 +13,19 @@
   <body>
     <div id="window">
       <aside id="sidebar">
+        <section id="person" hidden>
+          <h2>Person key</h2>
+          <p id="person-login"></p>
+          <p id="person-state" class="note"></p>
+          <button id="person-unlock" class="primary" type="button" hidden>
+            Unlock with passkey
+          </button>
+          <button id="person-paper-open" type="button" hidden>
+            Use the paper key…
+          </button>
+          <button id="invites-open" type="button" hidden>Invites</button>
+          <button id="person-keys" type="button" hidden>Passkeys…</button>
+        </section>
         <h2>Vaults</h2>
         <ul id="vaults"></ul>
         <div id="sidebar-foot" hidden>
@@ -206,6 +219,80 @@
           <button id="close-passkeys" class="primary" type="button">
             Done
           </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="person-paper-panel" class="overlay" hidden>
+      <form
+        id="person-paper-form"
+        class="sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="person-paper-title"
+      >
+        <h2 id="person-paper-title">Paper key of your person key</h2>
+        <textarea
+          id="person-paper"
+          rows="4"
+          autocomplete="off"
+          autocapitalize="none"
+          spellcheck="false"
+          placeholder="24 words, in order"
+          aria-label="Paper key of your person key"
+        ></textarea>
+        <p id="person-paper-error" class="note" role="alert"></p>
+        <div class="actions">
+          <button id="close-person-paper" type="button">Cancel</button>
+          <button class="primary" type="submit">Unlock</button>
+        </div>
+      </form>
+    </div>
+
+    <div id="person-panel" class="overlay" hidden>
+      <div
+        class="sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="person-title"
+      >
+        <h2 id="person-title">Passkeys of your person key</h2>
+        <ul id="person-passkey-list" class="key-list"></ul>
+        <form id="person-add-form" class="add-form">
+          <label for="person-label">Name of this device</label>
+          <div class="row">
+            <input id="person-label" autocomplete="off" placeholder="MacBook" />
+            <button type="submit">Add a new passkey</button>
+          </div>
+        </form>
+        <p class="note">
+          One touch of a passkey then opens every vault of your person key.
+          <button id="person-use-existing" class="link" type="button">
+            Use an existing passkey
+          </button>
+        </p>
+        <p id="person-error" class="note" role="alert"></p>
+        <div class="actions">
+          <button id="close-person" class="primary" type="button">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="invite-panel" class="overlay" hidden>
+      <div
+        class="sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="invite-title"
+      >
+        <h2 id="invite-title">Invites</h2>
+        <p class="note">
+          Accept only an invite that you expect. The gateway names the sender.
+        </p>
+        <ul id="invite-list" class="key-list"></ul>
+        <p id="invite-error" class="note" role="alert"></p>
+        <div class="actions">
+          <button id="close-invites" class="primary" type="button">Done</button>
         </div>
       </div>
     </div>

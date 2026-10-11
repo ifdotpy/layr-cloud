@@ -1,6 +1,7 @@
-// Desk (docs/vault.md, "Gateway"): a read-only, Finder-like view of the vaults. Column and list
-// views, a path bar, Quick Look, downloads, and the passkeys of each vault.
-import { Vault, projects } from "./client.js";
+// Desk (docs/design.md, "Gateway"): a read-only, Finder-like view of the vaults. Column and list
+// views, a path bar, Quick Look, downloads, and the passkeys of each vault. With a person key
+// (docs/design.md, "Person key"), one unlock opens every pinned vault, and invites add vaults.
+import { Person, Vault, projects } from "./client.js";
 
 const $ = (id) => document.getElementById(id);
 const show = (id, on) => ($(id).hidden = !on);
@@ -35,8 +36,13 @@ const MEDIA = {
 };
 const TEXT_LIMIT = 2 * 1024 * 1024;
 
+const projectOf = (path) => decodeURIComponent(path.split("/")[1] ?? "");
 const app = {
-  project: decodeURIComponent(location.pathname.split("/")[1] ?? ""),
+  project: projectOf(location.pathname),
+  /** The vaults that the gateway shows to this person. */
+  names: [],
+  /** The person key of the caller, when the gateway keeps one. */
+  person: null,
   vault: null,
   slots: [],
   root: null,
@@ -490,7 +496,7 @@ function lockedView() {
   show("list", false);
   show("empty", false);
   show("browse-tools", false);
-  show("sidebar-foot", false);
+  renderFoot();
   show("unlock", true);
   $("unlock-name").textContent = app.project;
   $("title").textContent = app.project;
@@ -506,7 +512,7 @@ async function unlockedView() {
   $("paper").value = "";
   show("unlock", false);
   show("browse-tools", true);
-  show("sidebar-foot", true);
+  renderFoot();
   const states = app.vault.reader.states();
   if (!states.length) {
     show("empty", true);
@@ -585,6 +591,252 @@ async function renderPasskeys() {
   );
 }
 
+// ----- the person key and the vault list -----
+
+/** Lock shows while a vault or the person key is open; Passkeys… belongs to an open vault. */
+function renderFoot() {
+  const vault = Boolean(app.vault?.reader);
+  show("sidebar-foot", vault || Boolean(app.person?.identity));
+  show("passkeys", vault);
+}
+
+function renderPerson() {
+  const person = app.person;
+  show("person", Boolean(person?.registered));
+  if (!person?.registered) return;
+  const open = Boolean(person.identity);
+  $("person-login").textContent = person.login;
+  $("person-state").textContent = open
+    ? `Unlocked: ${person.pins.size} ${person.pins.size === 1 ? "vault" : "vaults"}`
+    : "Locked";
+  show("person-unlock", !open && person.passkeys().length > 0);
+  show("person-paper-open", !open);
+  show("person-keys", open);
+  show("invites-open", open && person.inbox.length > 0);
+  $("invites-open").textContent = `Invites (${person.inbox.length})`;
+  renderFoot();
+}
+
+/**
+ * The vaults that the gateway shows, with the vaults of the person index. A pinned vault that
+ * the gateway does not show is grey: its person slot is gone, or it moved.
+ */
+function renderSidebar() {
+  const pins = app.person?.pins;
+  const names = [...new Set([...app.names, ...(pins?.keys() ?? [])])].sort();
+  $("vaults").replaceChildren(
+    ...names.map((name) => {
+      const li = document.createElement("li");
+      const link = Object.assign(document.createElement("a"), {
+        href: `/${encodeURIComponent(name)}/`,
+      });
+      const label = Object.assign(document.createElement("span"), {
+        className: "name",
+        textContent: name,
+      });
+      link.append(
+        Object.assign(document.createElement("span"), {
+          className: "icon",
+          innerHTML: ICON.folder,
+        }),
+        label,
+      );
+      if (pins?.has(name)) link.dataset.pinned = "";
+      if (!app.names.includes(name)) link.dataset.missing = "";
+      if (name === app.project) link.setAttribute("aria-current", "page");
+      // With the person key open, a vault opens in this page, so the key stays.
+      link.onclick = (event) => {
+        if (!app.person?.identity) return;
+        event.preventDefault();
+        toggleSidebar(false);
+        if (name === app.project && app.root) return;
+        history.pushState(null, "", link.href);
+        guarded("Opening…", () => switchTo(name));
+      };
+      li.append(link);
+      return li;
+    }),
+  );
+}
+
+/** Show the vault `name` in this page: the reader of the previous vault goes. */
+async function switchTo(name) {
+  closeQuickLook();
+  show("passkey-panel", false);
+  app.vault?.lock();
+  Object.assign(app, {
+    project: name,
+    vault: null,
+    slots: [],
+    root: null,
+    dir: [],
+    sel: null,
+    back: [],
+    forward: [],
+    filter: "",
+  });
+  $("filter").value = "";
+  show("empty", false);
+  renderSidebar();
+  await enterVault();
+}
+
+/** Open the current vault: through the person key when it is pinned, else its own lock. */
+async function enterVault() {
+  document.title = `${app.project} · Desk`;
+  try {
+    app.vault = await Vault.open(app.project);
+    app.slots = await app.vault.slots();
+  } catch (error) {
+    app.vault = null;
+    app.slots = [];
+    return refusedView(
+      error.status === 404
+        ? new Error(`The gateway does not show you the vault ${app.project}.`)
+        : error,
+    );
+  }
+  if (!app.person?.pins?.has(app.project)) return lockedView();
+  try {
+    await app.person.openVault(app.vault, app.slots);
+  } catch (error) {
+    return refusedView(error);
+  }
+  await unlockedView();
+}
+
+/** A pinned vault that fails its pin: say why, and offer no other way in. */
+function refusedView(error) {
+  lockedView();
+  show("unlock", false);
+  show("empty", true);
+  $("empty-text").textContent = error.message;
+}
+
+async function personUnlocked() {
+  $("person-paper").value = "";
+  show("person-paper-panel", false);
+  renderPerson();
+  renderSidebar();
+  if (app.project && app.person.pins.has(app.project) && !app.vault?.reader)
+    await switchTo(app.project);
+}
+
+async function renderPersonPasskeys() {
+  await app.person.refresh();
+  const passkeys = app.person.passkeys();
+  $("person-passkey-list").replaceChildren(
+    ...(passkeys.length
+      ? passkeys.map((slot) => {
+          const li = document.createElement("li");
+          const name = document.createElement("span");
+          name.textContent = `${slot.name.slice(8, 24)}…`;
+          const remove = Object.assign(document.createElement("button"), {
+            type: "button",
+            textContent: "Remove",
+          });
+          remove.onclick = () =>
+            inPanel("person-error", async () => {
+              await app.person.removePasskey(slot.name);
+              await renderPersonPasskeys();
+            });
+          li.append(name, remove);
+          return li;
+        })
+      : [
+          Object.assign(document.createElement("li"), {
+            className: "note",
+            textContent: "No passkey yet. The paper key opens your person key.",
+          }),
+        ]),
+  );
+  renderPerson();
+}
+
+/** Run `work` for a sheet; a failure shows in the sheet, which hides the status line. */
+async function inPanel(errorId, work) {
+  $(errorId).textContent = "";
+  try {
+    await work();
+  } catch (error) {
+    $(errorId).textContent = error.message;
+  }
+}
+
+const short = (text) =>
+  text ? `${text.slice(0, 12)}…${text.slice(-6)}` : "none";
+
+async function renderInvites() {
+  const invites = await app.person.invites();
+  $("invite-list").replaceChildren(
+    ...invites.map((invite) => {
+      const li = document.createElement("li");
+      const facts = document.createElement("div");
+      facts.className = "facts";
+      const line = (text, className) =>
+        facts.append(
+          Object.assign(document.createElement("span"), {
+            textContent: text,
+            className,
+          }),
+        );
+      const buttons = document.createElement("div");
+      buttons.className = "buttons";
+      if (invite.pin) {
+        const { project, recipient, writer, signedFrom } = invite.pin;
+        line(`${project}, from ${invite.from}`);
+        line(`recipient ${short(recipient)}`, "note");
+        line(
+          writer
+            ? `writer key ${short(writer)}, signed from #${signedFrom ?? 0}`
+            : "no writer key",
+          "note",
+        );
+        if (app.person.pins.has(project))
+          line("Replaces the pin that you have for this vault.", "note");
+        const accept = Object.assign(document.createElement("button"), {
+          type: "button",
+          className: "primary",
+          textContent: "Accept",
+        });
+        accept.onclick = () =>
+          inPanel("invite-error", async () => {
+            await app.person.accept(invite);
+            renderPerson();
+            renderSidebar();
+            await renderInvites();
+            if (project === app.project) await switchTo(project);
+          });
+        buttons.append(accept);
+      } else {
+        line(
+          `An invite from ${invite.from} that does not open: ${invite.error}`,
+        );
+      }
+      const decline = Object.assign(document.createElement("button"), {
+        type: "button",
+        textContent: "Decline",
+      });
+      decline.onclick = () =>
+        inPanel("invite-error", async () => {
+          await app.person.decline(invite);
+          renderPerson();
+          await renderInvites();
+        });
+      buttons.append(decline);
+      li.append(facts, buttons);
+      return li;
+    }),
+  );
+  if (!invites.length)
+    $("invite-list").replaceChildren(
+      Object.assign(document.createElement("li"), {
+        className: "note",
+        textContent: "No invites.",
+      }),
+    );
+}
+
 // ----- events -----
 
 $("paper-form").onsubmit = (event) => {
@@ -601,18 +853,25 @@ $("with-passkey").onclick = () =>
   });
 
 /**
- * Ask for a passkey without a click when the vault has one. A browser that wants a click
- * first, or a person who closes the prompt, leaves the button as it was. The page must have
- * focus for WebAuthn, so a page in the background asks when it gets focus.
+ * Ask for a passkey without a click: the passkey of the person key when the person has one,
+ * else the passkey of the vault. A browser that wants a click first, or a person who closes the
+ * prompt, leaves the buttons as they were. The page must have focus for WebAuthn, so a page in
+ * the background asks when it gets focus.
  */
 function askForPasskey() {
-  if (!app.slots.some((s) => s.name.startsWith("passkey-"))) return;
+  const person = app.person?.registered && app.person.passkeys().length > 0;
+  if (!person && !app.slots.some((s) => s.name.startsWith("passkey-"))) return;
   const ask = async () => {
-    if (app.root || $("unlock").hidden) return;
+    if (person ? app.person.identity : app.root || $("unlock").hidden) return;
     status("Unlocking…");
     try {
-      await app.vault.unlockWithPasskey(app.slots);
-      await unlockedView();
+      if (person) {
+        await app.person.unlockWithPasskey();
+        await personUnlocked();
+      } else {
+        await app.vault.unlockWithPasskey(app.slots);
+        await unlockedView();
+      }
       status(statusText());
     } catch (error) {
       status(
@@ -629,10 +888,65 @@ $("state").onchange = () =>
   guarded("Reading the version…", () => openState(Number($("state").value)));
 $("lock").onclick = () => {
   closeQuickLook();
-  app.vault.lock();
-  lockedView();
+  app.vault?.lock();
+  app.person?.lock();
+  renderPerson();
+  renderSidebar();
+  if (app.vault) lockedView();
+  else renderFoot();
   status("");
 };
+$("person-unlock").onclick = () =>
+  guarded("Unlocking…", async () => {
+    await app.person.unlockWithPasskey();
+    await personUnlocked();
+  });
+$("person-paper-open").onclick = () => {
+  $("person-paper-error").textContent = "";
+  show("person-paper-panel", true);
+  $("person-paper").focus();
+};
+$("close-person-paper").onclick = () => show("person-paper-panel", false);
+$("person-paper-form").onsubmit = (event) => {
+  event.preventDefault();
+  inPanel("person-paper-error", async () => {
+    await app.person.unlockWithPaper($("person-paper").value);
+    await personUnlocked();
+  });
+};
+$("person-keys").onclick = () =>
+  guarded("Reading the passkeys…", async () => {
+    $("person-error").textContent = "";
+    show("person-panel", true);
+    await renderPersonPasskeys();
+  });
+$("close-person").onclick = () => show("person-panel", false);
+$("person-add-form").onsubmit = (event) => {
+  event.preventDefault();
+  inPanel("person-error", async () => {
+    await app.person.addPasskey($("person-label").value.trim());
+    $("person-label").value = "";
+    await renderPersonPasskeys();
+  });
+};
+$("person-use-existing").onclick = () =>
+  inPanel("person-error", async () => {
+    await app.person.useExistingPasskey();
+    await renderPersonPasskeys();
+  });
+$("invites-open").onclick = () =>
+  guarded("Reading the invites…", async () => {
+    $("invite-error").textContent = "";
+    show("invite-panel", true);
+    await renderInvites();
+  });
+$("close-invites").onclick = () => show("invite-panel", false);
+window.addEventListener("popstate", () => {
+  const name = projectOf(location.pathname);
+  // Without the person key, each vault page loads as before.
+  if (!app.person?.identity || !name) return location.reload();
+  guarded("Opening…", () => switchTo(name));
+});
 $("view-columns").onclick = () => setView("columns");
 $("view-list").onclick = () => setView("list");
 function setView(view) {
@@ -689,14 +1003,21 @@ $("toggle-sidebar").onclick = () =>
 $("sidebar-scrim").onclick = () => toggleSidebar(false);
 compact.onchange = () => render();
 
+const SHEETS = [
+  "passkey-panel",
+  "person-paper-panel",
+  "person-panel",
+  "invite-panel",
+];
 document.addEventListener("keydown", (event) => {
   const typing = event.target.closest?.("input, textarea, select");
   const quick = !$("quicklook-panel").hidden;
+  const sheet = SHEETS.find((id) => !$(id).hidden);
   if (event.key === "Escape") {
     if (quick) return closeQuickLook();
-    if (!$("passkey-panel").hidden) return show("passkey-panel", false);
+    if (sheet) return show(sheet, false);
   }
-  if (typing || !app.root || !$("passkey-panel").hidden) return;
+  if (typing || !app.root || sheet) return;
   const node = selected();
   const keys = {
     ArrowDown: () => step(1),
@@ -727,25 +1048,11 @@ document.addEventListener("keydown", (event) => {
 // ----- start -----
 
 guarded("Loading…", async () => {
-  const names = await projects();
-  $("vaults").replaceChildren(
-    ...names.map((name) => {
-      const li = document.createElement("li");
-      const link = Object.assign(document.createElement("a"), {
-        href: `/${encodeURIComponent(name)}/`,
-        textContent: name,
-      });
-      link.prepend(
-        Object.assign(document.createElement("span"), {
-          className: "icon",
-          innerHTML: ICON.folder,
-        }),
-      );
-      if (name === app.project) link.setAttribute("aria-current", "page");
-      li.append(link);
-      return li;
-    }),
-  );
+  const [names, person] = await Promise.all([projects(), Person.load()]);
+  app.names = names;
+  app.person = person;
+  renderPerson();
+  renderSidebar();
   if (!app.project || !names.includes(app.project)) {
     if (names.length === 1)
       return location.replace(`/${encodeURIComponent(names[0])}/`);
@@ -757,11 +1064,9 @@ guarded("Loading…", async () => {
         : "This desk has no vaults yet.";
     return;
   }
-  document.title = `${app.project} · Desk`;
-  app.vault = await Vault.open(app.project);
-  app.slots = await app.vault.slots();
-  lockedView();
+  await enterVault();
 }).then(() => {
   // Only on the first view of the page: after Lock the person chooses.
-  if (app.vault && !app.root) askForPasskey();
+  if (app.person?.registered ? !app.person.identity : app.vault && !app.root)
+    askForPasskey();
 });

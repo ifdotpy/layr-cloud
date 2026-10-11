@@ -143,6 +143,29 @@ button.link {
   gap: 6px;
   padding: 8px;
 }
+#person {
+  display: grid;
+  gap: 6px;
+  padding: 0 8px 12px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+#person h2 {
+  margin: 0;
+}
+#person p {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#vaults a[data-pinned] .name::after {
+  content: " · pinned";
+  color: var(--muted);
+  font-size: 11px;
+}
+#vaults a[data-missing] {
+  color: var(--muted);
+}
 
 /* ----- main window ----- */
 #main {
@@ -490,7 +513,8 @@ button.link {
 }
 textarea,
 input:not([type]),
-#label {
+#label,
+#person-label {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 7px;
@@ -587,7 +611,8 @@ input:not([type]),
   margin: 0;
   font-size: 14px;
 }
-#passkey-list {
+#passkey-list,
+.key-list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -595,26 +620,46 @@ input:not([type]),
   border-radius: 8px;
   background: var(--window);
 }
-#passkey-list li {
+#passkey-list li,
+.key-list li {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
   padding: 6px 10px;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
-#passkey-list li + li {
+#passkey-list li + li,
+.key-list li + li {
   border-top: 1px solid var(--line);
 }
-#add-form {
+#invite-list li {
+  font-family: inherit;
+  align-items: start;
+}
+#invite-list .facts {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+#invite-list .buttons {
+  display: flex;
+  gap: 6px;
+}
+#add-form,
+.add-form {
   display: grid;
   gap: 4px;
 }
-#add-form .row input {
+#add-form .row input,
+.add-form .row input {
   flex: 1;
 }
 .actions {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
 }
 
 /* ----- phone ----- */
