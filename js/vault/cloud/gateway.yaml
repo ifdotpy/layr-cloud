@@ -112,12 +112,17 @@ Resources:
               - Effect: Allow
                 Action: s3:GetObject
                 Resource: !Sub "arn:aws:s3:::${ArtifactsBucket}/gateway/*"
+              # Person records (docs/design.md, "Person key"): public keys and ciphertext of
+              # each tailnet person, which the gateway writes for the person.
+              - Effect: Allow
+                Action: [s3:GetObject, s3:PutObject, s3:DeleteObject]
+                Resource: !Sub "arn:aws:s3:::${ArtifactsBucket}/people/*"
               - Effect: Allow
                 Action: s3:ListBucket
                 Resource: !Sub "arn:aws:s3:::${ArtifactsBucket}"
                 Condition:
                   StringLike:
-                    s3:prefix: gateway/*
+                    s3:prefix: [gateway/*, people/*]
               - Effect: Allow
                 Action: sts:AssumeRole
                 Resource: arn:aws:iam::*:role/studio-vault-reader-*

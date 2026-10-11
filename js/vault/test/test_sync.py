@@ -83,7 +83,9 @@ class Round(unittest.TestCase):
         round_.dns = lambda *a: self.fail("no Route 53 without a domain")
         self.assertEqual(round_.run(), 0)
         host = "vault-gateway.tail1234.ts.net"
-        self.assertEqual(json.loads(sync.CONFIG.read_text())["host"], host)
+        config = json.loads(sync.CONFIG.read_text())
+        self.assertEqual(config["host"], host)
+        self.assertEqual(config["people"], {"bucket": "b", "region": "eu-central-1", "prefix": "people/"})
         unit = (self.units / "vault-gateway.service").read_text()
         self.assertIn(f"LoadCredential=tls.crt:{self.tls}/{host}.crt", unit)
         self.assertIn(f"LoadCredential=tls.key:{self.tls}/{host}.key", unit)

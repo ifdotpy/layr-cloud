@@ -182,7 +182,9 @@ class Sync:
                 projects[name] = json.loads(self.get(item["Key"]))
         if gateway.get("tls") == "tailscale":
             gateway = {**gateway, "host": self.magic_dns()}
-        config = {"host": gateway["host"], "listen": listen, "projects": projects}
+        # Person records (docs/design.md, "Person key") in this bucket, through the gateway role.
+        people = {"bucket": self.bucket, "region": self.source["region"], "prefix": "people/"}
+        config = {"host": gateway["host"], "listen": listen, "projects": projects, "people": people}
         old = json.loads(CONFIG.read_text()) if CONFIG.exists() else {}
         if write_if_changed(CONFIG, json.dumps(config, indent=2, sort_keys=True) + "\n"):
             log("wrote the configuration:", ", ".join(sorted(projects)) or "no vaults")
