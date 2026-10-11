@@ -182,6 +182,8 @@ try {
       annRecipient,
       "--paper-file",
       vaultWords,
+      // The owner has no person key here: the vaults are to show to Ann only.
+      "--hide-from-others",
     );
   assert.deepEqual(await projectsAs(ANN), ["other", "proj"]);
   assert.deepEqual(await projectsAs("bob@example.com"), []);

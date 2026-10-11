@@ -505,9 +505,40 @@ async fn a_person_key_gets_vaults_by_grant_and_checks_their_pins() {
         &words(&shown),
     );
 
-    // 3. Ann grants herself the vault with the vault's paper key.
+    // 3. The first person slot hides the vault from everyone else, Ann's own Mac included: grant
+    // refuses to give it to Bob first, before it writes anything, unless Ann says so.
     as_login(ANN);
     let vault_paper = ann.file("vault-words.txt", &vault_words);
+    let bob_first = [
+        "grant",
+        "--project",
+        "demo",
+        "--person",
+        BOB,
+        "--recipient",
+        &bob_recipient,
+        "--paper-file",
+        &vault_paper,
+    ];
+    let refused = ann.run(&bob_first);
+    assert!(!refused.status.success());
+    let said = String::from_utf8_lossy(&refused.stderr);
+    assert!(
+        said.contains("Grant yourself first") && said.contains(&format!("you are {ANN}")),
+        "{said}"
+    );
+    let written = |prefix: &str| {
+        let objects = objects.lock().unwrap();
+        objects.keys().filter(|k| k.starts_with(prefix)).count()
+    };
+    assert_eq!(written("vault-bucket/demo/slots/person-"), 0);
+    assert_eq!(written("artifacts/people/bob@example.com/inbox/"), 0);
+    assert_eq!(projects("dave@example.com").await, json!(["demo"]));
+    as_login(ANN);
+    ok(&ann.run(&[&bob_first[..], &["--hide-from-others"]].concat()));
+    assert_eq!(written("vault-bucket/demo/slots/person-"), 1);
+
+    // Ann grants herself the vault with the vault's paper key.
     let granted: Value = serde_json::from_str(&ok(&ann.run(&[
         "grant",
         "--project",
@@ -562,7 +593,8 @@ async fn a_person_key_gets_vaults_by_grant_and_checks_their_pins() {
         objects.lock().unwrap()["vault-bucket/demo/slots/person-bob@example.com.age"].clone();
     assert_eq!(keys::open_slot(&slot, &bob_person).unwrap(), vault_identity);
     let invites = inbox(BOB);
-    assert_eq!((invites.len(), invites[0]["from"].clone()), (1, json!(ANN)));
+    assert_eq!(invites.len(), 2, "one from each grant");
+    assert!(invites.iter().all(|i| i["from"] == ANN));
     // Words that open neither, and a person without a key at the gateway.
     let wrong = ann.file(
         "wrong.txt",

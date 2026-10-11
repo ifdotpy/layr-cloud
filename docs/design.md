@@ -245,6 +245,13 @@ person slots opens as before.
 
   No key passes through anyone else: the owner needs only the person's public recipient. Removing
   the slot object revokes the person, as for any slot. A new person key needs a new grant.
+
+  The first person slot changes who sees the vault (see "Gateway side"): from then on only the
+  logins with a person slot see it. Other tailnet members, tagged devices, and the `layr-desk`
+  disk and lists of a Mac whose login has no slot no longer see it in the list and cannot open
+  it through the gateway. So the owner grants their own login first. `grant` refuses, before it
+  writes anything, to give the first person slot to another login than the caller's (as the
+  gateway names it), unless the owner passes `--hide-from-others`.
 - `layr-desk person vaults --site <site>` unlocks the person key with the words, reads the index,
   and checks the `vault.json` of each pinned vault against its pin.
 
