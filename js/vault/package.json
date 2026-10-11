@@ -12,7 +12,8 @@
   "type": "module",
   "exports": {
     "./reader": "./src/reader.mjs",
-    "./keys": "./src/keys.mjs"
+    "./keys": "./src/keys.mjs",
+    "./person": "./src/person.mjs"
   },
   "scripts": {
     "test": "node --test test/*.test.mjs",

@@ -51,6 +51,11 @@ pub fn recipient_of(identity: &str) -> Result<String> {
     Ok(parse(identity)?.to_public().to_string())
 }
 
+/// Whether `recipient` is an `age1…` X25519 recipient.
+pub fn valid_recipient(recipient: &str) -> bool {
+    age::x25519::Recipient::from_str(recipient).is_ok()
+}
+
 /// Bytes encrypted to one recipient.
 pub fn encrypt(recipient: &str, data: &[u8]) -> Result<Vec<u8>> {
     let recipient = age::x25519::Recipient::from_str(recipient.trim())
