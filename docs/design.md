@@ -210,6 +210,9 @@ the Mac. It looks for new states every 2 minutes.
   the vault identity in the login Keychain (service `layr-desk`, account `<host>/<p>`), through
   the `security` tool so that a new build reads it without a prompt. A vault without a key
   shows a `LOCKED.txt` with this command. `layr-desk lock` removes the key.
+- `layr-desk status --site <site> --json` lists the vaults of a gateway and whether this Mac
+  keeps the key of each; `unlock --paper-file -` reads the words from stdin, for a program that
+  asks for them itself. `layr-desk service status` prints the installed agent as JSON.
 - `layr-desk service install --site <site>` writes the launchd agent `ws.layr.desk`: it starts
   at login, serves WebDAV on `127.0.0.1:8095` and mounts it at `~/Desk` with `mount_webdav`
   (the volume "Desk" in Finder, read only). `service remove` stops it.

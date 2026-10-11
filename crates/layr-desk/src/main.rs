@@ -66,6 +66,13 @@ enum Command {
         #[arg(long)]
         site: String,
     },
+    /// The vaults of a gateway and whether this Mac keeps the key of each (`unlock`)
+    Status {
+        #[arg(long)]
+        site: String,
+        #[arg(long)]
+        json: bool,
+    },
     /// The files of the latest state of a vault
     Ls(Target),
     /// Compare the latest state of a vault with a folder, file by file
@@ -130,6 +137,8 @@ enum Command {
 
 fn paper(target: &Target) -> Result<String> {
     match &target.paper_file {
+        // `-`: from stdin, for a program that asks the person for the words itself.
+        Some(file) if file.as_os_str() == "-" => Ok(std::io::read_to_string(std::io::stdin())?),
         Some(file) => Ok(std::fs::read_to_string(file)?),
         None => Ok(rpassword::prompt_password(
             "Paper key of the vault (hidden): ",
@@ -239,6 +248,29 @@ async fn main() -> Result<()> {
                     summary.bytes,
                     to.display()
                 );
+            }
+        }
+        Command::Status { site, json } => {
+            let keys = keystore::system()?;
+            let mut projects = Vec::new();
+            for name in gateway::Site::new(&site)?.projects().await? {
+                let unlocked = keys.get(&keystore::account(&site, &name)?)?.is_some();
+                projects.push(serde_json::json!({"name": name, "unlocked": unlocked}));
+            }
+            if json {
+                println!(
+                    "{}",
+                    serde_json::json!({"site": site, "projects": projects})
+                );
+            } else {
+                for p in &projects {
+                    let state = if p["unlocked"] == true {
+                        "unlocked"
+                    } else {
+                        "locked"
+                    };
+                    println!("{} {state}", p["name"].as_str().unwrap_or_default());
+                }
             }
         }
         Command::Unlock(target) => {

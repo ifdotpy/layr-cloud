@@ -18,6 +18,34 @@ pub enum Action {
     },
     /// Stop the agent and remove it
     Remove,
+    /// Whether the agent is installed, and its program and arguments, as JSON
+    Status,
+}
+
+fn unescape(text: &str) -> String {
+    text.replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&amp;", "&")
+}
+
+/// The program and arguments of the installed agent, from the plist that `install` wrote.
+fn installed_arguments() -> Result<Option<Vec<String>>> {
+    Ok(std::fs::read_to_string(plist()?)
+        .ok()
+        .and_then(|text| arguments_of(&text)))
+}
+
+fn arguments_of(text: &str) -> Option<Vec<String>> {
+    let start = text.find("<key>ProgramArguments</key>")?;
+    let rest = &text[start..];
+    let end = rest.find("</array>").unwrap_or(rest.len());
+    Some(
+        rest[..end]
+            .split("<string>")
+            .skip(1)
+            .filter_map(|part| part.split_once("</string>").map(|(v, _)| unescape(v)))
+            .collect(),
+    )
 }
 
 fn home() -> Result<PathBuf> {
@@ -42,6 +70,27 @@ fn escape(text: &str) -> String {
 pub fn run(action: Action) -> Result<()> {
     if !cfg!(target_os = "macos") {
         bail!("the disk service is for macOS");
+    }
+    if let Action::Status = action {
+        let arguments = installed_arguments()?;
+        let value = |flag: &str| {
+            arguments.as_ref().and_then(|a| {
+                a.iter()
+                    .position(|x| x == flag)
+                    .and_then(|i| a.get(i + 1).cloned())
+            })
+        };
+        println!(
+            "{}",
+            serde_json::json!({
+                "installed": arguments.is_some(),
+                "program": arguments.as_ref().and_then(|a| a.first().cloned()),
+                "site": value("--site"),
+                "port": value("--port").and_then(|p| p.parse::<u16>().ok()),
+                "at": value("--at"),
+            })
+        );
+        return Ok(());
     }
     let domain = domain()?;
     // A missing agent is not an error here.
@@ -106,6 +155,7 @@ pub fn run(action: Action) -> Result<()> {
                 path.display()
             );
         }
+        Action::Status => unreachable!("answered above"),
         Action::Remove => {
             // A disk that is not mounted is not an error here.
             let _ = Command::new("/sbin/umount")
@@ -119,4 +169,28 @@ pub fn run(action: Action) -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_status_reads_back_the_arguments_that_install_wrote() {
+        let arguments = [
+            "/A & B/layr-desk",
+            "mount",
+            "--site",
+            "https://d.example/<x>",
+        ];
+        let rows: String = arguments
+            .iter()
+            .map(|a| format!("    <string>{}</string>\n", escape(a)))
+            .collect();
+        let text = format!(
+            "<dict>\n  <key>Label</key>\n  <string>{LABEL}</string>\n  <key>ProgramArguments</key>\n  <array>\n{rows}  </array>\n  <key>StandardOutPath</key>\n  <string>/tmp/log</string>\n</dict>"
+        );
+        assert_eq!(arguments_of(&text).unwrap(), arguments);
+        assert_eq!(arguments_of("<dict></dict>"), None);
+    }
 }
