@@ -163,6 +163,32 @@ pub fn sign(
     signed
 }
 
+/// The base URL (scheme, host, port) and the path, not encoded yet, of an S3 key: virtual-hosted
+/// at the dual-stack endpoint of the region, so an IPv6-only host reaches it; path-style on a
+/// test endpoint and for a bucket name with a dot, which the certificate of that host does not
+/// cover.
+pub fn s3_location(
+    bucket: &str,
+    region: &str,
+    endpoint: Option<&str>,
+    key: &str,
+) -> (String, String) {
+    match endpoint {
+        Some(endpoint) => (
+            endpoint.trim_end_matches('/').to_string(),
+            format!("/{bucket}/{key}"),
+        ),
+        None if bucket.contains('.') => (
+            format!("https://s3.dualstack.{region}.amazonaws.com"),
+            format!("/{bucket}/{key}"),
+        ),
+        None => (
+            format!("https://{bucket}.s3.dualstack.{region}.amazonaws.com"),
+            format!("/{key}"),
+        ),
+    }
+}
+
 /// The text of each `<tag>…</tag>` element of an XML reply, in order, with entities decoded.
 pub fn xml_texts(xml: &str, tag: &str) -> Vec<String> {
     let (open, close) = (format!("<{tag}>"), format!("</{tag}>"));

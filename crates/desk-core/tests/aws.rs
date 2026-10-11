@@ -156,6 +156,29 @@ fn temporary_credentials_and_sts_match_the_javascript_sdk() {
 }
 
 #[test]
+fn s3_keys_are_at_the_dual_stack_endpoint() {
+    let key = "p/states/0000000001.0a1b2c3d.tree.age";
+    assert_eq!(
+        aws::s3_location("vault-1", "eu-central-1", None, key),
+        (
+            "https://vault-1.s3.dualstack.eu-central-1.amazonaws.com".to_string(),
+            format!("/{key}")
+        )
+    );
+    assert_eq!(
+        aws::s3_location("my.vault", "eu-central-1", None, key),
+        (
+            "https://s3.dualstack.eu-central-1.amazonaws.com".to_string(),
+            format!("/my.vault/{key}")
+        )
+    );
+    assert_eq!(
+        aws::s3_location("b", "us-east-1", Some("http://127.0.0.1:9/"), ""),
+        ("http://127.0.0.1:9".to_string(), "/b/".to_string())
+    );
+}
+
+#[test]
 fn dates_queries_and_xml() {
     assert_eq!(aws::amz_date(0), "19700101T000000Z");
     assert_eq!(aws::amz_date(DOC_TIME), "20130524T000000Z");

@@ -1,4 +1,5 @@
-//! layr-desk: read vaults through a gateway, and show them as a network disk on a Mac.
+//! layr-desk: the gateway, a reader of vaults through it, a network disk on a Mac, and the writer
+//! that pushes project states into a vault.
 //!
 //!   layr-desk ls      --site https://desk.example.com --project <p> [--paper-file <file>]
 //!   layr-desk verify  --site https://desk.example.com --project <p> --source <folder>
@@ -8,6 +9,7 @@
 //!   layr-desk mount   --site https://desk.example.com [--port 8095] [--at ~/Desk]
 //!   layr-desk service install|remove --site https://desk.example.com [--port 8095]
 //!   layr-desk serve   [--config /etc/vault-gateway/config.json] [--tls files|tailscale|none]
+//!   layr-desk push    --project <p> --state-dir <folder> [--config <file>]   (on the project's host)
 //!
 //! The paper key comes from `--paper-file` (24 words or the age form) or from a hidden prompt.
 
@@ -15,8 +17,10 @@ mod aws;
 mod disk;
 mod gateway;
 mod keystore;
+mod push;
 mod restore;
 mod routes;
+mod s3;
 mod serve;
 mod service;
 mod tls;
@@ -120,6 +124,8 @@ enum Command {
     },
     /// The gateway: serve the Desk site and the API of every vault in the configuration
     Serve(serve::Options),
+    /// Push the main head of a layr project into its vault (the writer)
+    Push(push::Push),
 }
 
 fn paper(target: &Target) -> Result<String> {
@@ -155,25 +161,6 @@ async fn open(target: &Target) -> Result<Reader<gateway::Vault>> {
     Reader::new(vault, &identity, &names)
 }
 
-/// The bytes and mode of a file or link of the source folder, as the writer reads them.
-fn content(path: &Path) -> Result<(Vec<u8>, &'static str)> {
-    let meta = std::fs::symlink_metadata(path)?;
-    if meta.file_type().is_symlink() {
-        use std::os::unix::ffi::OsStrExt;
-        return Ok((
-            std::fs::read_link(path)?.as_os_str().as_bytes().to_vec(),
-            "120000",
-        ));
-    }
-    use std::os::unix::fs::PermissionsExt;
-    let mode = if meta.permissions().mode() & 0o111 != 0 {
-        "100755"
-    } else {
-        "100644"
-    };
-    Ok((std::fs::read(path)?, mode))
-}
-
 #[tokio::main]
 async fn main() -> Result<()> {
     match Cli::parse().command {
@@ -195,7 +182,7 @@ async fn main() -> Result<()> {
             let mut problems = 0;
             for (path, entry) in &files {
                 let data = reader.read(entry).await?;
-                let (want, mode) = content(&source.join(path))?;
+                let (want, mode) = desk_core::writer::content(&source.join(path))?;
                 if Sha256::digest(&data) != Sha256::digest(&want) || mode != entry.mode() {
                     println!("differs: {path}");
                     problems += 1;
@@ -283,6 +270,7 @@ async fn main() -> Result<()> {
         }
         Command::Service { action } => service::run(action)?,
         Command::Serve(options) => serve::run(options).await?,
+        Command::Push(args) => push::run(args).await?,
     }
     Ok(())
 }

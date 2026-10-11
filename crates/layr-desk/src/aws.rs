@@ -335,20 +335,12 @@ impl S3 {
     /// The base URL and path of a key: virtual-hosted on AWS, path-style on a test endpoint or
     /// for a bucket name with a dot.
     fn target(&self, key: &str) -> (String, String) {
-        match &self.aws.s3_endpoint {
-            Some(endpoint) => (endpoint.clone(), format!("/{}/{key}", self.bucket)),
-            None if self.bucket.contains('.') => (
-                format!("https://s3.dualstack.{}.amazonaws.com", self.region),
-                format!("/{}/{key}", self.bucket),
-            ),
-            None => (
-                format!(
-                    "https://{}.s3.dualstack.{}.amazonaws.com",
-                    self.bucket, self.region
-                ),
-                format!("/{key}"),
-            ),
-        }
+        aws::s3_location(
+            &self.bucket,
+            &self.region,
+            self.aws.s3_endpoint.as_deref(),
+            key,
+        )
     }
 
     async fn call(

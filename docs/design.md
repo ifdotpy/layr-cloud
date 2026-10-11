@@ -64,36 +64,58 @@ Plaintext: one header line of JSON, a newline, then one zstd frame.
  "tree": "full" | "delta", "base": [11, "0a9b8c7d"], "parts": 2, "attempt": "1f2e3d4c"}
 ```
 
-The frame holds the canonical tree JSON: `{"files": {"<path>": [mode, size, sha256, ref]}}`
-with sorted keys. `tree: "delta"` means the frame is compressed with the canonical tree of
+The frame holds the canonical tree JSON: `{"files": {"<path>": [mode, size, sha256, chain]}}`
+with sorted keys, as Python's `json.dumps(tree, sort_keys=True, separators=(",", ":"))` writes it
+(non-ASCII as `\uXXXX`). `tree: "delta"` means the frame is compressed with the canonical tree of
 `base` (`[seq, attempt]` of the previous push) as its zstd prefix (`zstd --patch-from`). A full tree is written at
 least every 32 seq.
 
-`ref` is `[seq, attempt, part, offset, length, kind, base_ref]`: the bytes at `offset` and
-`length` of the decrypted data part are one zstd frame of the file content. `kind` is
-`"full"`, or `"delta"`, compressed with the content of the `base_ref` version as its prefix.
-A delta chain is at most 16 versions long. Mode is octal text (`"100644"`, `"100755"`,
-`"120000"` for a symbolic link, whose content is its target).
+`chain` lists the frames of the file, newest first: each is `[seq, attempt, part, offset,
+length, kind]`, and the bytes at `offset` and `length` of the decrypted data part are one zstd
+frame. The last frame is `"full"`; a `"delta"` frame is compressed with the content of the next
+frame's version as its prefix. A chain has at most 16 deltas. Mode is octal text (`"100644"`,
+`"100755"`, `"120000"` for a symbolic link, whose content is its target).
 
 ### Data part
 
 The concatenated frames. A part holds up to 16 MiB of frames; a larger frame has its own part.
 
-## Writer (VM)
+## Writer
 
-`vault.push` in the root broker, for one project:
+`layr-desk push --project <p> --state-dir <folder> [--config <file>]` pushes the main head of one
+layr project; the host of the project runs it as the owner of the layr store. The configuration
+(a file, or standard input) is JSON: `bucket`, `region`, `prefix`, `recipient`, `accessKeyId`,
+`secretAccessKey`, and `endpoint` for a test store. The command prints a JSON summary.
 
-1. Read the main head state. Without changes since the last push, stop.
-2. The base folder `layr-admin/vault/<project>/base` is a `layr export` of the last pushed
-   state. `layr diff --name-status <last> <head>` lists the changed paths; the first push
-   takes every file.
-3. For a changed file: its new content from `layr show <head>:<path>`; a delta against the base
-   folder when the previous version exists and the delta is smaller; else a full frame.
-4. Encrypt each object with `age -r <recipient>` and put the parts, then the tree.
-5. Update the base folder with `layr export <head>` and record the pushed state.
+1. `layr rev-parse main` names the head. When the record names this state, stop.
+2. The export folders `a` and `b` take turns: `layr export <head>` fills one; the other holds
+   the last pushed state. `layr diff --name-status <last> <head>` names the changed paths. The
+   writer also looks at every added or removed path and at every path with a tab or a line
+   break, which a diff line cannot carry. The first push takes every file.
+3. A changed file gets a delta frame against its version in the other folder when that is the
+   version of the last push, its chain has fewer than 16 deltas, the file has at most 32 MiB,
+   and the delta is smaller; else a full frame. Frames are zstd level 3. A delta frame is made
+   as `zstd --patch-from` makes it: the window covers the larger input (at most 2^27 bytes,
+   which every decoder takes by default) and long-distance matching is on. Without that, a file
+   above 2 MiB gains almost nothing from its base.
+4. Each object is encrypted with `age` to the vault recipient. The parts go first, each when it
+   is full, then the tree. A push that stops before its tree leaves no state, and the next push
+   uses a new attempt.
+5. The state folder keeps the canonical tree (`tree.json`) and the record (`writer.json`:
+   `seq`, `attempt`, `state`, `side`, `since_full`). The old record goes first and the new one
+   comes last, so a stop between them leaves no record.
 
-The writer reads its last `seq` from `ListObjectsV2` (`states/`, names only) when its record is
-missing, and then starts with a full tree and full files.
+Without a record, or with a record that does not match `tree.json`, the push is full: a full
+tree, full files, and the `seq` after the highest tree that `ListObjectsV2` (`states/`, names
+only) shows.
+
+The Python writer (`python/vault_writer.py`) keeps the same state folder, so each writer
+continues a folder of the other. The S3 client is a small one of its own, with no SDK:
+`desk-core` signs (SigV4) and finds the dual-stack endpoint
+`<bucket>.s3.dualstack.<region>.amazonaws.com`, as for the gateway, so a host with IPv6 only
+reaches S3; `crates/layr-desk/src/s3.rs` sends the two requests over rustls with the key of the
+configuration. The time limit of a put grows with its size (2 minutes plus 1 second for each
+100 kB), so a large part on a slow line is not cut off.
 
 ## Reader
 
