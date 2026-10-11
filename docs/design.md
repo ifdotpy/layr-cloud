@@ -128,14 +128,35 @@ One gateway for all projects, in the user's account (`vault-gateway.mjs`):
 
 ## Gateway
 
-`gateway/` in `studio-vault`: `server.mjs` (site and API), `main.mjs` (TLS on the tailnet
-address only), `sync.py` (runs as root at first boot and every 5 minutes). `sync.py` joins the
-tailnet with the auth key from SSM (`tag:vault`, Tailscale SSH on), installs the release that
-`release.json` names, writes `/etc/vault-gateway/config.json` from `gateway/projects/`, points the
-host's public `A` record at the tailnet address (100.x, which only the tailnet can reach), gets a
-Let's Encrypt certificate by DNS challenge, and keeps `vault-gateway.service` running
-(`DynamicUser`, read-only system). Unattended upgrades, Tailscale's included, reboot at 04:30
-when needed.
+`layr-desk serve` (Rust) is the server. A release (`js/vault/gateway/build.mjs`) holds the
+program (static, `aarch64-unknown-linux-musl`, built with `cargo zigbuild`), the built site and
+`sync.py`, which runs as root at first boot and every 5 minutes. `sync.py` joins the tailnet with
+the auth key from SSM (`tag:vault`, Tailscale SSH on), installs the release that `release.json`
+names, writes `/etc/vault-gateway/config.json` from `gateway/projects/`, points the host's public
+`A` record at the tailnet address (100.x, which only the tailnet can reach), gets a Let's Encrypt
+certificate by DNS challenge, and keeps `vault-gateway.service` running (`DynamicUser`, read-only
+system). Unattended upgrades, Tailscale's included, reboot at 04:30 when needed.
+
+The server reads the configuration again when its modification time changes, and listens on its
+`listen` address. It has no AWS SDK: it takes the instance role from IMDSv2 (over IPv6 with
+`AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE=IPv6`), assumes each vault's reader role through STS
+(session `vault-gateway`), and calls the dual-stack STS and S3 endpoints of the vault's region;
+`desk-core` signs (SigV4).
+
+The certificate: `--tls files` (the default) reads `tls.crt` and `tls.key` from the systemd
+credentials (certbot's files; certbot's deploy hook restarts the service), or the files of
+`--cert` and `--key`, and reads them again when they change. A host without a domain of its own
+uses its tailnet name with `--tls tailscale`: the server asks `tailscale status --json` for the
+name (`Self.DNSName`) and reads `<name>.crt` and `<name>.key` in `--tls-dir`
+(`/etc/vault-gateway/tls`). HTTPS certificates must be on in the tailnet; then, as root, once and
+then daily:
+
+    tailscale cert --cert-file /etc/vault-gateway/tls/<name>.crt \
+      --key-file /etc/vault-gateway/tls/<name>.key <name>
+
+The server serves a renewed certificate from the next connection on. Its user must be able to
+read the key, and `host` in the configuration is then `<name>`. `--tls none` serves plain HTTP, on a loopback address only (the
+site e2e).
 
 API, per vault `<p>`: `GET /api/projects`, `GET /api/p/<p>/slots`, `GET /api/p/<p>/challenge`,
 and with `Authorization: Bearer <token>`: `GET /api/p/<p>/states`, `GET /api/p/<p>/states/<name>`,

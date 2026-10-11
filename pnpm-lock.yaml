@@ -199,10 +199,6 @@ importers:
       age-encryption:
         specifier: 0.3.1
         version: 0.3.1
-    devDependencies:
-      esbuild:
-        specifier: 0.28.2
-        version: 0.28.2
 
   web:
     dependencies:
@@ -1659,6 +1655,7 @@ snapshots:
       '@esbuild/win32-arm64': 0.28.2
       '@esbuild/win32-ia32': 0.28.2
       '@esbuild/win32-x64': 0.28.2
+    optional: true
 
   fdir@6.5.0(picomatch@4.0.7):
     optionalDependencies:

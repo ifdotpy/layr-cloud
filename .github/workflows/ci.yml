@@ -24,4 +24,6 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
         working-directory: web
       - run: pnpm test
+      - run: cargo build --locked -p layr-desk
+      - run: pnpm --filter layr-desk-web run test:e2e:rust
       - run: python3 -m unittest discover -s python -p 'test_*.py'

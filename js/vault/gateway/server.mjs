@@ -1,5 +1,5 @@
-// The vault gateway's HTTP side (docs/vault.md, "Gateway"): the site, and the API of every vault
-// in the configuration. main.mjs serves it with TLS on the tailnet address only.
+// The vault gateway's HTTP side (docs/design.md, "Gateway"): the site, and the API of every vault
+// in the configuration. Releases run `layr-desk serve` instead; this stays for the tests.
 import { createReadStream, statSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { pipeline } from "node:stream/promises";

@@ -7,16 +7,24 @@
 //!   layr-desk unlock  --site https://desk.example.com --project <p>   (keeps the key in Keychain)
 //!   layr-desk mount   --site https://desk.example.com [--port 8095] [--at ~/Desk]
 //!   layr-desk service install|remove --site https://desk.example.com [--port 8095]
+//!   layr-desk serve   [--config /etc/vault-gateway/config.json] [--tls files|tailscale|none]
 //!
 //! The paper key comes from `--paper-file` (24 words or the age form) or from a hidden prompt.
 
+mod aws;
 mod disk;
 mod gateway;
 mod keystore;
 mod restore;
+mod routes;
+mod serve;
 mod service;
+mod tls;
+mod vault;
 mod webdav;
 
+#[cfg(test)]
+mod serve_tests;
 #[cfg(test)]
 mod tests;
 
@@ -110,6 +118,8 @@ enum Command {
         #[command(subcommand)]
         action: service::Action,
     },
+    /// The gateway: serve the Desk site and the API of every vault in the configuration
+    Serve(serve::Options),
 }
 
 fn paper(target: &Target) -> Result<String> {
@@ -272,6 +282,7 @@ async fn main() -> Result<()> {
             serve(disk, port, at).await?;
         }
         Command::Service { action } => service::run(action)?,
+        Command::Serve(options) => serve::run(options).await?,
     }
     Ok(())
 }

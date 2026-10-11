@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Converge the vault gateway with its artifacts bucket (docs/vault.md, "Gateway").
+"""Converge the vault gateway with its artifacts bucket (docs/design.md, "Gateway").
 
 Runs as root at first boot and then every 5 minutes from its own timer. Each step is idempotent:
 join the tailnet, install a new release, write the configuration, point the host at the tailnet
@@ -42,7 +42,7 @@ ENV = "".join(f"Environment={name}={value}\n" for name, value in AWS_ENV.items()
 CERTBOT_ENV = f"[Service]\n{ENV}"
 
 SYNC_SERVICE = f"""[Unit]
-Description=Studio vault gateway sync
+Description=layr-desk gateway sync
 After=network-online.target tailscaled.service
 Wants=network-online.target
 
@@ -51,7 +51,7 @@ Type=oneshot
 {ENV}ExecStart=/usr/bin/python3 {APP}/current/sync.py
 """
 SYNC_TIMER = """[Unit]
-Description=Studio vault gateway sync every 5 minutes
+Description=layr-desk gateway sync every 5 minutes
 
 [Timer]
 OnBootSec=1min
@@ -65,15 +65,13 @@ WantedBy=timers.target
 def gateway_service(host: str) -> str:
     live = f"/etc/letsencrypt/live/{host}"
     return f"""[Unit]
-Description=Studio vault gateway
+Description=layr-desk gateway
 After=network-online.target tailscaled.service
 Wants=network-online.target
 
 [Service]
-ExecStart=/usr/bin/node {APP}/current/gateway.mjs
-{ENV}# The AWS SDK reads files below the home folder, and a dynamic user has none.
-Environment=HOME=/nonexistent
-LoadCredential=tls.crt:{live}/fullchain.pem
+ExecStart={APP}/current/layr-desk serve --config {CONFIG}
+{ENV}LoadCredential=tls.crt:{live}/fullchain.pem
 LoadCredential=tls.key:{live}/privkey.pem
 DynamicUser=yes
 AmbientCapabilities=CAP_NET_BIND_SERVICE

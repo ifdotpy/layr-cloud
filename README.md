@@ -20,7 +20,7 @@ The design, the key model and the AWS setup are in [docs/design.md](docs/design.
 | Folder             | What                                                                       |
 | ------------------ | -------------------------------------------------------------------------- |
 | `crates/desk-core` | Rust library: keys, slots, paper words, the object format and the reader   |
-| `crates/layr-desk` | the `layr-desk` command: read, verify and mount vaults through a gateway   |
+| `crates/layr-desk` | the `layr-desk` command: the gateway, and read, verify and mount vaults    |
 | `js/vault`         | keys, reader, gateway, CloudFormation templates and the `vault-*` commands |
 | `web`              | the Desk site                                                              |
 | `python`           | the writer and its S3 client                                               |
@@ -36,5 +36,6 @@ Rust replacement.
 pnpm install
 cargo test
 pnpm test                                   # library and gateway tests, then the site e2e
+cargo build -p layr-desk && pnpm --filter layr-desk-web run test:e2e:rust   # e2e on layr-desk serve
 python3 -m unittest discover -s python -p 'test_*.py'
 ```
