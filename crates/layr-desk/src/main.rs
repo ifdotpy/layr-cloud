@@ -12,6 +12,9 @@
 //!   layr-desk push    --project <p> --state-dir <folder> [--config <file>]   (on the project's host)
 //!   layr-desk keys    --project <p>   (shows the paper key of a new vault, in a terminal only)
 //!   layr-desk deploy  --project <p> --profile <aws profile> [--writer <command>] [--new-writer-key]
+//!   layr-desk person keys [--site <site>]   (shows the paper key of your person key, in a terminal)
+//!   layr-desk person show | person vaults --site <site>
+//!   layr-desk grant   --project <p> --person <login> --recipient age1…   (a person slot and an invite)
 //!   layr-desk aws-login --profile <aws profile>     layr-desk aws-profiles [--json]
 //!
 //! The paper key comes from `--paper-file` (24 words or the age form) or from a hidden prompt.
@@ -21,6 +24,7 @@ mod disk;
 mod gateway;
 mod keystore;
 mod people;
+mod person;
 mod profile;
 mod push;
 mod restore;
@@ -144,6 +148,13 @@ enum Command {
     Keys(setup::Keys),
     /// Make or update the AWS side of a vault with an AWS profile, and give the writer its keys
     Deploy(setup::Deploy),
+    /// Your person key: one key that opens every vault that you are given
+    Person {
+        #[command(subcommand)]
+        action: person::Action,
+    },
+    /// Give a person a vault: a person slot sealed to their recipient, and an invite
+    Grant(person::Grant),
     /// Sign in to an AWS profile through IAM Identity Center (the device flow)
     AwsLogin {
         #[arg(long)]
@@ -375,6 +386,8 @@ async fn command() -> Result<()> {
         Command::Push(args) => push::run(args).await?,
         Command::Keys(args) => setup::keys(args)?,
         Command::Deploy(args) => setup::deploy(args).await?,
+        Command::Person { action } => person::run(action).await?,
+        Command::Grant(args) => person::grant(args).await?,
         Command::AwsLogin { profile, json } => {
             let profile = profile::Profile::load(&profile)?;
             profile

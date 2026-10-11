@@ -1,12 +1,16 @@
 //! A client of the gateway API (docs/design.md, "Gateway"): the slots and the vault.json of a
 //! vault, and its state objects with a token that only a holder of the vault identity can get.
+//! The person records of the caller, and the inbox of another person (docs/design.md, "Person
+//! key").
 
 use anyhow::{anyhow, bail, Context, Result};
 use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine;
 use desk_core::{keys, Policy, Store, VaultInfo};
-use reqwest::StatusCode;
+use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
+use reqwest::{Method, StatusCode};
 use serde::Deserialize;
+use serde_json::{json, Value};
 use tokio::sync::Mutex;
 
 #[derive(Clone)]
@@ -35,6 +39,23 @@ impl Slot {
     pub fn bytes(&self) -> Result<Vec<u8>> {
         Ok(B64.decode(&self.data)?)
     }
+}
+
+/// The caller's person records, as `GET /api/person` gives them.
+#[derive(Deserialize)]
+pub struct Person {
+    pub login: String,
+    /// None before the person registers a key at this gateway.
+    pub recipient: Option<String>,
+    pub slots: Vec<Slot>,
+    /// The sealed index, base64.
+    pub index: Option<String>,
+    pub inbox: Vec<Invite>,
+}
+
+#[derive(Deserialize)]
+pub struct Invite {
+    pub from: String,
 }
 
 #[derive(Deserialize)]
@@ -71,6 +92,59 @@ impl Site {
             bail!("GET {path}: HTTP {}", response.status());
         }
         Ok(response.json().await?)
+    }
+
+    /// A call with a JSON body; a reply that is not a success fails with the gateway's message.
+    async fn call(&self, method: Method, path: &str, body: Option<&Value>) -> Result<Value> {
+        let url = self.base.join(path)?;
+        let mut request = self.http.request(method.clone(), url.clone());
+        if let Some(body) = body {
+            request = request.json(body);
+        }
+        let response = request
+            .send()
+            .await
+            .with_context(|| format!("{method} {url}"))?;
+        let status = response.status();
+        let reply: Value = response.json().await.unwrap_or(Value::Null);
+        if !status.is_success() {
+            let message = reply["error"].as_str().unwrap_or_default();
+            bail!("{method} {path}: HTTP {status} {message}");
+        }
+        Ok(reply)
+    }
+
+    /// The caller's person records; the gateway knows the caller through the tailnet.
+    pub async fn person(&self) -> Result<Person> {
+        let reply = self.call(Method::GET, "api/person", None).await?;
+        Ok(serde_json::from_value(reply)?)
+    }
+
+    /// Register a person key: its recipient and its paper slot. The login, and whether the key is
+    /// new at this gateway.
+    pub async fn register(&self, recipient: &str, paper: &[u8]) -> Result<(String, bool)> {
+        let body = json!({"recipient": recipient, "paper": B64.encode(paper)});
+        let reply = self.call(Method::PUT, "api/person", Some(&body)).await?;
+        let login = reply["login"].as_str().unwrap_or_default().to_string();
+        Ok((login, reply["new"] == true))
+    }
+
+    /// Drop a sealed invite into the inbox of `login`: its id.
+    pub async fn drop_invite(&self, login: &str, sealed: &[u8]) -> Result<String> {
+        let path = format!(
+            "api/people/{}/inbox",
+            utf8_percent_encode(login, NON_ALPHANUMERIC)
+        );
+        let body = json!({ "data": B64.encode(sealed) });
+        let reply = self.call(Method::POST, &path, Some(&body)).await?;
+        Ok(reply["id"].as_str().unwrap_or_default().to_string())
+    }
+
+    /// The public part of the vault.json of a vault, as the gateway serves it.
+    pub async fn vault_info(&self, project: &str) -> Result<VaultInfo> {
+        let path = format!("api/p/{project}/vault");
+        let reply = self.call(Method::GET, &path, None).await?;
+        Ok(serde_json::from_value(reply)?)
     }
 
     /// The vaults that this gateway serves.

@@ -1,6 +1,6 @@
 //! The S3 client of the writer: a put of a new object (`If-None-Match: *`) and ListObjectsV2,
-//! which is all that its write-only key may do; `deploy` also reads and replaces vault.json with
-//! a person's key. `send` signs any AWS call. desk_core::aws signs and finds the dual-stack
+//! which is all that its write-only key may do; `deploy` also reads and replaces vault.json, and
+//! `grant` reads slots and puts a person slot, with a person's key. `send` signs any AWS call. desk_core::aws signs and finds the dual-stack
 //! endpoint, as for the gateway (src/aws.rs); this client differs in its credentials (the key of
 //! the vault configuration, no role) and in its time limits, which grow with the size of a part.
 //! reqwest takes its roots from webpki-roots, so a static binary needs no certificate store.
@@ -55,6 +55,18 @@ impl S3 {
         headers: &[(&str, &str)],
         body: Vec<u8>,
     ) -> Result<(u16, String)> {
+        let (status, reply) = self.call_bytes(method, key, query, headers, body).await?;
+        Ok((status, String::from_utf8_lossy(&reply).into_owned()))
+    }
+
+    async fn call_bytes(
+        &self,
+        method: Method,
+        key: &str,
+        query: &[(&str, &str)],
+        headers: &[(&str, &str)],
+        body: Vec<u8>,
+    ) -> Result<(u16, Vec<u8>)> {
         let (base, path) =
             aws::s3_location(&self.bucket, &self.region, self.endpoint.as_deref(), key);
         // A time limit for the whole call: reqwest's read timeout would end an upload that
@@ -68,7 +80,7 @@ impl S3 {
             headers,
             body,
         };
-        send(
+        send_bytes(
             &self.http,
             call,
             &self.credentials,
@@ -77,6 +89,20 @@ impl S3 {
             limit,
         )
         .await
+    }
+
+    /// An object, or None when there is none.
+    pub async fn get(&self, key: &str) -> Result<Option<Vec<u8>>> {
+        let (status, reply) = self
+            .call_bytes(Method::GET, key, &[], &[], Vec::new())
+            .await
+            .with_context(|| format!("S3 get {key}"))?;
+        let text = String::from_utf8_lossy(&reply);
+        match status {
+            200 => Ok(Some(reply)),
+            404 if aws::xml_text(&text, "Code").as_deref() == Some("NoSuchKey") => Ok(None),
+            _ => Err(failure(&format!("S3 get {key}"), status, &text)),
+        }
     }
 
     /// A text object, or None when there is none.
@@ -131,6 +157,18 @@ pub async fn send(
     service: &str,
     limit: Duration,
 ) -> Result<(u16, String)> {
+    let (status, reply) = send_bytes(http, call, credentials, region, service, limit).await?;
+    Ok((status, String::from_utf8_lossy(&reply).into_owned()))
+}
+
+async fn send_bytes(
+    http: &reqwest::Client,
+    call: Call<'_>,
+    credentials: &Credentials,
+    region: &str,
+    service: &str,
+    limit: Duration,
+) -> Result<(u16, Vec<u8>)> {
     let url = reqwest::Url::parse(call.base)?;
     // The Host header that reqwest sends: the port only when it is not the default one.
     let host = match (url.host_str(), url.port()) {
@@ -175,7 +213,7 @@ pub async fn send(
     }
     let response = request.send().await?;
     let status = response.status().as_u16();
-    Ok((status, response.text().await?))
+    Ok((status, response.bytes().await?.to_vec()))
 }
 
 /// What a failed call says: S3's code and message, which hold no secret.
