@@ -1,6 +1,7 @@
-//! The person index and invites against vectors (person-vectors.json): an index that the
-//! JavaScript implementation sealed opens here with its MAC, and the index and invite that this
-//! crate sealed open in JavaScript (js/vault/test/person.test.mjs).
+//! The person index and invites against vectors (person-vectors.json, made once with test keys):
+//! an index that the JavaScript implementation sealed (`sealIndex`) opens here with its MAC, and
+//! the index and invite that this crate sealed (`seal_index`, `seal_invite`) open here and in
+//! JavaScript (js/vault/test/person.test.mjs).
 
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
@@ -15,23 +16,6 @@ fn pins(v: &Value) -> Index {
     Index {
         vaults: serde_json::from_value::<Vec<Pin>>(v["pins"].clone()).unwrap(),
     }
-}
-
-#[test]
-#[ignore = "writes person-vectors.json; run once, then run the JavaScript side"]
-fn write_the_rust_vectors() {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/person-vectors.json");
-    let mut v: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
-    let identity = v["identity"].as_str().unwrap().to_string();
-    let index = pins(&v);
-    v["rustIndex"] = STANDARD
-        .encode(person::seal_index(&identity, &index).unwrap())
-        .into();
-    let recipient = desk_core::keys::recipient_of(&identity).unwrap();
-    v["rustInvite"] = STANDARD
-        .encode(person::seal_invite(&recipient, &index.vaults[0]).unwrap())
-        .into();
-    std::fs::write(path, serde_json::to_string_pretty(&v).unwrap() + "\n").unwrap();
 }
 
 #[test]
