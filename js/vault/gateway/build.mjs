@@ -7,8 +7,7 @@ import { cpSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 
 const here = new URL(".", import.meta.url).pathname;
 const out = new URL("../dist/gateway/", import.meta.url).pathname;
-const site = new URL("../../../../client/apps/vault-web/", import.meta.url)
-  .pathname;
+const site = new URL("../../../web/", import.meta.url).pathname;
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 execFileSync("pnpm", ["run", "build"], {

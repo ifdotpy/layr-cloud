@@ -1,14 +1,16 @@
 #!/usr/bin/env node
 // Deploy or update the AWS side of a project vault (cloud/template.yaml) with the keys that
-// vault-keys made, register the vault with the gateway (vault-gateway), and give the VM a
+// vault-keys made, register the vault with the gateway (vault-gateway), and give the writer a
 // write-only key.
 //
 //   node vault-deploy.mjs --project <prefix> --profile <aws profile> --region <region>
-//        [--folder <Studio project folder>] [--new-writer-key]
+//        [--writer <command>] [--new-writer-key]
 //
 // The vault may live in another AWS account than the gateway: --profile names the vault's account.
-// --folder configures the VM (codex_vault.py configure) when the writer has no key yet or
-// --new-writer-key asks for one; the secret goes through a pipe, never to a file.
+// --writer names a shell command that reads the writer configuration (bucket, region, prefix,
+// recipient and a new access key) as JSON on stdin and stores it where the writer runs. It runs
+// when the writer has no key yet or --new-writer-key asks for one. The secret goes through the
+// pipe, never to a file, and the key is deleted again if the command fails.
 import {
   CreateAccessKeyCommand,
   DeleteAccessKeyCommand,
@@ -28,7 +30,6 @@ import {
   CloudFormationClient,
   awsConfig,
   deployStack,
-  here,
   settings,
 } from "../src/cloud.mjs";
 
@@ -37,13 +38,13 @@ const { values: args } = parseArgs({
     project: { type: "string" },
     profile: { type: "string" },
     region: { type: "string", default: "eu-central-1" },
-    folder: { type: "string" },
+    writer: { type: "string" },
     "new-writer-key": { type: "boolean", default: false },
   },
 });
 if (!args.project || !args.profile) {
   console.error(
-    "usage: vault-deploy --project <prefix> --profile <aws profile> [--region <region>] [--folder <project folder>] [--new-writer-key]",
+    "usage: vault-deploy --project <prefix> --profile <aws profile> [--region <region>] [--writer <command>] [--new-writer-key]",
   );
   process.exit(2);
 }
@@ -126,8 +127,8 @@ await new S3Client(
   }),
 );
 
-// 4. A write-only key for the VM, passed through a pipe.
-if (args.folder) {
+// 4. A write-only key for the writer, passed through a pipe.
+if (args.writer) {
   const listed = (
     await iam.send(
       new ListAccessKeysCommand({ UserName: outputs.WriterUserName }),
@@ -139,21 +140,18 @@ if (args.folder) {
         new CreateAccessKeyCommand({ UserName: outputs.WriterUserName }),
       )
     ).AccessKey;
-    const configure = spawnSync(
-      "python3",
-      [join(here, "../server/src/codex_vault.py"), "configure", args.folder],
-      {
-        input: JSON.stringify({
-          bucket: outputs.BucketName,
-          region: args.region,
-          prefix: args.project,
-          recipient,
-          accessKeyId: key.AccessKeyId,
-          secretAccessKey: key.SecretAccessKey,
-        }),
-        stdio: ["pipe", "inherit", "inherit"],
-      },
-    );
+    const configure = spawnSync(args.writer, {
+      shell: true,
+      input: JSON.stringify({
+        bucket: outputs.BucketName,
+        region: args.region,
+        prefix: args.project,
+        recipient,
+        accessKeyId: key.AccessKeyId,
+        secretAccessKey: key.SecretAccessKey,
+      }),
+      stdio: ["pipe", "inherit", "inherit"],
+    });
     if (configure.status !== 0) {
       await iam.send(
         new DeleteAccessKeyCommand({
@@ -162,7 +160,7 @@ if (args.folder) {
         }),
       );
       throw new Error(
-        "the VM did not take the writer key; the key is deleted again",
+        "the writer command did not take the key; the key is deleted again",
       );
     }
     for (const old of listed)

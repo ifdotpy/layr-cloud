@@ -4,7 +4,7 @@
 // alone, the same passkey opens the second vault, files download and show in Quick Look with
 // the writer's content, and a passkey is removed.
 //
-//   pnpm --filter studio-vault-web run build && node tests/site.e2e.mjs
+//   pnpm --filter layr-desk-web run build && node tests/site.e2e.mjs
 import { chromium } from "playwright";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -12,21 +12,19 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import http from "node:http";
 import { join, relative } from "node:path";
 import { Readable } from "node:stream";
-import { makeGateway } from "../../../../runtime/apps/vault/gateway/server.mjs";
-import { makeVault } from "../../../../runtime/apps/vault/src/service.mjs";
+import { makeGateway } from "../../js/vault/gateway/server.mjs";
+import { makeVault } from "../../js/vault/src/service.mjs";
 import {
   generateIdentity,
   recipientOf,
   identityFromPaper,
   sealSlot,
   wordsOfIdentity,
-} from "../../../../runtime/apps/vault/src/keys.mjs";
+} from "../../js/vault/src/keys.mjs";
 
 const dist = new URL("../dist/", import.meta.url).pathname;
-const fixture = new URL(
-  "../../../../runtime/apps/vault/test/fixture/",
-  import.meta.url,
-).pathname;
+const fixture = new URL("../../js/vault/test/fixture/", import.meta.url)
+  .pathname;
 const vaultIdentity = readFileSync(
   join(fixture, "identity.txt"),
   "utf8",

@@ -1,0 +1,5 @@
+node_modules/
+dist/
+target/
+web/public/zstd.wasm
+__pycache__/

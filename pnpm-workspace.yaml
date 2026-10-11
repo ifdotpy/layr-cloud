@@ -1,0 +1,7 @@
+packages:
+  - "js/*"
+  - "web"
+
+allowBuilds:
+  esbuild: true
+  playwright: true

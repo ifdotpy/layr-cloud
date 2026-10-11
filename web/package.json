@@ -1,5 +1,5 @@
 {
-  "name": "studio-vault-web",
+  "name": "layr-desk-web",
   "version": "1.0.0",
   "private": true,
   "description": "The vault site (docs/vault.md): unlock with a passkey or the paper key, browse, download",
@@ -10,7 +10,7 @@
     "test:e2e": "node tests/site.e2e.mjs"
   },
   "dependencies": {
-    "studio-vault": "workspace:*"
+    "layr-desk-js": "workspace:*"
   },
   "devDependencies": {
     "@bokuweb/zstd-wasm": "0.0.27",

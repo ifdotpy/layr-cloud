@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import { join } from "node:path";
 
 const require = createRequire(
-  new URL("../../../../runtime/apps/vault/package.json", import.meta.url),
+  new URL("../../js/vault/package.json", import.meta.url),
 );
 const entry = require.resolve("@bokuweb/zstd-wasm");
 const root = entry.slice(0, entry.lastIndexOf("/dist/"));

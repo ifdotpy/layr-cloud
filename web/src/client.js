@@ -1,5 +1,5 @@
 // The gateway API, the passkeys and the reader of the site (docs/vault.md, "Gateway").
-import { VaultReader, zstdReady } from "studio-vault/reader";
+import { VaultReader, zstdReady } from "layr-desk-js/reader";
 import {
   decryptWith,
   identityFromPaper,
@@ -8,7 +8,7 @@ import {
   prfSalt,
   recipientOf,
   sealSlot,
-} from "studio-vault/keys";
+} from "layr-desk-js/keys";
 
 const b64 = (bytes) => btoa(String.fromCharCode(...new Uint8Array(bytes)));
 const unb64 = (text) => Uint8Array.from(atob(text), (c) => c.charCodeAt(0));
