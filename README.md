@@ -10,6 +10,8 @@ read-only network disk. Only your devices decrypt: storage, gateway and AWS see 
 - **Gateway:** one small server in a tailnet that serves the Desk site and every vault. It reads
   the buckets through roles that each account grants it.
 - **Desk:** a Finder-like site that decrypts in the browser.
+- **Person key:** one key per person, opened by a passkey or 24 words, opens every vault that
+  the person is given (`layr-desk person keys`, `layr-desk grant`).
 - **Network disk:** `layr-desk mount` shows every vault as a read-only disk in Finder and decrypts
   on the Mac.
 
@@ -49,6 +51,7 @@ pnpm install
 cargo test
 pnpm test                                   # library and gateway tests, then the site e2e
 cargo build -p layr-desk && pnpm --filter layr-desk-web run test:e2e:rust   # e2e on layr-desk serve
+pnpm --filter layr-desk-web run test:e2e:person   # the person key, on layr-desk serve
 python3 -m unittest discover -s python -p 'test_*.py'
 python3 -m unittest discover -s js/vault/test -p 'test_*.py'
 ```
