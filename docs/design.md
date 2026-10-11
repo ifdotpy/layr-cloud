@@ -315,7 +315,8 @@ text/plain POST without a CORS preflight; JSON needs a preflight, which the gate
 The `layr-desk` commands send no `Origin`.
 
 A vault with person slots shows only to the logins that have one: `GET /api/projects` lists it
-only for them, and its routes `slots`, `vault` and `challenge` give 404 to others. A vault without
+only for them, and every route of it gives others the 404 of a vault that does not exist (a
+valid vault token still reads the states, as it proves the vault identity). A vault without
 person slots shows to every tailnet member, as before. The `slots` route gives the caller's own
 person slot and no other.
 
