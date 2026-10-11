@@ -836,6 +836,123 @@ async fn tailscaled_names_the_person_of_an_untagged_device_only() {
     assert_eq!(crate::whois::login_of(&tagged_devices), None);
 }
 
+type Hook = std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>;
+
+/// A bucket that runs `hook` to its end right after its first call: another registration that
+/// comes in between two steps of this one.
+struct Interrupted {
+    inner: FakeBucket,
+    hook: Mutex<Option<Hook>>,
+}
+
+impl Interrupted {
+    async fn after(&self) {
+        let hook = self.hook.lock().unwrap().take();
+        if let Some(hook) = hook {
+            hook.await;
+        }
+    }
+}
+
+impl Bucket for Interrupted {
+    async fn list(&self, prefix: &str) -> Result<Vec<String>> {
+        let done = self.inner.list(prefix).await;
+        self.after().await;
+        done
+    }
+    async fn get(&self, key: &str) -> Result<Option<Object>> {
+        let done = self.inner.get(key).await;
+        self.after().await;
+        done
+    }
+    async fn put_new(&self, key: &str, body: Vec<u8>) -> Result<bool> {
+        let done = self.inner.put_new(key, body).await;
+        self.after().await;
+        done
+    }
+    async fn put(&self, key: &str, body: Vec<u8>) -> Result<()> {
+        let done = self.inner.put(key, body).await;
+        self.after().await;
+        done
+    }
+    async fn delete(&self, key: &str) -> Result<()> {
+        let done = self.inner.delete(key).await;
+        self.after().await;
+        done
+    }
+}
+
+#[tokio::test]
+async fn two_registrations_of_one_login_leave_one_matching_pair() {
+    // Another gateway process (no shared lock) registers another key for Ann between two steps
+    // of this registration.
+    let bucket = FakeBucket::default();
+    let clock: Clock = Arc::new(|| 1_000_000);
+    let (a, b) = (
+        keys::recipient_of(&keys::generate_identity()).unwrap(),
+        keys::recipient_of(&keys::generate_identity()).unwrap(),
+    );
+    let other = People::new(
+        bucket.clone(),
+        "people/",
+        Arc::new([7u8; 32]),
+        clock.clone(),
+    );
+    let b_recipient = b.clone();
+    let hook: Hook = Box::pin(async move {
+        let _ = other
+            .register(ANN, &b_recipient, &B64.encode("paper of b"))
+            .await;
+    });
+    let interrupted = Interrupted {
+        inner: bucket.clone(),
+        hook: Mutex::new(Some(hook)),
+    };
+    let people = People::new(interrupted, "people/", Arc::new([7u8; 32]), clock);
+    let _ = people.register(ANN, &a, &B64.encode("paper of a")).await;
+    let objects = bucket.0.lock().unwrap();
+    let record: Value =
+        serde_json::from_slice(&objects["people/ann@example.com/person.json"]).unwrap();
+    let paper = objects["people/ann@example.com/slots/paper.age"].as_slice();
+    let pair = (record["recipient"].as_str().unwrap(), paper);
+    assert!(
+        pair == (a.as_str(), b"paper of a".as_slice())
+            || pair == (b.as_str(), b"paper of b".as_slice()),
+        "person.json names one key and the paper slot opens another"
+    );
+}
+
+#[tokio::test]
+async fn a_registration_that_stopped_ends_with_the_same_key() {
+    let bucket = FakeBucket::default();
+    let people = People::new(
+        bucket.clone(),
+        "people/",
+        Arc::new([7u8; 32]),
+        Arc::new(|| 1_000_000),
+    );
+    let recipient = keys::recipient_of(&keys::generate_identity()).unwrap();
+    // person.json is there, but the paper slot is not: the first run stopped in between.
+    let record = json!({"format": 1, "recipient": recipient, "created": 1});
+    bucket
+        .put(
+            "people/ann@example.com/person.json",
+            record.to_string().into(),
+        )
+        .await
+        .unwrap();
+    let paper = B64.encode("paper");
+    assert!(!people.register(ANN, &recipient, &paper).await.unwrap());
+    assert!(bucket.has("people/ann@example.com/slots/paper.age"));
+    let other = keys::recipient_of(&keys::generate_identity()).unwrap();
+    let refused = people.register(ANN, &other, &B64.encode("other")).await;
+    assert!(refused.unwrap_err().to_string().contains("409"));
+    assert_eq!(
+        bucket.0.lock().unwrap()["people/ann@example.com/slots/paper.age"],
+        b"paper"
+    );
+}
+
 /// One request with exactly these headers (and the host).
 async fn raw(s: &Setup, method: &str, path: &str, headers: &[(&str, &str)], body: &str) -> u16 {
     let stream = TcpStream::connect(s.address).await.unwrap();
