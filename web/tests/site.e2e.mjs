@@ -211,11 +211,17 @@ try {
     [...objects.keys()].some((k) => k.startsWith("proj/slots/passkey-")),
   );
   await page.click("#close-passkeys");
+  // A fresh load asks for the passkey by itself: no click.
   await page.reload();
-  await page.waitForSelector("#with-passkey:not([hidden])");
-  await page.click("#with-passkey");
   await page.waitForSelector("#list:not([hidden])");
   assert.equal(await page.inputValue("#state"), "4");
+  // After Lock the page waits for the person.
+  await page.click("#lock");
+  await page.waitForSelector("#with-passkey:not([hidden])");
+  await page.waitForTimeout(500);
+  assert.equal(await page.isVisible("#unlock"), true);
+  await page.click("#with-passkey");
+  await page.waitForSelector("#list:not([hidden])");
 
   // The same passkey opens the second vault after one paper unlock there.
   await page.click("#vaults a:has-text('other')");
@@ -239,7 +245,6 @@ try {
   );
   await page.click("#close-passkeys");
   await page.reload();
-  await page.click("#with-passkey");
   await page.waitForSelector("#list:not([hidden])");
 
   // Removing the passkey removes its slot; the paper slot stays.

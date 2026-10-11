@@ -575,6 +575,32 @@ $("with-passkey").onclick = () =>
     await app.vault.unlockWithPasskey(app.slots);
     await unlockedView();
   });
+
+/**
+ * Ask for a passkey without a click when the vault has one. A browser that wants a click
+ * first, or a person who closes the prompt, leaves the button as it was. The page must have
+ * focus for WebAuthn, so a page in the background asks when it gets focus.
+ */
+function askForPasskey() {
+  if (!app.slots.some((s) => s.name.startsWith("passkey-"))) return;
+  const ask = async () => {
+    if (app.root || $("unlock").hidden) return;
+    status("Unlocking…");
+    try {
+      await app.vault.unlockWithPasskey(app.slots);
+      await unlockedView();
+      status(statusText());
+    } catch (error) {
+      status(
+        error.name === "NotAllowedError" || error.name === "AbortError"
+          ? ""
+          : `Unlocking failed: ${error.message}`,
+      );
+    }
+  };
+  if (document.hasFocus()) void ask();
+  else window.addEventListener("focus", () => void ask(), { once: true });
+}
 $("state").onchange = () =>
   guarded("Reading the version…", () => openState(Number($("state").value)));
 $("lock").onclick = () => {
@@ -711,4 +737,7 @@ guarded("Loading…", async () => {
   app.vault = await Vault.open(app.project);
   app.slots = await app.vault.slots();
   lockedView();
+}).then(() => {
+  // Only on the first view of the page: after Lock the person chooses.
+  if (app.vault && !app.root) askForPasskey();
 });
