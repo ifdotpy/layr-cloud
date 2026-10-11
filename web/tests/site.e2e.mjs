@@ -14,18 +14,9 @@
 //   cargo build -p layr-desk && LAYR_DESK=../target/debug/layr-desk node tests/site.e2e.mjs
 import { chromium } from "playwright";
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import {
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import http from "node:http";
-import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { Readable } from "node:stream";
 import { makeGateway } from "../../js/vault/gateway/server.mjs";
@@ -38,6 +29,7 @@ import {
   wordsOfIdentity,
 } from "../../js/vault/src/keys.mjs";
 import { forgeState, sign, vectors } from "../../js/vault/test/signed.mjs";
+import { startRust } from "./fakes.mjs";
 
 const dist = new URL("../dist/", import.meta.url).pathname;
 const fixture = new URL("../../js/vault/test/fixture/", import.meta.url)
@@ -135,145 +127,13 @@ async function startNode() {
   return { port: server.address().port, stop: () => server.close() };
 }
 
-/** Path-style S3 and STS in one fake: STS takes the gateway's key, S3 the role's. */
-function fakeAws() {
-  const role = { id: "ASIAROLE", secret: "role-secret", token: "role-token" };
-  return http.createServer(async (req, res) => {
-    const chunks = [];
-    for await (const chunk of req) chunks.push(chunk);
-    const body = Buffer.concat(chunks);
-    const url = new URL(req.url, "http://aws");
-    const auth = String(req.headers.authorization ?? "");
-    const reply = (status, text = "") => {
-      res.writeHead(status, { "content-type": "application/xml" });
-      res.end(text);
-    };
-    const error = (status, code) =>
-      reply(status, `<Error><Code>${code}</Code></Error>`);
-    if (req.method === "POST" && url.pathname === "/") {
-      const form = new URLSearchParams(body.toString());
-      if (
-        !auth.startsWith("AWS4-HMAC-SHA256 Credential=AKIAGATEWAY/") ||
-        form.get("Action") !== "AssumeRole" ||
-        form.get("RoleSessionName") !== "vault-gateway"
-      )
-        return error(403, "AccessDenied");
-      const expiration = new Date(Date.now() + 3600e3)
-        .toISOString()
-        .replace(/\.\d+Z$/, "Z");
-      return reply(
-        200,
-        `<AssumeRoleResponse><AssumeRoleResult><Credentials><AccessKeyId>${role.id}</AccessKeyId>` +
-          `<SecretAccessKey>${role.secret}</SecretAccessKey><SessionToken>${role.token}</SessionToken>` +
-          `<Expiration>${expiration}</Expiration></Credentials></AssumeRoleResult></AssumeRoleResponse>`,
-      );
-    }
-    if (
-      !auth.startsWith(`AWS4-HMAC-SHA256 Credential=${role.id}/`) ||
-      req.headers["x-amz-security-token"] !== role.token
-    )
-      return error(403, "AccessDenied");
-    const [, bucket, ...rest] = url.pathname.split("/");
-    const key = decodeURIComponent(rest.join("/"));
-    if (bucket !== "b") return error(404, "NoSuchBucket");
-    if (req.method === "GET" && !key) {
-      const prefix = url.searchParams.get("prefix") ?? "";
-      const keys = [...objects.keys()]
-        .filter((k) => k.startsWith(prefix))
-        .sort();
-      return reply(
-        200,
-        `<ListBucketResult>${keys.map((k) => `<Contents><Key>${k}</Key></Contents>`).join("")}</ListBucketResult>`,
-      );
-    }
-    if (req.method === "GET") {
-      const data = objects.get(key);
-      if (!data) return error(404, "NoSuchKey");
-      res.writeHead(200, { "content-length": data.length });
-      return res.end(data);
-    }
-    if (req.method === "PUT") {
-      if (req.headers["if-none-match"] === "*" && objects.has(key))
-        return error(412, "PreconditionFailed");
-      objects.set(key, body);
-      return reply(200);
-    }
-    if (req.method === "DELETE") {
-      objects.delete(key);
-      return reply(204);
-    }
-    return error(405, "MethodNotAllowed");
-  });
-}
-
-/** `layr-desk serve` on 127.0.0.1 with the fake AWS. */
-async function startRust(program) {
-  const aws = fakeAws();
-  await new Promise((resolve) => aws.listen(0, "127.0.0.1", resolve));
-  const endpoint = `http://127.0.0.1:${aws.address().port}`;
-  const dir = mkdtempSync(join(tmpdir(), "layr-desk-e2e-"));
-  const project = (name) => ({
-    bucket: "b",
-    region: "eu-central-1",
-    role: `arn:aws:iam::123456789012:role/reader-${name}`,
-    recipient,
-  });
-  writeFileSync(
-    join(dir, "config.json"),
-    JSON.stringify({
-      listen: "127.0.0.1",
-      projects: { proj: project("proj"), other: project("other") },
-    }),
-  );
-  const child = spawn(
-    program,
-    [
-      "serve",
-      "--config",
-      join(dir, "config.json"),
-      "--site",
-      dist,
-      "--tls",
-      "none",
-      "--port",
-      "0",
-    ],
-    {
-      env: {
-        ...process.env,
-        AWS_ACCESS_KEY_ID: "AKIAGATEWAY",
-        AWS_SECRET_ACCESS_KEY: "gateway-secret",
-        AWS_SESSION_TOKEN: "",
-        AWS_ENDPOINT_URL_S3: endpoint,
-        AWS_ENDPOINT_URL_STS: endpoint,
-      },
-      stdio: ["ignore", "inherit", "pipe"],
-    },
-  );
-  const port = await new Promise((resolve, reject) => {
-    let text = "";
-    child.stderr.on("data", (chunk) => {
-      process.stderr.write(chunk);
-      text += chunk;
-      const found = text.match(/listening on http:\/\/127\.0\.0\.1:(\d+)/);
-      if (found) resolve(Number(found[1]));
-    });
-    child.on("exit", (code) =>
-      reject(new Error(`layr-desk serve stopped (${code})`)),
-    );
-  });
-  return {
-    port,
-    stop: () => {
-      child.kill();
-      aws.close();
-      rmSync(dir, { recursive: true, force: true });
-    },
-  };
-}
-
 const { port, stop } = process.env.LAYR_DESK
-  ? await startRust(process.env.LAYR_DESK)
+  ? await startRust(process.env.LAYR_DESK, {
+      objects,
+      names: ["proj", "other"],
+      recipient,
+      site: dist,
+    })
   : await startNode();
 const sha = (data) => createHash("sha256").update(data).digest("hex");
 
