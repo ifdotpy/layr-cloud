@@ -565,6 +565,13 @@ fn signer(
     body: &[u8],
 ) -> Result<&'static str, String> {
     use sha2::Digest;
+    // AWS joins the values of a header sent twice, so such a request never matches its
+    // signature (the gateway once sent content-type twice to STS).
+    for name in headers.keys() {
+        if headers.get_all(name).iter().count() > 1 {
+            return Err(format!("the header {name} is sent twice"));
+        }
+    }
     let header = |n: &str| {
         headers
             .get(n)

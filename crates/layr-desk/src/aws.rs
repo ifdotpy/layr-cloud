@@ -436,3 +436,22 @@ impl Bucket for S3 {
         }
     }
 }
+
+#[cfg(test)]
+mod live {
+    use super::*;
+
+    /// Run with AWS credentials in the environment (for example from `aws configure
+    /// export-credentials --format env`) and LIVE_ROLE, a role those credentials may not
+    /// assume: real STS must refuse the role (AccessDenied), not the signature.
+    #[tokio::test]
+    #[ignore = "live: needs AWS credentials and LIVE_ROLE in the environment"]
+    async fn real_sts_accepts_the_signature() {
+        let aws = Aws::from_env().unwrap();
+        let role = std::env::var("LIVE_ROLE").unwrap();
+        let s3 = aws.bucket("layr-desk-live-check", "eu-central-1", &role);
+        let error = s3.list("x/").await.unwrap_err().to_string();
+        assert!(!error.contains("SignatureDoesNotMatch"), "{error}");
+        assert!(error.contains("AccessDenied"), "{error}");
+    }
+}

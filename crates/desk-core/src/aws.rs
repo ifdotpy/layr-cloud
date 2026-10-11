@@ -93,8 +93,9 @@ fn hmac(key: &[u8], data: &str) -> Vec<u8> {
     mac.finalize().into_bytes().to_vec()
 }
 
-/// The headers that sign `request` at Unix time `unix`, the Authorization header last. Send
-/// them all, with the headers of the request.
+/// The headers that the signature adds to `request` at Unix time `unix`, the Authorization
+/// header last. Send them together with the headers of the request, which they do not repeat:
+/// a header sent twice reaches AWS as one header with both values and breaks the signature.
 pub fn sign(
     request: &Request,
     credentials: &Credentials,
@@ -146,7 +147,12 @@ pub fn sign(
         key = hmac(&key, part);
     }
     let signature = hex::encode(hmac(&key, &to_sign));
-    signed.retain(|(k, _)| k != "host");
+    let own: Vec<String> = request
+        .headers
+        .iter()
+        .map(|(k, _)| k.to_ascii_lowercase())
+        .collect();
+    signed.retain(|(k, _)| k != "host" && !own.contains(k));
     signed.push((
         "authorization".into(),
         format!(
