@@ -1,11 +1,12 @@
 //! The layr-desk vault (docs/design.md): keys and slots, the object format, a reader that
 //! decrypts states from any store of objects and checks their signatures, and the writer that
-//! pushes and signs them.
+//! pushes and signs them. The person key opens every vault of one person.
 
 pub mod aws;
 pub mod canonical;
 pub mod format;
 pub mod keys;
+pub mod person;
 pub mod reader;
 pub mod sign;
 #[cfg(unix)]

@@ -81,15 +81,7 @@ pub fn slot_name(name: &str) -> bool {
     })
 }
 
-/// A vault name, as the API takes it.
-pub fn project_name(name: &str) -> bool {
-    let b = name.as_bytes();
-    (1..=44).contains(&b.len())
-        && b[0].is_ascii_alphanumeric()
-        && b[1..]
-            .iter()
-            .all(|c| c.is_ascii_alphanumeric() || *c == b'_' || *c == b'-')
-}
+pub use desk_core::person::project_name;
 
 pub type Clock = Arc<dyn Fn() -> u64 + Send + Sync>;
 
