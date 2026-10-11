@@ -7,9 +7,10 @@ Parameters:
     # The reader role name is studio-vault-reader-<prefix>, at most 64 characters, and the
     # gateway page of the vault is /<prefix>/, so no dots.
     AllowedPattern: "[A-Za-z0-9][A-Za-z0-9_-]{0,43}"
-  GatewayRoleArn:
-    Type: String
-    AllowedPattern: "arn:aws:iam::[0-9]{12}:role/.+"
+  # The roles of the gateways that serve this vault: one per person who runs their own
+  # gateway, possibly in other accounts.
+  GatewayRoleArns:
+    Type: CommaDelimitedList
 
 Resources:
   Bucket:
@@ -67,9 +68,9 @@ Resources:
               "Null":
                 s3:if-none-match: "true"
 
-  # The gateway (gateway.yaml, maybe in another account) reads states and slots and changes
-  # passkey slots through this role. The trust names the gateway role by ARN, so a new gateway
-  # role with the same name keeps access.
+  # The gateways (gateway.yaml, maybe in other accounts) read states and slots and change
+  # passkey slots through this role. The trust names the gateway roles by ARN, so a new gateway
+  # role with the same name keeps access, and no other principal can assume this role.
   Reader:
     Type: AWS::IAM::Role
     Properties:
@@ -79,13 +80,11 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              AWS: !Sub
-                - "arn:aws:iam::${Account}:root"
-                - Account: !Select [4, !Split [":", !Ref GatewayRoleArn]]
+              AWS: "*"
             Action: sts:AssumeRole
             Condition:
               ArnEquals:
-                aws:PrincipalArn: !Ref GatewayRoleArn
+                aws:PrincipalArn: !Ref GatewayRoleArns
       Policies:
         - PolicyName: vault-reader
           PolicyDocument:

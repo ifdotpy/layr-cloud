@@ -36,6 +36,7 @@ SOURCE = Path("/etc/vault-gateway/source.json")
 CONFIG = Path("/etc/vault-gateway/config.json")
 APP = Path("/opt/vault-gateway")
 UNITS = Path("/etc/systemd/system")
+TLS = Path("/etc/vault-gateway/tls")
 HOOK = Path("/etc/letsencrypt/renewal-hooks/deploy/vault-gateway")
 ENV = "".join(f"Environment={name}={value}\n" for name, value in AWS_ENV.items())
 # Debian's certbot.timer renews the certificate.
@@ -62,8 +63,7 @@ WantedBy=timers.target
 """
 
 
-def gateway_service(host: str) -> str:
-    live = f"/etc/letsencrypt/live/{host}"
+def gateway_service(cert: str, key: str) -> str:
     return f"""[Unit]
 Description=layr-desk gateway
 After=network-online.target tailscaled.service
@@ -71,8 +71,8 @@ Wants=network-online.target
 
 [Service]
 ExecStart={APP}/current/layr-desk serve --config {CONFIG}
-{ENV}LoadCredential=tls.crt:{live}/fullchain.pem
-LoadCredential=tls.key:{live}/privkey.pem
+{ENV}LoadCredential=tls.crt:{cert}
+LoadCredential=tls.key:{key}
 DynamicUser=yes
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE
@@ -180,6 +180,8 @@ class Sync:
             for item in page.get("Contents", []):
                 name = item["Key"].removeprefix("gateway/projects/").removesuffix(".json")
                 projects[name] = json.loads(self.get(item["Key"]))
+        if gateway.get("tls") == "tailscale":
+            gateway = {**gateway, "host": self.magic_dns()}
         config = {"host": gateway["host"], "listen": listen, "projects": projects}
         old = json.loads(CONFIG.read_text()) if CONFIG.exists() else {}
         if write_if_changed(CONFIG, json.dumps(config, indent=2, sort_keys=True) + "\n"):
@@ -188,6 +190,27 @@ class Sync:
             if old.get("listen") != listen:
                 self.restart = True
         return gateway
+
+    def magic_dns(self) -> str:
+        """The machine's ts.net name, the host of a gateway without a domain of its own."""
+        state = json.loads(run("tailscale", "status", "--json").stdout)
+        name = (state.get("Self") or {}).get("DNSName", "").rstrip(".")
+        if not name.endswith(".ts.net"):
+            raise RuntimeError("the tailnet gives this machine no ts.net name; turn on MagicDNS")
+        return name
+
+    def tailscale_certificate(self, host: str) -> tuple[str, str]:
+        """A certificate from the tailnet for the ts.net name (HTTPS must be on in the tailnet).
+        `tailscale cert` renews it when it is due; a new file restarts the gateway."""
+        TLS.mkdir(mode=0o700, parents=True, exist_ok=True)
+        cert, key = TLS / f"{host}.crt", TLS / f"{host}.key"
+        before = cert.read_bytes() if cert.exists() else b""
+        run("tailscale", "cert", "--cert-file", str(cert), "--key-file", str(key), host)
+        os.chmod(key, 0o600)
+        if cert.read_bytes() != before:
+            self.restart = True
+            log("got the tailnet certificate for", host)
+        return str(cert), str(key)
 
     def dns(self, gateway: dict, listen: str) -> None:
         route53 = boto3.client("route53")
@@ -217,27 +240,28 @@ class Sync:
         )
         log("pointed", host, "at", listen)
 
-    def certificate(self, host: str) -> bool:
-        if not Path(f"/etc/letsencrypt/live/{host}/fullchain.pem").exists():
+    def certificate(self, host: str) -> tuple[str, str]:
+        live = f"/etc/letsencrypt/live/{host}"
+        if not Path(f"{live}/fullchain.pem").exists():
             run(
                 "certbot", "certonly", "--dns-route53", "--non-interactive", "--agree-tos",
                 "--register-unsafely-without-email", "--key-type", "ecdsa", "-d", host,
             )
             log("got the certificate for", host)
         write_if_changed(HOOK, "#!/bin/sh\nsystemctl restart vault-gateway.service\n", 0o755)
-        return True
+        return f"{live}/fullchain.pem", f"{live}/privkey.pem"
 
-    def services(self, host: str | None) -> None:
+    def services(self, pair: tuple[str, str] | None) -> None:
         changed = write_if_changed(UNITS / "vault-gateway-sync.service", SYNC_SERVICE)
         changed |= write_if_changed(UNITS / "vault-gateway-sync.timer", SYNC_TIMER)
         changed |= write_if_changed(UNITS / "certbot.service.d/vault-gateway.conf", CERTBOT_ENV)
-        if host:
-            if write_if_changed(UNITS / "vault-gateway.service", gateway_service(host)):
+        if pair:
+            if write_if_changed(UNITS / "vault-gateway.service", gateway_service(*pair)):
                 changed = self.restart = True
         if changed:
             run("systemctl", "daemon-reload")
         run("systemctl", "enable", "--now", "vault-gateway-sync.timer")
-        if not host:
+        if not pair:
             return
         active = run("systemctl", "is-active", "vault-gateway.service", check=False).stdout.strip()
         if self.restart or active != "active":
@@ -260,12 +284,15 @@ class Sync:
         listen = attempt("tailnet", self.tailnet)
         attempt("release", self.release)
         gateway = attempt("configure", lambda: self.configure(listen))
-        host = None
+        pair = None
         if gateway and listen:
-            attempt("dns", lambda: self.dns(gateway, listen))
-            if attempt("certificate", lambda: self.certificate(gateway["host"])):
-                host = gateway["host"]
-        attempt("services", lambda: self.services(host))
+            if gateway.get("tls") == "tailscale":
+                # No domain: the ts.net name and a certificate from the tailnet.
+                pair = attempt("certificate", lambda: self.tailscale_certificate(gateway["host"]))
+            else:
+                attempt("dns", lambda: self.dns(gateway, listen))
+                pair = attempt("certificate", lambda: self.certificate(gateway["host"]))
+        attempt("services", lambda: self.services(pair))
         return 1 if failed else 0
 
 if __name__ == "__main__":

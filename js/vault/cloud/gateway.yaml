@@ -6,14 +6,22 @@ Parameters:
     Type: String
   ImageId:
     Type: AWS::EC2::Image::Id
+  # The site's domain name and its Route 53 zone. Both are empty for a gateway without a
+  # domain of its own: it then serves its tailnet name with a certificate from the tailnet.
   Host:
     Type: String
-    AllowedPattern: "[a-z0-9.-]{3,253}"
+    AllowedPattern: "([a-z0-9.-]{3,253})?"
+    Default: ""
   ZoneId:
-    Type: AWS::Route53::HostedZone::Id
+    Type: String
+    AllowedPattern: "(Z[A-Z0-9]{1,32})?"
+    Default: ""
   AuthKeyParameter:
     Type: String
     Default: /studio-vault/gateway/tailscale-auth-key
+
+Conditions:
+  HasZone: !Not [!Equals [!Ref ZoneId, ""]]
 
 Resources:
   # IPv6 only: no public IPv4 address to pay for. Tailscale, S3, STS, SSM, Route 53, Let's
@@ -117,23 +125,29 @@ Resources:
                 Action: ssm:GetParameter
                 Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${AuthKeyParameter}"
               # Only the host's address and its ACME challenge.
-              - Effect: Allow
-                Action: route53:ChangeResourceRecordSets
-                Resource: !Sub "arn:aws:route53:::hostedzone/${ZoneId}"
-                Condition:
-                  ForAllValues:StringEquals:
-                    route53:ChangeResourceRecordSetsNormalizedRecordNames:
-                      - !Ref Host
-                      - !Sub "_acme-challenge.${Host}"
-              - Effect: Allow
-                Action: route53:ListResourceRecordSets
-                Resource: !Sub "arn:aws:route53:::hostedzone/${ZoneId}"
-              - Effect: Allow
-                Action: route53:GetChange
-                Resource: arn:aws:route53:::change/*
-              - Effect: Allow
-                Action: route53:ListHostedZones
-                Resource: "*"
+              - !If
+                - HasZone
+                - Effect: Allow
+                  Action: route53:ChangeResourceRecordSets
+                  Resource: !Sub "arn:aws:route53:::hostedzone/${ZoneId}"
+                  Condition:
+                    ForAllValues:StringEquals:
+                      route53:ChangeResourceRecordSetsNormalizedRecordNames:
+                        - !Ref Host
+                        - !Sub "_acme-challenge.${Host}"
+                - !Ref AWS::NoValue
+              - !If
+                - HasZone
+                - Effect: Allow
+                  Action: route53:ListResourceRecordSets
+                  Resource: !Sub "arn:aws:route53:::hostedzone/${ZoneId}"
+                - !Ref AWS::NoValue
+              - !If
+                - HasZone
+                - Effect: Allow
+                  Action: [route53:GetChange, route53:ListHostedZones]
+                  Resource: "*"
+                - !Ref AWS::NoValue
   InstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:

@@ -13,7 +13,8 @@ read-only network disk. Only your devices decrypt: storage, gateway and AWS see 
 - **Network disk:** `layr-desk mount` shows every vault as a read-only disk in Finder and decrypts
   on the Mac.
 
-The design, the key model and the AWS setup are in [docs/design.md](docs/design.md).
+The design, the key model and the AWS setup are in [docs/design.md](docs/design.md). A person
+who does not want to trust a shared gateway runs their own: [docs/self-hosted.md](docs/self-hosted.md).
 
 ## Layout
 
@@ -49,4 +50,5 @@ cargo test
 pnpm test                                   # library and gateway tests, then the site e2e
 cargo build -p layr-desk && pnpm --filter layr-desk-web run test:e2e:rust   # e2e on layr-desk serve
 python3 -m unittest discover -s python -p 'test_*.py'
+python3 -m unittest discover -s js/vault/test -p 'test_*.py'
 ```

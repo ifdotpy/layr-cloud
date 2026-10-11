@@ -27,3 +27,4 @@ jobs:
       - run: cargo build --locked -p layr-desk
       - run: pnpm --filter layr-desk-web run test:e2e:rust
       - run: python3 -m unittest discover -s python -p 'test_*.py'
+      - run: python3 -m unittest discover -s js/vault/test -p 'test_*.py'

@@ -4,6 +4,11 @@
 //
 //   node vault-gateway.mjs --host <desk.example.com> --profile <aws profile> [--region <region>]
 //        [--domain <example.com>] [--new-image]
+//   node vault-gateway.mjs --tailscale --profile <aws profile> [--region <region>] [--new-image]
+//
+// With --tailscale the gateway has no domain of its own: it serves its tailnet name
+// (vault-gateway.<tailnet>.ts.net) with a certificate from the tailnet, so no Route 53 zone and
+// no registrar take part. The tailnet needs MagicDNS and HTTPS certificates turned on.
 //
 // The registrar of the domain must use the name servers that this prints. The tailnet auth key
 // goes to SSM before the first start (docs/vault.md, "Gateway").
@@ -27,22 +32,23 @@ import {
 const { values: args } = parseArgs({
   options: {
     host: { type: "string" },
+    tailscale: { type: "boolean", default: false },
     profile: { type: "string" },
     region: { type: "string", default: "eu-central-1" },
     domain: { type: "string" },
     "new-image": { type: "boolean", default: false },
   },
 });
-if (!args.host || !args.profile) {
+if (!args.profile || !args.host === !args.tailscale) {
   console.error(
-    "usage: vault-gateway --host <desk.example.com> --profile <aws profile> [--region <region>] [--domain <example.com>] [--new-image]",
+    "usage: vault-gateway (--host <desk.example.com> [--domain <example.com>] | --tailscale) --profile <aws profile> [--region <region>] [--new-image]",
   );
   process.exit(2);
 }
-const host = args.host.toLowerCase();
-const domain = (
-  args.domain ?? host.split(".").slice(1).join(".")
-).toLowerCase();
+const host = args.tailscale ? "" : args.host.toLowerCase();
+const domain = args.tailscale
+  ? ""
+  : (args.domain ?? host.split(".").slice(1).join(".")).toLowerCase();
 const config = awsConfig(args.profile, args.region);
 const cfn = new CloudFormationClient(config);
 const s3 = new S3Client(config);
@@ -51,13 +57,16 @@ const STACK = "studio-vault-gateway";
 const AUTH_KEY = "/studio-vault/gateway/tailscale-auth-key";
 const IMAGE = "/aws/service/debian/release/13/latest/arm64";
 
-// 1. The domain zone, and the artifacts bucket of this account and region.
-const dns = await deployStack(
-  cfn,
-  `studio-vault-dns-${domain.replace(/[^a-z0-9-]/g, "-")}`,
-  "dns.yaml",
-  { Domain: domain },
-);
+// 1. The domain zone (none with --tailscale), and the artifacts bucket of this account and
+// region.
+const dns = args.tailscale
+  ? { ZoneId: "", NameServers: "" }
+  : await deployStack(
+      cfn,
+      `studio-vault-dns-${domain.replace(/[^a-z0-9-]/g, "-")}`,
+      "dns.yaml",
+      { Domain: domain },
+    );
 const artifacts = (
   await deployStack(cfn, "studio-vault-bootstrap", "bootstrap.yaml")
 ).ArtifactsBucket;
@@ -89,7 +98,9 @@ await put(
 );
 await put(
   "gateway/gateway.json",
-  JSON.stringify({ host, zone: dns.ZoneId }),
+  JSON.stringify(
+    args.tailscale ? { tls: "tailscale" } : { host, zone: dns.ZoneId },
+  ),
   "application/json",
 );
 log(`release ${sha256.slice(0, 12)}`);
@@ -134,10 +145,12 @@ writeFileSync(
 console.log(
   JSON.stringify(
     {
-      site: `https://${host}/`,
+      site: args.tailscale
+        ? "https://vault-gateway.<your tailnet>.ts.net/"
+        : `https://${host}/`,
       role: gateway.RoleArn,
       instance: gateway.InstanceId,
-      nameServers: dns.NameServers.split(","),
+      ...(args.tailscale ? {} : { nameServers: dns.NameServers.split(",") }),
       tailnetAuthKey: hasKey ? "stored" : `missing: put it in SSM ${AUTH_KEY}`,
     },
     null,

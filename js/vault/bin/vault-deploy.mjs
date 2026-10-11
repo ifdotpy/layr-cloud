@@ -40,11 +40,13 @@ const { values: args } = parseArgs({
     region: { type: "string", default: "eu-central-1" },
     writer: { type: "string" },
     "new-writer-key": { type: "boolean", default: false },
+    // The gateway role of another person who serves this vault from their own gateway.
+    "also-gateway": { type: "string", multiple: true, default: [] },
   },
 });
 if (!args.project || !args.profile) {
   console.error(
-    "usage: vault-deploy --project <prefix> --profile <aws profile> [--region <region>] [--writer <command>] [--new-writer-key]",
+    "usage: vault-deploy --project <prefix> --profile <aws profile> [--region <region>] [--writer <command>] [--new-writer-key] [--also-gateway <role arn>]...",
   );
   process.exit(2);
 }
@@ -69,6 +71,26 @@ try {
 }
 const config = awsConfig(args.profile, args.region);
 const s3 = new S3Client(config);
+// The site of the gateway. A gateway without a domain (vault-gateway --tailscale) serves its
+// tailnet name, which this Mac sees once the gateway has joined the tailnet.
+function gatewayHost() {
+  if (gatewaySettings.host) return gatewaySettings.host;
+  const status = JSON.parse(
+    spawnSync("tailscale", ["status", "--json"], { encoding: "utf8" }).stdout ||
+      "{}",
+  );
+  const peer = Object.values(status.Peer ?? {}).find(
+    (p) => p.HostName === "vault-gateway" && p.DNSName,
+  );
+  if (!peer) {
+    console.error(
+      "vault-deploy: the gateway has not joined the tailnet yet; run this again later",
+    );
+    process.exit(1);
+  }
+  return peer.DNSName.replace(/\.$/, "");
+}
+const host = gatewayHost();
 const cfn = new CloudFormationClient(config);
 const iam = new IAMClient(config);
 const stack = `studio-vault-${args.project}`;
@@ -76,7 +98,7 @@ const stack = `studio-vault-${args.project}`;
 // 1. The vault stack.
 const outputs = await deployStack(cfn, stack, "template.yaml", {
   Prefix: args.project,
-  GatewayRoleArn: gatewaySettings.role,
+  GatewayRoleArns: [gatewaySettings.role, ...args["also-gateway"]].join(","),
 });
 
 // 2. The public vault record and the paper slot.
@@ -147,7 +169,7 @@ if (args.writer) {
         region: args.region,
         prefix: args.project,
         recipient,
-        site: `https://${gatewaySettings.host}/`,
+        site: `https://${host}/`,
         accessKeyId: key.AccessKeyId,
         secretAccessKey: key.SecretAccessKey,
       }),
@@ -174,7 +196,22 @@ if (args.writer) {
   }
 }
 // Public facts for vault-restore and vault-view.
-const site = `https://${gatewaySettings.host}/${args.project}/`;
+const site = `https://${host}/${args.project}/`;
+// The public facts that another person's gateway needs to serve this vault (vault-register).
+writeFileSync(
+  join(keys, "facts.json"),
+  JSON.stringify(
+    {
+      prefix: args.project,
+      bucket: outputs.BucketName,
+      region: args.region,
+      role: outputs.ReaderRoleArn,
+      recipient,
+    },
+    null,
+    2,
+  ) + "\n",
+);
 writeFileSync(
   join(keys, "cloud.json"),
   JSON.stringify(
