@@ -15,14 +15,18 @@ The Mac and the VM are working copies; the vault is the copy that stays.
 
 ## Keys
 
-| Key                                                    | Where                                             | Can                   |
-| ------------------------------------------------------ | ------------------------------------------------- | --------------------- |
-| Vault identity (`age` X25519)                          | nowhere in plain form; inside each slot           | decrypt everything    |
-| Vault recipient (`age1…`)                              | VM vault configuration, `vault.json`, gateway     | encrypt new data      |
-| Paper key (`age` X25519 identity, `AGE-SECRET-KEY-1…`) | on paper, two copies                              | open the paper slot   |
-| Passkey (WebAuthn PRF)                                 | the user's passkey provider                       | open its passkey slot |
-| Writer AWS key                                         | VM, root only (`layr-admin/vault/<project>.json`) | put new objects only  |
-| Writer signing key (Ed25519)                           | writer configuration (`signingKey`)               | sign new states       |
+| Key                                                    | Where                                             | Can                                                    |
+| ------------------------------------------------------ | ------------------------------------------------- | ------------------------------------------------------ |
+| Vault identity (`age` X25519)                          | nowhere in plain form; inside each slot           | decrypt everything                                     |
+| Vault recipient (`age1…`)                              | VM vault configuration, `vault.json`, gateway     | encrypt new data                                       |
+| Paper key (`age` X25519 identity, `AGE-SECRET-KEY-1…`) | on paper, two copies                              | open the paper slot                                    |
+| Passkey (WebAuthn PRF)                                 | the user's passkey provider                       | open its passkey slot                                  |
+| Writer AWS key                                         | VM, root only (`layr-admin/vault/<project>.json`) | put new objects only                                   |
+| Writer signing key (Ed25519)                           | writer configuration (`signingKey`)               | sign new states                                        |
+| Person identity (`age` X25519)                         | nowhere in plain form; inside each person slot    | open the person slots of vaults, the index and invites |
+| Person recipient (`age1…`)                             | `person.json` at the gateway; vault owners        | seal person slots, invites and the index               |
+| Person paper key (24 words)                            | on paper, two copies                              | open the person's paper slot                           |
+| Person passkey (WebAuthn PRF)                          | the person's passkey provider                     | open its person passkey slot                           |
 
 - A slot is the vault identity encrypted with `age` to the recipient of one opener:
   `slots/paper.age` for the paper key, `slots/passkey-<credential id>.age` for each passkey.
@@ -48,7 +52,8 @@ Bucket prefix `<project>/`:
 - `vault.json`: `{"format": 1, "recipient": "age1…", "created": <epoch>, "writer": "<base64>",
   "signedFrom": <seq>}` (plain); `writer` and `signedFrom` name the writer's public key and the
   first signed state (see "Signatures").
-- `slots/*.age`: see above (open to every tailnet device through the gateway; each is encrypted).
+- `slots/*.age`: see above (each is encrypted). `slots/person-<login>.age` is the vault identity
+  sealed to the person key of the tailnet login `<login>` (see "Person key").
 - `states/<seq>.<attempt>.tree.age`: the tree of one archived state (the commit point).
 - `states/<seq>.<attempt>.<part>.data.age`: data frames of that state.
 
@@ -197,13 +202,155 @@ signed state or one of its files, or give a reader another vault identity throug
 
 What it does not protect against yet:
 
-- The reader trusts the `vault.json` that the gateway serves (or that the bucket holds, for
-  `vault-restore` and `vault-view`). The gateway, and anyone who can change `vault.json` in the
-  bucket, can remove `writer` or name another key and recipient. Readers pin the writer key and
-  the recipient when the person index comes.
+- A reader without a pin trusts the `vault.json` that the gateway serves (or that the bucket
+  holds, for `vault-restore` and `vault-view`). The gateway, and anyone who can change
+  `vault.json` in the bucket, can remove `writer` or name another key and recipient. The site
+  pins the recipient, the writer key and `signedFrom` of each vault in the person index (see
+  "Person key"); the `layr-desk` readers do not read the index yet.
 - States before `signedFrom`, such as a second tree for an old `seq`.
 - Removed states: a reader cannot tell that newer states existed.
 - A stolen signing key, until `--new-writer-key` replaces it.
+
+## Person key
+
+One key for each person opens every vault that the person may read. On the site, one passkey
+touch opens all of them. The vaults keep their own paper and passkey slots; a vault without
+person slots opens as before.
+
+### Keys and commands
+
+- The person identity is an `age` X25519 identity. Its openers are the person's passkeys and a
+  paper key of 24 words, with slots as for a vault. The PRF salt of a person passkey is
+  `layr-person/v1/<login>`, so the same passkey gives the person key and each vault a different
+  secret.
+- `layr-desk person keys --site <site> [--clear]` makes the person identity and its paper key,
+  and shows the 24 words once. Run it in a terminal of your own: never through an agent, and not
+  in a Studio terminal, because Studio keeps terminal output in SQLite. The site never makes or
+  shows the words; it only takes them to unlock. `~/.config/studio-vault/.person/` keeps only the
+  recipient and the encrypted paper slot. With `--site`, the command registers the recipient and
+  the paper slot at that gateway. A later run with another `--site` registers the same key there.
+- `layr-desk person show` prints the person recipient (`age1…`). It is public. The person gives
+  it to each vault owner through a channel that they trust, because a recipient from someone
+  else could be an attacker's.
+- On the site, the person unlocks the person key once with the words and adds a passkey
+  ("Passkeys…" in the person box). After that, one passkey touch unlocks it.
+- `layr-desk grant --project <p> --person <login> --recipient age1… [--site <site>]` runs in the
+  terminal of the vault owner:
+  1. It opens the vault identity with the vault's paper key, or with the owner's person paper key
+     and the owner's person slot in the vault.
+  2. It puts `<p>/slots/person-<login>.age` (the vault identity sealed to the recipient) into the
+     vault bucket with the owner's AWS profile (`cloud.json` of `deploy`, or `--profile`).
+  3. It drops an invite into the person's inbox at the gateway: the pin of the vault (see below),
+     sealed to the recipient.
+
+  No key passes through anyone else: the owner needs only the person's public recipient. Removing
+  the slot object revokes the person, as for any slot. A new person key needs a new grant.
+- `layr-desk person vaults --site <site>` unlocks the person key with the words, reads the index,
+  and checks the `vault.json` of each pinned vault against its pin.
+
+### Objects at the gateway
+
+The prefix `people/<login>/` in the gateway's artifacts bucket (the gateway's own account, which
+has versioning) holds the records of one tailnet login:
+
+- `person.json`: `{"format": 1, "recipient": "age1…", "created": <epoch>}` (plain).
+- `slots/paper.age`, `slots/passkey-<credential id>.age`: the person identity sealed to each
+  opener.
+- `index.age`: the person index, sealed to the person recipient.
+- `inbox/<ms>-<8 hex>.json`: `{"from": "<login>", "time": <ms>, "data": "<base64>"}`. `data` is
+  one invite sealed to the person recipient; `from` is the login that the gateway saw.
+
+The plaintext of the index is a first line `layr-desk person index v1`, a second line with the
+MAC in lowercase hex, and then the body: `{"vaults": [{"project": "<p>", "recipient": "age1…",
+"writer": "<base64>" | null, "signedFrom": <seq> | null}]}`. The MAC is HMAC-SHA256 of the body
+bytes with the key HMAC-SHA256(secret, `layr-desk person index v1`); `secret` is the 32-byte
+X25519 secret of the person identity. Anyone can encrypt to a recipient, so the MAC shows that
+the holder of the person key wrote the index.
+
+The plaintext of an invite is `{"invite": 1, "project": …, "recipient": …, "writer": …,
+"signedFrom": …}`.
+
+### Pins
+
+Each index entry pins three values of the vault's `vault.json`: `recipient`, `writer` and
+`signedFrom`. The site refuses a vault whose `vault.json` differs from its pin in any of them,
+and opens the vault identity from the person slot only when it belongs to the pinned recipient.
+`signedFrom` is in the pin because a larger value would let unsigned states through. A new writer
+key (`deploy --new-writer-key`) changes `writer` and `signedFrom`: the owner runs `grant` again,
+and the person accepts the new invite, which replaces the pin.
+
+### Gateway side
+
+The gateway listens on its tailnet address with its own certificate; nothing stands in front of
+it. A `Tailscale-User-Login` header would therefore come from the caller, so the gateway does not
+read it. It asks the local tailscaled who the caller is, once per connection:
+`GET /localapi/v0/whois?addr=<ip>:<port>` on `/var/run/tailscale/tailscaled.sock`
+(`--tailscale-socket`). A tagged device, or an address that tailscaled does not know, has no
+login. There is no password database.
+
+API, for the caller's own login:
+
+- `GET /api/person`: the login and the records: `recipient` (null before registration), `slots`,
+  `index`, `inbox`.
+- `PUT /api/person` `{recipient, paper}`: register once. The same recipient again is fine; another
+  one gets 409.
+- `GET /api/person/challenge`: a token sealed to the person recipient, as for a vault.
+- With `Authorization: Bearer <person token>`: `PUT /api/person/index` `{data, previous}`
+  (`previous` is the SHA-256 of the index that the site read, or null; another one gets 409),
+  `PUT|DELETE /api/person/slots/passkey-<id>`, and `DELETE /api/person/inbox/<id>`.
+- `POST /api/people/<login>/inbox` `{data}`: any tailnet person drops an invite. An inbox holds
+  at most 64 invites of at most 4096 bytes each.
+
+A vault with person slots shows only to the logins that have one: `GET /api/projects` lists it
+only for them, and its routes `slots`, `vault` and `challenge` give 404 to others. A vault without
+person slots shows to every tailnet member, as before. The `slots` route gives the caller's own
+person slot and no other.
+
+Storage: `gateway.yaml` lets the gateway role get, put and delete `people/*` in the artifacts
+bucket and list that prefix. `sync.py` writes `people` (`bucket`, `region`, `prefix`) into the
+configuration. The vault buckets do not change: the owner puts person slots with the vault
+account's profile, and the reader role already reads `slots/*`.
+
+### Site
+
+- The site reads `GET /api/person` first. Without a login or a person record, it works as before.
+- The person box in the sidebar unlocks with a passkey (asked without a click when the person has
+  one) or with the words. The site refuses a person slot whose identity does not belong to the
+  recipient in `person.json`.
+- After the unlock, the sidebar lists the vaults of the index with the vaults that the gateway
+  shows. A pinned vault opens without a reload and without another touch.
+- Invites show the vault, the sender and the pins. Before Accept writes the new index, the site
+  checks the invite against the `vault.json` that the gateway serves and against the person slot.
+- Lock forgets the person identity and every vault identity of the tab.
+
+### What it protects, and what not
+
+It protects against:
+
+- The gateway, AWS and other tailnet users reading data: they see ciphertext, public keys and
+  login names only.
+- Other tailnet users seeing a vault in the list, or its slots, without a person slot in it.
+- Anyone who can write to the people prefix or to a vault bucket, but does not hold the person
+  key. Such a person cannot plant an index (MAC), cannot make the site open a pinned vault with
+  another `vault.json` (pins), cannot give the person another identity through a person slot
+  (recipient check), and cannot change person records through the API (token).
+- An invite that adds a vault by itself: the person must confirm it.
+
+It does not protect against:
+
+- JavaScript that the operator serves. The site code comes from the gateway. The operator, or
+  anyone who changes the release, can serve code that sends the person identity and every vault
+  identity elsewhere. Pins, MACs and encryption do not help against that. A person who does not
+  trust the operator runs a gateway of their own (docs/self-hosted.md), or reads with `layr-desk`
+  on the Mac.
+- A false invite that the person accepts. The sender name comes from the gateway, and an invite
+  to a vault that an attacker made passes the checks.
+- Rollback and hiding: the gateway can serve an older index or none. The site then shows fewer
+  vaults or older pins, and an older pin refuses a vault after a key change.
+- Metadata: the operator sees which logins have slots in which vaults (object names), and the
+  times of invites.
+- A person who loses the person key and all its openers. The operator then removes
+  `people/<login>/`, the person makes a new key, and the owners grant again.
 
 ## AWS (`js/vault/cloud/` and `crates/layr-desk/cloud/`)
 
@@ -227,7 +374,8 @@ One gateway for all projects, in the user's account (`vault-gateway.mjs`):
   reader role, recipient), which `layr-desk deploy` writes.
 - `gateway.yaml`: an IPv6-only VPC and one `t4g.nano` (Debian 13, standard CPU credits, IMDSv2,
   8 GB encrypted disk). No public IPv4 address; the security group lets in only WireGuard (UDP
-  41641). Its role reads `gateway/*`, assumes `studio-vault-reader-*`, reads the tailnet auth key
+  41641). Its role reads `gateway/*`, reads and writes `people/*` (the person records), assumes
+  `studio-vault-reader-*`, reads the tailnet auth key
   in SSM, and changes only the host's `A` and `_acme-challenge` records.
 
 ## Gateway
@@ -265,7 +413,7 @@ site e2e).
 API, per vault `<p>`: `GET /api/projects`, `GET /api/p/<p>/slots`, `GET /api/p/<p>/vault`,
 `GET /api/p/<p>/challenge`, and with `Authorization: Bearer <token>`: `GET /api/p/<p>/states`, `GET /api/p/<p>/states/<name>`,
 `PUT|DELETE /api/p/<p>/slots/passkey-<id>`. Every other path is the site; `/<p>/` is the page of
-one vault. The host header must be the configured host.
+one vault. The host header must be the configured host. The person routes are in "Person key".
 
 Tailnet policy: `tag:vault` belongs to the admins; access rules take `autogroup:member` as the
 source, so the gateway answers but cannot reach the user's devices; one SSH rule lets members
