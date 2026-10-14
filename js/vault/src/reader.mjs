@@ -3,6 +3,7 @@
 import * as age from "age-encryption";
 import {
   createDCtx,
+  freeDCtx,
   decompress,
   decompressUsingDict,
   init,
@@ -19,9 +20,13 @@ export function zstdReady(wasmUrl) {
 /** One zstd frame; a delta frame takes the base content as a raw dictionary. */
 export async function unzstd(frame, base) {
   await zstdReady();
-  return base && base.length
-    ? decompressUsingDict(createDCtx(), frame, base)
-    : decompress(frame);
+  if (!base?.length) return decompress(frame);
+  const context = createDCtx();
+  try {
+    return decompressUsingDict(context, frame, base);
+  } finally {
+    freeDCtx(context);
+  }
 }
 
 const TREE = /^(\d{10})\.([0-9a-f]{8})\.tree\.age$/;

@@ -175,6 +175,17 @@ function fakeAws() {
     if (req.method === "GET") {
       const data = objects.get(key);
       if (!data) return error(404, "NoSuchKey");
+      const range = /^bytes=(\d+)-(\d+)$/.exec(req.headers.range ?? "");
+      if (range) {
+        const start = Number(range[1]),
+          end = Math.min(Number(range[2]), data.length - 1);
+        if (start >= data.length) return error(416, "InvalidRange");
+        res.writeHead(206, {
+          "content-range": `bytes ${start}-${end}/${data.length}`,
+          "content-length": end - start + 1,
+        });
+        return res.end(data.subarray(start, end + 1));
+      }
       res.writeHead(200, { "content-length": data.length });
       return res.end(data);
     }

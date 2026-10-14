@@ -363,8 +363,8 @@ function render() {
 
 // ----- files -----
 
-async function contentOf(node) {
-  return app.vault.reader.read(node.entry);
+async function contentOf(node, progress) {
+  return app.vault.reader.read(node.entry, progress);
 }
 
 function save(name, data) {
@@ -379,7 +379,18 @@ function save(name, data) {
 
 function download(node) {
   guarded(`Decrypting ${node.name}…`, async () =>
-    save(node.name, await contentOf(node)),
+    save(
+      node.name,
+      await contentOf(node, ({ phase, bytes }) => {
+        status(
+          phase === "download"
+            ? `Downloading ${node.name}… ${size(bytes)} received`
+            : phase === "restore"
+              ? `Restoring ${node.name}…`
+              : `Decrypting ${node.name}…`,
+        );
+      }),
+    ),
   );
 }
 
@@ -400,7 +411,15 @@ async function quickLook() {
   if (previewUrl) URL.revokeObjectURL(previewUrl);
   previewUrl = null;
   try {
-    const data = await contentOf(node);
+    const data = await contentOf(node, ({ phase, bytes }) => {
+      if (selected() !== node || body.firstChild?.className !== "note") return;
+      body.firstChild.textContent =
+        phase === "download"
+          ? `Downloading… ${size(bytes)} received`
+          : phase === "restore"
+            ? "Restoring file…"
+            : "Decrypting…";
+    });
     if (selected() !== node) return;
     const ext = extension(node.name);
     let view;

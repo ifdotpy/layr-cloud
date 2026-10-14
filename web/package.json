@@ -5,10 +5,11 @@
   "description": "The vault site (docs/vault.md): unlock with a passkey or the paper key, browse, download",
   "type": "module",
   "scripts": {
-    "build": "node scripts/copy-wasm.mjs && vite build",
-    "dev": "node scripts/copy-wasm.mjs && vite --host 127.0.0.1",
+    "build": "node scripts/build-reader.mjs && node scripts/copy-wasm.mjs && vite build",
+    "dev": "node scripts/build-reader.mjs && node scripts/copy-wasm.mjs && vite --host 127.0.0.1",
     "test:e2e": "node tests/site.e2e.mjs",
-    "test:e2e:rust": "LAYR_DESK=../target/debug/layr-desk node tests/site.e2e.mjs"
+    "test:e2e:rust": "LAYR_DESK=../target/debug/layr-desk node tests/site.e2e.mjs",
+    "test:reader": "node tests/reader.e2e.mjs"
   },
   "dependencies": {
     "layr-desk-js": "workspace:*"

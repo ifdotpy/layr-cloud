@@ -129,3 +129,84 @@ impl Seek for Sparse {
         Ok(self.pos)
     }
 }
+
+/// Decode an authenticated age frame, or report the next ciphertext block required.
+pub(crate) fn decode_frame(
+    identity: &age::x25519::Identity,
+    partial: Partial,
+    offset: u64,
+    length: usize,
+) -> (Result<Vec<u8>>, Option<u64>) {
+    use std::io::BufReader;
+    let missing = Arc::new(Mutex::new(None));
+    let source = Sparse {
+        partial,
+        missing: missing.clone(),
+        pos: 0,
+    };
+    let result = (|| -> Result<Vec<u8>> {
+        let mut reader = age::Decryptor::new_buffered(BufReader::new(source))?
+            .decrypt(std::iter::once(identity as &dyn age::Identity))?;
+        reader.seek(SeekFrom::Start(offset))?;
+        let mut bytes = vec![0; length];
+        reader.read_exact(&mut bytes)?;
+        Ok(bytes)
+    })();
+    let needed = *missing.lock().unwrap();
+    (result, needed)
+}
+
+/// Bounded ciphertext cache for a browser that fetches missing blocks asynchronously.
+pub struct FrameDecoder {
+    identity: age::x25519::Identity,
+    partial: Partial,
+    needed: Option<u64>,
+}
+impl FrameDecoder {
+    pub fn new(identity: &str) -> Result<Self> {
+        Ok(Self {
+            identity: identity
+                .parse()
+                .map_err(|e| anyhow::anyhow!("invalid identity: {e}"))?,
+            partial: Partial::default(),
+            needed: None,
+        })
+    }
+    pub fn insert(&mut self, start: u64, total: u64, bytes: Vec<u8>) -> Result<()> {
+        if start % BLOCK != 0 || self.partial.blocks.len() >= 8 {
+            bail!("ciphertext block limit or alignment");
+        }
+        let data = RangeData {
+            start,
+            total,
+            bytes,
+        };
+        data.validate(
+            start,
+            start
+                .checked_add(BLOCK - 1)
+                .ok_or_else(|| anyhow::anyhow!("range overflow"))?,
+        )?;
+        if data.bytes.len() as u64 > BLOCK || self.partial.total.is_some_and(|n| n != total) {
+            bail!("incorrect ciphertext block or object length changed");
+        }
+        self.partial.total = Some(total);
+        self.partial.blocks.insert(start, Arc::new(data.bytes));
+        Ok(())
+    }
+    pub fn frame(&mut self, offset: u64, length: usize) -> Result<Option<Vec<u8>>> {
+        if length >= 512 * 1024 || offset.checked_add(length as u64).is_none() {
+            bail!("frame exceeds selective read limit");
+        }
+        let (result, needed) = decode_frame(&self.identity, self.partial.clone(), offset, length);
+        self.needed = needed;
+        if needed.is_some() {
+            Ok(None)
+        } else {
+            result.map(Some)
+        }
+    }
+    pub fn needed(&self) -> Option<u64> {
+        self.needed
+    }
+}

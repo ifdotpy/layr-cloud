@@ -1,7 +1,7 @@
 // The gateway API, the passkeys and the reader of the site (docs/vault.md, "Gateway").
-import { VaultReader, zstdReady } from "layr-desk-js/reader";
+import { GatewayApi, request } from "./gateway-api.js";
+import { WorkerReader } from "./worker-reader.js";
 import {
-  decryptWith,
   identityFromPaper,
   identityFromSecret,
   openSlot,
@@ -20,39 +20,18 @@ const unb64url = (text) =>
       "===".slice((text.length + 3) % 4),
   );
 
-async function request(url, { method = "GET", body, token, raw } = {}) {
-  const headers = {};
-  if (body) headers["content-type"] = "application/json";
-  if (token) headers.authorization = `Bearer ${token}`;
-  const response = await fetch(url, {
-    method,
-    headers,
-    cache: "no-store",
-    ...(body ? { body: JSON.stringify(body) } : {}),
-  });
-  if (!response.ok) {
-    const data = await response.json().catch(() => ({}));
-    throw Object.assign(new Error(data.error ?? `HTTP ${response.status}`), {
-      status: response.status,
-    });
-  }
-  return raw ? response : response.json();
-}
-
 /** The vaults that this gateway serves. */
 export async function projects() {
   return (await request("/api/projects")).projects;
 }
 
-export class Vault {
+export class Vault extends GatewayApi {
   static async open(prefix) {
-    await zstdReady("/zstd.wasm");
     return new Vault(prefix);
   }
 
   constructor(prefix) {
-    this.prefix = prefix;
-    this.base = `/api/p/${encodeURIComponent(prefix)}/`;
+    super(prefix);
     this.salt = prfSalt(prefix);
     this.identity = null;
     this.token = null;
@@ -63,27 +42,6 @@ export class Vault {
       name: s.name,
       data: unb64(s.data),
     }));
-  }
-
-  /** Call with a fresh token after a 401 (tokens live 10 minutes). */
-  async authorized(path, options = {}) {
-    for (let attempt = 0; ; attempt++) {
-      if (!this.token) {
-        const { challenge } = await request(`${this.base}challenge`);
-        this.token = new TextDecoder().decode(
-          await decryptWith(this.identity, unb64(challenge)),
-        );
-      }
-      try {
-        return await request(this.base + path, {
-          ...options,
-          token: this.token,
-        });
-      } catch (error) {
-        if (error.status !== 401 || attempt) throw error;
-        this.token = null;
-      }
-    }
   }
 
   async unlockWithPaper(paperKey, slots) {
@@ -191,11 +149,12 @@ export class Vault {
     this.identity = identity;
     this.token = null;
     const { states } = await this.authorized("states");
-    this.reader = new VaultReader({
+    this.reader?.close();
+    this.reader = new WorkerReader({
       prefix: this.prefix,
       keys: states.map((name) => `${this.prefix}/states/${name}`),
       identity,
-      get: (key) => this.fetchObject(key),
+      token: this.token,
     });
   }
 
@@ -206,6 +165,7 @@ export class Vault {
   }
 
   lock() {
+    this.reader?.close();
     this.identity = null;
     this.token = null;
     this.reader = null;

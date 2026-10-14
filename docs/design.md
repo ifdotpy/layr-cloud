@@ -281,7 +281,16 @@ The combined cache of data parts and ciphertext blocks has a 512 MiB limit.
 Tree caches remain separate.
 
 An older gateway can return the complete object. The client reads it without another download.
-The JavaScript browser reader still reads complete objects. Its range support belongs to the planned Rust/WebAssembly migration.
+The browser uses the same Rust age reader through WebAssembly in a dedicated Worker.
+It caches up to 128 MiB of data parts and ciphertext blocks, apart from tree data and temporary buffers.
+It uses the same block size, request budget, full-frame threshold, and full-response fallback as the native client.
+At most two frame fetches run together. The browser restores deltas in order and checks the final size and SHA-256.
+The page shows download bytes, decryption, and file restoration separately.
+Locking the vault terminates its Worker and pending reads.
+
+The browser build requires the `wasm32-unknown-unknown` Rust target and `wasm-bindgen-cli` version 0.2.129.
+`pnpm --filter layr-desk-web run build` builds the Rust module before Vite packages the site.
+The browser still uses JavaScript for tree traversal and zstd WebAssembly for decompression.
 No key change or archive migration is required.
 
 The proposed next steps for shared writes and review are in [collaboration.md](collaboration.md).

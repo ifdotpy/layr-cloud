@@ -3,13 +3,12 @@
 //! the size and SHA-256 that its tree names.
 
 use crate::format::{self, Entry, Header, Tree};
-use crate::range::{Partial, RangeData, Sparse, BLOCK};
+use crate::range::{decode_frame, Partial, RangeData, BLOCK};
 use crate::{keys, zst};
 use anyhow::{anyhow, bail, Context, Result};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, HashMap};
 use std::future::Future;
-use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
@@ -149,21 +148,8 @@ impl<S: Store> Reader<S> {
                 }
                 cache.partial.get(&name).cloned().unwrap_or_default()
             };
-            let missing = Arc::new(Mutex::new(None));
-            let source = Sparse {
-                partial: partial.clone(),
-                missing: missing.clone(),
-                pos: 0,
-            };
-            let decoded = (|| -> Result<Vec<u8>> {
-                let mut reader = age::Decryptor::new_buffered(BufReader::new(source))?
-                    .decrypt(std::iter::once(&self.identity as &dyn age::Identity))?;
-                reader.seek(SeekFrom::Start(link.3))?;
-                let mut bytes = vec![0; link.4 as usize];
-                reader.read_exact(&mut bytes)?;
-                Ok(bytes)
-            })();
-            let needed = *missing.lock().unwrap();
+            let (decoded, needed) =
+                decode_frame(&self.identity, partial.clone(), link.3, link.4 as usize);
             let Some(start) = needed else {
                 return decoded.context("decrypting file frame");
             };

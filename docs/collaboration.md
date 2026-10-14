@@ -72,7 +72,7 @@ Old ciphertext cannot become secret again to a device that already has its key.
 ## Delivery order
 
 1. Keep the current object format and add range reads for native clients.
-2. Add the same access pattern to the browser through the planned Rust/WebAssembly reader.
+2. Use the same access pattern in the browser through the Rust/WebAssembly reader (implemented).
 3. Add immutable shared-state records and conditional branch updates.
 4. Add review requests, exact-state approvals, and trusted check results.
 5. Add sparse writable workspaces and indexes for history and search when measurements justify them.

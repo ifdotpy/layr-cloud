@@ -6,10 +6,13 @@ pub mod canonical;
 pub mod format;
 pub mod keys;
 pub mod range;
+#[cfg(feature = "zstd")]
 pub mod reader;
-#[cfg(unix)]
+#[cfg(all(unix, feature = "zstd"))]
 pub mod writer;
+#[cfg(feature = "zstd")]
 pub mod zst;
 
 pub use format::{Entry, Header, Link};
+#[cfg(feature = "zstd")]
 pub use reader::{Reader, Store};
