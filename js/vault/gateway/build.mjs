@@ -8,7 +8,7 @@
 // LAYR_DESK_GATEWAY_PROGRAM=<file> takes a program that was built elsewhere instead.
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { chmodSync, cpSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { chmodSync, cpSync, mkdirSync, readFileSync, readdirSync, rmSync } from "node:fs";
 
 const TARGET = "aarch64-unknown-linux-musl";
 const here = new URL(".", import.meta.url).pathname;
@@ -53,6 +53,18 @@ cpSync(program, `${out}layr-desk`);
 chmodSync(`${out}layr-desk`, 0o755);
 cpSync(`${site}dist`, `${out}site`, { recursive: true });
 cpSync(`${here}sync.py`, `${out}sync.py`);
+// The service uses DynamicUser. Build output must remain readable with a private umask.
+function siteModes(path) {
+  chmodSync(path, 0o755);
+  for (const entry of readdirSync(path, { withFileTypes: true })) {
+    const child = `${path}/${entry.name}`;
+    if (entry.isDirectory()) siteModes(child);
+    else chmodSync(child, 0o644);
+  }
+}
+chmodSync(out, 0o755);
+siteModes(`${out}site`);
+chmodSync(`${out}sync.py`, 0o644);
 const archive = new URL("../dist/gateway.tgz", import.meta.url).pathname;
 execFileSync("tar", ["-czf", archive, "-C", out, "."], {
   env: { ...process.env, COPYFILE_DISABLE: "1" },
