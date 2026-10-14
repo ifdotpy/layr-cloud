@@ -262,3 +262,26 @@ vaults with a virtual PRF authenticator); `tests/live.e2e.mjs` checks a deployed
 
 A company key slot, Object Lock defaults, garbage collection, Node.js 22 on the gateway (Debian 13
 ships 20; AWS SDK releases after January 2027 need 22).
+
+## Native range reads
+
+The Rust reader can request parts of existing encrypted objects. The archive format and writer do not change.
+The gateway forwards one bounded `Range: bytes=start-end` request to S3 after the normal vault authorization.
+It returns `206` with `Content-Range`, or a complete `200` response when the store does not support ranges.
+Malformed ranges return `400`. A range outside the object returns `416`.
+
+The native client caches ciphertext in 128 KiB blocks. The age library decrypts and authenticates the required chunks.
+The reader still checks the reconstructed file size and SHA-256.
+It rejects a wrong range, a short response, and a change in object length.
+
+Each part permits eight range fetches before another cache miss uses a complete-object read.
+Compressed frames of at least 512 KiB also use complete-object reads.
+`pull` and `verify` use complete-object reads from the start.
+The combined cache of data parts and ciphertext blocks has a 512 MiB limit.
+Tree caches remain separate.
+
+An older gateway can return the complete object. The client reads it without another download.
+The JavaScript browser reader still reads complete objects. Its range support belongs to the planned Rust/WebAssembly migration.
+No key change or archive migration is required.
+
+The proposed next steps for shared writes and review are in [collaboration.md](collaboration.md).

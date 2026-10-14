@@ -59,8 +59,30 @@ impl Bucket for FakeBucket {
     async fn get(&self, key: &str) -> Result<Option<Object>> {
         let objects = self.0.lock().unwrap();
         Ok(objects.get(key).map(|data| Object {
+            range: None,
             length: Some(data.len() as u64),
             body: full(data.clone()),
+        }))
+    }
+
+    async fn get_range(&self, key: &str, start: u64, end: u64) -> Result<Option<Object>> {
+        let objects = self.0.lock().unwrap();
+        let Some(data) = objects.get(key) else {
+            return Ok(None);
+        };
+        if start >= data.len() as u64 {
+            return crate::vault::fail(416, "range is outside the object");
+        }
+        let end = end.min(data.len() as u64 - 1);
+        let bytes = data[start as usize..=end as usize].to_vec();
+        Ok(Some(Object {
+            range: Some(desk_core::range::ContentRange {
+                start,
+                end,
+                total: data.len() as u64,
+            }),
+            length: Some(bytes.len() as u64),
+            body: full(bytes),
         }))
     }
 
@@ -818,7 +840,40 @@ async fn the_aws_client_signs_assumes_the_role_and_makes_the_four_s3_calls() {
                                 &parts.headers,
                                 &body,
                             );
-                            let mut response = hyper::Response::new(Full::new(Bytes::from(text)));
+                            let mut status = status;
+                            let mut bytes = text.into_bytes();
+                            let mut content_range = None;
+                            if status == 200 && parts.method == "GET" {
+                                if let Some(range) = parts.headers.get("range") {
+                                    let (start, end) = range
+                                        .to_str()
+                                        .unwrap()
+                                        .strip_prefix("bytes=")
+                                        .unwrap()
+                                        .split_once('-')
+                                        .unwrap();
+                                    let (start, end) = (
+                                        start.parse::<usize>().unwrap(),
+                                        end.parse::<usize>().unwrap(),
+                                    );
+                                    if start >= bytes.len() {
+                                        status = 416;
+                                        bytes.clear();
+                                    } else {
+                                        let end = end.min(bytes.len() - 1);
+                                        content_range =
+                                            Some(format!("bytes {start}-{end}/{}", bytes.len()));
+                                        bytes = bytes[start..=end].to_vec();
+                                        status = 206;
+                                    }
+                                }
+                            }
+                            let mut response = hyper::Response::new(Full::new(Bytes::from(bytes)));
+                            if let Some(value) = content_range {
+                                response
+                                    .headers_mut()
+                                    .insert("content-range", value.parse().unwrap());
+                            }
                             *response.status_mut() = hyper::StatusCode::from_u16(status).unwrap();
                             Ok::<_, std::convert::Infallible>(response)
                         }
@@ -841,6 +896,15 @@ async fn the_aws_client_signs_assumes_the_role_and_makes_the_four_s3_calls() {
     let object = s3.get(odd).await.unwrap().unwrap();
     assert_eq!(object.length, Some(3));
     assert_eq!(object.body.collect().await.unwrap().to_bytes(), "one");
+    let ranged = s3.get_range(odd, 1, 20).await.unwrap().unwrap();
+    assert_eq!(ranged.range.unwrap().header(), "bytes 1-2/3");
+    assert_eq!(ranged.body.collect().await.unwrap().to_bytes(), "ne");
+    assert!(s3.get_range(odd, 10, 20).await.is_err());
+    assert!(s3
+        .get_range("p/slots/missing.age", 0, 1)
+        .await
+        .unwrap()
+        .is_none());
     assert!(s3.get("p/slots/missing.age").await.unwrap().is_none());
     s3.delete(odd).await.unwrap();
     assert_eq!(s3.list("p/").await.unwrap(), ["p/slots/z.age"]);
@@ -865,4 +929,82 @@ async fn the_aws_client_signs_assumes_the_role_and_makes_the_four_s3_calls() {
     .bucket("b", "eu-central-1", "arn:aws:iam::123456789012:role/reader");
     let error = wrong.list("p/").await.unwrap_err().to_string();
     assert!(error.contains("SignatureDoesNotMatch"), "{error}");
+}
+
+#[tokio::test]
+async fn gateway_ranges_require_auth_and_native_reader_reads_existing_age_objects() {
+    use desk_core::{Entry, Link, Reader, Store};
+    use sha2::{Digest, Sha256};
+    let s = setup(None).await;
+    let http = reqwest::Client::new();
+    let url = format!("http://{}/api/p/p/states/{TREE}", s.address);
+    let token = s.token("p").await;
+    let range = |value: &str| {
+        http.get(&url)
+            .header("host", HOST)
+            .bearer_auth(&token)
+            .header("range", value)
+    };
+    let response = range("bytes=1-2").send().await.unwrap();
+    assert_eq!(response.status(), 206);
+    assert_eq!(response.headers()["content-range"], "bytes 1-2/4");
+    assert_eq!(response.bytes().await.unwrap(), "re");
+    assert_eq!(
+        range("bytes=1-100")
+            .send()
+            .await
+            .unwrap()
+            .bytes()
+            .await
+            .unwrap(),
+        "ree"
+    );
+    assert_eq!(range("bytes=9-10").send().await.unwrap().status(), 416);
+    for bad in ["bytes=1-0", "bytes=0-1,2-3", "bytes=-2", "bytes=0-"] {
+        assert_eq!(range(bad).send().await.unwrap().status(), 400);
+    }
+    assert_eq!(
+        http.get(&url)
+            .header("host", HOST)
+            .header("range", "bytes=0-1")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        401
+    );
+    // Real HTTP client, gateway, encrypted part, age seek, zstd and file hash.
+    let data = b"a selected file in a large encrypted part";
+    let frame = desk_core::zst::compress(data, None).unwrap();
+    let mut plain = vec![42; 2 * 1024 * 1024];
+    let offset = plain.len();
+    plain.extend(&frame);
+    plain.extend(vec![7; 1024 * 1024]);
+    let encrypted = keys::encrypt(&keys::recipient_of(&s.identity).unwrap(), &plain).unwrap();
+    let name = "0000000001.aaaaaaaa.0000.data.age";
+    s.bucket
+        .put_new(&format!("p/states/{name}"), encrypted)
+        .await
+        .unwrap();
+    // This setup checks Host; the client gets that host from a custom resolve entry.
+    let client = crate::gateway::Site::for_test(s.address, HOST)
+        .vault("p")
+        .unlocked(&s.identity);
+    let part = client.get_range(name, 0, 131071).await.unwrap().unwrap();
+    assert_eq!(part.bytes.len(), 131072);
+    let entry = Entry(
+        "100644".into(),
+        data.len() as u64,
+        hex::encode(Sha256::digest(data)),
+        vec![Link(
+            1,
+            "aaaaaaaa".into(),
+            0,
+            offset as u64,
+            frame.len() as u64,
+            "full".into(),
+        )],
+    );
+    let reader = Reader::new(client, &s.identity, &[]).unwrap();
+    assert_eq!(reader.read(&entry).await.unwrap(), data);
 }

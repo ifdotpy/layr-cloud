@@ -190,7 +190,7 @@ async fn main() -> Result<()> {
             let files = reader.files(None).await?;
             let mut problems = 0;
             for (path, entry) in &files {
-                let data = reader.read(entry).await?;
+                let data = reader.read_full(entry).await?;
                 let (want, mode) = desk_core::writer::content(&source.join(path))?;
                 if Sha256::digest(&data) != Sha256::digest(&want) || mode != entry.mode() {
                     println!("differs: {path}");

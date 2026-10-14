@@ -61,7 +61,7 @@ async fn write<S: Store>(
     // Files first and links last, so that no write goes through a link of this state.
     let (links, plain): (Vec<_>, Vec<_>) = files.iter().partition(|(_, e)| e.is_link());
     for (path, entry) in plain.into_iter().chain(links) {
-        let data = reader.read(entry).await?;
+        let data = reader.read_full(entry).await?;
         bytes += data.len() as u64;
         let target = root.join(path);
         if let Some(folder) = target.parent() {

@@ -38,6 +38,7 @@ pub fn fail<T>(status: u16, message: &'static str) -> Result<T> {
 }
 
 pub struct Object {
+    pub range: Option<desk_core::range::ContentRange>,
     pub length: Option<u64>,
     pub body: Body,
 }
@@ -48,6 +49,15 @@ pub trait Bucket: Send + Sync + 'static {
     fn list(&self, prefix: &str) -> impl Future<Output = Result<Vec<String>>> + Send;
     /// One object, or none when there is no such key.
     fn get(&self, key: &str) -> impl Future<Output = Result<Option<Object>>> + Send;
+    /// A bounded ciphertext range. Older stores can return the complete object.
+    fn get_range(
+        &self,
+        key: &str,
+        _start: u64,
+        _end: u64,
+    ) -> impl Future<Output = Result<Option<Object>>> + Send {
+        self.get(key)
+    }
     /// Put an object that must not exist yet: false when it exists.
     fn put_new(&self, key: &str, body: Vec<u8>) -> impl Future<Output = Result<bool>> + Send;
     fn delete(&self, key: &str) -> impl Future<Output = Result<()>> + Send;
@@ -197,15 +207,16 @@ impl<B: Bucket> Vault<B> {
     }
 
     /// The body and length of one state object.
-    pub async fn object(&self, name: &str) -> Result<Object> {
+    pub async fn object(&self, name: &str, range: Option<(u64, u64)>) -> Result<Object> {
         if !state_name(name) {
             return fail(400, "not a state object name");
         }
-        match self
-            .bucket
-            .get(&format!("{}/states/{name}", self.prefix))
-            .await?
-        {
+        let key = format!("{}/states/{name}", self.prefix);
+        let object = match range {
+            Some((start, end)) => self.bucket.get_range(&key, start, end).await?,
+            None => self.bucket.get(&key).await?,
+        };
+        match object {
             Some(object) => Ok(object),
             None => fail(404, "no such state object"),
         }

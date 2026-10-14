@@ -3,11 +3,13 @@
 //! the size and SHA-256 that its tree names.
 
 use crate::format::{self, Entry, Header, Tree};
+use crate::range::{Partial, RangeData, Sparse, BLOCK};
 use crate::{keys, zst};
 use anyhow::{anyhow, bail, Context, Result};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, HashMap};
 use std::future::Future;
+use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
@@ -15,6 +17,15 @@ use std::sync::{Arc, Mutex};
 /// relative to `<prefix>/states/`.
 pub trait Store: Send + Sync {
     fn get(&self, name: &str) -> impl Future<Output = Result<Vec<u8>>> + Send;
+    /// A bounded inclusive ciphertext range. None means ranges are not supported.
+    fn get_range(
+        &self,
+        _name: &str,
+        _start: u64,
+        _end: u64,
+    ) -> impl Future<Output = Result<Option<RangeData>>> + Send {
+        async { Ok(None) }
+    }
 }
 
 /// A decoded tree: its header and canonical bytes.
@@ -27,6 +38,7 @@ const PART_CACHE: usize = 512 << 20;
 struct Cache {
     parts: HashMap<String, Arc<Vec<u8>>>,
     bytes: usize,
+    partial: HashMap<String, Partial>,
     trees: HashMap<(u64, String), DecodedTree>,
 }
 
@@ -89,14 +101,109 @@ impl<S: Store> Reader<S> {
             return Ok(part.clone());
         }
         let part = Arc::new(self.decrypted(name).await?);
+        self.remember_part(name, part.clone());
+        Ok(part)
+    }
+
+    fn remember_part(&self, name: &str, part: Arc<Vec<u8>>) {
         let mut cache = self.cache.lock().unwrap();
+        if part.len() > PART_CACHE {
+            return;
+        }
         if cache.bytes + part.len() > PART_CACHE {
             cache.parts.clear();
+            cache.partial.clear();
             cache.bytes = 0;
         }
+        if let Some(old) = cache.parts.insert(name.to_string(), part.clone()) {
+            cache.bytes -= old.len();
+        }
+        if let Some(old) = cache.partial.remove(name) {
+            cache.bytes -= old.blocks.values().map(|b| b.len()).sum::<usize>();
+        }
         cache.bytes += part.len();
-        cache.parts.insert(name.to_string(), part.clone());
-        Ok(part)
+    }
+
+    async fn frame(&self, link: &format::Link, selective: bool) -> Result<Vec<u8>> {
+        let name = link.object();
+        let end = link
+            .3
+            .checked_add(link.4)
+            .ok_or_else(|| anyhow!("frame range overflow"))?;
+        let full = |part: &[u8]| -> Result<Vec<u8>> {
+            let start = usize::try_from(link.3)?;
+            let end = usize::try_from(end)?;
+            Ok(part
+                .get(start..end)
+                .ok_or_else(|| anyhow!("a frame is outside its part"))?
+                .to_vec())
+        };
+        if !selective || link.4 >= 512 * 1024 {
+            return full(&self.part(&name).await?);
+        }
+        for attempt in 0..=8 {
+            let partial = {
+                let cache = self.cache.lock().unwrap();
+                if let Some(part) = cache.parts.get(&name) {
+                    return full(part);
+                }
+                cache.partial.get(&name).cloned().unwrap_or_default()
+            };
+            let missing = Arc::new(Mutex::new(None));
+            let source = Sparse {
+                partial: partial.clone(),
+                missing: missing.clone(),
+                pos: 0,
+            };
+            let decoded = (|| -> Result<Vec<u8>> {
+                let mut reader = age::Decryptor::new_buffered(BufReader::new(source))?
+                    .decrypt(std::iter::once(&self.identity as &dyn age::Identity))?;
+                reader.seek(SeekFrom::Start(link.3))?;
+                let mut bytes = vec![0; link.4 as usize];
+                reader.read_exact(&mut bytes)?;
+                Ok(bytes)
+            })();
+            let needed = *missing.lock().unwrap();
+            let Some(start) = needed else {
+                return decoded.context("decrypting file frame");
+            };
+            // Cached blocks remain useful after the budget; only another miss loads the full part.
+            if partial.requests >= 8 || attempt == 8 {
+                return full(&self.part(&name).await?);
+            }
+            let range_end = start
+                .checked_add(BLOCK - 1)
+                .ok_or_else(|| anyhow!("range overflow"))?;
+            let Some(response) = self.store.get_range(&name, start, range_end).await? else {
+                return full(&self.part(&name).await?);
+            };
+            response.validate(start, range_end)?;
+            if partial.total.is_some_and(|n| n != response.total) {
+                bail!("object length changed");
+            }
+            if response.start == 0 && response.bytes.len() as u64 == response.total {
+                let part = Arc::new(keys::decrypt_with(&self.identity, &response.bytes)?);
+                let frame = full(&part)?;
+                self.remember_part(&name, part);
+                return Ok(frame);
+            }
+            let mut cache = self.cache.lock().unwrap();
+            if cache.bytes + response.bytes.len() > PART_CACHE {
+                cache.parts.clear();
+                cache.partial.clear();
+                cache.bytes = 0;
+            }
+            let bytes = Arc::new(response.bytes);
+            let p = cache.partial.entry(name.clone()).or_default();
+            if p.total.is_some_and(|n| n != response.total) {
+                bail!("object length changed");
+            }
+            p.total = Some(response.total);
+            p.requests += 1;
+            let old = p.blocks.insert(start, bytes.clone()).map_or(0, |b| b.len());
+            cache.bytes = cache.bytes - old + bytes.len();
+        }
+        unreachable!("the last miss uses a full-object read")
     }
 
     /// The header of one state, without decoding its tree.
@@ -138,7 +245,7 @@ impl<S: Store> Reader<S> {
                 );
             }
             if header.tree == "full" {
-                let bytes = Arc::new(zst::decompress(frame, None)?);
+                let bytes = Arc::new(zst::decompress(&frame, None)?);
                 self.remember(&header, &bytes);
                 if pending.is_empty() {
                     return Ok((header, bytes));
@@ -189,20 +296,26 @@ impl<S: Store> Reader<S> {
     /// The content of one tree entry: its chain decoded from the full frame up, checked against
     /// the entry's size and SHA-256.
     pub async fn read(&self, entry: &Entry) -> Result<Vec<u8>> {
+        self.read_inner(entry, true).await
+    }
+
+    /// Full-object reads for restore and verification of a complete state.
+    pub async fn read_full(&self, entry: &Entry) -> Result<Vec<u8>> {
+        self.read_inner(entry, false).await
+    }
+
+    async fn read_inner(&self, entry: &Entry, selective: bool) -> Result<Vec<u8>> {
         let chain = &entry.3;
         if chain.is_empty() || chain.last().is_some_and(|l| l.is_delta()) {
             bail!("a file chain must end with a full frame");
         }
         let mut data: Option<Vec<u8>> = None;
         for link in chain.iter().rev() {
-            let part = self.part(&link.object()).await?;
-            let frame = part
-                .get(link.range())
-                .ok_or_else(|| anyhow!("a frame is outside its part"))?;
+            let frame = self.frame(link, selective).await?;
             data = Some(if link.is_delta() {
-                zst::decompress(frame, data.as_deref())?
+                zst::decompress(&frame, data.as_deref())?
             } else {
-                zst::decompress(frame, None)?
+                zst::decompress(&frame, None)?
             });
         }
         let data = data.unwrap_or_default();

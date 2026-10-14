@@ -298,8 +298,26 @@ impl<B: Bucket> Gateway<B> {
                 Ok(send(200, json!({ "states": vault.states().await? })))
             }
             (&Method::GET, Some("states"), Some(name)) => {
-                let object = vault.object(name).await?;
-                let mut response = Response::builder().status(200);
+                let range = match request.headers().get("range") {
+                    Some(value) => {
+                        if request.headers().get_all("range").iter().count() != 1 {
+                            return Ok(error(400, "one bounded byte range is required"));
+                        }
+                        let parsed = value.to_str().ok().and_then(parse_range);
+                        let Some(range) = parsed else {
+                            return Ok(error(400, "one bounded byte range is required"));
+                        };
+                        Some(range)
+                    }
+                    None => None,
+                };
+                let object = vault.object(name, range).await?;
+                let mut response =
+                    Response::builder().status(if object.range.is_some() { 206 } else { 200 });
+                if let Some(range) = object.range {
+                    response = response.header("content-range", range.header());
+                }
+                response = response.header("accept-ranges", "bytes");
                 for (name, value) in SECURITY {
                     response = response.header(name, value);
                 }
@@ -344,4 +362,18 @@ async fn read_json(request: Request<Incoming>) -> Result<Value> {
         Ok(value) => Ok(value),
         Err(_) => fail(400, "the body is not JSON"),
     }
+}
+
+/// This API accepts one explicit inclusive range, not suffix or multipart ranges.
+fn parse_range(value: &str) -> Option<(u64, u64)> {
+    let (start, end) = value.strip_prefix("bytes=")?.split_once('-')?;
+    if start.is_empty()
+        || end.is_empty()
+        || !start.bytes().all(|b| b.is_ascii_digit())
+        || !end.bytes().all(|b| b.is_ascii_digit())
+    {
+        return None;
+    }
+    let (start, end) = (start.parse().ok()?, end.parse().ok()?);
+    (start <= end).then_some((start, end))
 }

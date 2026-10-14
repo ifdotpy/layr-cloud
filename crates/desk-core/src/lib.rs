@@ -5,6 +5,7 @@ pub mod aws;
 pub mod canonical;
 pub mod format;
 pub mod keys;
+pub mod range;
 pub mod reader;
 #[cfg(unix)]
 pub mod writer;

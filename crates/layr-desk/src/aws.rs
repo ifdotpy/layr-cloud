@@ -393,6 +393,7 @@ impl Bucket for S3 {
         let response = self.call(Method::GET, key, &[], &[], Vec::new()).await?;
         match response.status() {
             StatusCode::OK => Ok(Some(Object {
+                range: None,
                 length: response.content_length(),
                 body: reqwest::Body::from(response)
                     .map_err(anyhow::Error::from)
@@ -406,6 +407,53 @@ impl Bucket for S3 {
                 }
             }
             _ => Err(failure(&format!("S3 get {key}"), response).await),
+        }
+    }
+
+    async fn get_range(&self, key: &str, start: u64, end: u64) -> Result<Option<Object>> {
+        let header = format!("bytes={start}-{end}");
+        let response = self
+            .call(Method::GET, key, &[], &[("range", &header)], Vec::new())
+            .await?;
+        match response.status() {
+            StatusCode::OK | StatusCode::PARTIAL_CONTENT => {
+                let range = if response.status() == StatusCode::PARTIAL_CONTENT {
+                    let value = response
+                        .headers()
+                        .get("content-range")
+                        .context("S3 omitted Content-Range")?
+                        .to_str()?;
+                    let range = desk_core::range::ContentRange::parse(value)?;
+                    if range.start != start
+                        || range.end != end.min(range.total - 1)
+                        || response.content_length().is_some_and(|n| n != range.len())
+                    {
+                        bail!("S3 returned an incorrect range");
+                    }
+                    Some(range)
+                } else {
+                    None
+                };
+                Ok(Some(Object {
+                    range,
+                    length: response.content_length(),
+                    body: reqwest::Body::from(response)
+                        .map_err(anyhow::Error::from)
+                        .boxed_unsync(),
+                }))
+            }
+            StatusCode::RANGE_NOT_SATISFIABLE => {
+                crate::vault::fail(416, "range is outside the object")
+            }
+            StatusCode::NOT_FOUND => {
+                let text = response.text().await.unwrap_or_default();
+                if aws::xml_text(&text, "Code").as_deref() == Some("NoSuchKey") {
+                    Ok(None)
+                } else {
+                    bail!("S3 range get {key}: HTTP 404");
+                }
+            }
+            _ => Err(failure(&format!("S3 range get {key}"), response).await),
         }
     }
 
