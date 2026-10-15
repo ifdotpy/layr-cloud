@@ -222,7 +222,11 @@ impl S3 {
                 Bytes::from(complete),
             )
             .await?;
-        if reply.status == 412 {
+        if reply.status == 412
+            || (reply.status == 200
+                && reply.body.contains("<Error")
+                && aws::xml_text(&reply.body, "Code").as_deref() == Some("PreconditionFailed"))
+        {
             return Ok(false);
         }
         // S3 can send HTTP 200 first, then an Error XML body. Only a complete result
@@ -304,6 +308,7 @@ mod tests {
     enum Outcome {
         Success,
         Exists,
+        EmbeddedExists,
         EmbeddedError,
         Conflict,
         PartError,
@@ -315,6 +320,7 @@ mod tests {
         for outcome in [
             Outcome::Success,
             Outcome::Exists,
+            Outcome::EmbeddedExists,
             Outcome::EmbeddedError,
             Outcome::Conflict,
             Outcome::PartError,
@@ -380,6 +386,7 @@ mod tests {
                                             match outcome {
                                             Outcome::Success => *response.body_mut() = Full::new(Bytes::from_static(b"<CompleteMultipartUploadResult><ETag>complete</ETag></CompleteMultipartUploadResult>")),
                                             Outcome::Exists => *response.status_mut() = hyper::StatusCode::PRECONDITION_FAILED,
+                                            Outcome::EmbeddedExists => *response.body_mut() = Full::new(Bytes::from_static(b" \n<Error><Code>PreconditionFailed</Code></Error>")),
                                             Outcome::Conflict => *response.status_mut() = hyper::StatusCode::CONFLICT,
                                             Outcome::EmbeddedError => *response.body_mut() = Full::new(Bytes::from_static(b" \n<Error><Code>InternalError</Code></Error>")),
                                             Outcome::LostCompletion => return Err(std::io::Error::other("completion response lost")),
@@ -414,7 +421,7 @@ mod tests {
                 .await;
             match outcome {
                 Outcome::Success => assert!(result.unwrap()),
-                Outcome::Exists => assert!(!result.unwrap()),
+                Outcome::Exists | Outcome::EmbeddedExists => assert!(!result.unwrap()),
                 _ => assert!(result.is_err()),
             }
             let calls = calls.lock().unwrap();
@@ -447,6 +454,32 @@ mod live_tests {
     use serde::Deserialize;
     use std::path::PathBuf;
 
+    // A valid zstd frame with raw blocks makes the encrypted object exceed the
+    // single-request limit even when the source file compresses well.
+    fn raw_frame(data: &[u8]) -> Vec<u8> {
+        let mut out = Vec::with_capacity(data.len() + data.len().div_ceil(128 << 10) * 3 + 16);
+        out.extend_from_slice(&[0x28, 0xb5, 0x2f, 0xfd, 0xe0]);
+        out.extend_from_slice(&(data.len() as u64).to_le_bytes());
+        let count = data.len().div_ceil(128 << 10);
+        for (index, block) in data.chunks(128 << 10).enumerate() {
+            let header = ((block.len() as u32) << 3) | u32::from(index + 1 == count);
+            out.extend_from_slice(&header.to_le_bytes()[..3]);
+            out.extend_from_slice(block);
+        }
+        if data.is_empty() {
+            out.extend_from_slice(&[1, 0, 0]);
+        }
+        out
+    }
+
+    #[test]
+    fn raw_test_frames_preserve_block_boundaries() {
+        for size in [0, 1, 128 << 10, (128 << 10) + 1] {
+            let data = vec![42u8; size];
+            assert_eq!(zst::decompress(&raw_frame(&data), None).unwrap(), data);
+        }
+    }
+
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct Config {
@@ -468,8 +501,16 @@ mod live_tests {
         let digest = hex::encode(Sha256::digest(&original));
         let identity = keys::generate_identity();
         let recipient = keys::recipient_of(&identity).unwrap();
-        let frame = zst::compress(&original, None).unwrap();
+        let source_bytes = original.len();
+        let raw = std::env::var("LAYR_MULTIPART_RAW_FRAME").as_deref() == Ok("1");
+        let frame = if raw {
+            raw_frame(&original)
+        } else {
+            zst::compress(&original, None).unwrap()
+        };
         let encrypted = Bytes::from(keys::encrypt(&recipient, &frame).unwrap());
+        drop(frame);
+        drop(original);
         let client = S3::new(
             &config.bucket,
             &config.region,
@@ -514,10 +555,10 @@ mod live_tests {
             .unwrap();
         assert_eq!(downloaded, encrypted);
         let plain = keys::decrypt(&identity, &downloaded).unwrap();
-        let restored = zst::decompress_with_limit(&plain, None, original.len()).unwrap();
+        let restored = zst::decompress_with_limit(&plain, None, source_bytes).unwrap();
         assert_eq!(hex::encode(Sha256::digest(&restored)), digest);
         std::fs::write(dir.join("result.json"), serde_json::to_vec_pretty(&serde_json::json!({
-            "verified":true, "sourceBytes":original.len(), "encryptedBytes":encrypted.len(),
+            "verified":true, "sourceBytes":source_bytes, "rawZstdFrame":raw, "encryptedBytes":encrypted.len(),
             "sha256":digest, "conditionalOverwriteRejected":true, "unconditionalOverwriteRejected":true,
             "key":key.trim()
         })).unwrap()).unwrap();
