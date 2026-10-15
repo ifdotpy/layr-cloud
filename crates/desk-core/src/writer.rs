@@ -279,7 +279,7 @@ where
         let new_path = new_dir
             .to_str()
             .ok_or_else(|| anyhow!("the state folder is not UTF-8"))?;
-        self.layr.run(&["export", head, new_path, "-q"])?;
+        self.layr.run(&["export", head, new_path, "--all", "-q"])?;
         let new_files = walk(&new_dir)?;
         let none = BTreeMap::new();
         let old_files = last.as_ref().map_or(&none, |l| &l.files);

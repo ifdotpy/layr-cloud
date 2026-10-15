@@ -116,10 +116,15 @@ impl FakeLayr {
 impl Layr for &FakeLayr {
     fn run(&self, args: &[&str]) -> Result<String> {
         match args {
-            ["export", state, folder, "-q"] => {
+            ["export", state, folder, options @ ..] => {
                 let folder = Path::new(folder);
                 let _ = std::fs::remove_dir_all(folder);
-                write_files(folder, &self.state(state));
+                let mut files = self.state(state);
+                // Real layr omits ignored files unless the caller asks for all state files.
+                if !options.contains(&"--all") {
+                    files.retain(|path, _| path != ".env");
+                }
+                write_files(folder, &files);
                 std::fs::write(
                     folder.join(writer::MARKER),
                     format!("{{\"state\": \"{state}\"}}"),
@@ -343,6 +348,25 @@ async fn read(reader: &Reader<Objects>, state: Option<(u64, String)>) -> Files {
 
 fn sha(data: &[u8]) -> String {
     hex::encode(Sha256::digest(data))
+}
+
+#[tokio::test]
+async fn backup_includes_ignored_files_saved_in_the_state() {
+    let t = Test::new("ignored-state-files");
+    let first = files(&[
+        (".gitignore", b".env\n", "100644"),
+        (".env", b"EXAMPLE=first\n", "100644"),
+    ]);
+    let second = files(&[
+        (".gitignore", b".env\n", "100644"),
+        (".env", b"EXAMPLE=second\n", "100644"),
+    ]);
+    t.layr.commit("first", &first);
+    t.writer().push("first").await.unwrap();
+    assert_eq!(read(&t.reader(false), None).await, first);
+    t.layr.commit("second", &second);
+    t.writer().push("second").await.unwrap();
+    assert_eq!(read(&t.reader(false), None).await, second);
 }
 
 /// What the Python reader prints for one state, without the frame kinds.

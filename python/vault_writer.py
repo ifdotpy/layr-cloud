@@ -140,7 +140,7 @@ class Writer:
         old_tree = json.loads((self.dir / "tree.json").read_text()) if record else {"files": {}}
         if not record:
             shutil.rmtree(new_dir, ignore_errors=True)
-        self.layr(["export", head, str(new_dir), "-q"])
+        self.layr(["export", head, str(new_dir), "--all", "-q"])
         new_files = walk(new_dir)
         if record:
             changed = set()

@@ -88,7 +88,7 @@ layr project; the host of the project runs it as the owner of the layr store. Th
 `secretAccessKey`, and `endpoint` for a test store. The command prints a JSON summary.
 
 1. `layr rev-parse main` names the head. When the record names this state, stop.
-2. The export folders `a` and `b` take turns: `layr export <head>` fills one; the other holds
+2. The export folders `a` and `b` take turns: `layr export <head> --all` fills one; the other holds
    the last pushed state. `layr diff --name-status <last> <head>` names the changed paths. The
    writer also looks at every added or removed path and at every path with a tab or a line
    break, which a diff line cannot carry. The first push takes every file.
