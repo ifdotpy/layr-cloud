@@ -18,6 +18,13 @@ Resources:
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
     Properties:
+      LifecycleConfiguration:
+        Rules:
+          - Id: RemoveIncompleteStateUploads
+            Status: Enabled
+            Prefix: !Sub "${Prefix}/states/"
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
       VersioningConfiguration:
         Status: Enabled
       PublicAccessBlockConfiguration:
@@ -42,7 +49,7 @@ Resources:
             Version: "2012-10-17"
             Statement:
               - Effect: Allow
-                Action: s3:PutObject
+                Action: [s3:PutObject, s3:AbortMultipartUpload]
                 Resource: !Sub "${Bucket.Arn}/${Prefix}/states/*"
               - Effect: Allow
                 Action: s3:ListBucket
@@ -67,6 +74,8 @@ Resources:
             Condition:
               "Null":
                 s3:if-none-match: "true"
+              Bool:
+                s3:ObjectCreationOperation: "true"
 
   # The gateways (gateway.yaml, maybe in other accounts) read states and slots and change
   # passkey slots through this role. The trust names the gateway roles by ARN, so a new gateway

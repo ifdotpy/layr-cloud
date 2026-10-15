@@ -4,7 +4,7 @@
 use anyhow::{anyhow, bail, Result};
 use zstd_safe::{DCtx, InBuffer, OutBuffer};
 
-/// The largest content one frame may decode to; more is refused as a damaged or hostile frame.
+/// Default decoded-size limit for metadata and intermediate delta frames.
 pub const LIMIT: usize = 4 << 30;
 
 fn error(code: usize) -> anyhow::Error {
@@ -13,6 +13,18 @@ fn error(code: usize) -> anyhow::Error {
 
 /// One frame decoded; `base` is the raw dictionary of a delta frame.
 pub fn decompress(frame: &[u8], base: Option<&[u8]>) -> Result<Vec<u8>> {
+    decompress_with_limit(frame, base, LIMIT)
+}
+
+/// Decode a file frame within the size declared by its authenticated tree entry.
+/// Metadata and intermediate frames continue to use the default limit.
+pub fn decompress_with_limit(frame: &[u8], base: Option<&[u8]>, limit: usize) -> Result<Vec<u8>> {
+    if zstd_safe::get_frame_content_size(frame)
+        .map_err(|_| anyhow!("invalid zstd frame header"))?
+        .is_some_and(|size| size > limit as u64)
+    {
+        bail!("a zstd frame decodes to more than {limit} bytes");
+    }
     let mut dctx = DCtx::create();
     if let Some(base) = base.filter(|b| !b.is_empty()) {
         // A prefix is a raw-content dictionary for one frame, whatever its first bytes are.
@@ -27,10 +39,11 @@ pub fn decompress(frame: &[u8], base: Option<&[u8]>) -> Result<Vec<u8>> {
             .decompress_stream(&mut output, &mut input)
             .map_err(error)?;
         let written = output.pos();
-        out.extend_from_slice(&chunk[..written]);
-        if out.len() > LIMIT {
-            bail!("a zstd frame decodes to more than {LIMIT} bytes");
+        if written > limit.saturating_sub(out.len()) {
+            bail!("a zstd frame decodes to more than {limit} bytes");
         }
+        out.try_reserve(written)?;
+        out.extend_from_slice(&chunk[..written]);
         if hint == 0 {
             if input.pos() != frame.len() {
                 bail!("bytes after the zstd frame");
@@ -97,6 +110,33 @@ mod tests {
             out.extend(line.as_bytes());
         }
         out
+    }
+
+    #[test]
+    #[ignore = "explicit large-file check: use an isolated host with at least 24 GiB RAM"]
+    fn authenticated_file_above_four_gib_restores() {
+        let size = 5usize * 1024 * 1024 * 1024 + 1;
+        let input = vec![0u8; size];
+        let compressed = compress(&input, None).unwrap();
+        assert!(decompress(&compressed, None).is_err());
+        let restored = decompress_with_limit(&compressed, None, size).unwrap();
+        assert_eq!(restored.len(), size);
+        assert!(restored.iter().all(|byte| *byte == 0));
+    }
+
+    #[test]
+    fn file_size_limit_is_enforced_before_output_is_returned() {
+        let data = b"authenticated file size";
+        let frame = compress(data, None).unwrap();
+        assert!(decompress_with_limit(&frame, None, data.len() - 1).is_err());
+        assert_eq!(
+            decompress_with_limit(&frame, None, data.len()).unwrap(),
+            data
+        );
+        assert_eq!(
+            decompress_with_limit(&frame, None, LIMIT + 1).unwrap(),
+            data
+        );
     }
 
     #[test]

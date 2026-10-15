@@ -87,13 +87,36 @@ layr project; the host of the project runs it as the owner of the layr store. Th
 (a file, or standard input) is JSON: `bucket`, `region`, `prefix`, `recipient`, `accessKeyId`,
 `secretAccessKey`, and `endpoint` for a test store. The command prints a JSON summary.
 
+Objects above 256 MiB use S3 multipart upload. The part size starts at 64 MiB
+and grows when necessary to stay within S3's 10,000-part limit. Completion uses
+`If-None-Match: *`, so it cannot replace an existing object. Upload-part retries
+keep the same upload ID, part number and bytes. A failed or uncertain completion
+never counts as success. The writer aborts failed uploads; the bucket removes
+incomplete uploads after seven days if the writer stops before cleanup.
+
+Update an existing vault stack from `js/vault/cloud/template.yaml` before using
+multipart upload. The writer needs `s3:AbortMultipartUpload`. The bucket policy
+requires the conditional header for object creation, but exempts multipart setup
+and individual parts through `s3:ObjectCreationOperation`. Both single-request
+uploads and multipart completion still require the header.
+
+Data object names and encrypted contents keep the existing format. The writer
+increases its data-object target for large trees, using zstd size bounds to keep
+four-digit part names. S3 upload parts are separate from these vault data objects.
+The writer still holds each complete file and its compressed/encrypted forms in
+memory. Multipart upload removes the single-request size limit, not that memory
+requirement. Use a host with enough memory for the largest file.
+The native reader uses the authenticated tree entry size as the final file decode
+limit. Metadata and intermediate delta frames keep their existing 4 GiB limit.
+Use this reader version to restore files above that limit; old readers reject them.
+
 1. `layr rev-parse main` names the head. When the record names this state, stop.
 2. The export folders `a` and `b` take turns: `layr export <head> --all` fills one; the other holds
    the last pushed state. `layr diff --name-status <last> <head>` names the changed paths. The
    writer also looks at every added or removed path and at every path with a tab or a line
    break, which a diff line cannot carry. The first push takes every file.
 3. A changed file gets a delta frame against its version in the other folder when that is the
-   version of the last push, its chain has fewer than 16 deltas, the file has at most 32 MiB,
+   version of the last push, its chain has fewer than 16 deltas, both file versions have at most 32 MiB,
    and the delta is smaller; else a full frame. Frames are zstd level 3. A delta frame is made
    as `zstd --patch-from` makes it: the window covers the larger input (at most 2^27 bytes,
    which every decoder takes by default) and long-distance matching is on. Without that, a file
@@ -129,8 +152,9 @@ reading a file fetches the parts of its delta chain.
 One stack per project, in the project's AWS account (`template.yaml`):
 
 - Bucket with versioning; public access blocked; no CORS, no public path.
-- Writer user: `s3:PutObject` on `<project>/states/*` with `If-None-Match` required,
-  `s3:ListBucket` on `<project>/states/`; nothing else.
+- Writer user: `s3:PutObject` and `s3:AbortMultipartUpload` on `<project>/states/*`,
+  plus `s3:ListBucket` on `<project>/states/`. Object creation requires `If-None-Match`.
+  It cannot read or delete completed objects.
 - Reader role `studio-vault-reader-<project>`: read states and slots, put and delete
   `slots/passkey-*`. It trusts the gateway role by ARN (`aws:PrincipalArn`), so the gateway can
   be in another account and its role can be made again.

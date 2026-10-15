@@ -233,6 +233,9 @@ where
     async fn put_part(&self, seq: u64, attempt: &str, part: u32, data: &[u8]) -> Result<()> {
         // Nothing puts a key twice, so a part that exists belongs to another push that drew
         // the same attempt; this push stops, and the next one draws again.
+        if part >= format::MAX_DATA_PARTS {
+            bail!("the state exceeds the four-digit data part limit");
+        }
         let key = self.key(seq, attempt, Some(part));
         if !self.bucket.put_new(&key, (self.encrypt)(data)?).await? {
             bail!("the part {key} exists before its first put");
@@ -281,6 +284,7 @@ where
             .ok_or_else(|| anyhow!("the state folder is not UTF-8"))?;
         self.layr.run(&["export", head, new_path, "--all", "-q"])?;
         let new_files = walk(&new_dir)?;
+        let part_limit = data_part_limit(&new_files)?;
         let none = BTreeMap::new();
         let old_files = last.as_ref().map_or(&none, |l| &l.files);
         let changed = match &last {
@@ -315,7 +319,7 @@ where
                 continue;
             }
             let (frame, chain) = frame(&data, previous, &base_dir.join(path))?;
-            if !current.is_empty() && current.len() + frame.len() > PART_LIMIT {
+            if !current.is_empty() && current.len() + frame.len() > part_limit {
                 self.put_part(seq, &attempt, put, &current).await?;
                 bytes += current.len() as u64;
                 put += 1;
@@ -426,7 +430,10 @@ fn frame(data: &[u8], previous: Option<&Entry>, base: &Path) -> Result<(Vec<u8>,
     let Some(previous) = previous else {
         return Ok((full, Vec::new()));
     };
-    if previous.3.len() > MAX_DEPTH || data.len() > DELTA_LIMIT {
+    if previous.3.len() > MAX_DEPTH
+        || data.len() > DELTA_LIMIT
+        || previous.size() > DELTA_LIMIT as u64
+    {
         return Ok((full, Vec::new()));
     }
     // The base folder only helps compression; a base that is missing or not that version
@@ -575,4 +582,18 @@ mod tests {
         let want = ["added", "changed", "old", "removed", "renamed", "tab\there"];
         assert_eq!(changed.into_iter().collect::<Vec<_>>(), want);
     }
+}
+
+/// Keep the existing four-digit object names for large trees. Two consecutive output
+/// parts together exceed the target size, except the last part. A zstd bound per file
+/// therefore gives a conservative target with room for both sides of each boundary.
+fn data_part_limit(files: &BTreeMap<String, PathBuf>) -> Result<usize> {
+    let mut bound = 0usize;
+    for path in files.values() {
+        let size = usize::try_from(std::fs::symlink_metadata(path)?.len())?;
+        bound = bound
+            .checked_add(zstd_safe::compress_bound(size))
+            .context("the tree size exceeds this platform's address space")?;
+    }
+    Ok(PART_LIMIT.max(bound.div_ceil((format::MAX_DATA_PARTS as usize - 1) / 2)))
 }

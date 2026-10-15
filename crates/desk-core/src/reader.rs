@@ -296,13 +296,23 @@ impl<S: Store> Reader<S> {
             bail!("a file chain must end with a full frame");
         }
         let mut data: Option<Vec<u8>> = None;
-        for link in chain.iter().rev() {
+        for (index, link) in chain.iter().enumerate().rev() {
             let frame = self.frame(link, selective).await?;
-            data = Some(if link.is_delta() {
-                zst::decompress(&frame, data.as_deref())?
+            let limit = if index == 0 {
+                usize::try_from(entry.size())
+                    .context("the file size exceeds this platform's address space")?
             } else {
-                zst::decompress(&frame, None)?
-            });
+                zst::LIMIT
+            };
+            data = Some(zst::decompress_with_limit(
+                &frame,
+                if link.is_delta() {
+                    data.as_deref()
+                } else {
+                    None
+                },
+                limit,
+            )?);
         }
         let data = data.unwrap_or_default();
         if data.len() as u64 != entry.size() || hex::encode(Sha256::digest(&data)) != entry.sha256()

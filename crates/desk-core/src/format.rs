@@ -6,6 +6,9 @@ use anyhow::{bail, Result};
 use serde::Deserialize;
 use std::collections::BTreeMap;
 
+/// Data object names have four decimal digits, from 0000 to 9999.
+pub const MAX_DATA_PARTS: u32 = 10_000;
+
 /// The plaintext header line of a tree object.
 #[derive(Clone, Debug, Deserialize)]
 pub struct Header {
