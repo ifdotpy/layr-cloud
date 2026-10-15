@@ -458,7 +458,8 @@ mod live_tests {
     // single-request limit even when the source file compresses well.
     fn raw_frame(data: &[u8]) -> Vec<u8> {
         let mut out = Vec::with_capacity(data.len() + data.len().div_ceil(128 << 10) * 3 + 16);
-        out.extend_from_slice(&[0x28, 0xb5, 0x2f, 0xfd, 0xe0]);
+        // Keep the decode window at 128 KiB, independent of the total file size.
+        out.extend_from_slice(&[0x28, 0xb5, 0x2f, 0xfd, 0xc0, 0x38]);
         out.extend_from_slice(&(data.len() as u64).to_le_bytes());
         let count = data.len().div_ceil(128 << 10);
         for (index, block) in data.chunks(128 << 10).enumerate() {
