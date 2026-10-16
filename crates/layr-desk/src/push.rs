@@ -31,6 +31,29 @@ pub struct Push {
     layr: PathBuf,
 }
 
+#[derive(Args)]
+pub struct Reindex {
+    /// Existing writer configuration; no private vault key is needed
+    #[arg(long)]
+    config: Option<PathBuf>,
+    /// Trusted writer state folder with writer.json and tree.json
+    #[arg(long)]
+    state_dir: PathBuf,
+}
+
+pub async fn reindex(args: Reindex) -> Result<()> {
+    run_writer(
+        Push {
+            config: args.config,
+            state_dir: args.state_dir,
+            project: String::new(),
+            layr: PathBuf::from("layr"),
+        },
+        true,
+    )
+    .await
+}
+
 /// The configuration of one vault, with the names of the host's `config.json`.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -125,6 +148,10 @@ impl Config {
 }
 
 pub async fn run(args: Push) -> Result<()> {
+    run_writer(args, false).await
+}
+
+async fn run_writer(args: Push, reindex: bool) -> Result<()> {
     let text = match &args.config {
         Some(path) if path != Path::new("-") => {
             std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?
@@ -138,6 +165,9 @@ pub async fn run(args: Push) -> Result<()> {
     let config: Config =
         serde_json::from_str(&text).context("the configuration is not a vault configuration")?;
     config.check()?;
+    let browse_scope = serde_json::json!({"bucket": config.bucket, "region": config.region,
+        "endpoint": config.endpoint, "recipient": config.recipient})
+    .to_string();
     let s3 = S3::new(
         &config.bucket,
         &config.region,
@@ -152,8 +182,12 @@ pub async fn run(args: Push) -> Result<()> {
         program: args.layr,
         project: args.project,
     };
-    let head = layr.run(&["rev-parse", "main"])?.trim().to_string();
-    if head.is_empty() {
+    let head = if reindex {
+        String::new()
+    } else {
+        layr.run(&["rev-parse", "main"])?.trim().to_string()
+    };
+    if !reindex && head.is_empty() {
         bail!("layr names no main head");
     }
     let recipient = config.recipient;
@@ -163,9 +197,14 @@ pub async fn run(args: Push) -> Result<()> {
         layr,
         s3,
         move |data: &[u8]| keys::encrypt(&recipient, data),
+        &browse_scope,
     )?;
-    let summary = writer.push(&head).await?;
-    println!("{}", serde_json::to_string(&summary)?);
+    if reindex {
+        println!("{}", writer.reindex().await?);
+    } else {
+        let summary = writer.push(&head).await?;
+        println!("{}", serde_json::to_string(&summary)?);
+    }
     Ok(())
 }
 

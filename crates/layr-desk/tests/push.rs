@@ -321,6 +321,23 @@ async fn push_puts_each_new_head_into_the_vault() {
     assert_eq!(first["pushed"], true);
     assert_eq!(first["seq"], 6);
 
+    // Reindex uses only local writer metadata and the existing S3 configuration.
+    let indexed = Command::new(env!("CARGO_BIN_EXE_layr-desk"))
+        .arg("reindex")
+        .arg("--config")
+        .arg(fixture.root.join("config.json"))
+        .arg("--state-dir")
+        .arg(fixture.root.join("writer"))
+        .env("PATH", "/nonexistent")
+        .output()
+        .unwrap();
+    assert_eq!(summary(&indexed)["files"], 3);
+    assert!(objects
+        .lock()
+        .unwrap()
+        .keys()
+        .any(|key| key.ends_with(".browse.age")));
+
     let mut changed = text.clone();
     changed.extend(b"one more line\n");
     fixture.commit(

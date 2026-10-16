@@ -11,7 +11,8 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 export const TOKEN_LIFE = 10 * 60 * 1000;
 export const SLOT_NAME = /^passkey-[A-Za-z0-9_-]{1,256}$/;
-const STATE_NAME = /^[0-9]{10}\.[0-9a-f]{8}(\.[0-9]{4}\.data|\.tree)\.age$/;
+const STATE_NAME =
+  /^[0-9]{10}\.[0-9a-f]{8}(\.[0-9]{4}\.data|\.tree|\.browse|\.[0-9a-f]{64}\.[0-9]{8}\.dir)\.age$/;
 
 export class VaultError extends Error {
   constructor(status, message) {
@@ -87,7 +88,9 @@ export function makeVault({
     /** Object names below states/, without the prefix. */
     async states() {
       const under = `${prefix}/states/`;
-      return (await list(under)).map((key) => key.slice(under.length));
+      return (await list(under))
+        .map((key) => key.slice(under.length))
+        .filter((name) => !name.endsWith(".dir.age"));
     },
 
     /** The body stream and length of one state object. */

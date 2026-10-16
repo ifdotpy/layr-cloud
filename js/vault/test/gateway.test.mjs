@@ -246,3 +246,33 @@ test("the site, the project list and the host check", async (t) => {
   assert.equal((await call("POST", "/")).status, 405);
   assert.equal((await call("GET", "/", { host: "evil.example" })).status, 421);
 });
+
+test("encrypted browse pages are reachable but omitted from state listings", async (t) => {
+  const { call, token, s3 } = await setup(t);
+  const marker = "0000000001.aaaaaaaa.browse.age";
+  const page = `0000000001.aaaaaaaa.${"a".repeat(64)}.00000000.dir.age`;
+  s3.objects.set(`p/states/${marker}`, "encrypted-marker");
+  s3.objects.set(`p/states/${page}`, "encrypted-page");
+  const tk = await token();
+  const listed = await call("GET", "/api/p/p/states", { token: tk });
+  assert.deepEqual(listed.json.states, [TREE, marker]);
+  for (const name of [marker, page]) {
+    const reply = await call("GET", `/api/p/p/states/${name}`, { token: tk });
+    assert.equal(reply.status, 200);
+    assert.equal(
+      reply.text,
+      name === marker ? "encrypted-marker" : "encrypted-page",
+    );
+  }
+  for (const name of [
+    page.replace("00000000.dir", "0000000.dir"),
+    page.replace("a".repeat(64), "A".repeat(64)),
+    `${page}.bak`,
+  ]) {
+    assert.equal(
+      (await call("GET", `/api/p/p/states/${name}`, { token: tk })).status,
+      400,
+    );
+  }
+  assert.equal((await call("GET", `/api/p/p/states/${page}`)).status, 401);
+});

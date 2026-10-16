@@ -257,6 +257,7 @@ impl Test {
             &self.layr,
             &self.bucket,
             move |data: &[u8]| keys::encrypt(&recipient, data),
+            &self.identity,
         )
         .unwrap()
     }
@@ -269,6 +270,7 @@ impl Test {
             &self.layr,
             &self.bucket,
             fake_encrypt as Encrypt,
+            "fake-encryption",
         )
         .unwrap()
     }
@@ -732,4 +734,131 @@ async fn each_writer_continues_a_state_folder_of_the_other() {
 
 fn state_files(t: &Test, n: usize) -> Files {
     t.layr.state(&format!("s{n}"))
+}
+
+#[tokio::test]
+async fn browse_pages_are_bounded_encrypted_and_match_the_trusted_tree() {
+    use desk_core::browse::{marker_name, page_name};
+    let t = Test::new("browse-pages");
+    let mut source = files(&[
+        ("日本語/deep/λ.txt", b"unicode", "100644"),
+        ("top.txt", b"top", "100755"),
+    ]);
+    for n in 0..257 {
+        source.insert(format!("wide/{n:04}.txt"), (b"x".to_vec(), "100644"));
+    }
+    write_files(&t.layr.root.join("s1"), &source);
+    let w = t.writer();
+    w.push("s1").await.unwrap();
+    let before_tree = std::fs::read(t.state_dir().join("tree.json")).unwrap();
+    let before_record = std::fs::read(t.state_dir().join("writer.json")).unwrap();
+    let record = w.record().unwrap().unwrap();
+    let read = |name: String| -> Value {
+        let sealed = std::fs::read(t.bucket.root.join("proj/states").join(name)).unwrap();
+        serde_json::from_slice(&keys::decrypt(&t.identity, &sealed).unwrap()).unwrap()
+    };
+    let result = w.reindex().await.unwrap();
+    assert_eq!(result["files"], 259);
+    let root = read(page_name(record.seq, &record.attempt, "", 0));
+    assert_eq!(root["total"], 3);
+    assert_eq!(
+        root["entries"][1],
+        serde_json::json!({"kind":"directory", "name":"wide", "count":257})
+    );
+    let first = read(page_name(record.seq, &record.attempt, "wide", 0));
+    assert_eq!(first["entries"].as_array().unwrap().len(), 256);
+    assert_eq!(first["next"], 1);
+    let last = read(page_name(record.seq, &record.attempt, "wide", 1));
+    assert_eq!(last["entries"].as_array().unwrap().len(), 1);
+    assert_eq!(last["total"], 257);
+    assert!(last["next"].is_null());
+    let unicode = read(page_name(record.seq, &record.attempt, "日本語/deep", 0));
+    let tree: Value = serde_json::from_slice(&before_tree).unwrap();
+    assert_eq!(
+        unicode["entries"][0]["entry"],
+        tree["files"]["日本語/deep/λ.txt"]
+    );
+    assert_eq!(read(marker_name(record.seq, &record.attempt))["files"], 259);
+    assert!(t
+        .bucket
+        .puts
+        .lock()
+        .unwrap()
+        .last()
+        .unwrap()
+        .ends_with(".browse.age"));
+    let put_count = t.bucket.puts.lock().unwrap().len();
+    w.reindex().await.unwrap();
+    assert_eq!(
+        t.bucket.puts.lock().unwrap().len(),
+        put_count,
+        "confirmed journal replay performs no PUT"
+    );
+    assert_eq!(
+        std::fs::read(t.state_dir().join("tree.json")).unwrap(),
+        before_tree
+    );
+    assert_eq!(
+        std::fs::read(t.state_dir().join("writer.json")).unwrap(),
+        before_record
+    );
+    // The writer bucket has no GET method: index construction cannot download data.
+    assert_eq!(t.reader(false).files(None).await.unwrap().len(), 259);
+}
+
+#[tokio::test]
+async fn browse_failure_never_publishes_a_marker_or_replays_an_uncertain_write() {
+    let t = Test::new("browse-failure");
+    write_files(&t.layr.root.join("s1"), &files(&[("x", b"x", "100644")]));
+    let w = t.writer();
+    w.push("s1").await.unwrap();
+    *t.bucket.fail.lock().unwrap() = Some(".dir.age");
+    assert!(w.reindex().await.is_err());
+    *t.bucket.fail.lock().unwrap() = None;
+    assert!(format!("{:#}", w.reindex().await.unwrap_err()).contains("uncertain prior outcome"));
+    assert!(!t
+        .bucket
+        .puts
+        .lock()
+        .unwrap()
+        .iter()
+        .any(|key| key.ends_with(".browse.age")));
+}
+
+#[tokio::test]
+async fn browse_empty_root_and_foreign_collision_fail_closed() {
+    let t = Test::new("browse-empty");
+    write_files(&t.layr.root.join("s1"), &files(&[]));
+    let w = t.writer();
+    w.push("s1").await.unwrap();
+    let record = w.record().unwrap().unwrap();
+    w.reindex().await.unwrap();
+    let root = desk_core::browse::page_name(record.seq, &record.attempt, "", 0);
+    let sealed = std::fs::read(t.bucket.root.join("proj/states").join(&root)).unwrap();
+    let page: Value =
+        serde_json::from_slice(&keys::decrypt(&t.identity, &sealed).unwrap()).unwrap();
+    assert_eq!(page["entries"], serde_json::json!([]));
+    assert_eq!(page["total"], 0);
+    assert!(page["next"].is_null());
+    // A different local state directory has no proof that existing objects are ours.
+    let second = t.temp.0.join("second-writer");
+    std::fs::create_dir(&second).unwrap();
+    for name in ["tree.json", "writer.json"] {
+        std::fs::copy(t.state_dir().join(name), second.join(name)).unwrap();
+    }
+    let recipient = keys::recipient_of(&t.identity).unwrap();
+    let other = Writer::new(
+        second,
+        "proj",
+        &t.layr,
+        &t.bucket,
+        |data: &[u8]| keys::encrypt(&recipient, data),
+        &t.identity,
+    )
+    .unwrap();
+    assert!(format!("{:#}", other.reindex().await.unwrap_err()).contains("refuse overwrite"));
+    assert_eq!(
+        std::fs::read(t.bucket.root.join("proj/states").join(root)).unwrap(),
+        sealed
+    );
 }

@@ -75,6 +75,15 @@ pub fn state_name(name: &str) -> bool {
             .iter()
             .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(c))
         && (tail == b".tree.age"
+            || tail == b".browse.age"
+            || (tail.len() == 82
+                && tail[0] == b'.'
+                && tail[1..65]
+                    .iter()
+                    .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(c))
+                && tail[65] == b'.'
+                && digits(&tail[66..74])
+                && &tail[74..] == b".dir.age")
             || (tail.len() == 14
                 && tail[0] == b'.'
                 && digits(&tail[1..5])
@@ -203,6 +212,8 @@ impl<B: Bucket> Vault<B> {
             .await?
             .into_iter()
             .map(|key| key[under.len()..].to_string())
+            // Directory pages are fetched by hash, never enumerated by the client.
+            .filter(|name| !name.ends_with(".dir.age"))
             .collect())
     }
 
@@ -253,5 +264,24 @@ impl<B: Bucket> Vault<B> {
         self.bucket
             .delete(&format!("{}/slots/{name}.age", self.prefix))
             .await
+    }
+}
+
+#[cfg(test)]
+mod browse_name_tests {
+    use super::state_name;
+    #[test]
+    fn browse_names_accept_only_fixed_width_decimal_and_lowercase_hex() {
+        let page = desk_core::browse::page_name(1, "aaaaaaaa", "日本語", 0);
+        assert!(state_name(&page));
+        assert!(state_name(&desk_core::browse::marker_name(1, "aaaaaaaa")));
+        for bad in [
+            page.replace(".00000000.dir", ".0000000.dir"),
+            page.replace("aaaaaaaa", "AAAAAAAA"),
+            format!("{page}.bak"),
+            page.replace(".dir.age", ".dir/age"),
+        ] {
+            assert!(!state_name(&bad), "{bad}");
+        }
     }
 }

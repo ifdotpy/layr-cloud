@@ -52,3 +52,34 @@ cargo build -p layr-desk && pnpm --filter layr-desk-web run test:e2e:rust   # e2
 python3 -m unittest discover -s python -p 'test_*.py'
 python3 -m unittest discover -s js/vault/test -p 'test_*.py'
 ```
+
+## Browser index for large states
+
+`push` adds an encrypted directory index when a state has at least 100,000 files.
+The browser reads at most 256 direct children per page. It does not need the full
+tree to open a directory. Filenames and file entries remain encrypted. Directory
+object names contain only the state identity, a path hash and a page number.
+Older states and readers continue to use the original tree format.
+
+To add the index to an existing state, use its trusted local writer folder:
+
+```sh
+layr-desk reindex --config /path/to/vault.json --state-dir /path/to/writer
+```
+
+Run this command after the writer stops. Keep the original `writer.json` and
+`tree.json` together. The command uses the existing writer credentials and public
+recipient. It needs no paper key or private vault key. It does not download or
+replace file data, tree objects, or the writer record.
+
+The command uploads eight pages at a time. It publishes the encrypted index marker
+only after every page succeeds. It keeps encrypted pages and success receipts in
+`browse-<seq>.<attempt>` inside the writer folder. Preserve this folder for retries.
+A retry skips only writes that the local journal confirms. The journal binds these
+receipts to the bucket, recipient, state and tree hash.
+
+If a response is lost, the command stops with an uncertain-outcome error. An
+existing remote object without a local success receipt also stops the command.
+Do not delete the journal or overwrite remote objects to force a retry. Compare
+the pending ciphertext with the remote object before recovery. The original
+backup remains available if the optional index fails.

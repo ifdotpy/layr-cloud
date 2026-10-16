@@ -104,6 +104,7 @@ pub struct Writer<L, B, E> {
     layr: L,
     bucket: B,
     encrypt: E,
+    browse_scope: String,
 }
 
 impl<L, B, E> Writer<L, B, E>
@@ -114,12 +115,14 @@ where
 {
     /// `dir` is the state folder (made when missing, private to its owner); `prefix` is the
     /// vault's prefix in the bucket; `encrypt` encrypts to the vault recipient.
+    /// `browse_scope` identifies the bucket, endpoint and recipient for journal replay.
     pub fn new(
         dir: impl AsRef<Path>,
         prefix: &str,
         layr: L,
         bucket: B,
         encrypt: E,
+        browse_scope: &str,
     ) -> Result<Self> {
         use std::os::unix::fs::DirBuilderExt;
         // layr runs in another folder, so the state folder is absolute.
@@ -135,6 +138,7 @@ where
             layr,
             bucket,
             encrypt,
+            browse_scope: browse_scope.to_string(),
         })
     }
 
@@ -240,6 +244,128 @@ where
         if !self.bucket.put_new(&key, (self.encrypt)(data)?).await? {
             bail!("the part {key} exists before its first put");
         }
+        Ok(())
+    }
+
+    /// Add an index to the last trusted local writer tree. No data objects are read.
+    /// Existing or uncertain writes fail closed; no immutable object is overwritten.
+    pub async fn reindex(&self) -> Result<serde_json::Value> {
+        let (last, why) = self.last()?;
+        let last = last.ok_or_else(|| {
+            anyhow!(
+                "cannot index local writer state: {}",
+                why.unwrap_or_else(|| "no writer record".into())
+            )
+        })?;
+        if format::parse_tree_name(&format::name(last.record.seq, &last.record.attempt, None))
+            .is_none()
+        {
+            bail!("the writer record has an invalid state identity");
+        }
+        let tree_key = self.key(last.record.seq, &last.record.attempt, None);
+        if !self.bucket.list(&tree_key).await?.contains(&tree_key) {
+            bail!("the writer record's tree is absent from the bucket");
+        }
+        let tree_sha256 = hex::encode(Sha256::digest(&last.tree));
+        drop(last.tree);
+        self.publish_browse(&last.record, &last.files, &tree_sha256)
+            .await
+    }
+
+    async fn publish_browse(
+        &self,
+        record: &Record,
+        files: &BTreeMap<String, Entry>,
+        tree_sha256: &str,
+    ) -> Result<serde_json::Value> {
+        use crate::browse::{directories, marker_name, page_name, PAGE_ENTRIES};
+        let journal = self
+            .dir
+            .join(format!("browse-{:010}.{}", record.seq, record.attempt));
+        std::fs::create_dir_all(&journal)?;
+        let binding = serde_json::to_vec(
+            &json!({"scope": self.browse_scope, "prefix": self.prefix, "record": record.to_json(),
+            "treeSha256": tree_sha256}),
+        )?;
+        let binding_path = journal.join("binding.json");
+        if binding_path.exists() {
+            if std::fs::read(&binding_path)? != binding {
+                bail!("the browse journal belongs to different writer inputs");
+            }
+        } else {
+            let mut file = std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&binding_path)?;
+            file.write_all(&binding)?;
+            file.sync_all()?;
+        }
+        let dirs = directories(files)?;
+        let mut pages = 0usize;
+        let mut pending = Vec::new();
+        let journal_ref = &journal;
+        for (path, children) in dirs {
+            let children: Vec<_> = children.into_values().collect();
+            let count = children.len().div_ceil(PAGE_ENTRIES).max(1);
+            if count > 100_000_000 {
+                bail!("directory exceeds the eight-digit page limit");
+            }
+            for page in 0..count {
+                let start = page * PAGE_ENTRIES;
+                let entries = &children[start..(start + PAGE_ENTRIES).min(children.len())];
+                let object = json!({"version": 1, "seq": record.seq, "attempt": record.attempt,
+                    "path": path, "page": page, "total": children.len(), "entries": entries,
+                    "next": if page + 1 < count { Some(page + 1) } else { None }});
+                let name = page_name(record.seq, &record.attempt, path, page);
+                pending.push(async move { self.put_browse(journal_ref, &name, &object).await });
+                pages += 1;
+                if pending.len() == crate::browse::UPLOAD_CONCURRENCY {
+                    // Await every in-flight write even when one fails, so successful receipts persist.
+                    for result in futures_util::future::join_all(pending.drain(..)).await {
+                        result?;
+                    }
+                    if pages.is_multiple_of(256) {
+                        eprintln!("browse index: {pages} pages confirmed");
+                    }
+                }
+            }
+        }
+        for result in futures_util::future::join_all(pending).await {
+            result?;
+        }
+        let marker = json!({"version": 1, "seq": record.seq, "attempt": record.attempt,
+            "state": record.state, "files": files.len()});
+        self.put_browse(&journal, &marker_name(record.seq, &record.attempt), &marker)
+            .await?;
+        Ok(
+            json!({"indexed": true, "seq": record.seq, "attempt": record.attempt,
+            "files": files.len(), "pages": pages}),
+        )
+    }
+
+    async fn put_browse(
+        &self,
+        journal: &Path,
+        name: &str,
+        object: &serde_json::Value,
+    ) -> Result<()> {
+        let key = format!("{}/states/{name}", self.prefix);
+        let done = journal.join(format!("{name}.done"));
+        if done.exists() {
+            return Ok(());
+        }
+        let pending = journal.join(format!("{name}.pending"));
+        let sealed = (self.encrypt)(&serde_json::to_vec(object)?)?;
+        let mut file = std::fs::OpenOptions::new().write(true).create_new(true).open(&pending)
+            .with_context(|| format!("browse write {key} has an uncertain prior outcome; inspect the remote object before recovery"))?;
+        file.write_all(&sealed)?;
+        file.sync_all()?;
+        std::fs::File::open(journal)?.sync_all()?;
+        if !self.bucket.put_new(&key, sealed).await? {
+            bail!("browse object {key} already exists; refuse overwrite or unverified retry");
+        }
+        std::fs::rename(pending, done)?;
+        std::fs::File::open(journal)?.sync_all()?;
         Ok(())
     }
 
@@ -373,16 +499,19 @@ where
         {
             bail!("the tree object exists before its first put");
         }
-        self.commit(
-            &tree,
-            &Record {
-                seq,
-                attempt,
-                state: head.to_string(),
-                side: side.to_string(),
-                since_full: base.map_or(0, |l| l.record.since_full + 1),
-            },
-        )?;
+        let record = Record {
+            seq,
+            attempt,
+            state: head.to_string(),
+            side: side.to_string(),
+            since_full: base.map_or(0, |l| l.record.since_full + 1),
+        };
+        self.commit(&tree, &record)?;
+        if files.len() >= crate::browse::AUTO_INDEX_FILES {
+            self.publish_browse(&record, &files, &hex::encode(Sha256::digest(&tree)))
+                .await
+                .context("the state was pushed, but its browser index is incomplete")?;
+        }
         Ok(Summary {
             pushed: true,
             seq,

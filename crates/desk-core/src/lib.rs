@@ -2,6 +2,7 @@
 //! decrypts states from any store of objects, and the writer that pushes them.
 
 pub mod aws;
+pub mod browse;
 pub mod canonical;
 pub mod format;
 pub mod keys;

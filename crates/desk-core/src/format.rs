@@ -3,7 +3,7 @@
 //! holds its data frames.
 
 use anyhow::{bail, Result};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 /// Data object names have four decimal digits, from 0000 to 9999.
@@ -24,7 +24,7 @@ pub struct Header {
 }
 
 /// One frame of a file's chain: where it is and whether it is a delta on the next one.
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct Link(pub u64, pub String, pub u32, pub u64, pub u64, pub String);
 
 impl Link {
@@ -41,7 +41,7 @@ impl Link {
 
 /// A file of a tree: `[mode, size, sha256, chain]`; the chain starts at the newest frame and ends
 /// at a full frame.
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct Entry(pub String, pub u64, pub String, pub Vec<Link>);
 
 impl Entry {

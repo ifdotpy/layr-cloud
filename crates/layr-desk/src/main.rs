@@ -133,6 +133,8 @@ enum Command {
     Serve(serve::Options),
     /// Push the main head of a layr project into its vault (the writer)
     Push(push::Push),
+    /// Add encrypted directory pages to an existing trusted writer state
+    Reindex(push::Reindex),
 }
 
 fn paper(target: &Target) -> Result<String> {
@@ -303,6 +305,7 @@ async fn main() -> Result<()> {
         Command::Service { action } => service::run(action)?,
         Command::Serve(options) => serve::run(options).await?,
         Command::Push(args) => push::run(args).await?,
+        Command::Reindex(args) => push::reindex(args).await?,
     }
     Ok(())
 }
