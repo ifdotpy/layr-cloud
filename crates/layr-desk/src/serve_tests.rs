@@ -284,6 +284,45 @@ impl Setup {
 }
 
 #[tokio::test]
+async fn directory_objects_use_nested_storage_with_flat_authenticated_urls() {
+    let s = setup(None).await;
+    let tk = s.token("p").await;
+    let page = desk_core::browse::page_name(1, "aaaaaaaa", "", 0);
+    let marker = desk_core::browse::marker_name(1, "aaaaaaaa");
+    s.bucket.0.lock().unwrap().insert(
+        format!("p/states/browse/{page}"),
+        b"encrypted-page".to_vec(),
+    );
+    s.bucket
+        .0
+        .lock()
+        .unwrap()
+        .insert(format!("p/states/{marker}"), b"encrypted-marker".to_vec());
+    let listed = s.call("GET", "/api/p/p/states", Some(&tk)).await;
+    let names = listed.json()["states"].as_array().unwrap().clone();
+    assert_eq!(names.len(), 2);
+    assert!(names.contains(&json!(marker)));
+    assert!(names.contains(&json!(TREE)));
+    let path = format!("/api/p/p/states/{page}");
+    assert_eq!(
+        s.call("GET", &path, Some(&tk)).await.text(),
+        "encrypted-page"
+    );
+    assert_eq!(s.status("GET", &path, None).await, 401);
+    let ranged = reqwest::Client::new()
+        .get(format!("http://{}{path}", s.address))
+        .header("host", HOST)
+        .bearer_auth(&tk)
+        .header("range", "bytes=0-8")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(ranged.status(), 206);
+    assert_eq!(ranged.headers()["content-range"], "bytes 0-8/14");
+    assert_eq!(ranged.bytes().await.unwrap(), "encrypted");
+}
+
+#[tokio::test]
 async fn the_holder_of_the_vault_identity_lists_and_reads_state_objects() {
     let s = setup(None).await;
     let tk = s.token("p").await;
@@ -776,7 +815,15 @@ impl FakeAws {
                 let start: usize = query
                     .get("continuation-token")
                     .map_or(0, |t| t.parse().unwrap());
-                let keys: Vec<&String> = objects.keys().filter(|k| k.starts_with(prefix)).collect();
+                let keys: Vec<&String> = objects
+                    .keys()
+                    .filter(|k| {
+                        k.starts_with(prefix)
+                            && query
+                                .get("delimiter")
+                                .is_none_or(|delimiter| !k[prefix.len()..].contains(delimiter))
+                    })
+                    .collect();
                 // One key a page, so that every listing pages.
                 let mut xml = String::from(
                     "<ListBucketResult xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">",
@@ -908,6 +955,8 @@ async fn the_aws_client_signs_assumes_the_role_and_makes_the_four_s3_calls() {
     assert!(s3.get("p/slots/missing.age").await.unwrap().is_none());
     s3.delete(odd).await.unwrap();
     assert_eq!(s3.list("p/").await.unwrap(), ["p/slots/z.age"]);
+    assert!(s3.list_direct("p/").await.unwrap().is_empty());
+    assert_eq!(s3.list_direct("p/slots/").await.unwrap(), ["p/slots/z.age"]);
 
     // Credentials are fetched once and kept until they near their end.
     let calls = fake.calls.lock().unwrap().clone();

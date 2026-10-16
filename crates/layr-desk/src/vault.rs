@@ -47,6 +47,20 @@ pub struct Object {
 pub trait Bucket: Send + Sync + 'static {
     /// Every key below `prefix`.
     fn list(&self, prefix: &str) -> impl Future<Output = Result<Vec<String>>> + Send;
+    /// Direct objects only; cloud stores use a server-side delimiter.
+    fn list_direct(&self, prefix: &str) -> impl Future<Output = Result<Vec<String>>> + Send {
+        async move {
+            Ok(self
+                .list(prefix)
+                .await?
+                .into_iter()
+                .filter(|key| {
+                    key.strip_prefix(prefix)
+                        .is_some_and(|rest| !rest.contains('/'))
+                })
+                .collect())
+        }
+    }
     /// One object, or none when there is no such key.
     fn get(&self, key: &str) -> impl Future<Output = Result<Option<Object>>> + Send;
     /// A bounded ciphertext range. Older stores can return the complete object.
@@ -208,7 +222,7 @@ impl<B: Bucket> Vault<B> {
         let under = format!("{}/states/", self.prefix);
         Ok(self
             .bucket
-            .list(&under)
+            .list_direct(&under)
             .await?
             .into_iter()
             .map(|key| key[under.len()..].to_string())
@@ -222,7 +236,11 @@ impl<B: Bucket> Vault<B> {
         if !state_name(name) {
             return fail(400, "not a state object name");
         }
-        let key = format!("{}/states/{name}", self.prefix);
+        let key = format!(
+            "{}/states/{}",
+            self.prefix,
+            desk_core::browse::object_name(name)
+        );
         let object = match range {
             Some((start, end)) => self.bucket.get_range(&key, start, end).await?,
             None => self.bucket.get(&key).await?,

@@ -70,3 +70,12 @@ pub fn directories(
     }
     Ok(dirs)
 }
+
+/// Physical state-relative key; API callers continue to use the flat logical name.
+pub fn object_name(name: &str) -> String {
+    if name.ends_with(".dir.age") {
+        format!("browse/{name}")
+    } else {
+        name.to_string()
+    }
+}

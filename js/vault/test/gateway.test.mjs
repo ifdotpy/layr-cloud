@@ -18,9 +18,15 @@ function fakeS3(objects) {
       const input = command.input;
       switch (command.constructor.name) {
         case "ListObjectsV2Command":
+          assert.equal(input.Delimiter, "/");
           return {
             Contents: [...objects.keys()]
-              .filter((k) => k.startsWith(input.Prefix))
+              .filter(
+                (k) =>
+                  k.startsWith(input.Prefix) &&
+                  (!input.Delimiter ||
+                    !k.slice(input.Prefix.length).includes(input.Delimiter)),
+              )
               .map((Key) => ({ Key })),
           };
         case "GetObjectCommand": {
@@ -252,7 +258,7 @@ test("encrypted browse pages are reachable but omitted from state listings", asy
   const marker = "0000000001.aaaaaaaa.browse.age";
   const page = `0000000001.aaaaaaaa.${"a".repeat(64)}.00000000.dir.age`;
   s3.objects.set(`p/states/${marker}`, "encrypted-marker");
-  s3.objects.set(`p/states/${page}`, "encrypted-page");
+  s3.objects.set(`p/states/browse/${page}`, "encrypted-page");
   const tk = await token();
   const listed = await call("GET", "/api/p/p/states", { token: tk });
   assert.deepEqual(listed.json.states, [TREE, marker]);

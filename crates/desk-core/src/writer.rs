@@ -43,6 +43,20 @@ pub trait Bucket {
     fn put_new(&self, key: &str, body: Vec<u8>) -> impl Future<Output = Result<bool>> + Send;
     /// Every key below `prefix`.
     fn list(&self, prefix: &str) -> impl Future<Output = Result<Vec<String>>> + Send;
+    /// Direct objects only; cloud stores should use a server-side delimiter.
+    fn list_direct(&self, prefix: &str) -> impl Future<Output = Result<Vec<String>>> + Send {
+        let listing = self.list(prefix);
+        async move {
+            Ok(listing
+                .await?
+                .into_iter()
+                .filter(|key| {
+                    key.strip_prefix(prefix)
+                        .is_some_and(|rest| !rest.contains('/'))
+                })
+                .collect())
+        }
+    }
 }
 
 /// `writer.json`: the last push.
@@ -216,7 +230,7 @@ where
         let mut highest = 0;
         for key in self
             .bucket
-            .list(&format!("{}/states/", self.prefix))
+            .list_direct(&format!("{}/states/", self.prefix))
             .await?
         {
             let name = key.rsplit('/').next().unwrap_or_default();
@@ -284,7 +298,7 @@ where
             .join(format!("browse-{:010}.{}", record.seq, record.attempt));
         std::fs::create_dir_all(&journal)?;
         let binding = serde_json::to_vec(
-            &json!({"scope": self.browse_scope, "prefix": self.prefix, "record": record.to_json(),
+            &json!({"directoryPrefix": "states/browse/", "scope": self.browse_scope, "prefix": self.prefix, "record": record.to_json(),
             "treeSha256": tree_sha256}),
         )?;
         let binding_path = journal.join("binding.json");
@@ -300,7 +314,25 @@ where
             file.write_all(&binding)?;
             file.sync_all()?;
         }
+        if journal
+            .join(format!("{}.done", marker_name(record.seq, &record.attempt)))
+            .is_file()
+        {
+            return Ok(
+                json!({"indexed": true, "seq": record.seq, "attempt": record.attempt,
+                "files": files.len(), "reused": true}),
+            );
+        }
         let dirs = directories(files)?;
+        let total_pages: usize = dirs
+            .values()
+            .map(|children| children.len().div_ceil(PAGE_ENTRIES).max(1))
+            .sum();
+        eprintln!(
+            "browse index: {} files, {} directories, {total_pages} pages",
+            files.len(),
+            dirs.len()
+        );
         let mut pages = 0usize;
         let mut pending = Vec::new();
         let journal_ref = &journal;
@@ -325,7 +357,7 @@ where
                         result?;
                     }
                     if pages.is_multiple_of(256) {
-                        eprintln!("browse index: {pages} pages confirmed");
+                        eprintln!("browse index: {pages}/{total_pages} pages confirmed");
                     }
                 }
             }
@@ -349,7 +381,11 @@ where
         name: &str,
         object: &serde_json::Value,
     ) -> Result<()> {
-        let key = format!("{}/states/{name}", self.prefix);
+        let key = format!(
+            "{}/states/{}",
+            self.prefix,
+            crate::browse::object_name(name)
+        );
         let done = journal.join(format!("{name}.done"));
         if done.exists() {
             return Ok(());
@@ -372,9 +408,27 @@ where
     /// Push the layr state `head`. The parts go first and the tree last: a push that stops
     /// before its tree leaves no state, and the next push uses a new attempt.
     pub async fn push(&self, head: &str) -> Result<Summary> {
+        self.push_with_index_threshold(head, crate::browse::AUTO_INDEX_FILES)
+            .await
+    }
+
+    async fn push_with_index_threshold(
+        &self,
+        head: &str,
+        index_threshold: usize,
+    ) -> Result<Summary> {
         let (last, note) = self.last()?;
         if let Some(last) = &last {
             if last.record.state == head {
+                if last.files.len() >= index_threshold {
+                    self.publish_browse(
+                        &last.record,
+                        &last.files,
+                        &hex::encode(Sha256::digest(&last.tree)),
+                    )
+                    .await
+                    .context("the state was pushed, but its browser index is incomplete")?;
+                }
                 return Ok(Summary {
                     pushed: false,
                     seq: last.record.seq,
@@ -507,7 +561,7 @@ where
             since_full: base.map_or(0, |l| l.record.since_full + 1),
         };
         self.commit(&tree, &record)?;
-        if files.len() >= crate::browse::AUTO_INDEX_FILES {
+        if files.len() >= index_threshold {
             self.publish_browse(&record, &files, &hex::encode(Sha256::digest(&tree)))
                 .await
                 .context("the state was pushed, but its browser index is incomplete")?;
@@ -674,6 +728,83 @@ pub fn content(path: &Path) -> Result<(Vec<u8>, &'static str)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn same_head_retry_does_not_hide_an_incomplete_browser_index() {
+        use std::sync::Mutex;
+        struct OneFile;
+        impl Layr for OneFile {
+            fn run(&self, args: &[&str]) -> Result<String> {
+                match args {
+                    ["export", _, path, "--all", "-q"] => {
+                        std::fs::create_dir_all(path)?;
+                        std::fs::write(Path::new(path).join("one.txt"), b"one")?;
+                        Ok(String::new())
+                    }
+                    _ => bail!("unexpected layr call"),
+                }
+            }
+        }
+        #[derive(Default)]
+        struct Memory {
+            objects: Mutex<BTreeMap<String, Vec<u8>>>,
+        }
+        impl Bucket for Memory {
+            async fn put_new(&self, key: &str, bytes: Vec<u8>) -> Result<bool> {
+                if key.ends_with(".dir.age") {
+                    bail!("lost index response");
+                }
+                let mut objects = self.objects.lock().unwrap();
+                if objects.contains_key(key) {
+                    return Ok(false);
+                }
+                objects.insert(key.into(), bytes);
+                Ok(true)
+            }
+            async fn list(&self, prefix: &str) -> Result<Vec<String>> {
+                Ok(self
+                    .objects
+                    .lock()
+                    .unwrap()
+                    .keys()
+                    .filter(|key| key.starts_with(prefix))
+                    .cloned()
+                    .collect())
+            }
+        }
+        struct Temporary(PathBuf);
+        impl Drop for Temporary {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let mut random = [0; 8];
+        getrandom::getrandom(&mut random).unwrap();
+        let dir = Temporary(
+            std::env::temp_dir().join(format!("desk-index-retry-{}", hex::encode(random))),
+        );
+        let writer = Writer::new(
+            &dir.0,
+            "project",
+            OneFile,
+            Memory::default(),
+            |data: &[u8]| Ok(data.to_vec()),
+            "test",
+        )
+        .unwrap();
+        // The production caller always uses AUTO_INDEX_FILES. This tiny fixture selects one.
+        assert!(writer.push_with_index_threshold("s1", 1).await.is_err());
+        assert_eq!(writer.record().unwrap().unwrap().state, "s1");
+        let error = writer.push_with_index_threshold("s1", 1).await.unwrap_err();
+        assert!(format!("{error:#}").contains("uncertain prior outcome"));
+        assert!(!writer
+            .bucket
+            .objects
+            .lock()
+            .unwrap()
+            .keys()
+            .any(|key| key.ends_with(".browse.age")));
+    }
 
     #[test]
     fn the_record_is_written_as_python_writes_it() {

@@ -41,6 +41,7 @@ export function makeVault({
         new ListObjectsV2Command({
           Bucket: bucket,
           Prefix: under,
+          Delimiter: "/",
           ContinuationToken: token,
         }),
       );
@@ -101,7 +102,7 @@ export function makeVault({
         const object = await s3.send(
           new GetObjectCommand({
             Bucket: bucket,
-            Key: `${prefix}/states/${name}`,
+            Key: `${prefix}/states/${name.endsWith(".dir.age") ? "browse/" : ""}${name}`,
           }),
         );
         return { body: object.Body, length: object.ContentLength };

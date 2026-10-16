@@ -59,6 +59,8 @@ python3 -m unittest discover -s js/vault/test -p 'test_*.py'
 The browser reads at most 256 direct children per page. It does not need the full
 tree to open a directory. Filenames and file entries remain encrypted. Directory
 object names contain only the state identity, a path hash and a page number.
+The objects live under `states/browse/`. The gateway excludes this folder with an
+S3 delimiter, so the state list does not enumerate directory pages.
 Older states and readers continue to use the original tree format.
 
 To add the index to an existing state, use its trusted local writer folder:

@@ -138,13 +138,21 @@ async fn s3(objects: Objects, request: Request<hyper::body::Incoming>) -> Respon
         })
         .collect();
     assert_eq!(query["list-type"], "2");
+    if query["prefix"].ends_with("/states/") {
+        assert_eq!(query.get("delimiter").map(String::as_str), Some("/"));
+    }
     let start: usize = match query.get("continuation-token") {
         Some(token) => token.strip_prefix("t+/=").unwrap().parse().unwrap(),
         None => 0,
     };
     let keys: Vec<&String> = objects
         .keys()
-        .filter(|k| k.starts_with(&query["prefix"]))
+        .filter(|k| {
+            k.starts_with(&query["prefix"])
+                && query
+                    .get("delimiter")
+                    .is_none_or(|delimiter| !k[query["prefix"].len()..].contains(delimiter))
+        })
         .collect();
     let mut xml = String::from(
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<ListBucketResult xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\">",

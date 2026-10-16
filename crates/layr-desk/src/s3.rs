@@ -249,28 +249,14 @@ fn failure(what: &str, status: u16, reply: &str) -> anyhow::Error {
     anyhow!("{what}: HTTP {status} {code} {message}")
 }
 
-impl desk_core::writer::Bucket for S3 {
-    async fn put_new(&self, key: &str, body: Vec<u8>) -> Result<bool> {
-        let body = Bytes::from(body);
-        if body.len() > MULTIPART_THRESHOLD {
-            let part_size = S3_PART_BYTES.max(body.len().div_ceil(S3_MAX_PARTS));
-            return self.multipart(key, body, part_size).await;
-        }
-        let reply = self
-            .call(Method::PUT, key, &[], &[("if-none-match", "*")], body)
-            .await
-            .with_context(|| format!("S3 put {key}"))?;
-        match reply.status {
-            200 => Ok(true),
-            412 => Ok(false),
-            _ => Err(failure(&format!("S3 put {key}"), reply.status, &reply.body)),
-        }
-    }
-
-    async fn list(&self, prefix: &str) -> Result<Vec<String>> {
+impl S3 {
+    async fn list_objects(&self, prefix: &str, delimiter: Option<&str>) -> Result<Vec<String>> {
         let (mut keys, mut token) = (Vec::new(), None::<String>);
         loop {
             let mut query = vec![("list-type", "2"), ("prefix", prefix)];
+            if let Some(delimiter) = delimiter {
+                query.push(("delimiter", delimiter));
+            }
             if let Some(token) = &token {
                 query.push(("continuation-token", token));
             }
@@ -294,6 +280,32 @@ impl desk_core::writer::Bucket for S3 {
                 return Ok(keys);
             }
         }
+    }
+}
+
+impl desk_core::writer::Bucket for S3 {
+    async fn put_new(&self, key: &str, body: Vec<u8>) -> Result<bool> {
+        let body = Bytes::from(body);
+        if body.len() > MULTIPART_THRESHOLD {
+            let part_size = S3_PART_BYTES.max(body.len().div_ceil(S3_MAX_PARTS));
+            return self.multipart(key, body, part_size).await;
+        }
+        let reply = self
+            .call(Method::PUT, key, &[], &[("if-none-match", "*")], body)
+            .await
+            .with_context(|| format!("S3 put {key}"))?;
+        match reply.status {
+            200 => Ok(true),
+            412 => Ok(false),
+            _ => Err(failure(&format!("S3 put {key}"), reply.status, &reply.body)),
+        }
+    }
+
+    async fn list(&self, prefix: &str) -> Result<Vec<String>> {
+        self.list_objects(prefix, None).await
+    }
+    async fn list_direct(&self, prefix: &str) -> Result<Vec<String>> {
+        self.list_objects(prefix, Some("/")).await
     }
 }
 

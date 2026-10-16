@@ -754,7 +754,13 @@ async fn browse_pages_are_bounded_encrypted_and_match_the_trusted_tree() {
     let before_record = std::fs::read(t.state_dir().join("writer.json")).unwrap();
     let record = w.record().unwrap().unwrap();
     let read = |name: String| -> Value {
-        let sealed = std::fs::read(t.bucket.root.join("proj/states").join(name)).unwrap();
+        let sealed = std::fs::read(
+            t.bucket
+                .root
+                .join("proj/states")
+                .join(desk_core::browse::object_name(&name)),
+        )
+        .unwrap();
         serde_json::from_slice(&keys::decrypt(&t.identity, &sealed).unwrap()).unwrap()
     };
     let result = w.reindex().await.unwrap();
@@ -788,7 +794,7 @@ async fn browse_pages_are_bounded_encrypted_and_match_the_trusted_tree() {
         .unwrap()
         .ends_with(".browse.age"));
     let put_count = t.bucket.puts.lock().unwrap().len();
-    w.reindex().await.unwrap();
+    assert_eq!(w.reindex().await.unwrap()["reused"], true);
     assert_eq!(
         t.bucket.puts.lock().unwrap().len(),
         put_count,
@@ -834,7 +840,13 @@ async fn browse_empty_root_and_foreign_collision_fail_closed() {
     let record = w.record().unwrap().unwrap();
     w.reindex().await.unwrap();
     let root = desk_core::browse::page_name(record.seq, &record.attempt, "", 0);
-    let sealed = std::fs::read(t.bucket.root.join("proj/states").join(&root)).unwrap();
+    let sealed = std::fs::read(
+        t.bucket
+            .root
+            .join("proj/states")
+            .join(desk_core::browse::object_name(&root)),
+    )
+    .unwrap();
     let page: Value =
         serde_json::from_slice(&keys::decrypt(&t.identity, &sealed).unwrap()).unwrap();
     assert_eq!(page["entries"], serde_json::json!([]));
@@ -858,7 +870,13 @@ async fn browse_empty_root_and_foreign_collision_fail_closed() {
     .unwrap();
     assert!(format!("{:#}", other.reindex().await.unwrap_err()).contains("refuse overwrite"));
     assert_eq!(
-        std::fs::read(t.bucket.root.join("proj/states").join(root)).unwrap(),
+        std::fs::read(
+            t.bucket
+                .root
+                .join("proj/states")
+                .join(desk_core::browse::object_name(&root))
+        )
+        .unwrap(),
         sealed
     );
 }

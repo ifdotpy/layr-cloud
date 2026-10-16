@@ -367,12 +367,15 @@ impl S3 {
     }
 }
 
-impl Bucket for S3 {
-    async fn list(&self, prefix: &str) -> Result<Vec<String>> {
+impl S3 {
+    async fn list_objects(&self, prefix: &str, delimiter: Option<&str>) -> Result<Vec<String>> {
         let mut keys = Vec::new();
         let mut token: Option<String> = None;
         loop {
             let mut query = vec![("list-type", "2"), ("prefix", prefix)];
+            if let Some(delimiter) = delimiter {
+                query.push(("delimiter", delimiter));
+            }
             if let Some(t) = &token {
                 query.push(("continuation-token", t));
             }
@@ -387,6 +390,15 @@ impl Bucket for S3 {
                 return Ok(keys);
             }
         }
+    }
+}
+
+impl Bucket for S3 {
+    async fn list(&self, prefix: &str) -> Result<Vec<String>> {
+        self.list_objects(prefix, None).await
+    }
+    async fn list_direct(&self, prefix: &str) -> Result<Vec<String>> {
+        self.list_objects(prefix, Some("/")).await
     }
 
     async fn get(&self, key: &str) -> Result<Option<Object>> {
