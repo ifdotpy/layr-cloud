@@ -123,7 +123,7 @@ for (const [path, children] of folders) {
     };
     const hash = createHash("sha256").update(path).digest("hex");
     objects.set(
-      `other/states/${stem}.${hash}.${String(page).padStart(8, "0")}.dir.age`,
+      `other/states/browse/${stem}.${hash}.${String(page).padStart(8, "0")}.dir.age`,
       Buffer.from(await encryptor.encrypt(JSON.stringify(data))),
     );
   }
@@ -484,6 +484,32 @@ try {
     "Search this folder page",
   );
   assert.equal(await page.locator("#list-rows .item").count(), 256);
+  // A delayed pagination response must not replace a newer folder navigation.
+  let releasePage;
+  const delayedPage = new Promise((resolve) => {
+    releasePage = resolve;
+  });
+  let pageArrived;
+  const pageArrival = new Promise((resolve) => {
+    pageArrived = resolve;
+  });
+  const nextRoot = `**/${stem}.${createHash("sha256").update("").digest("hex")}.00000001.dir.age`;
+  await page.route(nextRoot, async (route) => {
+    pageArrived();
+    await delayedPage;
+    await route.continue();
+  });
+  await page.click("#list-rows button:has-text('Next page')");
+  await pageArrival;
+  await page.dblclick("#list-rows .item:has-text('bin')");
+  releasePage();
+  await page.waitForSelector("#list-rows .item:has-text('tool.bin')", {
+    timeout: 3000,
+  });
+  assert.equal(await page.textContent("#title"), "bin");
+  await page.unroute(nextRoot);
+  await page.click("#crumbs button:first-child");
+  await page.waitForSelector("#list-rows button:has-text('Next page')");
   await page.click("#list-rows button:has-text('Next page')");
   await page.waitForSelector("#list-rows .item:has-text('src')");
   await page.dblclick("#list-rows .item:has-text('src')");
@@ -545,7 +571,7 @@ try {
   // A rejected encrypted page reports an error, with no full-tree fallback.
   await page.click("#close-passkeys");
   await page.click("#lock");
-  const rootKey = `other/states/${stem}.${createHash("sha256").update("").digest("hex")}.00000000.dir.age`;
+  const rootKey = `other/states/browse/${stem}.${createHash("sha256").update("").digest("hex")}.00000000.dir.age`;
   const validRoot = objects.get(rootKey);
   objects.set(
     rootKey,

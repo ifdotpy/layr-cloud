@@ -143,12 +143,19 @@ function folderNode(name, path, descendants) {
     next: null,
   };
 }
-async function loadFolder(node, page = node?.page ?? 0) {
-  if (!app.indexed || (node.loaded && node.page === page)) return;
+async function loadFolder(
+  node,
+  page = node?.page ?? 0,
+  navigation = app.navigation,
+) {
+  if (navigation !== app.navigation) return false;
+  if (!isFolder(node)) throw new Error("This folder is no longer available.");
+  if (!app.indexed || (node.loaded && node.page === page)) return true;
   const generation = app.generation;
   status("Reading folders…");
   const value = await app.vault.reader.directory(app.seq, node.path, page);
-  if (generation !== app.generation) return;
+  if (generation !== app.generation || navigation !== app.navigation)
+    return false;
   node.children = new Map(
     value.entries.map((item) => {
       const path = node.path ? `${node.path}/${item.name}` : item.name;
@@ -167,6 +174,7 @@ async function loadFolder(node, page = node?.page ?? 0) {
     total: value.total,
     files: value.files,
   });
+  return true;
 }
 function place() {
   return {
@@ -186,16 +194,24 @@ function go(dir, sel, { record = true, pages } = {}) {
     let folder = app.root;
     let depth = 0;
     for (const part of dir) {
-      await loadFolder(folder, pages?.[depth++] ?? folder.page);
+      if (
+        !(await loadFolder(folder, pages?.[depth++] ?? folder.page, navigation))
+      )
+        return;
       folder = folder.children.get(part);
       if (!isFolder(folder))
         throw new Error(
           "This folder is not on the current page. Open it from its parent.",
         );
     }
-    await loadFolder(folder, pages?.[depth] ?? folder.page);
+    if (!(await loadFolder(folder, pages?.[depth] ?? folder.page, navigation)))
+      return;
     const chosen = folder.children.get(sel);
-    if (isFolder(chosen)) await loadFolder(chosen);
+    if (
+      isFolder(chosen) &&
+      !(await loadFolder(chosen, chosen.page, navigation))
+    )
+      return;
     if (generation !== app.generation || navigation !== app.navigation) return;
     const changed = dir.join("/") !== app.dir.join("/");
     if (record && changed) {
@@ -218,14 +234,16 @@ function pageControls(folder, holder) {
     if (page === null) continue;
     const button = document.createElement("button");
     button.textContent = label;
-    button.onclick = () =>
-      guarded("Reading folders…", async () => {
+    button.onclick = () => {
+      const navigation = ++app.navigation;
+      return guarded("Reading folders…", async () => {
         const generation = app.generation;
         const previous = place();
         button.disabled = true;
         try {
-          await loadFolder(folder, page);
-          if (generation !== app.generation) return;
+          if (!(await loadFolder(folder, page, navigation))) return;
+          if (generation !== app.generation || navigation !== app.navigation)
+            return;
           app.back.push(previous);
           app.forward = [];
           app.dir = folder.path ? folder.path.split("/") : [];
@@ -235,6 +253,7 @@ function pageControls(folder, holder) {
           button.disabled = false;
         }
       });
+    };
     row.append(button);
   }
   holder.append(row);
@@ -599,12 +618,14 @@ function closeQuickLook() {
 
 async function guarded(label, work) {
   const generation = app.generation;
+  const navigation = app.navigation;
   status(label);
   try {
     await work();
-    if (generation === app.generation) status(statusText());
+    if (generation === app.generation && navigation === app.navigation)
+      status(statusText());
   } catch (error) {
-    if (generation !== app.generation) return;
+    if (generation !== app.generation || navigation !== app.navigation) return;
     status(`${label.replace(/…$/, "")} failed: ${error.message}`);
   }
 }
