@@ -15,16 +15,29 @@ export class WorkerReader {
           trees.set(seq, match[2]);
       }
     }
+    this.indexKeys = new Set(options.keys);
     this.versions = [...trees]
       .sort((a, b) => a[0] - b[0])
-      .map(([seq, attempt]) => ({ seq, attempt }));
+      .map(([seq, attempt]) => ({
+        seq,
+        attempt,
+        indexed: this.indexKeys.has(
+          `${options.prefix}/states/${String(seq).padStart(10, "0")}.${attempt}.browse.age`,
+        ),
+      }));
     this.worker.onmessage = ({ data }) => {
       const pending = this.pending.get(data.id);
       if (!pending) return;
       if (data.progress) {
+        clearTimeout(pending.timer);
+        pending.timer = setTimeout(
+          () => this.close("The reader timed out. Unlock the vault to retry."),
+          120_000,
+        );
         pending.progress?.(data.progress);
         return;
       }
+      clearTimeout(pending.timer);
       this.pending.delete(data.id);
       if (data.error) pending.reject(new Error(data.error));
       else pending.resolve(data.result);
@@ -42,9 +55,17 @@ export class WorkerReader {
     if (!this.worker) return Promise.reject(new Error("The vault is locked."));
     return new Promise((resolve, reject) => {
       const id = ++this.sequence;
-      this.pending.set(id, { resolve, reject, progress });
+      const timer = setTimeout(
+        () => this.close("The reader timed out. Unlock the vault to retry."),
+        120_000,
+      );
+      this.pending.set(id, { resolve, reject, progress, timer });
       this.worker.postMessage({ id, method, value });
     });
+  }
+  async directory(seq, path, page = 0) {
+    await this.ready;
+    return this.call("directory", { seq, path, page });
   }
   async files(seq) {
     await this.ready;
@@ -57,8 +78,10 @@ export class WorkerReader {
   close(message = "The vault is locked.") {
     this.worker?.terminate();
     this.worker = null;
-    for (const pending of this.pending.values())
+    for (const pending of this.pending.values()) {
+      clearTimeout(pending.timer);
       pending.reject(new Error(message));
+    }
     this.pending.clear();
   }
 }

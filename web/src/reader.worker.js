@@ -2,6 +2,12 @@ import init, { BlockReader, decrypt_object } from "./generated/desk_web.js";
 import { VaultReader, unzstd, zstdReady } from "layr-desk-js/reader";
 import { GatewayApi } from "./gateway-api.js";
 
+import {
+  validateMarker,
+  validateDirectory,
+  validatePath,
+} from "./browse-index.js";
+
 const BLOCK = 128 * 1024;
 const CACHE = 128 * 1024 * 1024;
 let reader,
@@ -72,6 +78,38 @@ class RangeReader extends VaultReader {
       this.parts.delete(key);
       size -= part.size;
     }
+  }
+  async directory({ seq, path, page }) {
+    validatePath(path);
+    if (!Number.isSafeInteger(page) || page < 0 || page > 99999999)
+      throw new Error("Invalid folder page.");
+    const state = this.states().find((item) => item.seq === seq);
+    if (!state) throw new Error("Unknown version.");
+    const stem = `${String(seq).padStart(10, "0")}.${state.attempt}`;
+    const json = async (name) =>
+      JSON.parse(
+        new TextDecoder("utf-8", { fatal: true }).decode(
+          await this.object(`${this.prefix}/states/${name}.age`),
+        ),
+      );
+    const marker = validateMarker(await json(`${stem}.browse`), state);
+    const hash = [
+      ...new Uint8Array(
+        await crypto.subtle.digest("SHA-256", new TextEncoder().encode(path)),
+      ),
+    ]
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    const value = validateDirectory(
+      await json(`${stem}.${hash}.${String(page).padStart(8, "0")}.dir`),
+      state,
+      path,
+      page,
+    );
+    // Keep directory metadata bounded independently of the archive part cache.
+    while (this.cache.size > 32)
+      this.cache.delete(this.cache.keys().next().value);
+    return { ...value, files: marker.files };
   }
   async frame(link) {
     const key = this.key(...link.slice(0, 3));
@@ -202,7 +240,8 @@ self.onmessage = ({ data: { id, method, value } }) => {
         vault.identity = value.identity;
         vault.token = value.token;
         reader = new RangeReader(value);
-      } else if (method === "files") result = await reader.files(value);
+      } else if (method === "directory") result = await reader.directory(value);
+      else if (method === "files") result = await reader.files(value);
       else if (method === "read") result = await reader.read(value);
       else throw new Error("Unknown reader operation.");
       self.postMessage(

@@ -36,6 +36,9 @@ import {
   wordsOfIdentity,
 } from "../../js/vault/src/keys.mjs";
 
+import * as age from "../../js/vault/node_modules/age-encryption/dist/index.js";
+import { VaultReader } from "../../js/vault/src/reader.mjs";
+
 const dist = new URL("../dist/", import.meta.url).pathname;
 const fixture = new URL("../../js/vault/test/fixture/", import.meta.url)
   .pathname;
@@ -65,6 +68,80 @@ objects.set("proj/slots/paper.age", paperSlot);
 objects.set("other/slots/paper.age", paperSlot);
 
 const recipient = await recipientOf(vaultIdentity);
+// The second vault has the optional directory index. Its tree must never be fetched.
+const fixtureReader = new VaultReader({
+  prefix: "other",
+  keys: [...objects.keys()],
+  identity: vaultIdentity,
+  get: async (key) => objects.get(key),
+});
+const indexed = fixtureReader.latest();
+const indexedFiles = await fixtureReader.files(indexed.seq);
+const encryptor = new age.Encrypter();
+encryptor.addRecipient(recipient);
+const stem = `${String(indexed.seq).padStart(10, "0")}.${indexed.attempt}`;
+const folders = new Map([["", new Map()]]);
+for (const [path, entry] of Object.entries(indexedFiles)) {
+  const parts = path.split("/");
+  for (let i = 0; i < parts.length; i++) {
+    const parent = parts.slice(0, i).join("/");
+    if (!folders.has(parent)) folders.set(parent, new Map());
+    folders
+      .get(parent)
+      .set(
+        parts[i],
+        i === parts.length - 1
+          ? { kind: "file", name: parts[i], entry }
+          : { kind: "directory", name: parts[i], count: 0 },
+      );
+  }
+}
+// Force a second root page without a large fixture or a large DOM.
+const sampleEntry = indexedFiles["src/app.py"];
+for (let i = 0; i < 260; i++)
+  folders.get("").set(`page-${String(i).padStart(3, "0")}`, {
+    kind: "file",
+    name: `page-${String(i).padStart(3, "0")}`,
+    entry: sampleEntry,
+  });
+for (const [path, children] of folders) {
+  const entries = [...children.values()].sort((a, b) =>
+    a.name < b.name ? -1 : 1,
+  );
+  for (const item of entries)
+    if (item.kind === "directory")
+      item.count = folders.get(path ? `${path}/${item.name}` : item.name).size;
+  for (let page = 0; page === 0 || page * 256 < entries.length; page++) {
+    const data = {
+      version: 1,
+      ...indexed,
+      path,
+      page,
+      total: entries.length,
+      entries: entries.slice(page * 256, (page + 1) * 256),
+      next: (page + 1) * 256 < entries.length ? page + 1 : null,
+    };
+    const hash = createHash("sha256").update(path).digest("hex");
+    objects.set(
+      `other/states/${stem}.${hash}.${String(page).padStart(8, "0")}.dir.age`,
+      Buffer.from(await encryptor.encrypt(JSON.stringify(data))),
+    );
+  }
+}
+objects.set(
+  `other/states/${stem}.browse.age`,
+  Buffer.from(
+    await encryptor.encrypt(
+      JSON.stringify({
+        version: 1,
+        ...indexed,
+        state: "fixture",
+        files: Object.keys(indexedFiles).length,
+      }),
+    ),
+  ),
+);
+const fetchedObjects = [];
 
 /** The Node gateway with a fake S3 client. */
 async function startNode() {
@@ -79,6 +156,7 @@ async function startNode() {
               .map((Key) => ({ Key })),
           };
         case "GetObjectCommand": {
+          fetchedObjects.push(input.Key);
           const data = objects.get(input.Key);
           if (!data)
             throw Object.assign(new Error("missing"), { name: "NoSuchKey" });
@@ -173,6 +251,7 @@ function fakeAws() {
       );
     }
     if (req.method === "GET") {
+      fetchedObjects.push(key);
       const data = objects.get(key);
       if (!data) return error(404, "NoSuchKey");
       const range = /^bytes=(\d+)-(\d+)$/.exec(req.headers.range ?? "");
@@ -400,6 +479,34 @@ try {
   await page.fill("#paper", words.join(" "));
   await page.click("#paper-form button");
   await page.waitForSelector("#list:not([hidden])");
+  assert.equal(
+    await page.getAttribute("#filter", "placeholder"),
+    "Search this folder page",
+  );
+  assert.equal(await page.locator("#list-rows .item").count(), 256);
+  await page.click("#list-rows button:has-text('Next page')");
+  await page.waitForSelector("#list-rows .item:has-text('src')");
+  await page.dblclick("#list-rows .item:has-text('src')");
+  await page.waitForSelector("#list-rows .item:has-text('app.py')");
+  await page.click("#list-rows .item:has-text('app.py')");
+  await page.click("#quicklook");
+  await page.waitForSelector("#ql-body pre");
+  assert.equal(
+    sha(Buffer.from(await page.textContent("#ql-body pre"))),
+    expected.states[3]["src/app.py"][0],
+  );
+  await page.keyboard.press("Escape");
+  await page.click("#back");
+  await page.waitForSelector("#list-rows .item:has-text('src')");
+  await page.click("#forward");
+  await page.waitForSelector("#list-rows .item:has-text('app.py')");
+  assert.equal(
+    fetchedObjects.filter(
+      (key) => key.startsWith("other/") && key.endsWith(".tree.age"),
+    ).length,
+    0,
+    "indexed navigation must not fetch the full tree",
+  );
   await page.click("#passkeys");
   await page.click("#use-existing");
   await page.waitForSelector("#passkey-list li button");
@@ -427,6 +534,56 @@ try {
     [...objects.keys()].filter((k) => k.startsWith("other/slots/")).join(),
     "other/slots/paper.age",
   );
+  // A rejected encrypted page reports an error, with no full-tree fallback.
+  await page.click("#close-passkeys");
+  await page.click("#lock");
+  const rootKey = `other/states/${stem}.${createHash("sha256").update("").digest("hex")}.00000000.dir.age`;
+  const validRoot = objects.get(rootKey);
+  objects.set(
+    rootKey,
+    Buffer.from(
+      await encryptor.encrypt(
+        JSON.stringify({
+          version: 1,
+          ...indexed,
+          path: "wrong",
+          page: 0,
+          total: 0,
+          entries: [],
+          next: null,
+        }),
+      ),
+    ),
+  );
+  await page.fill("#paper", words.join(" "));
+  await page.click("#paper-form button");
+  await page.waitForSelector("#status:has-text('Invalid folder page')");
+  assert.equal(await page.isHidden("#list"), true);
+  objects.set(rootKey, validRoot);
+  await page.click("#lock");
+  // Hold a worker's folder request, lock, then release it. The old view must stay closed.
+  let release;
+  const held = new Promise((resolve) => {
+    release = resolve;
+  });
+  let arrived;
+  const arrival = new Promise((resolve) => {
+    arrived = resolve;
+  });
+  await page.route(`**/${rootKey.split("/").at(-1)}`, async (route) => {
+    arrived();
+    await held;
+    await route.continue().catch(() => {});
+  });
+  await page.fill("#paper", words.join(" "));
+  await page.click("#paper-form button");
+  await arrival;
+  await page.click("#lock");
+  release();
+  await page.waitForTimeout(100);
+  assert.equal(await page.isVisible("#unlock"), true);
+  assert.equal(await page.isHidden("#list"), true);
+  assert.equal(await page.textContent("#status"), "");
   assert.deepEqual(errors, []);
   console.log(
     `site e2e: passed (${process.env.LAYR_DESK ? "layr-desk serve" : "Node gateway"})`,

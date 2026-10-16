@@ -14,6 +14,7 @@ export async function request(
     method,
     headers,
     cache: "no-store",
+    signal: raw ? undefined : AbortSignal.timeout(60_000),
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
   if (!response.ok) {

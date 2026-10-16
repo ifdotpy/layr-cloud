@@ -33,6 +33,7 @@ export class Vault extends GatewayApi {
   constructor(prefix) {
     super(prefix);
     this.salt = prfSalt(prefix);
+    this.generation = 0;
     this.identity = null;
     this.token = null;
   }
@@ -45,14 +46,17 @@ export class Vault extends GatewayApi {
   }
 
   async unlockWithPaper(paperKey, slots) {
+    const generation = ++this.generation;
     const paper = slots.find((s) => s.name === "paper");
     if (!paper) throw new Error("This vault has no paper slot.");
     await this.unlocked(
       await openSlot(paper.data, identityFromPaper(paperKey)),
+      generation,
     );
   }
 
   async unlockWithPasskey(slots) {
+    const generation = ++this.generation;
     const passkeys = slots.filter((s) => s.name.startsWith("passkey-"));
     if (!passkeys.length) throw new Error("No passkey opens this vault yet.");
     const credential = await navigator.credentials.get({
@@ -70,7 +74,10 @@ export class Vault extends GatewayApi {
     const slot = passkeys.find(
       (s) => s.name === `passkey-${b64url(credential.rawId)}`,
     );
-    await this.unlocked(await openSlot(slot.data, this.opener(credential)));
+    await this.unlocked(
+      await openSlot(slot.data, this.opener(credential)),
+      generation,
+    );
   }
 
   opener(credential) {
@@ -145,10 +152,14 @@ export class Vault extends GatewayApi {
     await this.authorized(`slots/${name}`, { method: "DELETE" });
   }
 
-  async unlocked(identity) {
+  async unlocked(identity, generation) {
+    const session = new GatewayApi(this.prefix);
+    session.identity = identity;
+    const { states } = await session.authorized("states");
+    if (generation !== this.generation)
+      throw new Error("The unlock was cancelled.");
     this.identity = identity;
-    this.token = null;
-    const { states } = await this.authorized("states");
+    this.token = session.token;
     this.reader?.close();
     this.reader = new WorkerReader({
       prefix: this.prefix,
@@ -165,6 +176,7 @@ export class Vault extends GatewayApi {
   }
 
   lock() {
+    this.generation++;
     this.reader?.close();
     this.identity = null;
     this.token = null;

@@ -40,6 +40,10 @@ const app = {
   vault: null,
   slots: [],
   root: null,
+  generation: 0,
+  navigation: 0,
+  indexed: false,
+  seq: null,
   dir: [],
   sel: null,
   view: "columns",
@@ -120,21 +124,105 @@ function kind(node) {
 }
 
 function folderSize(node) {
-  const count = node.children.size;
+  if (!node.loaded && node.descendants !== undefined)
+    return `${node.descendants} files`;
+  const count = node.total ?? node.children.size;
   return count === 1 ? "1 item" : `${count} items`;
 }
 
 // ----- navigation -----
 
+function folderNode(name, path, descendants) {
+  return {
+    name,
+    path,
+    descendants,
+    children: new Map(),
+    loaded: false,
+    page: 0,
+    next: null,
+  };
+}
+async function loadFolder(node, page = node?.page ?? 0) {
+  if (!app.indexed || (node.loaded && node.page === page)) return;
+  const generation = app.generation;
+  status("Reading folders…");
+  const value = await app.vault.reader.directory(app.seq, node.path, page);
+  if (generation !== app.generation) return;
+  node.children = new Map(
+    value.entries.map((item) => {
+      const path = node.path ? `${node.path}/${item.name}` : item.name;
+      return [
+        item.name,
+        item.kind === "directory"
+          ? folderNode(item.name, path, item.count)
+          : { name: item.name, path, entry: item.entry },
+      ];
+    }),
+  );
+  Object.assign(node, {
+    loaded: true,
+    page,
+    next: value.next,
+    total: value.total,
+    files: value.files,
+  });
+}
 function go(dir, sel, { record = true } = {}) {
-  const changed = dir.join("/") !== app.dir.join("/");
-  if (record && changed) {
-    app.back.push({ dir: app.dir, sel: app.sel });
-    app.forward = [];
+  const navigation = ++app.navigation;
+  const generation = app.generation;
+  guarded("Reading folders…", async () => {
+    let folder = app.root;
+    for (const part of dir) {
+      await loadFolder(folder);
+      folder = folder.children.get(part);
+      if (!isFolder(folder))
+        throw new Error(
+          "This folder is not on the current page. Open it from its parent.",
+        );
+    }
+    await loadFolder(folder);
+    const chosen = folder.children.get(sel);
+    if (isFolder(chosen)) await loadFolder(chosen);
+    if (generation !== app.generation || navigation !== app.navigation) return;
+    const changed = dir.join("/") !== app.dir.join("/");
+    if (record && changed) {
+      app.back.push({ dir: app.dir, sel: app.sel });
+      app.forward = [];
+    }
+    app.dir = dir;
+    app.sel = sel;
+    render();
+  });
+}
+function pageControls(folder, holder) {
+  if (!app.indexed || (!folder.page && folder.next === null)) return;
+  const row = document.createElement("li");
+  row.className = "nothing";
+  for (const [label, page] of [
+    ["Previous page", folder.page > 0 ? folder.page - 1 : null],
+    ["Next page", folder.next],
+  ]) {
+    if (page === null) continue;
+    const button = document.createElement("button");
+    button.textContent = label;
+    button.onclick = () =>
+      guarded("Reading folders…", async () => {
+        const generation = app.generation;
+        button.disabled = true;
+        try {
+          await loadFolder(folder, page);
+          if (generation !== app.generation) return;
+          app.dir = folder.path ? folder.path.split("/") : [];
+          app.sel = null;
+          render();
+        } finally {
+          button.disabled = false;
+        }
+      });
+    row.append(button);
   }
-  app.dir = dir;
-  app.sel = sel;
-  render();
+  holder.append(row);
 }
 
 function open(node) {
@@ -206,6 +294,7 @@ function columnOf(folder, dirParts, selName, focused) {
     empty.textContent = "Empty folder";
     column.append(empty);
   }
+  pageControls(folder, column);
   return column;
 }
 
@@ -273,10 +362,10 @@ function renderList() {
     const walk = (folder) => {
       for (const node of childrenOf(folder)) {
         if (node.name.toLowerCase().includes(filter)) nodes.push(node);
-        if (isFolder(node)) walk(node);
+        if (!app.indexed && isFolder(node)) walk(node);
       }
     };
-    walk(app.root);
+    walk(app.indexed ? nodeAt(app.dir) : app.root);
     nodes = nodes.slice(0, 500);
   } else nodes = childrenOf(nodeAt(app.dir) ?? app.root);
   rows.replaceChildren(
@@ -317,6 +406,7 @@ function renderList() {
     empty.textContent = filter ? "No matches" : "Empty folder";
     rows.append(empty);
   }
+  pageControls(nodeAt(app.dir) ?? app.root, rows);
 }
 
 function renderPath() {
@@ -357,8 +447,7 @@ function render() {
     String(app.view === "columns"),
   );
   $("view-list").setAttribute("aria-pressed", String(app.view === "list"));
-  const folder = nodeAt(app.dir);
-  status(folder ? folderSize(folder) : "");
+  status(statusText());
 }
 
 // ----- files -----
@@ -395,9 +484,11 @@ function download(node) {
 }
 
 let previewUrl;
+let previewGeneration = 0;
 async function quickLook() {
   const node = selected();
   if (!node || isFolder(node)) return;
+  const generation = ++previewGeneration;
   show("quicklook-panel", true);
   $("ql-name").textContent = node.name;
   $("ql-download").onclick = () => download(node);
@@ -420,7 +511,7 @@ async function quickLook() {
             ? "Restoring file…"
             : "Decrypting…";
     });
-    if (selected() !== node) return;
+    if (selected() !== node || generation !== previewGeneration) return;
     const ext = extension(node.name);
     let view;
     if (node.entry[0] === "120000") {
@@ -461,6 +552,7 @@ async function quickLook() {
     }
     body.replaceChildren(view);
   } catch (error) {
+    if (selected() !== node || generation !== previewGeneration) return;
     body.replaceChildren(
       Object.assign(document.createElement("p"), {
         className: "note",
@@ -481,6 +573,7 @@ function textOf(data) {
 }
 
 function closeQuickLook() {
+  previewGeneration++;
   show("quicklook-panel", false);
   $("ql-body").replaceChildren();
   if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -490,17 +583,21 @@ function closeQuickLook() {
 // ----- lock, unlock, passkeys -----
 
 async function guarded(label, work) {
+  const generation = app.generation;
   status(label);
   try {
     await work();
-    status(statusText());
+    if (generation === app.generation) status(statusText());
   } catch (error) {
+    if (generation !== app.generation) return;
     status(`${label.replace(/…$/, "")} failed: ${error.message}`);
   }
 }
 const statusText = () => {
   const folder = app.root && nodeAt(app.dir);
-  return folder ? folderSize(folder) : "";
+  return folder
+    ? `${folderSize(folder)}${app.indexed && folder.path === "" ? ` · ${folder.files} files in this version` : ""}`
+    : "";
 };
 
 function lockedView() {
@@ -543,11 +640,42 @@ async function unlockedView() {
 }
 
 async function openState(seq) {
-  app.root = buildTree(await app.vault.reader.files(seq));
-  // Keep the place when it still exists in the other version.
-  while (app.dir.length && !isFolder(nodeAt(app.dir))) app.dir.pop();
-  if (app.sel !== null && !selected()) app.sel = null;
-  render();
+  const generation = ++app.generation;
+  const previousDir = app.dir;
+  const previousSel = app.sel;
+  app.navigation++;
+  closeQuickLook();
+  app.root = null;
+  app.back = [];
+  app.forward = [];
+  show("columns", false);
+  show("list", false);
+  app.seq = seq;
+  const reader = app.vault.reader;
+  app.indexed = Boolean(
+    reader.states().find((state) => state.seq === seq)?.indexed,
+  );
+  $("filter").placeholder = app.indexed ? "Search this folder page" : "Search";
+  $("filter").setAttribute("aria-label", $("filter").placeholder);
+  app.filter = "";
+  $("filter").value = "";
+  status("Reading folders…");
+  try {
+    const root = app.indexed
+      ? folderNode("", "", 0)
+      : buildTree(await reader.files(seq));
+    await loadFolder(root);
+    if (generation !== app.generation) return;
+    app.root = root;
+    app.dir = app.indexed ? [] : [...previousDir];
+    while (app.dir.length && !isFolder(nodeAt(app.dir))) app.dir.pop();
+    app.sel = previousSel;
+    if (!selected()) app.sel = null;
+    render();
+  } catch (error) {
+    if (generation === app.generation)
+      status(`Reading folders failed: ${error.message}`);
+  }
 }
 
 async function renderPasskeys() {
@@ -623,6 +751,8 @@ function askForPasskey() {
 $("state").onchange = () =>
   guarded("Reading the version…", () => openState(Number($("state").value)));
 $("lock").onclick = () => {
+  app.generation++;
+  app.navigation++;
   closeQuickLook();
   app.vault.lock();
   lockedView();
