@@ -85,3 +85,24 @@ existing remote object without a local success receipt also stops the command.
 Do not delete the journal or overwrite remote objects to force a retry. Compare
 the pending ciphertext with the remote object before recovery. The original
 backup remains available if the optional index fails.
+
+To resume an uncertain index write, provide a separate AWS CLI profile with
+`GetObject` access to the same bucket:
+
+```sh
+layr-desk reindex --config writer-config.json --state-dir writer-state \
+  --resume --recovery-profile vault-reader
+```
+
+The command exports that profile's credentials into memory for recovery reads.
+Uploads still use the writer configuration. It checks the journal binding and
+plaintext/ciphertext receipts, compares existing remote ciphertext, and retries
+absent objects with the saved bytes and `If-None-Match: *`. Unknown reads and
+mismatches stop the command. An exclusive state-folder lock prevents concurrent
+writer operations.
+
+Older pending files have no completeness receipt. If the remote object is absent,
+resume preserves the old file as `.legacy.<sha256>` and seals the expected page
+again before a conditional upload. An existing remote object from such an old
+pending file requires separate authenticated recovery; the command refuses it.
+No recovery overwrites an existing S3 object. The index marker remains last.

@@ -39,6 +39,12 @@ pub struct Reindex {
     /// Trusted writer state folder with writer.json and tree.json
     #[arg(long)]
     state_dir: PathBuf,
+    /// Resolve uncertain index writes without overwriting remote objects
+    #[arg(long, requires = "recovery_profile")]
+    resume: bool,
+    /// AWS CLI profile with GetObject permission; used only for recovery reads
+    #[arg(long, requires = "resume")]
+    recovery_profile: Option<String>,
 }
 
 pub async fn reindex(args: Reindex) -> Result<()> {
@@ -50,6 +56,7 @@ pub async fn reindex(args: Reindex) -> Result<()> {
             layr: PathBuf::from("layr"),
         },
         true,
+        args.recovery_profile.as_deref(),
     )
     .await
 }
@@ -148,10 +155,10 @@ impl Config {
 }
 
 pub async fn run(args: Push) -> Result<()> {
-    run_writer(args, false).await
+    run_writer(args, false, None).await
 }
 
-async fn run_writer(args: Push, reindex: bool) -> Result<()> {
+async fn run_writer(args: Push, reindex: bool, recovery_profile: Option<&str>) -> Result<()> {
     let text = match &args.config {
         Some(path) if path != Path::new("-") => {
             std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?
@@ -168,7 +175,7 @@ async fn run_writer(args: Push, reindex: bool) -> Result<()> {
     let browse_scope = serde_json::json!({"bucket": config.bucket, "region": config.region,
         "endpoint": config.endpoint, "recipient": config.recipient})
     .to_string();
-    let s3 = S3::new(
+    let mut s3 = S3::new(
         &config.bucket,
         &config.region,
         Credentials {
@@ -178,6 +185,41 @@ async fn run_writer(args: Push, reindex: bool) -> Result<()> {
         },
         config.endpoint.as_deref(),
     )?;
+    if let Some(profile) = recovery_profile {
+        // Keep exported credentials in memory. Never include CLI output in errors.
+        let output = std::process::Command::new("aws")
+            .args([
+                "configure",
+                "export-credentials",
+                "--profile",
+                profile,
+                "--format",
+                "process",
+            ])
+            .stdin(Stdio::null())
+            .output()
+            .context("starting AWS credential export")?;
+        if !output.status.success() {
+            bail!("AWS credential export failed for the recovery profile");
+        }
+        #[derive(Deserialize)]
+        #[serde(rename_all = "PascalCase")]
+        struct Export {
+            access_key_id: String,
+            secret_access_key: String,
+            session_token: Option<String>,
+        }
+        let credentials: Export = serde_json::from_slice(&output.stdout)
+            .map_err(|_| anyhow!("AWS credential export returned invalid data"))?;
+        if credentials.access_key_id.is_empty() || credentials.secret_access_key.is_empty() {
+            bail!("AWS credential export returned empty credentials");
+        }
+        s3 = s3.with_recovery_credentials(Credentials {
+            key_id: credentials.access_key_id,
+            secret: credentials.secret_access_key,
+            token: credentials.session_token,
+        });
+    }
     let layr = Command {
         program: args.layr,
         project: args.project,
@@ -200,7 +242,12 @@ async fn run_writer(args: Push, reindex: bool) -> Result<()> {
         &browse_scope,
     )?;
     if reindex {
-        println!("{}", writer.reindex().await?);
+        let result = if recovery_profile.is_some() {
+            writer.resume_index().await?
+        } else {
+            writer.reindex().await?
+        };
+        println!("{result}");
     } else {
         let summary = writer.push(&head).await?;
         println!("{}", serde_json::to_string(&summary)?);

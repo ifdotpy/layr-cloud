@@ -39,6 +39,14 @@ pub trait Layr {
 
 /// The bucket of a vault as a write-only key sees it. Keys are full object names.
 pub trait Bucket {
+    /// Read an index object only with explicitly supplied recovery credentials.
+    fn get_for_recovery(
+        &self,
+        _key: &str,
+        _expected_size: usize,
+    ) -> impl Future<Output = Result<Option<Vec<u8>>>> + Send {
+        async { bail!("this bucket has no index recovery reader") }
+    }
     /// Put an object that must not exist yet: true when written, false when it exists.
     fn put_new(&self, key: &str, body: Vec<u8>) -> impl Future<Output = Result<bool>> + Send;
     /// Every key below `prefix`.
@@ -264,6 +272,27 @@ where
     /// Add an index to the last trusted local writer tree. No data objects are read.
     /// Existing or uncertain writes fail closed; no immutable object is overwritten.
     pub async fn reindex(&self) -> Result<serde_json::Value> {
+        self.reindex_mode(false).await
+    }
+
+    /// Resolve pending index writes with explicit read credentials and their saved receipts.
+    pub async fn resume_index(&self) -> Result<serde_json::Value> {
+        self.reindex_mode(true).await
+    }
+
+    fn lock(&self) -> Result<std::fs::File> {
+        let file = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(self.dir.join("writer.lock"))?;
+        file.try_lock()
+            .context("another writer operation owns this state folder")?;
+        Ok(file)
+    }
+
+    async fn reindex_mode(&self, resume: bool) -> Result<serde_json::Value> {
+        let _lock = self.lock()?;
         let (last, why) = self.last()?;
         let last = last.ok_or_else(|| {
             anyhow!(
@@ -282,7 +311,7 @@ where
         }
         let tree_sha256 = hex::encode(Sha256::digest(&last.tree));
         drop(last.tree);
-        self.publish_browse(&last.record, &last.files, &tree_sha256)
+        self.publish_browse(&last.record, &last.files, &tree_sha256, resume)
             .await
     }
 
@@ -291,6 +320,7 @@ where
         record: &Record,
         files: &BTreeMap<String, Entry>,
         tree_sha256: &str,
+        resume: bool,
     ) -> Result<serde_json::Value> {
         use crate::browse::{directories, marker_name, page_name, PAGE_ENTRIES};
         let journal = self
@@ -349,7 +379,9 @@ where
                     "path": path, "page": page, "total": children.len(), "entries": entries,
                     "next": if page + 1 < count { Some(page + 1) } else { None }});
                 let name = page_name(record.seq, &record.attempt, path, page);
-                pending.push(async move { self.put_browse(journal_ref, &name, &object).await });
+                pending.push(
+                    async move { self.put_browse(journal_ref, &name, &object, resume).await },
+                );
                 pages += 1;
                 if pending.len() == crate::browse::UPLOAD_CONCURRENCY {
                     // Await every in-flight write even when one fails, so successful receipts persist.
@@ -367,8 +399,13 @@ where
         }
         let marker = json!({"version": 1, "seq": record.seq, "attempt": record.attempt,
             "state": record.state, "files": files.len()});
-        self.put_browse(&journal, &marker_name(record.seq, &record.attempt), &marker)
-            .await?;
+        self.put_browse(
+            &journal,
+            &marker_name(record.seq, &record.attempt),
+            &marker,
+            resume,
+        )
+        .await?;
         Ok(
             json!({"indexed": true, "seq": record.seq, "attempt": record.attempt,
             "files": files.len(), "pages": pages}),
@@ -380,6 +417,7 @@ where
         journal: &Path,
         name: &str,
         object: &serde_json::Value,
+        resume: bool,
     ) -> Result<()> {
         let key = format!(
             "{}/states/{}",
@@ -391,17 +429,99 @@ where
             return Ok(());
         }
         let pending = journal.join(format!("{name}.pending"));
-        let sealed = (self.encrypt)(&serde_json::to_vec(object)?)?;
-        let mut file = std::fs::OpenOptions::new().write(true).create_new(true).open(&pending)
-            .with_context(|| format!("browse write {key} has an uncertain prior outcome; inspect the remote object before recovery"))?;
-        file.write_all(&sealed)?;
-        file.sync_all()?;
-        std::fs::File::open(journal)?.sync_all()?;
-        if !self.bucket.put_new(&key, sealed).await? {
-            bail!("browse object {key} already exists; refuse overwrite or unverified retry");
+        let receipt = journal.join(format!("{name}.receipt.json"));
+        let plain = serde_json::to_vec(object)?;
+        let plain_sha = hex::encode(Sha256::digest(&plain));
+        let binding_sha = hex::encode(Sha256::digest(std::fs::read(journal.join("binding.json"))?));
+        let expected = |sealed: &[u8]| {
+            json!({"version": 1, "key": key, "bindingSha256": binding_sha,
+            "plaintextSha256": plain_sha, "ciphertextSha256": hex::encode(Sha256::digest(sealed)),
+            "ciphertextBytes": sealed.len()})
+        };
+        let mut sealed = None;
+        let mut needs_verification = false;
+        if pending.exists() {
+            if !resume {
+                bail!("browse write {key} has an uncertain prior outcome; use reindex --resume with recovery read credentials");
+            }
+            let saved = std::fs::read(&pending)?;
+            if receipt.exists() {
+                let recorded: serde_json::Value =
+                    serde_json::from_slice(&std::fs::read(&receipt)?)?;
+                if recorded != expected(&saved) {
+                    bail!("the pending index receipt does not match its expected object or ciphertext");
+                }
+                sealed = Some(saved);
+                needs_verification = true;
+            } else {
+                // Old journals can contain a partial file from a crash during write.
+                // An absent remote object permits a new seal of the expected plaintext.
+                // Keep the old ciphertext for inspection; never treat it as authenticated.
+                if self
+                    .bucket
+                    .get_for_recovery(&key, saved.len())
+                    .await?
+                    .is_some()
+                {
+                    bail!("legacy pending index object exists remotely without an authenticated receipt; refuse recovery");
+                }
+                let legacy = journal.join(format!(
+                    "{name}.legacy.{}",
+                    hex::encode(Sha256::digest(&saved))
+                ));
+                if legacy.exists() {
+                    bail!("the legacy index recovery archive already exists");
+                }
+                std::fs::rename(&pending, legacy)?;
+                std::fs::File::open(journal)?.sync_all()?;
+            }
+        }
+        let sealed = match sealed {
+            Some(bytes) => bytes,
+            None => {
+                let bytes = (self.encrypt)(&plain)?;
+                // The receipt precedes the atomic pending file. No PUT starts until both
+                // files and the directory are durable. Interrupted temporary files are inert.
+                self.browse_atomic(&receipt, &serde_json::to_vec(&expected(&bytes))?)?;
+                self.browse_atomic(&pending, &bytes)?;
+                bytes
+            }
+        };
+        if needs_verification {
+            if let Some(remote) = self.bucket.get_for_recovery(&key, sealed.len()).await? {
+                if remote != sealed {
+                    bail!("the remote index ciphertext differs from the pending write");
+                }
+                std::fs::rename(pending, done)?;
+                std::fs::File::open(journal)?.sync_all()?;
+                return Ok(());
+            }
+        }
+        if !self.bucket.put_new(&key, sealed.clone()).await? {
+            if !resume {
+                bail!("browse object {key} already exists; refuse overwrite or unverified retry");
+            }
+            match self.bucket.get_for_recovery(&key, sealed.len()).await? {
+                Some(remote) if remote == sealed => {},
+                _ => bail!("the conditional index write conflicts with a different or missing remote object"),
+            }
         }
         std::fs::rename(pending, done)?;
         std::fs::File::open(journal)?.sync_all()?;
+        Ok(())
+    }
+
+    fn browse_atomic(&self, path: &Path, bytes: &[u8]) -> Result<()> {
+        let temporary = path.with_extension("tmp");
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .write(true)
+            .open(&temporary)?;
+        file.write_all(bytes)?;
+        file.sync_all()?;
+        std::fs::rename(&temporary, path)?;
+        std::fs::File::open(path.parent().unwrap())?.sync_all()?;
         Ok(())
     }
 
@@ -417,6 +537,7 @@ where
         head: &str,
         index_threshold: usize,
     ) -> Result<Summary> {
+        let _lock = self.lock()?;
         let (last, note) = self.last()?;
         if let Some(last) = &last {
             if last.record.state == head {
@@ -425,6 +546,7 @@ where
                         &last.record,
                         &last.files,
                         &hex::encode(Sha256::digest(&last.tree)),
+                        false,
                     )
                     .await
                     .context("the state was pushed, but its browser index is incomplete")?;
@@ -562,7 +684,7 @@ where
         };
         self.commit(&tree, &record)?;
         if files.len() >= index_threshold {
-            self.publish_browse(&record, &files, &hex::encode(Sha256::digest(&tree)))
+            self.publish_browse(&record, &files, &hex::encode(Sha256::digest(&tree)), false)
                 .await
                 .context("the state was pushed, but its browser index is incomplete")?;
         }

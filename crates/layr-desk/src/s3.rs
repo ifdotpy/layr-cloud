@@ -40,6 +40,7 @@ fn xml_escape(value: &str) -> String {
 pub struct S3 {
     http: reqwest::Client,
     credentials: Credentials,
+    recovery_credentials: Option<Credentials>,
     bucket: String,
     region: String,
     endpoint: Option<String>,
@@ -61,13 +62,20 @@ impl S3 {
         Ok(S3 {
             http,
             credentials,
+            recovery_credentials: None,
             bucket: bucket.to_string(),
             region: region.to_string(),
             endpoint: endpoint.map(str::to_string),
         })
     }
 
-    /// The status and body of one signed call.
+    /// Explicit read credentials are used only to resolve uncertain index writes.
+    pub fn with_recovery_credentials(mut self, credentials: Credentials) -> Self {
+        self.recovery_credentials = Some(credentials);
+        self
+    }
+
+    /// The status and text body of one signed call.
     async fn call(
         &self,
         method: Method,
@@ -76,6 +84,22 @@ impl S3 {
         headers: &[(&str, &str)],
         body: Bytes,
     ) -> Result<Reply> {
+        let response = self.response(method, key, query, headers, body).await?;
+        Ok(Reply {
+            status: response.status().as_u16(),
+            headers: response.headers().clone(),
+            body: response.text().await?,
+        })
+    }
+
+    async fn response(
+        &self,
+        method: Method,
+        key: &str,
+        query: &[(&str, &str)],
+        headers: &[(&str, &str)],
+        body: Bytes,
+    ) -> Result<reqwest::Response> {
         let (base, path) =
             aws::s3_location(&self.bucket, &self.region, self.endpoint.as_deref(), key);
         let url = reqwest::Url::parse(&base)?;
@@ -123,14 +147,7 @@ impl S3 {
         if has_body {
             request = request.body(body);
         }
-        let response = request.send().await?;
-        let status = response.status().as_u16();
-        let headers = response.headers().clone();
-        Ok(Reply {
-            status,
-            headers,
-            body: response.text().await?,
-        })
+        Ok(request.send().await?)
     }
 
     async fn abort(&self, key: &str, id: &str) -> Result<()> {
@@ -284,6 +301,49 @@ impl S3 {
 }
 
 impl desk_core::writer::Bucket for S3 {
+    async fn get_for_recovery(&self, key: &str, expected_size: usize) -> Result<Option<Vec<u8>>> {
+        let credentials = self
+            .recovery_credentials
+            .as_ref()
+            .ok_or_else(|| anyhow!("index recovery requires explicit read credentials"))?;
+        let reader = S3 {
+            http: self.http.clone(),
+            credentials: credentials.clone(),
+            recovery_credentials: None,
+            bucket: self.bucket.clone(),
+            region: self.region.clone(),
+            endpoint: self.endpoint.clone(),
+        };
+        let mut response = reader
+            .response(Method::GET, key, &[], &[], Bytes::new())
+            .await?;
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            return Ok(None);
+        }
+        if response.status() != reqwest::StatusCode::OK {
+            bail!(
+                "cannot verify index object: HTTP {}",
+                response.status().as_u16()
+            );
+        }
+        if response
+            .content_length()
+            .is_some_and(|size| size != expected_size as u64)
+        {
+            bail!("the remote index object has a different length");
+        }
+        let mut bytes = Vec::new();
+        while let Some(chunk) = response.chunk().await? {
+            if chunk.len() > expected_size.saturating_sub(bytes.len()) {
+                bail!("the remote index object exceeds its pending length");
+            }
+            bytes.extend_from_slice(&chunk);
+        }
+        if bytes.len() != expected_size {
+            bail!("the remote index object has a different length");
+        }
+        Ok(Some(bytes))
+    }
     async fn put_new(&self, key: &str, body: Vec<u8>) -> Result<bool> {
         let body = Bytes::from(body);
         if body.len() > MULTIPART_THRESHOLD {
@@ -325,6 +385,81 @@ mod tests {
         Conflict,
         PartError,
         LostCompletion,
+    }
+
+    #[tokio::test]
+    async fn recovery_reads_are_bounded_binary_and_use_separate_credentials() {
+        use desk_core::writer::Bucket;
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let endpoint = format!("http://{}", listener.local_addr().unwrap());
+        let task = tokio::spawn(async move {
+            loop {
+                let (stream, _) = listener.accept().await.unwrap();
+                tokio::spawn(async move {
+                    let service = hyper::service::service_fn(
+                        |request: Request<hyper::body::Incoming>| async move {
+                            let auth = request.headers()["authorization"].to_str().unwrap();
+                            let (status, bytes) = if request.method() == Method::PUT {
+                                assert!(auth.contains("Credential=WRITER/"));
+                                assert_eq!(request.headers()["if-none-match"], "*");
+                                assert!(!request.headers().contains_key("x-amz-security-token"));
+                                (200, Vec::new())
+                            } else {
+                                assert!(auth.contains("Credential=READER/"));
+                                assert_eq!(
+                                    request.headers()["x-amz-security-token"],
+                                    "read-session"
+                                );
+                                match request.uri().path().rsplit('/').next().unwrap() {
+                                    "missing" => (404, Vec::new()),
+                                    "denied" => (403, Vec::new()),
+                                    "unknown" => (500, Vec::new()),
+                                    "long" => (200, vec![1, 2, 3, 4]),
+                                    "short" => (200, vec![1, 2]),
+                                    _ => (200, vec![255, 0, 128]),
+                                }
+                            };
+                            Ok::<_, std::convert::Infallible>(
+                                Response::builder()
+                                    .status(status)
+                                    .body(Full::new(Bytes::from(bytes)))
+                                    .unwrap(),
+                            )
+                        },
+                    );
+                    let _ = hyper::server::conn::http1::Builder::new()
+                        .serve_connection(hyper_util::rt::TokioIo::new(stream), service)
+                        .await;
+                });
+            }
+        });
+        let client = S3::new(
+            "bucket",
+            "eu-central-1",
+            Credentials {
+                key_id: "WRITER".into(),
+                secret: "writer-secret".into(),
+                token: None,
+            },
+            Some(&endpoint),
+        )
+        .unwrap();
+        assert!(client.get_for_recovery("ok", 3).await.is_err());
+        let client = client.with_recovery_credentials(Credentials {
+            key_id: "READER".into(),
+            secret: "reader-secret".into(),
+            token: Some("read-session".into()),
+        });
+        assert_eq!(
+            client.get_for_recovery("ok", 3).await.unwrap(),
+            Some(vec![255, 0, 128])
+        );
+        assert_eq!(client.get_for_recovery("missing", 3).await.unwrap(), None);
+        for key in ["denied", "unknown", "long", "short"] {
+            assert!(client.get_for_recovery(key, 3).await.is_err(), "{key}");
+        }
+        assert!(client.put_new("ok", vec![255, 0, 128]).await.unwrap());
+        task.abort();
     }
 
     #[tokio::test]

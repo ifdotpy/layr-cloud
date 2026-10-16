@@ -159,9 +159,26 @@ struct FakeBucket {
     root: PathBuf,
     puts: Mutex<Vec<String>>,
     fail: Mutex<Option<&'static str>>,
+    recovery_error: Mutex<bool>,
+    recovery_race: Mutex<Option<Vec<u8>>>,
 }
 
 impl Bucket for &FakeBucket {
+    async fn get_for_recovery(&self, key: &str, _expected_size: usize) -> Result<Option<Vec<u8>>> {
+        if *self.recovery_error.lock().unwrap() {
+            bail!("read outcome unknown");
+        }
+        let path = self.root.join(key);
+        if path.exists() {
+            return Ok(Some(std::fs::read(path)?));
+        }
+        if let Some(bytes) = self.recovery_race.lock().unwrap().take() {
+            std::fs::create_dir_all(path.parent().unwrap())?;
+            std::fs::write(path, bytes)?;
+        }
+        Ok(None)
+    }
+
     async fn put_new(&self, key: &str, body: Vec<u8>) -> Result<bool> {
         if let Some(suffix) = *self.fail.lock().unwrap() {
             if key.ends_with(suffix) {
@@ -236,6 +253,8 @@ impl Test {
             root: temp.0.join("objects"),
             puts: Mutex::default(),
             fail: Mutex::default(),
+            recovery_error: Mutex::default(),
+            recovery_race: Mutex::default(),
         };
         Test {
             temp,
@@ -879,4 +898,126 @@ async fn browse_empty_root_and_foreign_collision_fail_closed() {
         .unwrap(),
         sealed
     );
+}
+
+#[tokio::test]
+async fn index_resume_preserves_ciphertext_and_rejects_unsafe_outcomes() {
+    for scenario in [
+        "absent",
+        "exact",
+        "race_exact",
+        "mismatch",
+        "read_error",
+        "receipt_mismatch",
+        "receipt_scope",
+        "binding_mismatch",
+        "truncated",
+        "legacy_absent",
+        "legacy_present",
+        "legacy_race",
+    ] {
+        let t = Test::new(scenario);
+        write_files(&t.layr.root.join("s1"), &files(&[("x", b"x", "100644")]));
+        let w = t.writer();
+        w.push("s1").await.unwrap();
+        *t.bucket.fail.lock().unwrap() = Some(".dir.age");
+        assert!(w.reindex().await.is_err());
+        *t.bucket.fail.lock().unwrap() = None;
+        let record = w.record().unwrap().unwrap();
+        let name = desk_core::browse::page_name(record.seq, &record.attempt, "", 0);
+        let journal = w
+            .dir()
+            .join(format!("browse-{:010}.{}", record.seq, record.attempt));
+        let pending = journal.join(format!("{name}.pending"));
+        let receipt = journal.join(format!("{name}.receipt.json"));
+        let sealed = std::fs::read(&pending).unwrap();
+        let remote = t.bucket.root.join("proj/states/browse").join(&name);
+        if scenario.starts_with("legacy") {
+            std::fs::remove_file(&receipt).unwrap();
+        }
+        match scenario {
+            "exact" | "legacy_present" => {
+                std::fs::create_dir_all(remote.parent().unwrap()).unwrap();
+                std::fs::write(&remote, &sealed).unwrap();
+            }
+            "race_exact" | "legacy_race" => {
+                *t.bucket.recovery_race.lock().unwrap() = Some(sealed.clone())
+            }
+            "mismatch" => {
+                let mut wrong = sealed.clone();
+                wrong[0] ^= 1;
+                std::fs::create_dir_all(remote.parent().unwrap()).unwrap();
+                std::fs::write(&remote, wrong).unwrap();
+            }
+            "read_error" => *t.bucket.recovery_error.lock().unwrap() = true,
+            "receipt_mismatch" => std::fs::write(&receipt, b"{}").unwrap(),
+            "receipt_scope" => {
+                let mut value: Value =
+                    serde_json::from_slice(&std::fs::read(&receipt).unwrap()).unwrap();
+                value["bindingSha256"] = Value::String("other-scope".into());
+                std::fs::write(&receipt, serde_json::to_vec(&value).unwrap()).unwrap();
+            }
+            "binding_mismatch" => std::fs::write(journal.join("binding.json"), b"{}").unwrap(),
+            "truncated" => std::fs::write(&pending, &sealed[..sealed.len() / 2]).unwrap(),
+            _ => {}
+        }
+        let succeeds = matches!(
+            scenario,
+            "absent" | "exact" | "race_exact" | "legacy_absent"
+        );
+        let result = w.resume_index().await;
+        assert_eq!(result.is_ok(), succeeds, "{scenario}: {result:?}");
+        let marker = t
+            .bucket
+            .root
+            .join("proj/states")
+            .join(desk_core::browse::marker_name(record.seq, &record.attempt));
+        assert_eq!(marker.exists(), succeeds, "{scenario}");
+        if succeeds {
+            let bytes = std::fs::read(&remote).unwrap();
+            if scenario == "legacy_absent" {
+                assert_ne!(bytes, sealed);
+                assert_eq!(
+                    keys::decrypt(&t.identity, &bytes).unwrap(),
+                    keys::decrypt(&t.identity, &sealed).unwrap()
+                );
+                assert!(journal
+                    .join(format!(
+                        "{name}.legacy.{}",
+                        hex::encode(Sha256::digest(&sealed))
+                    ))
+                    .exists());
+            } else {
+                assert_eq!(bytes, sealed);
+            }
+            assert!(!pending.exists());
+        } else {
+            assert!(pending.exists());
+        }
+    }
+}
+
+#[tokio::test]
+async fn index_resume_refuses_an_active_writer_lock() {
+    let t = Test::new("index-lock");
+    let w = t.writer();
+    let lock = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(w.dir().join("writer.lock"))
+        .unwrap();
+    lock.try_lock().unwrap();
+    assert!(w
+        .resume_index()
+        .await
+        .unwrap_err()
+        .to_string()
+        .contains("another writer"));
+    assert!(w
+        .push("s1")
+        .await
+        .unwrap_err()
+        .to_string()
+        .contains("another writer"));
 }
