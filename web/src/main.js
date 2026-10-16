@@ -168,26 +168,38 @@ async function loadFolder(node, page = node?.page ?? 0) {
     files: value.files,
   });
 }
-function go(dir, sel, { record = true } = {}) {
+function place() {
+  return {
+    dir: app.dir,
+    sel: app.sel,
+    pages: Array.from(
+      { length: app.dir.length + 1 },
+      (_, depth) => nodeAt(app.dir.slice(0, depth))?.page ?? 0,
+    ),
+  };
+}
+function go(dir, sel, { record = true, pages } = {}) {
   const navigation = ++app.navigation;
   const generation = app.generation;
   guarded("Reading folders…", async () => {
+    const previous = place();
     let folder = app.root;
+    let depth = 0;
     for (const part of dir) {
-      await loadFolder(folder);
+      await loadFolder(folder, pages?.[depth++] ?? folder.page);
       folder = folder.children.get(part);
       if (!isFolder(folder))
         throw new Error(
           "This folder is not on the current page. Open it from its parent.",
         );
     }
-    await loadFolder(folder);
+    await loadFolder(folder, pages?.[depth] ?? folder.page);
     const chosen = folder.children.get(sel);
     if (isFolder(chosen)) await loadFolder(chosen);
     if (generation !== app.generation || navigation !== app.navigation) return;
     const changed = dir.join("/") !== app.dir.join("/");
     if (record && changed) {
-      app.back.push({ dir: app.dir, sel: app.sel });
+      app.back.push(previous);
       app.forward = [];
     }
     app.dir = dir;
@@ -209,10 +221,13 @@ function pageControls(folder, holder) {
     button.onclick = () =>
       guarded("Reading folders…", async () => {
         const generation = app.generation;
+        const previous = place();
         button.disabled = true;
         try {
           await loadFolder(folder, page);
           if (generation !== app.generation) return;
+          app.back.push(previous);
+          app.forward = [];
           app.dir = folder.path ? folder.path.split("/") : [];
           app.sel = null;
           render();
@@ -771,14 +786,14 @@ $("back").onclick = () => {
   if (compact.matches && !app.back.length) return parent();
   const to = app.back.pop();
   if (!to) return;
-  app.forward.push({ dir: app.dir, sel: app.sel });
-  go(to.dir, to.sel, { record: false });
+  app.forward.push(place());
+  go(to.dir, to.sel, { record: false, pages: to.pages });
 };
 $("forward").onclick = () => {
   const to = app.forward.pop();
   if (!to) return;
-  app.back.push({ dir: app.dir, sel: app.sel });
-  go(to.dir, to.sel, { record: false });
+  app.back.push(place());
+  go(to.dir, to.sel, { record: false, pages: to.pages });
 };
 $("quicklook").onclick = () => quickLook();
 $("ql-close").onclick = closeQuickLook;

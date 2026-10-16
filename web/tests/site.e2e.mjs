@@ -500,6 +500,14 @@ try {
   await page.waitForSelector("#list-rows .item:has-text('src')");
   await page.click("#forward");
   await page.waitForSelector("#list-rows .item:has-text('app.py')");
+  await page.click("#back");
+  await page.waitForSelector("#list-rows button:has-text('Previous page')");
+  await page.click("#list-rows button:has-text('Previous page')");
+  await page.waitForSelector("#list-rows button:has-text('Next page')");
+  await page.click("#back");
+  await page.waitForSelector("#list-rows .item:has-text('src')");
+  await page.click("#forward");
+  await page.waitForSelector("#list-rows button:has-text('Next page')");
   assert.equal(
     fetchedObjects.filter(
       (key) => key.startsWith("other/") && key.endsWith(".tree.age"),
