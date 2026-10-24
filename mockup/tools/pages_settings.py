@@ -25,9 +25,9 @@ def access_page():
     H = [("Person or machine", ""), ("Role", ""), ("Reads overlays", ""), ("Granted by", ""), ("Until", "num"), ("", "")]
     ov = lambda *n: " ".join(f'<a class="ref" href="overlay.html">{x}</a>' for x in n) if n else '<span class="muted">none</span>'
     rows = [
-        [who("alice"), "owner", ov("secrets", "local-tools"), '<span class="muted">·</span>', "always", ""],
+        [who("alice"), "owner", ov("secrets", "local-tools", "board"), '<span class="muted">·</span>', "always", ""],
         [who("bob"), "maintainer", ov("secrets"), who("alice"), "always", '<button class="btn sm" type="button">Change</button>'],
-        [who("carol"), "reader", ov("payroll"), who("alice"), "always", '<button class="btn sm" type="button">Change</button>'],
+        [who("carol"), "reader", ov("payroll", "board"), who("alice"), "always", '<button class="btn sm" type="button">Change</button>'],
         [sid("executor-eu1"), "writer", ov("secrets"), who("alice"), "always", '<button class="btn sm" type="button">Change</button>'],
         [who("dan"), "writer", ov(), who("bob"), '<span class="warn">1 h 40 min</span>', '<button class="btn sm danger" type="button">Revoke</button>'],
     ]

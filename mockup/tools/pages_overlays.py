@@ -7,6 +7,8 @@ OVERLAYS = [
          epoch=3, you="reader", changed="5 days ago", peers=["laptop-bob", "executor-eu1"]),
     dict(name="local-tools", files=14, readers=["alice"], managers=["laptop-alice (creator)"],
          epoch=1, you="reader", changed="2 weeks ago", peers=[]),
+    dict(name="board", files=6, readers=["alice", "carol"], managers=["laptop-alice (creator)", "laptop-carol"],
+         epoch=1, you="reader", changed="3 days ago", peers=[], hidden=True),
     dict(name="payroll", files=2, readers=["carol", "machine:ci-runner-2"], managers=["laptop-carol (creator)", "executor-eu1"],
          epoch=2, you="none", changed="1 month ago", peers=["ci-runner-2"]),
 ]
@@ -23,6 +25,8 @@ def overlays_list_page():
     for o in OVERLAYS:
         access = okb("you read it") if o["you"] == "reader" else grayb("you cannot read it")
         warn = warnb("1 key manager") if len(o["managers"]) == 1 else ""
+        if o.get("hidden"):
+            warn += ' <span class="badge purple" title="Only its readers know this overlay exists">hidden</span>'
         rows.append([f'<a href="overlay.html">{e(o["name"])}</a>', f'{o["files"]} files',
                      '<span class="row" style="gap:6px">' + " ".join(reader_chip(r) for r in o["readers"]) + "</span>",
                      f'{access} {warn}', f'epoch {o["epoch"]}', o["changed"]])
@@ -31,13 +35,15 @@ def overlays_list_page():
 {field("Name", inp("secrets", mono=True))}
 {field("Readers", inp("alice, bob, machine:executor-eu1", mono=True))}
 {field("Files that belong to it", inp(".env*, config/*.key", mono=True))}
+<label class="toggle"><input type="checkbox"> Hidden: only its readers know it exists</label>
+<p class="note">A hidden overlay leaves no name, reader, pattern or operation in the shared project. Others see nothing. A visible overlay cannot become hidden later.</p>
 <p class="note">This machine becomes the first key manager. Add a second manager soon, so a lost laptop cannot lock the key.</p>
-{cmd("layr overlay create secrets --readers alice,bob,machine:executor-eu1")}{cmd("layr overlay route secrets '.env*' 'config/*.key'")}''',
+{cmd("layr overlay create secrets --readers alice,bob,machine:executor-eu1")}{cmd("layr overlay create board --readers alice,carol --hidden")}{cmd("layr overlay route secrets '.env*' 'config/*.key'")}''',
                  '<button class="btn" type="button" data-close>Cancel</button><button class="btn primary" type="button" data-close>Create overlay</button>')
     body = f'''{pagehead("Overlays", '<button class="btn primary" type="button" data-dialog="dlg-new-overlay">New overlay</button>',
           "Private files in this project. Each overlay has its own readers and its own key. Readers see its files inside the line folder; nobody else gets plaintext.")}
 {table(H, rows)}
-<p class="footnote">You see the names of all overlays. Only readers see their files.</p>'''
+<p class="footnote">Private overlays: everybody sees the name, only readers see the files. Hidden overlays: only readers see them at all; this list shows them to you because you read them.</p>'''
     return page("Overlays", body, tab="Code", dialogs=dlg)
 
 

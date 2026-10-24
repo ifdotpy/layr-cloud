@@ -537,3 +537,11 @@ Layr has no per-path owners. Approvals count per exact state, from approvers nam
 (`--path migrations/=maintainer`). So: Access has no "Path owners" block; Protection shows per rule
 the checks, approvals with approvers, path rules, queue and who may move; the change's Merge
 checklist says "1 of 2 approvals from maintainers" and whether path rules are met.
+
+## 16. Hidden overlays (2026-10-24, lead)
+
+Two levels: private (everybody sees the name, only readers see the files: "you cannot read it")
+and hidden (only readers know it exists: no row, no count, no file badge for anyone else). A
+hidden overlay shows a "hidden" badge to its readers. New overlay has a "Hidden" switch; a
+visible overlay cannot become hidden later. Layr rules: layr `docs/overlay-sync-design.md`,
+section "Hidden overlays".

@@ -71,7 +71,7 @@ def code_page():
 <a class="btn ghost" href="lines.html"><b>20</b>&nbsp;<span class="muted">lines</span></a>
 <a class="btn ghost" href="environments.html"><b>14</b>&nbsp;<span class="muted">refs</span></a>
 <a class="btn ghost" href="states.html"><b>312</b>&nbsp;<span class="muted">states</span></a>
-<a class="btn ghost" href="overlays.html"><b>3</b>&nbsp;<span class="muted">overlays</span></a>
+<a class="btn ghost" href="overlays.html"><b>4</b>&nbsp;<span class="muted">overlays</span></a>
 <span class="spacer"></span><button class="btn" type="button">Go to file</button></div>
 <div><div class="headrow">{av("bob")}<b>bob</b><span class="msg muted">Merge change 2d9e5c: Bump tokio to 1.48</span>
 <span class="badge ok">✓ 4/4</span>{sid("7d3e9a1c40b2")}<span class="muted">2 hours ago</span>
