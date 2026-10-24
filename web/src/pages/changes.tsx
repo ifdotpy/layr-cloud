@@ -277,12 +277,13 @@ export function ChangePage({
     [choice, setQuick] = useState(""),
     [diffMode, setDiffMode] = useState("Unified");
   const { data, error } = useData(async () => {
-    const [change, queue, operations] = await Promise.all([
+    const [change, queue, operations, lines] = await Promise.all([
       source.changeShow(project.id, id),
       source.queue(project.id),
       source.opLog(project.id),
+      source.lines(project.id),
     ]);
-    return { change, queue, operations };
+    return { change, queue, operations, lines };
   }, [source, project.id, id]);
   const change = data?.change;
   const { data: viewer } = useData(() => source.you(), [source]);
@@ -708,7 +709,12 @@ export function ChangePage({
                   onChange={setDiffMode}
                 />
               </div>
-              {/* TODO: The records task must supply replay actor and target metadata before a replay note can name them. */}
+              {last?.operation && <p class="note compare-note provenance-note">
+                {shortText(last.operation.actor.session ?? last.operation.actor.name)}{" "}
+                {last.operation.kind === "replay" ? "replayed" : last.operation.kind === "pick" ? "picked" : "amended"} this change
+                {last.operation.target_line && <> on <Mono>{data.lines.find((line) => line.id === last.operation!.target_line)?.name ?? "a recorded line"}</Mono></>}
+                {" · target head "}<Mono>{short(last.operation.target_head)}</Mono>{" · "}{when(last.operation.time)}
+              </p>}
               {first && !("canonical" in (files ?? {})) && (
                 <p class="note compare-note">
                   This compare also shows changes that came from main.
