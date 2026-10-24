@@ -1,0 +1,18 @@
+[package]
+name = "layr-cloud-cli"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "layr-cloud"
+path = "src/main.rs"
+
+[dependencies]
+layr-store = { git = "https://github.com/ifdotpy/layr", rev = "82314b72b7d3175310c9fdd1114948b606556790" }
+anyhow = "1"
+hex = "0.4"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"

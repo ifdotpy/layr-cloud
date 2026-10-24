@@ -69,6 +69,98 @@ Assign tag ownership to administrators.
 Use separate reusable, pre-approved auth keys for the two tags.
 Do not grant either host access to other tailnet devices unless a task requires it.
 
+## Deploy with layr-cloud
+
+Build the command with `cargo build --locked -p layr-cloud-cli`.
+The command uses the templates embedded at build time.
+It needs no AWS CLI or Python on the local machine.
+The host requirements and tailnet grants above still apply.
+
+Prepare `gateway.tgz` and `executor.tgz` as [Publish a release](#publish-a-release) describes.
+The gateway archive holds `./layr-gateway` and `./sync.py`.
+The executor archive holds `./layr` and `./sync.py`.
+Place both archives and this `deploy.json` in one release folder:
+
+```json
+{
+  "imageId": "ami-0123456789abcdef0",
+  "gatewayHost": "example-gateway.your-tailnet.ts.net"
+}
+```
+
+Use a trusted Debian 13 ARM64 AMI from the selected region.
+Its root device must be `/dev/xvda`.
+`gatewayHost` is the full tailnet DNS name for the command output.
+It does not set the host certificate configuration.
+The tailnet hostnames and IAM role names are `<prefix>-gateway` and `<prefix>-executor`.
+Use at most 44 lowercase letters, digits, or hyphens for the prefix.
+Start the prefix with a letter and end it with a letter or digit.
+The store project prefix is the same value.
+
+Optional `deploy.json` fields:
+
+| Field | Meaning |
+| --- | --- |
+| `domain` | Custom gateway DNS name. Also the zone name when the command creates a zone. |
+| `zoneId` | Existing Route 53 zone for `domain`. Requires `domain`. |
+| `gatewayAuthKeyParameter` | SSM parameter name. Default: `/layr-store/gateway/tailscale-auth-key`. |
+| `executorAuthKeyParameter` | SSM parameter name. Default: `/layr-store/executor/tailscale-auth-key`. |
+
+Unknown fields cause an error.
+If `domain` is set without `zoneId`, the command creates a new Route 53 hosted zone.
+Both command modes print `creates a new Route 53 hosted zone <domain>; delegate it from your registrar`.
+Do not put auth keys, tokens, or AWS credentials in this file.
+Create the two SSM parameters before deployment, as the next steps describe.
+The profile needs permission to manage all template resources, upload artifacts, call STS, and describe EC2 subnets.
+
+```sh
+./target/debug/layr-cloud deploy --region eu-central-1 --stack-prefix example \
+  --release /absolute/path/release --profile layr-admin --dry-run
+./target/debug/layr-cloud deploy --region eu-central-1 --stack-prefix example \
+  --release /absolute/path/release --profile layr-admin
+```
+
+The stack order is bootstrap, store, optional DNS, gateway, and executor.
+The stack names are `<prefix>-bootstrap`, `<prefix>-store`, `<prefix>-dns`, `<prefix>-gateway`, and `<prefix>-executor`.
+After bootstrap, the command uploads the two archives under `<kind>/releases/<sha256>.tgz`.
+It also writes `<kind>/release.json` with the object key and SHA-256 digest.
+The host validator checks the archive contents and static ARM64 binary before installation.
+The command does not change the gateway host or project config artifacts.
+
+Signed STS `GetCallerIdentity` supplies the AWS account and partition for the store trust policy.
+Signed EC2 `DescribeSubnets` supplies the executor availability zone from the gateway subnet.
+The command waits up to one hour per stack and accepts an update with no changes.
+A failed create keeps its stack and reports the failed resource names and reasons.
+Inspect the failed stack before you delete it or retry deployment.
+A timeout does not cancel the AWS operation.
+Inspect that stack before another command run.
+
+The JSON output includes the gateway URL, bucket names, and all stack outputs.
+If the command creates a DNS zone, set the registrar nameservers from its outputs.
+The host setup timer retries after DNS delegation becomes available.
+For a domain below an existing zone, provide its `zoneId`.
+
+`--dry-run` makes no AWS calls and reads no credentials.
+It prints every stack parameter and upload with explicit placeholders for values that need AWS outputs.
+Environment credentials take priority over profiles.
+The profile order is `--profile`, `AWS_PROFILE`, then `default`.
+Static keys come from `~/.aws/credentials` or `AWS_SHARED_CREDENTIALS_FILE`.
+Profile settings come from `~/.aws/config` or `AWS_CONFIG_FILE`.
+The command writes no credentials.
+SSO profiles exit with code 2 and `SSO profiles need layr remote login first`.
+The command refuses `credential_process` and assume-role profiles.
+
+Complete the remaining manual steps in this runbook:
+
+1. Initialize the store with the owner credentials.
+2. Publish the gateway host and project configs.
+3. Check the host services through Tailscale SSH.
+4. Enroll the executor with its public key and a write token.
+
+Use the command output values in those steps.
+Stack completion proves AWS resource creation only.
+Use the service checks below to prove that host setup is complete.
+
 ## Set deployment values
 
 Run all local commands from the repository root.

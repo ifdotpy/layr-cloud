@@ -20,11 +20,57 @@ python3 -m pip install boto3 PyYAML
 python3 -m unittest discover -s infra/aws -p 'test_*.py'
 ```
 
-The binary is `target/debug/layr-gateway`.
+The binaries are `target/debug/layr-gateway` and `target/debug/layr-cloud`.
 The shared `layr-store` crate comes from Layr revision `82314b72b7d3175310c9fdd1114948b606556790`.
 The `web/` folder contains groundwork for the future UI and is excluded from CI.
 CI means continuous integration.
 The [AWS runbook](infra/aws/README.md) describes host setup and release archives.
+
+## Deploy
+
+`layr-cloud deploy` creates or updates the AWS stacks from the embedded `infra/aws` templates.
+It uses signed HTTP requests and does not require the AWS CLI.
+Read the [AWS deployment steps](infra/aws/README.md#deploy-with-layr-cloud) for the release files and host requirements.
+
+```sh
+cargo build --locked -p layr-cloud-cli
+./target/debug/layr-cloud deploy --region eu-central-1 --stack-prefix example \
+  --release /absolute/path/release --profile layr-admin --dry-run
+./target/debug/layr-cloud deploy --region eu-central-1 --stack-prefix example \
+  --release /absolute/path/release --profile layr-admin
+```
+
+The release folder contains `gateway.tgz`, `executor.tgz`, and `deploy.json`.
+The gateway archive contains `layr-gateway` and `sync.py`.
+The executor archive contains `layr` and `sync.py`.
+The host validates each archive before it installs the files.
+
+```json
+{
+  "imageId": "ami-0123456789abcdef0",
+  "gatewayHost": "example-gateway.your-tailnet.ts.net"
+}
+```
+
+Replace the AMI ID with a trusted Debian 13 ARM64 image in the selected region.
+Replace `gatewayHost` with the full tailnet DNS name.
+Unknown config fields cause an error.
+If `domain` is set without `zoneId`, the command creates a new Route 53 hosted zone.
+Both command modes print `creates a new Route 53 hosted zone <domain>; delegate it from your registrar`.
+The command waits up to one hour for each stack.
+A failed stack reports the failed resource events.
+The JSON output includes the gateway URL, bucket names, and stack outputs.
+CloudFormation completion does not prove that the host services are ready.
+
+`--dry-run` prints the stack names, parameters, and uploads without AWS calls or credential access.
+Values that need AWS use explicit placeholders, such as `<example-bootstrap.ArtifactsBucket>`.
+The command uses environment credentials first.
+Otherwise, it reads static keys from the profile named by `--profile`, `AWS_PROFILE`, or `default`.
+It supports `AWS_SHARED_CREDENTIALS_FILE` and `AWS_CONFIG_FILE`.
+It never writes credentials.
+SSO profiles return exit code 2 with `SSO profiles need layr remote login first`.
+Profiles with `credential_process` are refused.
+SSO means IAM Identity Center single sign-on.
 
 ## Store gateway
 

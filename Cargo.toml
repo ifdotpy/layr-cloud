@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/layr-gateway"]
+members = ["crates/layr-gateway", "crates/layr-cloud-cli"]
 resolver = "2"
 
 [workspace.package]
