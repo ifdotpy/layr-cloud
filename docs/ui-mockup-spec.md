@@ -201,7 +201,7 @@ Two columns: main (fluid) and a right sidebar (296px).
 
 Main:
 1. Toolbar row: line switcher button with the text "line: main ▾" (no icon), then links
-   "21 lines" (`lines.html`), "14 refs" (`environments.html`), "312 states" (`states.html`);
+   "20 lines" (`lines.html`), "14 refs" (`environments.html`), "312 states" (`states.html`);
    right: "Go to file". No "Save" button: saves come from the CLI.
 2. Line switcher (dropdown on click): tabs "Lines" and "Refs" and "Views"; filter field; list.
    Views tab shows `views/9f2c41  main + secrets`.
@@ -232,7 +232,7 @@ Sidebar:
   menu (Rename, Park, Replay onto main, Delete). Show `main` first with "protected".
 - Show all 16 agent lines grouped under a collapsible row "agent-1 … agent-16 (16 lines, made
   together)".
-- Footer note: "Disk use for all 21 lines: 214 MiB. As separate copies: 3.1 GiB."
+- Footer note: "Disk use for all 20 lines: 214 MiB. As separate copies: 3.1 GiB."
 
 ### 6.4 States (`states.html`), the history list
 
@@ -278,7 +278,7 @@ GitHub PR list pattern with Layr words.
 
 Shared header: title (24px) and `#812`, status badge "open", "bob wants to merge
 `topic-checkout` into `main`", version selector "v3 ▾" (v1, v2, v3 with times). Tabs:
-`Overview` · `Files 7` · `Behavior 2` · `Checks 4` · `Steps 38`.
+`Overview` · `Files 4` · `Behavior 2` · `Checks 4` · `Steps 38`.
 
 Right sidebar on all five tabs:
 - Reviewers: one row per path owner rule ("src/payments/ → alice ✓ approved v3",
