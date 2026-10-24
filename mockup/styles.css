@@ -536,7 +536,7 @@ html:not(.cli) .cmd { display: inline-flex; margin-right: 10px; }
 @media (prefers-reduced-motion: reduce) { .pulse .dot { display: none; } .bar-row .bar i, .ring-fg { transition: none; } }
 .bar-row .bar { width: auto; display: block; }
 /* Contrast fixes measured by the web tests (WCAG AA). */
-.badge.ok { color: color-mix(in srgb, var(--green-900) 94%, var(--text)); }
+.badge.ok { color: color-mix(in srgb, var(--green-900) 92%, var(--text)); }
 .stamp { color: var(--blue-900); }
 .badge.warn { color: color-mix(in srgb, var(--amber-900) 90%, var(--text)); }
 .badge.bad { color: color-mix(in srgb, var(--red-900) 90%, var(--text)); }
