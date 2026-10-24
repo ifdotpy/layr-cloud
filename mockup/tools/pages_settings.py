@@ -35,21 +35,20 @@ def access_page():
     owners = [[sid("src/payments/"), "alice", "1"], [sid("web/"), "bob", "1"], [sid("migrations/"), "alice, bob", "1"], [sid(".layr/"), "alice", "1"]]
     c = sect("Access", "Roles: owner, maintainer, writer, reader. A role can expire.",
              table(H, rows) + cmd("layr access grant dan writer --until 2h")) + \
-        sect("Path owners", "Reviews of a change ask the owners of the paths it changes.", table(OH, owners) + cmd("layr protect main --path src/payments/=alice")) + \
         tokens_page()
     return spage("Access", c)
 
 
 def protection_page():
-    H = [("Line or ref", ""), ("Required checks", ""), ("Approvals", "num"), ("Queue", ""), ("Who may move", ""), ("", "")]
+    H = [("Line or ref", ""), ("Required checks", ""), ("Approvals", ""), ("Paths", ""), ("Queue", ""), ("Who may move", ""), ("", "")]
     rows = [
-        [sid("main"), "unit, lint, e2e", "2", "required", "maintainers, through the queue", '<button class="btn sm" type="button">Edit</button>'],
-        [sid("env/prod"), "unit, e2e", "1", "·", "alice, bob", '<button class="btn sm" type="button">Edit</button>'],
-        [sid("env/staging"), "unit", "0", "·", "writers", '<button class="btn sm" type="button">Edit</button>'],
-        [sid("release/*"), "build-image", "1", "·", "alice", '<button class="btn sm" type="button">Edit</button>'],
+        [sid("main"), "unit, lint, e2e", "2 from maintainers", sid("migrations/") + " needs maintainer<br>" + sid(".layr/") + " needs admin", "required", "maintainers, through the queue", '<button class="btn sm" type="button">Edit</button>'],
+        [sid("env/prod"), "unit, e2e", "1 from alice, bob", '<span class="muted">·</span>', "·", "maintainers", '<button class="btn sm" type="button">Edit</button>'],
+        [sid("env/staging"), "unit", "0", '<span class="muted">·</span>', "·", "writers", '<button class="btn sm" type="button">Edit</button>'],
+        [sid("release/*"), "build-image", "1 from alice", '<span class="muted">·</span>', "·", "maintainers", '<button class="btn sm" type="button">Edit</button>'],
     ]
-    c = sect("Protection", "Rules for lines and refs. A protected ref moves only with compare and swap to a state that passes its rules.",
-             table(H, rows) + cmd("layr protect env/prod --check unit --approvals 1"))
+    c = sect("Protection", "Rules for lines and refs. A protected line or ref moves only to a state that passes its rules, with compare and swap. Approvals bind to that exact state; a path rule names the role needed to change files under it.",
+             table(H, rows) + cmd("layr protect env/prod --check unit --approvals 1 --approvers alice,bob") + cmd("layr protect main --path migrations/=maintainer"))
     return spage("Protection", c)
 
 

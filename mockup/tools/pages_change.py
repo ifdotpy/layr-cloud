@@ -279,8 +279,8 @@ def cside(c):
     else:
         secret = check_line("ok", "No secret values in shared files")
     items = "".join([
-        check_line("ok", f"{sid('src/payments/')} approved by alice for v3"),
-        check_line("warn", f"{sid('web/')} needs an approval from bob"),
+        check_line("warn", "1 of 2 approvals from maintainers: alice approved v3"),
+        check_line("ok", f"{sid('migrations/')} changed by bob, a maintainer"),
         check_line("ok", "unit, lint passed on this exact state"),
         check_line("warn", "e2e is running, 3 of 5 min"),
         check_line("warn", f"{sid('src/cart.rs')} also changes in {sid('agent-4')}"),

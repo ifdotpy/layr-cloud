@@ -529,3 +529,11 @@ Overlays were only in Settings and too hard to find. Now:
 - A file's "overlay: name" badge links to its overlay. Settings → Access shows which overlays
   each person or machine reads. Settings → Private files keeps the secret detector and points to
   Code → Overlays.
+
+## 15. Approvals and path rules match Layr (2026-10-24, lead)
+
+Layr has no per-path owners. Approvals count per exact state, from approvers named by the rule
+(`--approvals N --approvers …`); a path rule names the role needed to change files under a path
+(`--path migrations/=maintainer`). So: Access has no "Path owners" block; Protection shows per rule
+the checks, approvals with approvers, path rules, queue and who may move; the change's Merge
+checklist says "1 of 2 approvals from maintainers" and whether path rules are met.
