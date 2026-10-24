@@ -546,11 +546,15 @@ hidden overlay shows a "hidden" badge to its readers. New overlay has a "Hidden"
 visible overlay cannot become hidden later. Layr rules: layr `docs/overlay-sync-design.md`,
 section "Hidden overlays".
 
-## 17. Version compare (2026-10-24, lead)
+## 17. Version compare (2026-10-24, lead; simplified after review)
 
-Versions keep Layr's numbers (v1, v2, v3: `changes/<id>/v2`, `layr change diff --from v2 --to v3`),
-but every option names its time, a short summary and the viewer's mark ("you approved"). The
-default compare is "Since your review": from the version the viewer last approved or commented on
-to the latest. Quick choices: Since your review, All changes (against the base), Latest version
-only. A line explains what is shown and which base moves are hidden. Approvals are per exact
-state, so the Merge checklist counts approvals on the latest version only.
+One line above the diff, not a panel: a single button "Changes since your review ▾", the file
+count with +/−, and Unified/Split on the right. The menu offers, in plain words: "Since your
+review" (you approved v2 on Oct 22), "Everything in this change" (all files against main), "Only
+the latest update" (v3 and its summary), and "Or pick two versions" with two small selects; the
+CLI chip sits at the bottom of the menu. No "base moves" switch: version compare never shows
+moves onto a newer main; when such a move happened, one plain note under the line says so ("bob
+moved this change onto the newest main after your review. That move changed no code, so it is
+not shown."). "Since your review" is the default only when an approval names the viewer;
+otherwise "Everything in this change". Approvals are per exact state, so the Merge checklist
+counts approvals on the latest version only.

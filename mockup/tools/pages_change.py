@@ -135,15 +135,19 @@ Good. Log the Stripe error code here too.</div><div class="c"><div class="who">{
            ("", "12", "12", "  return ("),
            ("a", "", "13", "    <SavedCards cards={cards} />"),
            ("", "13", "14", "    <CardForm />")]
-    vfrom = ["base of main (all changes)", "v1 · Oct 22, 10:14 · first version · +212 −18",
-             "v2 · Oct 22, 16:40 · token moved to overlay · you approved", "v3 · Oct 23, 18:55 · handle expired cards · latest"]
-    main = f'''<div class="card"><div class="bd stack-s">
-<div class="seg"><button type="button" aria-pressed="true">Since your review</button><button type="button" aria-pressed="false">All changes</button><button type="button" aria-pressed="false">Latest version only</button></div>
-<div class="row"><span class="muted">From</span><select class="input">{"".join(f'<option{" selected" if i == 2 else ""}>{e(v)}</option>' for i, v in enumerate(vfrom))}</select>
-<span>→</span><select class="input"><option selected>v3 · Oct 23, 18:55 · latest</option><option>v2 · Oct 22, 16:40</option></select></div>
-<p class="note">Showing what changed since you approved v2: 2 files, +24 −6. The replay onto main between v2 and v3 is hidden, because it changed no content.</p>
-<div class="row"><label class="toggle"><input type="checkbox" checked> Hide base moves</label><span class="spacer"></span>{diff_toggle()}</div></div>
-<div class="ft">{cmd("layr change diff 4f2a91 --from v2 --to v3")}</div></div>
+    main = f'''<div class="row cmp-bar">
+<div class="menu-wrap"><button class="btn" type="button" data-menu="m-cmp">Changes since your review {icon("chev")}</button>
+<div class="menu" id="m-cmp" style="min-width:320px">
+<button type="button"><span><b>Since your review</b><br><span class="muted small">You approved v2 on Oct 22</span></span></button>
+<button type="button"><span><b>Everything in this change</b><br><span class="muted small">All 4 files against main</span></span></button>
+<button type="button"><span><b>Only the latest update</b><br><span class="muted small">v3, Oct 23: handle expired cards</span></span></button>
+<hr><div class="lbl">Or pick two versions</div>
+<div class="row" style="padding:4px 8px 8px">{sel(["v1", "v2", "v3"])}<span>→</span>{sel(["v3", "v2", "v1"])}</div>
+<hr><div style="padding:4px 8px">{cmd("layr change diff 4f2a91 --from v2 --to v3")}</div></div></div>
+<span class="muted">2 files · <span class="add">+24</span> <span class="del">−6</span></span>
+<span class="spacer"></span>{diff_toggle()}</div>
+<p class="note" style="margin:8px 0 0">bob moved this change onto the newest main after your review. That move changed no code, so it is not shown.</p>'''
+    main = main + f'''
 <div style="display:grid;grid-template-columns:240px minmax(0,1fr);gap:16px" class="files-grid">
 <aside class="side"><section><h3>4 files</h3><ul>{tree}</ul></section></aside>
 <div class="diffs">{diff_frame("src/payments/card.rs", card, 6, 1, thread)}
