@@ -494,6 +494,16 @@ for (const [name, path, heading, empty] of [
         else await text(page, 'No copies are recorded.');
         const ids = new Set([...lines.map(line => line.machine), ...copies.flatMap(copy => copy.machine ? [copy.machine] : copy.machines ?? [])]);
         await table(page, 'Machines with this project', ids.size);
+        const machineTable = main(page).getByRole('table', {name:'Machines with this project',exact:true});
+        await expect(machineTable.getByRole('columnheader')).toHaveText(['Machine', 'Lines', 'Last transfer']);
+        for (const [index, id] of [...ids].sort().entries()) {
+          const row = machineTable.locator('tbody tr').nth(index);
+          const held = lines.filter(line => line.machine === id).map(line => line.name);
+          await expect(row.getByRole('cell').nth(1)).toHaveText(held.join(', ') || 'No lines recorded');
+          if (!held.length) await expect(row.getByRole('cell').nth(1).locator('.muted')).toBeVisible();
+          const latest = copies.filter(copy => copy.machine === id && copy.time !== undefined).sort((a,b) => b.time! - a.time!)[0];
+          await expect(row.getByRole('cell').nth(2)).toContainText(latest?.name ?? 'No transfer recorded');
+        }
       }
     },
   });

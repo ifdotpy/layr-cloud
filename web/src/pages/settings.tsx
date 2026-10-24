@@ -333,9 +333,8 @@ function Copies({ source, project }: { source: DataSource; project: Project }) {
         ) : (
           <Table
             label="Machines with this project"
-            headers={["Machine", "Recorded lines and transfers", "Last transfer"]}
+            headers={["Machine", "Lines", "Last transfer"]}
             rows={machineIds.map((id) => {
-              const machine = machines.data?.find((item) => item.id === id);
               const heldLines =
                 lines.data
                   ?.filter((line) => line.machine === id)
@@ -343,17 +342,12 @@ function Copies({ source, project }: { source: DataSource; project: Project }) {
               const heldCopies =
                 copies.data?.filter((copy) => copy.machine === id || copy.machines?.includes(id)) ??
                 [];
-              const times = heldCopies.flatMap((copy) =>
-                copy.time === undefined ? [] : [copy.time],
-              );
+              const latest = heldCopies.filter((copy) => copy.machine === id && copy.time !== undefined)
+                .sort((a, b) => b.time! - a.time!)[0];
               return [
                 <span>{machineLabel(id, machines.data ?? [])}</span>,
-                <Mono>
-                  {[...heldLines, ...heldCopies.map((copy) => `${copy.name} (reported)`)].join(
-                    ", ",
-                  ) || "Not recorded"}
-                </Mono>,
-                when(times.length ? Math.max(...times) : undefined),
+                heldLines.length ? <Mono>{heldLines.join(", ")}</Mono> : <span class="muted">No lines recorded</span>,
+                latest ? <div><span>{latest.name}</span><div class="muted">{when(latest.time)}</div></div> : <span class="muted">No transfer recorded</span>,
               ];
             })}
           />
