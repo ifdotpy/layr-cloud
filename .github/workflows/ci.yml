@@ -12,20 +12,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --locked -- -D warnings
+      - run: cargo build --locked
       - run: cargo test --locked
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
-        working-directory: web
-      - run: pnpm test
-      - run: cargo build --locked -p layr-desk
-      - run: pnpm --filter layr-desk-web run test:e2e:rust
-      - run: pnpm --filter layr-desk-web run test:e2e:person
-      - run: python3 -m unittest discover -s python -p 'test_*.py'
-      - run: python3 -m unittest discover -s js/vault/test -p 'test_*.py'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - run: python3 -m pip install boto3 PyYAML
+      - run: python3 -m unittest discover -s infra/aws -p 'test_*.py'

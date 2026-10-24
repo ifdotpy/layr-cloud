@@ -1,0 +1,109 @@
+# Test helpers. Each test file gets a fresh btrfs file system on a loop file.
+# Needs root, btrfs-progs, git, zstd. LAYR points at the binary under test.
+
+set -u
+: "${LAYR_BIN:?Set LAYR_BIN to the layr binary}"
+LAYR=$LAYR_BIN
+PASS=0
+FAIL=0
+if [ -n "${LAYR_OVERLAYFS_TEST_ROOT:-}" ]; then
+    T=$(mktemp -d "$LAYR_OVERLAYFS_TEST_ROOT/layr-test.XXXXXX")
+elif [ "$(uname -s)" = Darwin ]; then
+    : "${LAYR_APFS_TEST_ROOT:?Set LAYR_APFS_TEST_ROOT to a case-sensitive APFS volume}"
+    T=$(mktemp -d "$LAYR_APFS_TEST_ROOT/layr-test.XXXXXX")
+else
+    T=$(mktemp -d /var/tmp/layr-test.XXXXXX)
+fi
+export LAYR_ROOT=$T/store
+export GIT_AUTHOR_NAME=Tester GIT_AUTHOR_EMAIL=tester@example.com GIT_COMMITTER_NAME=Tester GIT_COMMITTER_EMAIL=tester@example.com
+export LAYR_AUTHOR_NAME=Tester LAYR_AUTHOR_EMAIL=tester@example.com
+unset LAYR_PROJECT LAYR_LINE LAYR_SOCKET
+
+l() {
+    "$LAYR" "$@"
+    local rc=$?
+    # The Linux suite runs as root and bypasses policy. On macOS the owner explicitly
+    # permits direct updates for these command tests. Access tests use their own policy.
+    if [ "$rc" -eq 0 ] && [ "${LAYR_TEST_DIRECT_MAIN:-}" = 1 ]; then
+        local project=""
+        case "${1:-}" in init) project=$2 ;; git) [ "${2:-}" = clone ] && project=${4:-} ;; esac
+        if [ -n "$project" ]; then
+            (cd "$LAYR_ROOT/projects/$project/lines/main" && "$LAYR" protect main --remove) || return $?
+        fi
+    fi
+    return "$rc"
+}
+
+new_fs() { # new_fs <mountpoint> <size>
+    local mp=$1 size=${2:-8G}
+    if [ -n "${LAYR_OVERLAYFS_TEST_ROOT:-}" ] || [ "$(uname -s)" = Darwin ]; then
+        mkdir -p "$mp"
+        return
+    fi
+    truncate -s "$size" "$mp.img" || exit 1
+    mkfs.btrfs -q -f "$mp.img" || exit 1
+    mkdir -p "$mp" || exit 1
+    for attempt in $(seq 1 50); do
+        if mount -o loop,user_subvol_rm_allowed "$mp.img" "$mp" 2> "$mp.mount-error"; then
+            rm "$mp.mount-error"
+            return
+        fi
+        sleep 0.1
+    done
+    cat "$mp.mount-error" >&2
+    echo "FATAL: cannot mount the test filesystem at $mp" >&2
+    exit 1
+}
+
+# A failed cd must stop the test file: a later relative command (rm -rf ./*, layr commands)
+# would otherwise run in the previous folder, which can be / after cleanup steps.
+cd() {
+    builtin cd "$@" || {
+        echo "FATAL: cd $* failed; stopping this test file" >&2
+        exit 1
+    }
+}
+
+cleanup() {
+    # Never act on an empty or missing test root: "^$T" would match every mount.
+    if [ -z "${T:-}" ] || [ ! -d "$T" ] || [ "$T" = / ]; then
+        return
+    fi
+    cd /
+    if [ "$(uname -s)" = Darwin ]; then
+        chflags -R nouchg "$T" 2>/dev/null || true
+        rm -rf "$T"
+        return
+    fi
+    for mp in $(findmnt -rn -o TARGET | grep "^$T" | sort -r); do umount -l "$mp" 2>/dev/null; done
+    while read -r device image; do
+        case "$image" in "$T/"*) losetup -d "$device" 2>/dev/null || true ;; esac
+    done < <(losetup --list --noheadings --output NAME,BACK-FILE)
+    rm -rf "$T"
+}
+trap cleanup EXIT
+
+new_fs "$LAYR_ROOT" 8G
+
+ok() { # ok <description> <command...>: the command succeeds
+    local d=$1; shift
+    if ( "$@" ) >/dev/null 2>&1; then PASS=$((PASS + 1)); echo "PASS $d"; else FAIL=$((FAIL + 1)); echo "FAIL $d"; fi
+}
+
+no() { # no <description> <command...>: the command fails
+    local d=$1; shift
+    if ( "$@" ) >/dev/null 2>&1; then FAIL=$((FAIL + 1)); echo "FAIL $d (succeeded)"; else PASS=$((PASS + 1)); echo "PASS $d"; fi
+}
+
+eq() { # eq <description> <expected> <actual>
+    if [ "$2" = "$3" ]; then PASS=$((PASS + 1)); echo "PASS $1"; else FAIL=$((FAIL + 1)); printf 'FAIL %s\n  expected: %s\n  actual:   %s\n' "$1" "$2" "$3"; fi
+}
+
+has() { # has <description> <needle> <haystack>
+    case "$3" in *"$2"*) PASS=$((PASS + 1)); echo "PASS $1" ;; *) FAIL=$((FAIL + 1)); printf 'FAIL %s\n  missing: %s\n  in: %s\n' "$1" "$2" "$3" ;; esac
+}
+
+finish() {
+    echo "$(basename "$0"): $PASS passed, $FAIL failed"
+    [ "$FAIL" -eq 0 ]
+}
