@@ -1257,7 +1257,7 @@ dependencies = [
 [[package]]
 name = "layr-store"
 version = "0.1.0"
-source = "git+https://github.com/ifdotpy/layr?rev=14639be#14639be45cfcd90a6ef58d92e83e70bfe8da1d8a"
+source = "git+https://github.com/ifdotpy/layr?rev=82314b72b7d3175310c9fdd1114948b606556790#82314b72b7d3175310c9fdd1114948b606556790"
 dependencies = [
  "age",
  "anyhow",

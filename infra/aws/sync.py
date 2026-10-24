@@ -194,7 +194,8 @@ class Sync:
                     for field in ("writeTokenHashes", "gcTokenHashes"):
                         if field in old_projects.get(name, {}):
                             project[field] = old_projects[name][field]
-            config = {"host": gateway["host"], "listen": f"{listen}:443", "projects": projects}
+            config = {"host": gateway["host"], "listen": f"{listen}:443", "projects": projects,
+                      "people": {"bucket": self.bucket, "region": self.source["region"], "prefix": "people/"}}
             if write_if_changed(path, json.dumps(config, indent=2, sort_keys=True) + "\n"):
                 self.restart = True
             write_if_changed(marker, remote_digest)

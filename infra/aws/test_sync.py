@@ -141,6 +141,7 @@ class ConfigTests(unittest.TestCase):
             host = sync.Sync.__new__(sync.Sync)
             host.home = Path(temporary)
             host.bucket = "artifacts"
+            host.source = {"region": "eu-central-1"}
             host.restart = False
             host.s3 = Mock()
             host.s3.get_paginator.return_value.paginate.return_value = [
@@ -153,6 +154,7 @@ class ConfigTests(unittest.TestCase):
             path = host.home / "config.json"
             config = json.loads(path.read_text())
             self.assertEqual(config["listen"], "100.64.0.1:443")
+            self.assertEqual(config["people"], {"bucket": "artifacts", "region": "eu-central-1", "prefix": "people/"})
             self.assertEqual(config["projects"]["example"], project)
             config["projects"]["example"]["writeTokenHashes"] = ["a" * 64]
             path.write_text(json.dumps(config))

@@ -293,6 +293,26 @@ impl Aws {
 }
 
 impl Storage for Aws {
+    fn people(
+        &self,
+        config: &super::config::People,
+    ) -> Result<Box<dyn super::person_support::Bucket>> {
+        #[cfg(debug_assertions)]
+        let (endpoint, credentials) = match &self.test {
+            Some((endpoint, credentials)) => (Some(endpoint.as_str()), credentials.clone()),
+            None => (None, self.instance()?),
+        };
+        #[cfg(not(debug_assertions))]
+        let (endpoint, credentials) = (None, self.instance()?);
+        Ok(Box::new(PersonBucket(S3::new_with_client(
+            &config.bucket,
+            &config.region,
+            credentials,
+            endpoint,
+            self.http.clone(),
+        )?)))
+    }
+
     fn get(
         &self,
         project: &Project,
@@ -451,6 +471,90 @@ impl Storage for Aws {
         match response.status().as_u16() {
             200 | 204 | 404 => Ok(()),
             status => bail!("S3 delete: HTTP {status}"),
+        }
+    }
+}
+
+struct PersonBucket(S3);
+impl super::person_support::Bucket for PersonBucket {
+    fn get(&self, key: &str) -> Result<Option<Vec<u8>>> {
+        let response = self.0.request(
+            Method::GET,
+            key,
+            &[],
+            &[],
+            Vec::new(),
+            Duration::from_secs(30),
+        )?;
+        if response.status().as_u16() == 404 {
+            let xml = String::from_utf8(body(response, 16 * 1024)?)?;
+            if aws::xml_text(&xml, "Code").as_deref() == Some("NoSuchKey") {
+                return Ok(None);
+            }
+            bail!("S3 people get: HTTP 404");
+        }
+        Ok(Some(checked(response, "S3 people get", 64 * 1024)?))
+    }
+    fn list(&self, prefix: &str) -> Result<Vec<String>> {
+        let response = self.0.request(
+            Method::GET,
+            "",
+            &[("list-type", "2"), ("prefix", prefix), ("max-keys", "1024")],
+            &[],
+            Vec::new(),
+            Duration::from_secs(30),
+        )?;
+        let xml = String::from_utf8(checked(response, "S3 people list", 1 << 20)?)?;
+        if !xml.contains("<ListBucketResult")
+            || aws::xml_text(&xml, "IsTruncated").as_deref() == Some("true")
+        {
+            bail!("too many people objects");
+        }
+        aws::xml_texts(&xml, "Contents")
+            .iter()
+            .map(|item| {
+                let key = aws::xml_text(item, "Key").context("S3 list omitted key")?;
+                if !key.starts_with(prefix) {
+                    bail!("S3 list returned another prefix");
+                }
+                Ok(key)
+            })
+            .collect()
+    }
+    fn put_new(&self, key: &str, bytes: Vec<u8>) -> Result<bool> {
+        let response = self.0.request(
+            Method::PUT,
+            key,
+            &[],
+            &[("if-none-match", "*")],
+            bytes,
+            Duration::from_secs(30),
+        )?;
+        match response.status().as_u16() {
+            200 | 201 => Ok(true),
+            412 => Ok(false),
+            status => bail!("S3 people conditional put: HTTP {status}"),
+        }
+    }
+    fn put(&self, key: &str, bytes: Vec<u8>) -> Result<()> {
+        let response =
+            self.0
+                .request(Method::PUT, key, &[], &[], bytes, Duration::from_secs(30))?;
+        checked(response, "S3 people put", 16 * 1024)?;
+        Ok(())
+    }
+    fn delete(&self, key: &str) -> Result<()> {
+        let response = self.0.request(
+            Method::DELETE,
+            key,
+            &[],
+            &[],
+            Vec::new(),
+            Duration::from_secs(30),
+        )?;
+        match response.status().as_u16() {
+            200 | 204 | 404 => Ok(()),
+            status => bail!("S3 people delete: HTTP {status}"),
         }
     }
 }

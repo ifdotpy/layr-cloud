@@ -5,7 +5,7 @@ edition.workspace = true
 publish.workspace = true
 
 [dependencies]
-layr-store = { git = "https://github.com/ifdotpy/layr", rev = "14639be" }
+layr-store = { git = "https://github.com/ifdotpy/layr", rev = "82314b72b7d3175310c9fdd1114948b606556790" }
 anyhow = "1"
 age = "0.11"
 base64 = "0.22"

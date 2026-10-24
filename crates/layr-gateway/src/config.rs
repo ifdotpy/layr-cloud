@@ -50,10 +50,19 @@ impl Project {
 }
 
 #[derive(Clone, Deserialize, Serialize)]
+pub struct People {
+    pub bucket: String,
+    pub region: String,
+    pub prefix: String,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
 pub struct Config {
     pub host: String,
     pub listen: SocketAddr,
     pub projects: BTreeMap<String, Project>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub people: Option<People>,
     #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,
 }
@@ -76,6 +85,31 @@ impl Config {
                 .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-'))
         {
             bail!("gateway host must be a DNS name");
+        }
+        if let Some(people) = &self.people {
+            if !(3..=63).contains(&people.bucket.len())
+                || !people
+                    .bucket
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b".-".contains(&b))
+                || !(3..=63).contains(&people.region.len())
+                || !people
+                    .region
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+                || people.prefix.len() > 512
+                || !people.prefix.ends_with('/')
+                || people.prefix.trim_end_matches('/').split('/').any(|s| {
+                    s.is_empty()
+                        || s == "."
+                        || s == ".."
+                        || !s
+                            .bytes()
+                            .all(|b| b.is_ascii_alphanumeric() || b"_.-".contains(&b))
+                })
+            {
+                bail!("invalid people bucket, region or prefix");
+            }
         }
         if self.projects.len() > 1024 {
             bail!("too many gateway projects");
@@ -265,6 +299,7 @@ pub fn sample() -> Config {
         host: "localhost".into(),
         listen: "127.0.0.1:18095".parse().unwrap(),
         extra: BTreeMap::new(),
+        people: None,
         projects: [(
             "example".into(),
             Project {

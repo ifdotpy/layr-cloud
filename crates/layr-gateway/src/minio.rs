@@ -47,6 +47,67 @@ impl Drop for Bucket {
         );
     }
 }
+struct Whois {
+    socket: PathBuf,
+    stop: Arc<std::sync::atomic::AtomicBool>,
+    worker: Option<std::thread::JoinHandle<()>>,
+}
+impl Whois {
+    fn new(home: &Path) -> Self {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let socket = home.join("whois.sock");
+        let listener = std::os::unix::net::UnixListener::bind(&socket).unwrap();
+        fs::set_permissions(&socket, fs::Permissions::from_mode(0o777)).unwrap();
+        let login = home.join("caller-login");
+        fs::write(&login, "owner@example.com").unwrap();
+        let stop = Arc::new(AtomicBool::new(false));
+        let stopping = stop.clone();
+        let worker = std::thread::spawn(move || {
+            for incoming in listener.incoming() {
+                if stopping.load(Ordering::Acquire) {
+                    break;
+                }
+                let mut stream = incoming.unwrap();
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(3)))
+                    .unwrap();
+                let mut reader = BufReader::new(&mut stream);
+                let mut line = String::new();
+                reader.read_line(&mut line).unwrap();
+                assert!(line.starts_with("GET /localapi/v0/whois?addr="));
+                loop {
+                    line.clear();
+                    if reader.read_line(&mut line).unwrap() == 0 || line == "\r\n" {
+                        break;
+                    }
+                }
+                let login = fs::read_to_string(&login).unwrap();
+                let body = json!({"Node":{},"UserProfile":{"LoginName":login}}).to_string();
+                layr_store::http::response(
+                    &mut stream,
+                    200,
+                    &[("Content-Type".into(), "application/json".into())],
+                    body.as_bytes(),
+                )
+                .unwrap();
+            }
+        });
+        Self {
+            socket,
+            stop,
+            worker: Some(worker),
+        }
+    }
+}
+impl Drop for Whois {
+    fn drop(&mut self) {
+        self.stop.store(true, std::sync::atomic::Ordering::Release);
+        let _ = std::os::unix::net::UnixStream::connect(&self.socket);
+        if let Some(worker) = self.worker.take() {
+            let _ = worker.join();
+        }
+    }
+}
 fn token(binary: &Path, config: &Path, gc: bool) -> String {
     let output = Command::new(binary)
         .args([
@@ -229,6 +290,12 @@ fn actual_cli_minio_round_trip() {
             descriptor.to_string().into_bytes()
         )
         .unwrap());
+    config.people = Some(config::People {
+        bucket: config.projects["example"].bucket.clone(),
+        region: "us-east-1".into(),
+        prefix: "people/".into(),
+    });
+    let whois = Whois::new(&home.0);
     let path = home.0.join("config.json");
     fs::write(&path, serde_json::to_vec(&config).unwrap()).unwrap();
     fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
@@ -259,6 +326,8 @@ fn actual_cli_minio_round_trip() {
         .arg(&key)
         .arg("--config")
         .arg(&path)
+        .arg("--tailscale-socket")
+        .arg(&whois.socket)
         .env("LAYR_ROOT", &no_store)
         .env("AWS_ENDPOINT_URL_S3", &endpoint)
         .env("AWS_ACCESS_KEY_ID", &credentials.key_id)
@@ -281,6 +350,14 @@ fn actual_cli_minio_round_trip() {
         client
             .request(method, format!("{origin}{target}"))
             .header("Host", "localhost")
+            .header(
+                "Content-Type",
+                if target.ends_with("/token") {
+                    "application/json"
+                } else {
+                    "application/octet-stream"
+                },
+            )
     };
     let deadline = Instant::now() + Duration::from_secs(20);
     loop {
@@ -799,7 +876,7 @@ fn cli_store_round_trip(
     run(
         &replica,
         &copy,
-        &["commit", "-m", "gateway second state", "-q"],
+        &["save", "-m", "gateway second state", "-q"],
         None,
     );
     // A seeded machine can publish with only the write grant, without its slot.
@@ -864,4 +941,215 @@ fn cli_store_round_trip(
             );
         }
     }
+    person_gateway_round_trip(binary, &store, &line, &url, home, ca);
+}
+
+fn person_gateway_round_trip(
+    binary: &Path,
+    owner_root: &Path,
+    line: &Path,
+    url: &str,
+    home: &Path,
+    ca: &Path,
+) {
+    let site = url.strip_prefix("layr+").unwrap();
+    let owner_dir = home.join("owner-person");
+    let owner_words = home.join("owner-words");
+    let carol_dir = home.join("carol-person");
+    let carol_words = home.join("carol-words");
+    let carol_root = owner_root.join("person-carol-root");
+    let call = |who: &str, root: &Path, dir: &Path, words: &Path, args: &[&str]| {
+        fs::write(home.join("caller-login"), who).unwrap();
+        Command::new(binary)
+            .args(args)
+            .current_dir(line)
+            .env("LAYR_ROOT", root)
+            .env("LAYR_PERSON_DIR", dir)
+            .env("LAYR_PERSON_KEY_FILE", words)
+            .env("LAYR_PERSON_LOGIN", "forged@example.com")
+            .env("LAYR_GATEWAY_CA_FILE", ca)
+            .env_remove("LAYR_PAPER_KEY_FILE")
+            .env_remove("LAYR_PROJECT")
+            .env_remove("LAYR_LINE")
+            .env_remove("LAYR_GATEWAY_TOKEN_FILE")
+            .env_remove("AWS_ACCESS_KEY_ID")
+            .env_remove("AWS_SECRET_ACCESS_KEY")
+            .output()
+            .unwrap()
+    };
+    let ok = |output: std::process::Output| {
+        assert!(
+            output.status.success(),
+            "person CLI failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8(output.stdout).unwrap()
+    };
+    for (who, root, dir, words) in [
+        ("owner@example.com", owner_root, &owner_dir, &owner_words),
+        (
+            "carol@example.com",
+            carol_root.as_path(),
+            &carol_dir,
+            &carol_words,
+        ),
+    ] {
+        ok(call(
+            who,
+            root,
+            dir,
+            words,
+            &[
+                "person",
+                "keys",
+                "--site",
+                site,
+                "--paper-key-out",
+                words.to_str().unwrap(),
+            ],
+        ));
+    }
+    let owner: serde_json::Value = serde_json::from_str(&ok(call(
+        "owner@example.com",
+        owner_root,
+        &owner_dir,
+        &owner_words,
+        &["person", "show", "--site", site, "--json"],
+    )))
+    .unwrap();
+    let carol: serde_json::Value = serde_json::from_str(&ok(call(
+        "carol@example.com",
+        &carol_root,
+        &carol_dir,
+        &carol_words,
+        &["person", "show", "--site", site, "--json"],
+    )))
+    .unwrap();
+    assert_eq!(owner["login"], "owner@example.com");
+    assert_eq!(carol["login"], "carol@example.com");
+    let owner_recipient = owner["recipient"].as_str().unwrap();
+    let carol_recipient = carol["recipient"].as_str().unwrap();
+    let refused = call(
+        "owner@example.com",
+        owner_root,
+        &owner_dir,
+        &owner_words,
+        &[
+            "remote",
+            "grant",
+            "gateway",
+            "--person",
+            "carol@example.com",
+            "--recipient",
+            carol_recipient,
+        ],
+    );
+    assert!(!refused.status.success());
+    assert!(String::from_utf8_lossy(&refused.stderr).contains("grant yourself first"));
+    ok(call(
+        "owner@example.com",
+        owner_root,
+        &owner_dir,
+        &owner_words,
+        &[
+            "remote",
+            "grant",
+            "gateway",
+            "--person",
+            "owner@example.com",
+            "--recipient",
+            owner_recipient,
+        ],
+    ));
+    let client = Client::builder()
+        .no_proxy()
+        .add_root_certificate(reqwest::Certificate::from_pem(&fs::read(ca).unwrap()).unwrap())
+        .build()
+        .unwrap();
+    let origin = reqwest::Url::parse(url.strip_prefix("layr+").unwrap()).unwrap();
+    let view = || {
+        client
+            .get(origin.join("/api/person").unwrap())
+            .send()
+            .unwrap()
+            .json::<serde_json::Value>()
+            .unwrap()
+    };
+    let record = view();
+    let id = record["inbox"][0]["id"].as_str().unwrap();
+    ok(call(
+        "owner@example.com",
+        owner_root,
+        &owner_dir,
+        &owner_words,
+        &["person", "accept", "--site", site, "--invite", id],
+    ));
+    ok(call(
+        "owner@example.com",
+        owner_root,
+        &owner_dir,
+        &owner_words,
+        &[
+            "remote",
+            "grant",
+            "gateway",
+            "--person",
+            "carol@example.com",
+            "--recipient",
+            carol_recipient,
+        ],
+    ));
+    let again = ok(call(
+        "owner@example.com",
+        owner_root,
+        &owner_dir,
+        &owner_words,
+        &[
+            "remote",
+            "grant",
+            "gateway",
+            "--person",
+            "carol@example.com",
+            "--recipient",
+            carol_recipient,
+        ],
+    ));
+    assert!(again.contains("already granted"));
+    fs::write(home.join("caller-login"), "carol@example.com").unwrap();
+    let record = view();
+    assert_eq!(record["inbox"].as_array().unwrap().len(), 2);
+    let id = record["inbox"][0]["id"].as_str().unwrap();
+    ok(call(
+        "carol@example.com",
+        &carol_root,
+        &carol_dir,
+        &carol_words,
+        &["person", "accept", "--site", site, "--invite", id],
+    ));
+    ok(call(
+        "carol@example.com",
+        &carol_root,
+        &carol_dir,
+        &carol_words,
+        &["clone", url, "person-copy", "-q"],
+    ));
+    assert_eq!(
+        fs::read(carol_root.join("projects/person-copy/lines/main/notes.txt")).unwrap(),
+        b"second state\n"
+    );
+    fs::write(home.join("caller-login"), "stranger@example.com").unwrap();
+    for action in ["store.json", "slots", "challenge", "objects", "other/path"] {
+        let target = origin.join(&format!("/v1/p/cli/{action}")).unwrap();
+        assert_eq!(client.get(target).send().unwrap().status(), 404);
+    }
+    assert_eq!(
+        client
+            .post(origin.join("/api/people/carol@example.com/inbox").unwrap())
+            .header("Origin", "https://other.example")
+            .json(&json!({"data":"AA=="}))
+            .send()
+            .unwrap()
+            .status(),
+        403
+    );
 }

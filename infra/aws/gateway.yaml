@@ -134,11 +134,14 @@ Resources:
                 Action: s3:GetObject
                 Resource: !Sub "arn:${AWS::Partition}:s3:::${ArtifactsBucket}/gateway/*"
               - Effect: Allow
+                Action: [s3:GetObject, s3:PutObject, s3:DeleteObject]
+                Resource: !Sub "arn:${AWS::Partition}:s3:::${ArtifactsBucket}/people/*"
+              - Effect: Allow
                 Action: s3:ListBucket
                 Resource: !Sub "arn:${AWS::Partition}:s3:::${ArtifactsBucket}"
                 Condition:
                   StringLike:
-                    s3:prefix: gateway/*
+                    s3:prefix: [gateway/*, people/*]
               - Effect: Allow
                 Action: sts:AssumeRole
                 Resource: !Ref StoreRoleArns

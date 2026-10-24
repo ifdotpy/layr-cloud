@@ -33,6 +33,9 @@ pub struct Entry {
 }
 
 pub trait Storage: Send + Sync {
+    fn people(&self, _: &super::config::People) -> Result<Box<dyn super::person_support::Bucket>> {
+        bail!("people storage is not configured")
+    }
     fn get(
         &self,
         project: &Project,
@@ -84,6 +87,8 @@ pub struct Gateway {
     pub proof: auth::Proof,
     pub storage: Arc<dyn Storage>,
     pub listen: std::net::SocketAddr,
+    pub person_secret: Arc<[u8; 32]>,
+    pub person_writing: Arc<std::sync::Mutex<()>>,
 }
 
 fn decode(raw: &str) -> Option<String> {
@@ -113,7 +118,9 @@ pub fn object_name(name: &str) -> bool {
     name.len() <= 1024
         && matches!(name.split('/').next(), Some("records" | "states" | "slots"))
         && name.contains('/')
-        && name.split('/').all(safe_part)
+        && name
+            .split('/')
+            .all(|part| safe_part(part) || person_slot_part(part))
 }
 
 pub fn gc_name(name: &str) -> bool {
@@ -130,12 +137,15 @@ fn list_prefix(prefix: &str) -> bool {
                 prefix.split('/').next(),
                 Some("records" | "states" | "slots")
             )
-            && prefix.trim_end_matches('/').split('/').all(safe_part))
+            && prefix
+                .trim_end_matches('/')
+                .split('/')
+                .all(|part| safe_part(part) || person_slot_part(part)))
 }
 
 impl Gateway {
-    pub fn handle(&self, request: http::Request) -> Reply {
-        match self.route(request) {
+    pub fn handle(&self, request: http::Request, login: Option<&str>) -> Reply {
+        match self.route(request, login) {
             Ok(reply) => reply,
             Err(error) => {
                 if let Some(error) = error.downcast_ref::<http::Error>() {
@@ -147,12 +157,9 @@ impl Gateway {
         }
     }
 
-    fn route(&self, request: http::Request) -> Result<Reply> {
+    fn route(&self, request: http::Request, login: Option<&str>) -> Result<Reply> {
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
         let config = self.config.get()?;
-        if matches!(request.method.as_str(), "GET" | "DELETE") && !request.body.is_empty() {
-            return Ok(Reply::error(400, "this method has no body"));
-        }
         if config.listen != self.listen {
             return Ok(Reply::error(
                 503,
@@ -186,7 +193,39 @@ impl Gateway {
         let Some(parts) = parts else {
             return Ok(Reply::error(400, "invalid path encoding"));
         };
-        if parts.iter().any(|p| !safe_part(p)) {
+        if parts.first().is_some_and(|p| p == "api") {
+            if request.method != "GET" && request.method != "HEAD" {
+                if let Some(reply) = other_site(&request, true) {
+                    return Ok(reply);
+                }
+            }
+            return self.api(&request, &config, login, &parts[1..]);
+        }
+        if parts.len() >= 3 && parts[0] == "v1" && parts[1] == "p" {
+            let Some(project) = config.projects.get(&parts[2]) else {
+                return Ok(Reply::error(404, "no such project"));
+            };
+            let token = bearer(&request);
+            let read = self
+                .proof
+                .valid("read", &project.binding(&parts[2]), token, auth::now());
+            let public = parts
+                .get(3)
+                .is_some_and(|p| matches!(p.as_str(), "store.json" | "slots" | "challenge"));
+            if (public || !read) && !self.visible(project, login)? {
+                return Ok(Reply::error(404, "no such project"));
+            }
+        }
+        if request.method != "GET" && request.method != "HEAD" {
+            let json = parts.get(3).is_some_and(|p| p == "token");
+            if let Some(reply) = other_site(&request, json) {
+                return Ok(reply);
+            }
+        }
+        if matches!(request.method.as_str(), "GET" | "DELETE") && !request.body.is_empty() {
+            return Ok(Reply::error(400, "this method has no body"));
+        }
+        if parts.iter().any(|p| !safe_part(p) && !person_slot_part(p)) {
             return Ok(Reply::error(400, "invalid path"));
         }
         if parts.len() < 4 || parts[0] != "v1" || parts[1] != "p" {
@@ -211,6 +250,21 @@ impl Gateway {
         if action != "objects" && !query.is_empty() {
             return Ok(Reply::error(400, "unexpected query"));
         }
+        if request.method == "GET" && action == "slots" && parts.len() == 5 {
+            let name = &parts[4];
+            if layr_store::person::slot_login(name) != login || login.is_none() {
+                return Ok(Reply::error(404, "no such object"));
+            }
+            return Ok(
+                match self
+                    .storage
+                    .get(project, &format!("slots/{name}"), None, 4096)?
+                {
+                    Some(object) => Reply::bytes(200, object.body, "application/octet-stream"),
+                    None => Reply::error(404, "no such object"),
+                },
+            );
+        }
         match (request.method.as_str(), action.as_str(), root) {
             ("GET", "store.json", true) => {
                 return Ok(
@@ -228,6 +282,15 @@ impl Gateway {
                 let mut slots = Vec::new();
                 let mut size = 0;
                 for entry in entries {
+                    if entry.key.starts_with("slots/person-")
+                        && login.is_none_or(|login| {
+                            layr_store::person::slot_login(
+                                entry.key.strip_prefix("slots/").unwrap_or(""),
+                            ) != Some(login)
+                        })
+                    {
+                        continue;
+                    }
                     if std::time::Instant::now() >= deadline {
                         return Ok(Reply::error(408, "request timed out"));
                     }
@@ -348,8 +411,16 @@ impl Gateway {
                 } else if !write {
                     return Ok(Reply::error(403, "a write token is required"));
                 }
+                if request.header("content-type") != Some("application/octet-stream") {
+                    return Ok(Reply::error(415, "send application/octet-stream"));
+                }
                 if request.header("content-length").is_none() {
                     return Ok(Reply::error(411, "Content-Length is required"));
+                }
+                if key.strip_prefix("slots/").is_some_and(person_slot_part)
+                    && (request.body.is_empty() || request.body.len() > 4096)
+                {
+                    return Ok(Reply::error(400, "a slot is 1 to 4096 bytes"));
                 }
                 Ok(if self.storage.put(project, &key, request.body)? {
                     empty(201)
@@ -369,14 +440,216 @@ impl Gateway {
     }
 }
 
+fn person_slot_part(part: &str) -> bool {
+    layr_store::person::slot_login(part).is_some()
+}
+fn bearer(request: &http::Request) -> &str {
+    request
+        .header("authorization")
+        .and_then(|s| s.strip_prefix("Bearer "))
+        .unwrap_or("")
+}
+fn other_site(request: &http::Request, require_json: bool) -> Option<Reply> {
+    const REFUSED: &str = "a page of another site cannot change this gateway";
+    if request
+        .header("sec-fetch-site")
+        .is_some_and(|site| !matches!(site, "same-origin" | "none"))
+    {
+        return Some(Reply::error(403, REFUSED));
+    }
+    if request.header("origin").is_some_and(|origin| {
+        !origin.split_once("://").is_some_and(|(_, rest)| {
+            rest.eq_ignore_ascii_case(request.header("host").unwrap_or(""))
+        })
+    }) {
+        return Some(Reply::error(403, REFUSED));
+    }
+    if require_json
+        && !request
+            .header("content-type")
+            .and_then(|kind| kind.split(';').next())
+            .is_some_and(|kind| kind.trim().eq_ignore_ascii_case("application/json"))
+    {
+        return Some(Reply::error(
+            415,
+            "send JSON (content-type: application/json)",
+        ));
+    }
+    None
+}
+fn read_json(request: &http::Request, limit: usize) -> Result<serde_json::Value> {
+    if request.body.len() > limit {
+        return super::person_support::fail(413, "the body is too large");
+    }
+    if request.body.is_empty() {
+        return Ok(json!({}));
+    }
+    serde_json::from_slice(&request.body).map_err(|_| {
+        http::Error {
+            status: 400,
+            message: "the body is not JSON",
+        }
+        .into()
+    })
+}
+impl Gateway {
+    fn visible(&self, project: &Project, login: Option<&str>) -> Result<bool> {
+        let slots = self.storage.list(project, "slots/", Role::Reader)?;
+        if slots.len() > 1024 {
+            bail!("too many store slots");
+        }
+        let people: Vec<_> = slots
+            .iter()
+            .filter_map(|entry| layr_store::person::slot_login(entry.key.strip_prefix("slots/")?))
+            .collect();
+        Ok(people.is_empty() || login.is_some_and(|login| people.contains(&login)))
+    }
+    fn api(
+        &self,
+        request: &http::Request,
+        config: &super::config::Config,
+        login: Option<&str>,
+        parts: &[String],
+    ) -> Result<Reply> {
+        let kind = parts.first().map(String::as_str);
+        if kind == Some("projects") && parts.len() == 1 && request.method == "GET" {
+            let mut projects = Vec::new();
+            for (name, project) in &config.projects {
+                match self.visible(project, login) {
+                    Ok(true) => projects.push(name),
+                    Ok(false) => (),
+                    Err(_) => eprintln!("layr-gateway: cannot check project visibility"),
+                }
+            }
+            return Ok(Reply::json(200, json!({"projects":projects})));
+        }
+        if !matches!(kind, Some("person" | "people")) {
+            return Ok(Reply::error(404, "no such route"));
+        }
+        let Some(person_config) = &config.people else {
+            return Ok(Reply::error(404, "this gateway keeps no person keys"));
+        };
+        let Some(login) = login.filter(|login| layr_store::person::login_name(login)) else {
+            return Ok(Reply::error(403, "the gateway cannot tell who you are"));
+        };
+        let people = super::people::People::new(
+            self.storage.people(person_config)?,
+            &person_config.prefix,
+            self.person_secret.clone(),
+            Arc::new(auth::now),
+            self.person_writing.clone(),
+        );
+        if kind == Some("people") {
+            if parts.len() != 3
+                || parts[2] != "inbox"
+                || request.method != "POST"
+                || !layr_store::person::login_name(&parts[1])
+            {
+                return Ok(Reply::error(404, "no such route"));
+            }
+            let body = read_json(request, 16 * 1024)?;
+            let id = people.drop_invite(&parts[1], login, body["data"].as_str().unwrap_or(""))?;
+            return Ok(Reply::json(200, json!({"id":id})));
+        }
+        if parts.len() > 3 {
+            return Ok(Reply::error(404, "no such route"));
+        }
+        let action = parts.get(1).map(String::as_str);
+        let name = parts.get(2).map(String::as_str);
+        match (request.method.as_str(), action, name) {
+            ("GET", None, None) => return Ok(Reply::json(200, people.view(login)?)),
+            ("PUT", None, None) => {
+                let body = read_json(request, 16 * 1024)?;
+                let new = people.register(
+                    login,
+                    body["recipient"].as_str().unwrap_or(""),
+                    body["paper"].as_str().unwrap_or(""),
+                )?;
+                return Ok(Reply::json(200, json!({"login":login,"new":new})));
+            }
+            ("GET", Some("challenge"), None) => {
+                return Ok(Reply::json(
+                    200,
+                    json!({"challenge":people.challenge(login)?}),
+                ))
+            }
+            _ => (),
+        }
+        if !people.valid(login, bearer(request)) {
+            return Ok(Reply::error(401, "the token is missing, wrong or expired"));
+        }
+        let body = read_json(request, 68 * 1024)?;
+        let data = body["data"].as_str().unwrap_or("");
+        let value = match (request.method.as_str(), action, name) {
+            ("PUT", Some("index"), None) => {
+                people.put_index(login, data, body["previous"].as_str())?;
+                json!({"saved":"index"})
+            }
+            ("PUT", Some("slots"), Some(name)) => {
+                people.add_slot(login, name, data)?;
+                json!({"added":name})
+            }
+            ("DELETE", Some("slots"), Some(name)) => {
+                people.remove_slot(login, name)?;
+                json!({"removed":name})
+            }
+            ("DELETE", Some("inbox"), Some(id)) => {
+                people.remove_invite(login, id)?;
+                json!({"removed":id})
+            }
+            _ => return Ok(Reply::error(404, "no such route")),
+        };
+        Ok(Reply::json(200, value))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::collections::BTreeMap;
     use std::sync::Mutex;
 
-    struct Memory(Mutex<BTreeMap<String, Vec<u8>>>);
+    #[derive(Clone, Default)]
+    struct Memory(Arc<Mutex<BTreeMap<String, Vec<u8>>>>);
+    impl super::super::person_support::Bucket for Memory {
+        fn get(&self, key: &str) -> Result<Option<Vec<u8>>> {
+            Ok(self.0.lock().unwrap().get(key).cloned())
+        }
+        fn list(&self, prefix: &str) -> Result<Vec<String>> {
+            Ok(self
+                .0
+                .lock()
+                .unwrap()
+                .keys()
+                .filter(|key| key.starts_with(prefix))
+                .cloned()
+                .collect())
+        }
+        fn put_new(&self, key: &str, body: Vec<u8>) -> Result<bool> {
+            let mut objects = self.0.lock().unwrap();
+            if objects.contains_key(key) {
+                return Ok(false);
+            }
+            objects.insert(key.into(), body);
+            Ok(true)
+        }
+        fn put(&self, key: &str, body: Vec<u8>) -> Result<()> {
+            self.0.lock().unwrap().insert(key.into(), body);
+            Ok(())
+        }
+        fn delete(&self, key: &str) -> Result<()> {
+            self.0.lock().unwrap().remove(key);
+            Ok(())
+        }
+    }
     impl Storage for Memory {
+        fn people(
+            &self,
+            _: &super::super::config::People,
+        ) -> Result<Box<dyn super::super::person_support::Bucket>> {
+            Ok(Box::new(self.clone()))
+        }
+
         fn get(
             &self,
             _: &Project,
@@ -454,7 +727,9 @@ mod tests {
                 config: Arc::new(ConfigFile::new(path.clone())),
                 proof: auth::Proof::new(),
                 listen: config.listen,
-                storage: Arc::new(Memory(Mutex::new(BTreeMap::new()))),
+                storage: Arc::new(Memory::default()),
+                person_secret: Arc::new(rand::random()),
+                person_writing: Arc::new(Mutex::new(())),
             };
             Self {
                 gateway,
@@ -474,6 +749,14 @@ mod tests {
             let mut headers: BTreeMap<String, String> = [
                 ("host".into(), "localhost".into()),
                 ("content-length".into(), body.len().to_string()),
+                (
+                    "content-type".into(),
+                    if path.contains("/objects/") {
+                        "application/octet-stream".into()
+                    } else {
+                        "application/json".into()
+                    },
+                ),
             ]
             .into();
             if !token.is_empty() {
@@ -482,12 +765,15 @@ mod tests {
             if let Some(range) = range {
                 headers.insert("range".into(), range.into());
             }
-            self.gateway.handle(http::Request {
-                method: method.into(),
-                target: path.into(),
-                headers,
-                body: body.to_vec(),
-            })
+            self.gateway.handle(
+                http::Request {
+                    method: method.into(),
+                    target: path.into(),
+                    headers,
+                    body: body.to_vec(),
+                },
+                None,
+            )
         }
         fn token(&mut self, gc: bool) -> String {
             let token = auth::issue(gc, 60_000, auth::now()).unwrap();
@@ -639,5 +925,414 @@ mod tests {
             age::x25519::Identity::generate().to_public().to_string();
         std::fs::write(&f.path, serde_json::to_vec(&f.config).unwrap()).unwrap();
         assert_eq!(f.request("GET", path, &read, b"", None).status, 401);
+    }
+    fn api(
+        f: &Fixture,
+        login: Option<&str>,
+        method: &str,
+        path: &str,
+        token: &str,
+        body: serde_json::Value,
+    ) -> Reply {
+        f.gateway.handle(
+            http::Request {
+                method: method.into(),
+                target: path.into(),
+                body: if method == "GET" || method == "DELETE" {
+                    Vec::new()
+                } else {
+                    serde_json::to_vec(&body).unwrap()
+                },
+                headers: [
+                    ("host".into(), "localhost".into()),
+                    (
+                        "content-type".into(),
+                        if path.contains("/objects/") {
+                            "application/octet-stream".into()
+                        } else {
+                            "application/json".into()
+                        },
+                    ),
+                    ("authorization".into(), format!("Bearer {token}")),
+                ]
+                .into(),
+            },
+            login,
+        )
+    }
+    fn value(reply: Reply) -> serde_json::Value {
+        assert_eq!(
+            reply.status,
+            200,
+            "{}",
+            String::from_utf8_lossy(&reply.body)
+        );
+        serde_json::from_slice(&reply.body).unwrap()
+    }
+    #[test]
+    fn person_api_registration_proofs_index_slots_and_invites_match_desk() {
+        use base64::engine::general_purpose::STANDARD as B64;
+        use layr_store::{keys, person};
+        use sha2::{Digest, Sha256};
+        let mut f = Fixture::new();
+        f.config.people = Some(super::super::config::People {
+            bucket: "artifacts".into(),
+            region: "eu-central-1".into(),
+            prefix: "people/".into(),
+        });
+        std::fs::write(&f.path, serde_json::to_vec(&f.config).unwrap()).unwrap();
+        let ann = Some("ann@example.com");
+        let bob = Some("bob@example.com");
+        let call =
+            |who: Option<&str>, method: &str, path: &str, token: &str, body: serde_json::Value| {
+                api(&f, who, method, path, token, body)
+            };
+        assert_eq!(call(None, "GET", "/api/person", "", json!({})).status, 403);
+        assert_eq!(
+            value(call(ann, "GET", "/api/person", "", json!({})))["recipient"],
+            serde_json::Value::Null
+        );
+        let identity = keys::generate_identity();
+        let recipient = keys::recipient_of(&identity).unwrap();
+        let paper = keys::generate_identity();
+        let paper_slot = keys::seal_slot(&identity, &keys::recipient_of(&paper).unwrap()).unwrap();
+        let body = json!({"recipient":recipient,"paper":B64.encode(&paper_slot)});
+        assert_eq!(
+            value(call(ann, "PUT", "/api/person", "", body.clone()))["new"],
+            true
+        );
+        assert_eq!(
+            value(call(ann, "PUT", "/api/person", "", body.clone()))["new"],
+            false
+        );
+        let mut retry = body.clone();
+        retry["paper"] = json!(B64.encode(b"other slot"));
+        assert_eq!(call(ann, "PUT", "/api/person", "", retry).status, 200);
+        let record = value(call(ann, "GET", "/api/person", "", json!({})));
+        assert_eq!(record["slots"][0]["data"], body["paper"]);
+        let other = keys::recipient_of(&keys::generate_identity()).unwrap();
+        assert_eq!(
+            call(
+                ann,
+                "PUT",
+                "/api/person",
+                "",
+                json!({"recipient":other,"paper":B64.encode(b"slot")})
+            )
+            .status,
+            409
+        );
+        let challenge = value(call(ann, "GET", "/api/person/challenge", "", json!({})));
+        let token = String::from_utf8(
+            keys::decrypt(
+                &identity,
+                &B64.decode(challenge["challenge"].as_str().unwrap())
+                    .unwrap(),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let index = person::seal_index(&identity, &person::Index::default()).unwrap();
+        let data = json!({"data":B64.encode(&index),"previous":null});
+        assert_eq!(
+            call(ann, "PUT", "/api/person/index", "", data.clone()).status,
+            401
+        );
+        assert_eq!(
+            call(bob, "PUT", "/api/person/index", &token, data.clone()).status,
+            401
+        );
+        assert_eq!(
+            call(ann, "PUT", "/api/person/index", &token, data.clone()).status,
+            200
+        );
+        assert_eq!(
+            call(ann, "PUT", "/api/person/index", &token, data.clone()).status,
+            409
+        );
+        let mut data = data;
+        data["previous"] = json!(hex::encode(Sha256::digest(&index)));
+        assert_eq!(
+            call(ann, "PUT", "/api/person/index", &token, data).status,
+            200
+        );
+        assert_eq!(
+            call(
+                ann,
+                "PUT",
+                "/api/person/index",
+                &token,
+                json!({"data":B64.encode(vec![0;49153])})
+            )
+            .status,
+            400
+        );
+        for slot in [
+            "paper",
+            "person-ann@example.com-0123456789abcdef",
+            "passkey-../x",
+            "passkey-",
+        ] {
+            assert_eq!(
+                call(
+                    ann,
+                    "PUT",
+                    &format!("/api/person/slots/{slot}"),
+                    &token,
+                    json!({"data":B64.encode(b"slot")})
+                )
+                .status,
+                if slot.contains('/') { 404 } else { 400 }
+            );
+        }
+        let path = "/api/person/slots/passkey-abc_123";
+        assert_eq!(
+            call(
+                ann,
+                "PUT",
+                path,
+                &token,
+                json!({"data":B64.encode(b"slot")})
+            )
+            .status,
+            200
+        );
+        assert_eq!(
+            call(
+                ann,
+                "PUT",
+                path,
+                &token,
+                json!({"data":B64.encode(b"slot")})
+            )
+            .status,
+            409
+        );
+        assert_eq!(call(ann, "DELETE", path, &token, json!({})).status, 200);
+        assert_eq!(
+            call(
+                bob,
+                "POST",
+                "/api/people/nobody@example.com/inbox",
+                "",
+                json!({"data":B64.encode(b"invite")})
+            )
+            .status,
+            404
+        );
+        assert_eq!(
+            call(
+                None,
+                "POST",
+                "/api/people/ann@example.com/inbox",
+                "",
+                json!({"data":B64.encode(b"invite")})
+            )
+            .status,
+            403
+        );
+        let invite = value(call(
+            bob,
+            "POST",
+            "/api/people/ann%40example.com/inbox",
+            "",
+            json!({"data":B64.encode(b"invite")}),
+        ));
+        let id = invite["id"].as_str().unwrap();
+        let record = value(call(ann, "GET", "/api/person", "", json!({})));
+        assert_eq!(record["inbox"][0]["from"], "bob@example.com");
+        assert_eq!(
+            call(
+                ann,
+                "DELETE",
+                &format!("/api/person/inbox/{id}"),
+                &token,
+                json!({})
+            )
+            .status,
+            200
+        );
+        for _ in 0..64 {
+            assert_eq!(
+                call(
+                    bob,
+                    "POST",
+                    "/api/people/ann@example.com/inbox",
+                    "",
+                    json!({"data":B64.encode(b"invite")})
+                )
+                .status,
+                200
+            );
+        }
+        assert_eq!(
+            call(
+                bob,
+                "POST",
+                "/api/people/ann@example.com/inbox",
+                "",
+                json!({"data":B64.encode(b"invite")})
+            )
+            .status,
+            429
+        );
+        assert_eq!(
+            call(
+                bob,
+                "POST",
+                "/api/people/ann@example.com/inbox",
+                "",
+                json!({"data":B64.encode(vec![0;4097])})
+            )
+            .status,
+            400
+        );
+    }
+    #[test]
+    fn hidden_and_unknown_store_routes_have_the_same_404() {
+        let mut f = Fixture::new();
+        let read = f.read_token();
+        let write = f.token(false);
+        let path = "/v1/p/example/objects/slots/person-ann%40example.com-0123456789abcdef.age";
+        assert_eq!(
+            f.request("PUT", path, &read, b"person-slot", None).status,
+            201
+        );
+        for action in [
+            "store.json",
+            "challenge",
+            "slots",
+            "token",
+            "objects",
+            "objects/states/nope",
+            "unknown",
+            "unknown/a/b",
+            "slots?foo=x",
+        ] {
+            for method in ["GET", "PUT", "POST", "DELETE", "OPTIONS"] {
+                for who in [None, Some("bob@example.com")] {
+                    let hidden = api(
+                        &f,
+                        who,
+                        method,
+                        &format!("/v1/p/example/{action}"),
+                        &write,
+                        json!({}),
+                    );
+                    let unknown = api(
+                        &f,
+                        who,
+                        method,
+                        &format!("/v1/p/unknown/{action}"),
+                        &write,
+                        json!({}),
+                    );
+                    assert_eq!(hidden.status, 404, "{method} {action}");
+                    assert_eq!(unknown.status, 404);
+                    assert_eq!(hidden.body, unknown.body);
+                }
+            }
+        }
+        assert_eq!(
+            value(api(
+                &f,
+                Some("ann@example.com"),
+                "GET",
+                "/api/projects",
+                "",
+                json!({})
+            ))["projects"],
+            json!(["example"])
+        );
+        assert_eq!(
+            value(api(&f, None, "GET", "/api/projects", "", json!({})))["projects"],
+            json!([])
+        );
+        let slots = value(api(
+            &f,
+            Some("ann@example.com"),
+            "GET",
+            "/v1/p/example/slots",
+            "",
+            json!({}),
+        ));
+        assert_eq!(slots["slots"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            slots["slots"][0]["name"],
+            "person-ann@example.com-0123456789abcdef"
+        );
+        assert_eq!(
+            api(
+                &f,
+                None,
+                "GET",
+                "/v1/p/example/objects/states/nope",
+                &read,
+                json!({})
+            )
+            .status,
+            404
+        );
+        assert_eq!(
+            api(&f, None, "GET", "/v1/p/example/objects", &read, json!({})).status,
+            200
+        );
+    }
+    #[test]
+    fn writes_from_other_pages_and_non_json_person_writes_are_refused() {
+        let f = Fixture::new();
+        for method in ["PUT", "POST", "DELETE"] {
+            for path in [
+                "/api/person",
+                "/v1/p/example/objects/states/x",
+                "/v1/p/example/token",
+            ] {
+                for (name, value) in [
+                    ("origin", "https://other.example"),
+                    ("origin", "null"),
+                    ("sec-fetch-site", "cross-site"),
+                    ("sec-fetch-site", "same-site"),
+                ] {
+                    let request = http::Request {
+                        method: method.into(),
+                        target: path.into(),
+                        body: Vec::new(),
+                        headers: [
+                            ("host".into(), "localhost".into()),
+                            (
+                                "content-type".into(),
+                                if path.contains("/objects/") {
+                                    "application/octet-stream".into()
+                                } else {
+                                    "application/json".into()
+                                },
+                            ),
+                            (name.into(), value.into()),
+                        ]
+                        .into(),
+                    };
+                    assert_eq!(
+                        f.gateway.handle(request, Some("ann@example.com")).status,
+                        403
+                    );
+                }
+            }
+        }
+        for media in ["text/plain", "application/x-www-form-urlencoded", ""] {
+            let request = http::Request {
+                method: "PUT".into(),
+                target: "/api/person".into(),
+                body: Vec::new(),
+                headers: [
+                    ("host".into(), "localhost".into()),
+                    ("content-type".into(), media.into()),
+                ]
+                .into(),
+            };
+            assert_eq!(
+                f.gateway.handle(request, Some("ann@example.com")).status,
+                415
+            );
+        }
     }
 }

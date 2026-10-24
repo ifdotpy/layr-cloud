@@ -5,8 +5,11 @@ mod aws;
 mod config;
 #[cfg(test)]
 mod minio;
+mod people;
+mod person_support;
 mod server;
 mod tls;
+mod whois;
 
 use anyhow::{anyhow, bail, Context, Result};
 use std::path::PathBuf;
@@ -18,6 +21,7 @@ struct Options {
     key: Option<PathBuf>,
     tls_dir: PathBuf,
     test_static: bool,
+    tailscale_socket: PathBuf,
 }
 
 fn main() {
@@ -45,6 +49,7 @@ fn command(args: &[String]) -> Result<()> {
         key: None,
         tls_dir: "/etc/layr-gateway/tls".into(),
         test_static: false,
+        tailscale_socket: whois::SOCKET.into(),
     };
     let mut positional = Vec::new();
     let mut write = false;
@@ -57,7 +62,8 @@ fn command(args: &[String]) -> Result<()> {
             "--write" => write = true,
             "--gc" => gc = true,
             "--test-static-credentials" if cfg!(debug_assertions) => options.test_static = true,
-            "--config" | "--tls" | "--cert" | "--key" | "--tls-dir" | "--until" => {
+            "--config" | "--tls" | "--cert" | "--key" | "--tls-dir" | "--until"
+            | "--tailscale-socket" => {
                 index += 1;
                 let value = args
                     .get(index)
@@ -68,6 +74,7 @@ fn command(args: &[String]) -> Result<()> {
                     "--cert" => options.cert = Some(value.into()),
                     "--key" => options.key = Some(value.into()),
                     "--tls-dir" => options.tls_dir = value.into(),
+                    "--tailscale-socket" => options.tailscale_socket = value.into(),
                     "--until" => until = value.clone(),
                     _ => unreachable!(),
                 }
@@ -182,9 +189,10 @@ fn answer<W: Wire>(
     stream: &mut W,
     gateway: &server::Gateway,
     limits: &layr_store::http::Limits,
+    login: Option<&str>,
 ) -> Result<()> {
     let reply = match layr_store::http::request(stream, limits) {
-        Ok(request) => gateway.handle(request),
+        Ok(request) => gateway.handle(request, login),
         Err(error) => server::Reply::error(error.status, error.message),
     };
     stream.begin_response(limits.write_timeout);
@@ -223,6 +231,8 @@ fn serve(options: Options, storage: std::sync::Arc<dyn server::Storage>) -> Resu
         listen: config.listen,
         proof: auth::Proof::new(),
         storage,
+        person_secret: Arc::new(rand::random()),
+        person_writing: Arc::new(std::sync::Mutex::new(())),
     });
     let active = Arc::new(AtomicUsize::new(0));
     eprintln!("layr-gateway: listening on {}", config.listen);
@@ -243,6 +253,7 @@ fn serve(options: Options, storage: std::sync::Arc<dyn server::Storage>) -> Resu
         }
         active.fetch_add(1, Ordering::AcqRel);
         let (active, gateway, tls) = (active.clone(), gateway.clone(), tls.clone());
+        let tailscale_socket = options.tailscale_socket.clone();
         std::thread::spawn(move || {
             struct Slot(Arc<AtomicUsize>);
             impl Drop for Slot {
@@ -252,6 +263,15 @@ fn serve(options: Options, storage: std::sync::Arc<dyn server::Storage>) -> Resu
             }
             let _slot = Slot(active);
             let _ = (|| -> Result<()> {
+                let login = stream.peer_addr().ok().and_then(|address| {
+                    match whois::login(&tailscale_socket, address) {
+                        Ok(login) => login,
+                        Err(_) => {
+                            eprintln!("layr-gateway: tailscaled cannot identify caller");
+                            None
+                        }
+                    }
+                });
                 let mut socket = layr_store::http::Socket::new(stream, Duration::from_secs(10));
                 match tls {
                     Some(tls) => {
@@ -264,14 +284,14 @@ fn serve(options: Options, storage: std::sync::Arc<dyn server::Storage>) -> Resu
                             limits.header_timeout,
                         );
                         let mut stream = rustls::StreamOwned::new(connection, socket);
-                        answer(&mut stream, &gateway, &limits)
+                        answer(&mut stream, &gateway, &limits, login.as_deref())
                     }
                     None => {
                         socket.begin_read(
                             limits.header_timeout + limits.body_timeout,
                             limits.header_timeout,
                         );
-                        answer(&mut socket, &gateway, &limits)
+                        answer(&mut socket, &gateway, &limits, login.as_deref())
                     }
                 }
             })();
@@ -313,6 +333,7 @@ mod tests {
             key: None,
             tls_dir: "unused".into(),
             test_static: false,
+            tailscale_socket: whois::SOCKET.into(),
         };
         assert!(tls_config(&options, &config).is_err());
     }
