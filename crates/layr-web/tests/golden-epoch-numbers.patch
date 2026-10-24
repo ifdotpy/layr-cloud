@@ -1,0 +1,24 @@
+--- a/crates/layr-model/examples/store_golden.rs
++++ b/crates/layr-model/examples/store_golden.rs
+@@ -274,11 +274,20 @@
+             let paths: BTreeSet<_> =
+                 overlay.line_list().iter().filter_map(|l| files.get(&l.head)).flat_map(|f| f.keys().cloned()).collect();
+             row["history"] = json!(records);
++            let mut key_records: Vec<_> = records.iter().filter(|r| r.op == "overlay.key").collect();
++            key_records.sort_by(|a,b| (a.seq, &a.machine, &a.id).cmp(&(b.seq, &b.machine, &b.id)));
++            let mut numbers = BTreeMap::<String,usize>::new();
++            for record in key_records {
++                if let Some(id) = record.data["epoch"].as_str() {
++                    let next = numbers.len() + 1;
++                    numbers.entry(id.into()).or_insert(next);
++                }
++            }
+             row["epochs"] = json!(records
+                 .iter()
+                 .filter(|r| r.op == "overlay.key")
+                 .map(|r| {
+-                    let mut epoch = json!({"id":r.data["epoch"],"time":r.time,"machine":r.machine});
++                    let mut epoch = json!({"id":r.data["epoch"],"number":numbers.get(r.data["epoch"].as_str().unwrap_or("")),"time":r.time,"machine":r.machine});
+                     if let Some(reason) = r.data.get("reason") {
+                         epoch["reason"] = reason.clone();
+                     }

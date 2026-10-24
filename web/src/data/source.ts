@@ -174,9 +174,11 @@ export interface Project {
   bisect_results?: BisectResult[];
 }
 export interface Overlay {
+  /** Exact state used for current readable overlay tree metadata. */
+  state?: Id;
   id: Id;
   name: string;
-  patterns: string[];
+  patterns?: string[];
   readers: string[];
   managers: string[];
   readable: boolean;
@@ -188,7 +190,7 @@ export interface Overlay {
   paths?: string[];
   files?: FileContent[];
   reader_details?: { principal: string; key?: string; since?: number }[];
-  epochs?: { id: string; reason?: string; time?: number; machine?: string }[];
+  epochs?: { id: string; number?: number; reason?: string; time?: number; machine?: string }[];
   history?: Operation[];
   peers?: string[];
   slots?: { store: string; epoch: string; count: number }[];

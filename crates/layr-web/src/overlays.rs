@@ -56,6 +56,12 @@ impl Session {
         self.open_hidden_layer(name, object, slot, manifest)
             .map_err(js)
     }
+    /// Current readable overlay trees. The caller resolves ciphertext attempts from its catalog.
+    pub fn overlay_inputs(&self, name: &str) -> std::result::Result<String, JsValue> {
+        self.current_overlay_inputs(name)
+            .and_then(encoded)
+            .map_err(js)
+    }
     pub fn overlay_slots(&self, name: &str) -> std::result::Result<String, JsValue> {
         self.overlay_candidates(name).and_then(encoded).map_err(js)
     }
@@ -366,6 +372,12 @@ impl Session {
             }
             if let Some(policy) = policy {
                 row["policy"] = json!(policy);
+                self.overlay_details(name, overlay, &mut row)?;
+            } else {
+                // Private overlays keep their public identity, but no private detail fields.
+                row.as_object_mut()
+                    .context("overlay is not an object")?
+                    .remove("patterns");
             }
             rows.push(row);
         }
@@ -406,10 +418,120 @@ impl Session {
                     row[field] = value.clone();
                 }
             }
+            self.overlay_details(name, &published.key.name, &mut row)?;
             rows.push(row);
         }
         rows.sort_by(|a, b| a["name"].as_str().cmp(&b["name"].as_str()));
         Ok(json!(rows))
+    }
+    /// Use the parent default line's model stack, then the overlay's own CLI line fallback.
+    fn overlay_current_state(&self, name: &str, overlay: &str) -> Result<Option<String>> {
+        let parent = self.project(name)?;
+        let alias = format!("{name}::{overlay}");
+        let Some(layer) = self.stores.get(&alias) else {
+            return Ok(None);
+        };
+        let Some(project) = layer.model.projects.get(&layer.descriptor.project) else {
+            return Ok(None);
+        };
+        let settings = project
+            .overlay_setting(&format!("overlay.{overlay}"))
+            .or_else(|| parent.overlay_setting(&format!("overlay.{overlay}")));
+        let metadata = project.overlay_setting("overlay");
+        let lines = parent.line_list();
+        let records = parent.op_log(None, usize::MAX);
+        let default = records
+            .iter()
+            .rev()
+            .flat_map(|r| r.lines.iter())
+            .filter(|(_, change)| change.before.is_none() && change.after.is_some())
+            .find_map(|(id, _)| lines.iter().find(|line| &line.id == id));
+        let own_lines = project.line_list();
+        if let Some(line) = default {
+            if let Some(selected) = self
+                .layers(name, &line.head)?
+                .into_iter()
+                .find(|layer| layer["overlay"] == overlay)
+            {
+                let state = selected["state"]
+                    .as_str()
+                    .context("overlay layer has no state")?;
+                if project.states.contains_key(state) {
+                    return Ok(Some(state.into()));
+                }
+            }
+        }
+        // CLI overlay reads fall back to an existing hidden line, or the owner's shared line.
+        let hidden = metadata.is_some_and(|v| v["hidden"] == true);
+        let owner = settings.and_then(|v| v["owner"].as_u64());
+        let line = if hidden {
+            own_lines.first()
+        } else {
+            owner.and_then(|uid| {
+                own_lines
+                    .iter()
+                    .find(|line| line.name == format!("user-{uid}"))
+            })
+        };
+        Ok(line
+            .filter(|line| project.states.contains_key(&line.head))
+            .map(|line| line.head.clone()))
+    }
+    fn current_overlay_inputs(&self, name: &str) -> Result<Value> {
+        self.project(name)?;
+        let mut inputs = Vec::new();
+        for (alias, store) in &self.stores {
+            let Some((parent, published, _)) = &store.parent else {
+                continue;
+            };
+            if parent != name {
+                continue;
+            }
+            if let Some(state) = self.overlay_current_state(name, &published.key.name)? {
+                inputs.push(json!({"name":alias,"state":state}));
+            }
+        }
+        Ok(json!(inputs))
+    }
+    fn overlay_details(&self, name: &str, overlay: &str, row: &mut Value) -> Result<()> {
+        let alias = format!("{name}::{overlay}");
+        let layer = self.stores.get(&alias).context("overlay is not open")?;
+        let project = layer
+            .model
+            .projects
+            .get(&layer.descriptor.project)
+            .context("overlay has no verified records")?;
+        let records = project.op_log(None, usize::MAX);
+        row["history"] = json!(records);
+        row["epochs"] = json!(epoch_views(project));
+        // Only signed overlay settings or public parent settings supply routed patterns.
+        let settings = project
+            .overlay_setting(&format!("overlay.{overlay}"))
+            .or_else(|| {
+                self.project(name)
+                    .ok()?
+                    .overlay_setting(&format!("overlay.{overlay}"))
+            });
+        row["patterns"] = json!(settings
+            .and_then(|v| v["patterns"].as_array())
+            .cloned()
+            .unwrap_or_default());
+        if let Some(state) = self.overlay_current_state(name, overlay)? {
+            row["state"] = json!(state);
+            if let Some((_, (_, tree))) = layer
+                .trees
+                .iter()
+                .find(|(object, _)| format::parse_tree_name(object).is_some_and(|v| v.0 == state))
+            {
+                row["paths"] = json!(tree.files.keys().collect::<Vec<_>>());
+                row["files"] = json!(tree
+                    .files
+                    .iter()
+                    .map(|(path, entry)| json!({"state":state,"path":path,"size":entry.1}))
+                    .collect::<Vec<_>>());
+            }
+        }
+        Ok(())
     }
     pub(super) fn layers(&self, name: &str, state: &str) -> Result<Vec<Value>> {
         let store = self.stores.get(name).context("store is locked")?;
@@ -504,6 +626,32 @@ impl Session {
         }
         Ok(files)
     }
+}
+// A key can be republished (for reader additions or another store). Number distinct
+// identities in signed sequence order; wall-clock skew never changes their ordinal.
+fn key_epochs(records: &[Record]) -> Vec<Value> {
+    let mut keys: Vec<_> = records.iter().filter(|r| r.op == "overlay.key").collect();
+    keys.sort_by(|a, b| (a.seq, &a.machine, &a.id).cmp(&(b.seq, &b.machine, &b.id)));
+    let mut seen = BTreeSet::new();
+    let mut epochs = Vec::new();
+    for record in keys {
+        let Some(id) = record.data["epoch"].as_str() else {
+            continue;
+        };
+        if !seen.insert(id) {
+            continue;
+        }
+        let mut epoch =
+            json!({"id":id,"number":epochs.len()+1,"time":record.time,"machine":record.machine});
+        if let Some(reason) = record.data.get("reason") {
+            epoch["reason"] = reason.clone();
+        }
+        epochs.push(epoch);
+    }
+    epochs
+}
+pub(super) fn epoch_views(project: &Project) -> Vec<Value> {
+    key_epochs(&project.op_log(None, usize::MAX))
 }
 pub(super) type Parent = (String, Published, Authority);
 
@@ -617,3 +765,7 @@ mod tests {
             .is_empty());
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/support/overlay-details.rs"]
+mod detail_tests;

@@ -42,6 +42,7 @@ function worker(options: { hidden?: boolean; slot?: boolean; foreign?: boolean; 
     }
     overlay_key() { calls.push('visible-key'); }
     overlay_slots() { return '[]'; }
+    overlay_inputs() { return '[]'; }
   }
   class Gateway {
     async person() { return { recipient: 'person' }; }

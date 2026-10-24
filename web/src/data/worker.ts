@@ -174,6 +174,13 @@ async function call(method: string, args: unknown[], base = ''): Promise<unknown
       if (entries.some((entry: {path: string}) => entry.path === 'layr.toml')) await parts(name, object, 'layr.toml');
     }
   }
+  if (method === 'projects') {
+    // Readable overlay listings use verified tree metadata, without file data parts.
+    for (const name of new Set(aliases.values())) {
+      const inputs: {name: string; state: string}[] = JSON.parse(session.overlay_inputs(name));
+      for (const input of inputs) if (attempts.has(`${input.name}/${input.state}`)) await tree(input.name, input.state);
+    }
+  }
   const global = ['projects', 'people', 'machines', 'stores', 'you'].includes(method);
   const name = global ? '' : alias(args[0] as string);
   return JSON.parse(session.query(name, method, JSON.stringify(global ? args : args.slice(1)), Date.now()));
