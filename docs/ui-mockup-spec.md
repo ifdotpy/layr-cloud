@@ -514,3 +514,18 @@ Inspired by taxagent.pl: data views that move, not decoration. Each one reads li
 
 Not added, on purpose: charts on Code, Files and Settings pages other than Copies (they answer a
 question by reading, not by comparing), and decorative motion anywhere.
+
+## 14. Overlays as a first-class place (2026-10-24, lead)
+
+Overlays were only in Settings and too hard to find. Now:
+- Code → "N overlays" (next to lines, refs and states) opens `overlays.html`: every overlay with
+  files count, readers (people and machines), your access ("you read it" or "you cannot read it"),
+  a warning when it has one key manager, the key epoch, and "New overlay" (name, readers, routed
+  file patterns; this machine becomes the first key manager).
+- `overlay.html` for one overlay: Files (with routed patterns and "Move files in"), Readers (kind,
+  key, since; Add reader; Remove reader with the new-epoch and "already copied" warning), Key
+  epochs (a timeline with the reason of each epoch), History (signed overlay operations), and a
+  sidebar with key managers, peers that may hold it, and its slots per store.
+- A file's "overlay: name" badge links to its overlay. Settings → Access shows which overlays
+  each person or machine reads. Settings → Private files keeps the secret detector and points to
+  Code → Overlays.

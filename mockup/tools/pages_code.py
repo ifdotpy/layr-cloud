@@ -61,7 +61,7 @@ def code_page():
         if mark == "derived":
             m = " " + grayb("derived")
         elif mark:
-            m = " " + grayb(mark)
+            m = f' <a class="badge" href="overlay.html">{e(mark)}</a>'
         rows.append([f'<span class="filecell">{icon(ic)}<a href="#">{e(name)}</a>{m}</span>',
                      f'<a class="muted" href="state.html">{e(msg)}</a>', f'<span class="muted">{age}</span>'])
     rows.append({"attrs": 'class="dim"', "cells": ['<span class="small">2 overlay files hidden from readers without access</span>', "", ""]})
@@ -71,6 +71,7 @@ def code_page():
 <a class="btn ghost" href="lines.html"><b>20</b>&nbsp;<span class="muted">lines</span></a>
 <a class="btn ghost" href="environments.html"><b>14</b>&nbsp;<span class="muted">refs</span></a>
 <a class="btn ghost" href="states.html"><b>312</b>&nbsp;<span class="muted">states</span></a>
+<a class="btn ghost" href="overlays.html"><b>3</b>&nbsp;<span class="muted">overlays</span></a>
 <span class="spacer"></span><button class="btn" type="button">Go to file</button></div>
 <div><div class="headrow">{av("bob")}<b>bob</b><span class="msg muted">Merge change 2d9e5c: Bump tokio to 1.48</span>
 <span class="badge ok">✓ 4/4</span>{sid("7d3e9a1c40b2")}<span class="muted">2 hours ago</span>
@@ -80,7 +81,7 @@ def code_page():
     side = f'''<aside class="side">
 <section><h3>About</h3><p class="note">The Acme web shop: Rust API and TypeScript storefront.</p>
 <ul style="margin-top:8px"><li><a href="#">shop.acme.dev</a></li><li class="muted">MIT license</li></ul></section>
-<section><h3>Overlays <a href="settings-overlays.html">Manage</a></h3><ul>
+<section><h3>Overlays <a href="overlays.html">All</a></h3><ul>
 <li>{sid("secrets")}<span class="r">3 files · 3 readers</span></li>
 <li>{sid("local-tools")}<span class="r">only you</span></li></ul></section>
 <section><h3>Environments <a href="environments.html">All</a></h3><ul>
