@@ -13,18 +13,18 @@ def queue_page():
          '<span class="muted">waiting</span>', '<span class="muted">waiting</span>', who("alice"), "2 min", acts],
         {"attrs": 'class="dim"', "cells": ["·", 'Bump tokio to 1.48 ' + sid("2d9e5c"), "v1", sid("7d3e9a1c"), okb("4/4"), okb("same"), who("bob"), "2 h ago", badge("merged")]},
     ]
-    body = f'''{pagehead(f"Queue for {sid('main')}", f'<div>{"<button class=\"btn primary\" type=\"button\">Run queue</button>"}{cmd("layr queue run")}</div>',
+    body = f'''{subnav([("Open changes", "changes.html"), ("In queue", "queue.html")], "In queue")}{pagehead(f"Queue for {sid('main')}", f'<div>{"<button class=\"btn primary\" type=\"button\">Run queue</button>"}{cmd("layr queue run")}</div>',
                "Each entry merges only after required checks pass on the exact result.")}
 {table(H, rows)}
 <div class="callout" style="margin-top:16px"><span class="muted">Required:</span> unit, lint, e2e. <span class="muted">Probes:</span> bench-checkout (fail over +30%).
 <a href="settings-protection.html">Rules</a> · <a href="queue-empty.html">Empty view</a></div>'''
-    return page("Queue", body, tab="Queue")
+    return page("Queue", body, tab="Changes")
 
 
 def queue_empty_page():
-    body = f'''{pagehead(f"Queue for {sid('main')}", "", "Each entry merges only after required checks pass on the exact result.")}
+    body = f'''{subnav([("Open changes", "changes.html"), ("In queue", "queue.html")], "In queue")}{pagehead(f"Queue for {sid('main')}", "", "Each entry merges only after required checks pass on the exact result.")}
 <div class="empty"><h2>The queue is empty</h2><p class="muted">Add a change from its page, or from the command line.</p>{cmd("layr queue add topic-checkout")}</div>'''
-    return page("Queue", body, tab="Queue")
+    return page("Queue", body, tab="Changes")
 
 
 def checks_page():
@@ -36,11 +36,15 @@ def checks_page():
         ["e2e", sid("e8813c2a"), badge("failed"), "5m 01s", sid("executor-eu1"), sid("npm --prefix web run e2e"), '<span class="muted">fix-tax-rounding</span>'],
         ["unit", sid("0c7f55d1"), badge("passed"), "2m 09s", sid("executor-eu1"), sid("cargo test --workspace"), '<span class="muted">feature-coupons</span>'],
     ]
-    main = f'''{pagehead("Checks", "", "Signed check results. Each one names one exact state and one exact command.")}
+    main = f'''{subnav([("Tests", "checks.html"), ("Behavior", "behavior.html")], "Tests")}{pagehead("Checks", "", "Signed check results. Each one names one exact state and one exact command.")}
 <div class="filters">{sel(["All checks", "unit", "lint", "e2e", "build-image"])}{sel(["All lines", "main", "topic-checkout"])}{sel(["Any result", "passed", "failed", "running"])}</div>
 {table(CHECK_H, checks_rows() + more)}'''
-    side = f'''<aside class="side"><section><h3>Check definitions <a href="settings-checks.html">Edit</a></h3><ul>{defs}</ul>
-{cmd("layr config check.unit 'cargo test --workspace'")}</section></aside>'''
+    side = f'''<aside class="side"><section><h3>Check definitions</h3><ul>{defs}</ul>
+{cmd("layr config check.unit 'cargo test --workspace'")}</section>
+<section><h3>Probe definitions <a href="behavior.html">Results</a></h3><ul>
+<li>{sid("storefront-screens")}<span class="r">screenshots</span></li><li>{sid("api-catalog")}<span class="r">HTTP answers</span></li>
+<li>{sid("bench-checkout")}<span class="r">metric · fail over +30 %</span></li><li>{sid("bundle-size")}<span class="r">file · fail over +10 %</span></li></ul>
+<p class="note" style="margin-top:8px">Defined in <code>.layr/probes.toml</code> of the project.</p></section></aside>'''
     return page("Checks", f'<div class="cols"><div>{main}</div>{side}</div>', tab="Checks")
 
 
@@ -53,14 +57,14 @@ def behavior_page():
         [sid("bundle-size"), "file", sid("npm --prefix web run build"), "2 h ago", '<span class="spark">▂▂▂▃▃▃▃▃▄▄</span> <span class="muted">KiB</span>'],
         [sid("sql-plan"), "file", sid("psql -f probes/plan.sql"), "6 h ago", '<span class="muted">no change</span>'],
     ]
-    body = f'''{pagehead("Behavior", "", "Probes record what the program does on an exact state. A behavior diff compares two states.")}
+    body = f'''{subnav([("Tests", "checks.html"), ("Behavior", "behavior.html")], "Behavior")}{pagehead("Behavior", "", "Probes record what the program does on an exact state. A behavior diff compares two states.")}
 {table(H, rows)}
 <div class="card" style="margin-top:24px"><div class="hd"><b>Compare any two states</b></div><div class="bd row" style="align-items:flex-end">
 {field("Base", inp("9a0c13d7", mono=True))}{field("Head", inp("7d3e9a1c", mono=True))}<button class="btn primary" type="button">Compare</button></div>
 <div class="ft">{cmd("layr probe diff 9a0c 7d3e")}</div></div>
 <div class="row" style="margin:24px 0 12px"><h2>Behavior diff: {sid("9a0c13d7")} → {sid("7d3e9a1c")}</h2></div>
 <div class="stack">{behavior_cards()}</div>'''
-    return page("Behavior", body, tab="Behavior")
+    return page("Behavior", body, tab="Checks")
 
 
 def environments_page():
@@ -79,11 +83,11 @@ def environments_page():
         [sid("holds/legal-hold-17"), sid("6e2d81c0"), "Legal hold: case 17. GC keeps it.", "never"],
         [sid("leases/agent-3"), sid("e87d0c55"), "agent-3 is working on it", '<span class="warn">1 h 52 min</span>'],
     ]
-    body = f'''{pagehead("Environments", "", "An environment is a ref. It moves only with compare and swap, and keeps its history.")}
+    body = f'''{subnav([("Environments", "environments.html"), ("Images", "registry.html")], "Environments")}{pagehead("Environments", "", "An environment is a ref. It moves only with compare and swap, and keeps its history.")}
 {table(H, rows)}
 <div class="sect" style="margin-top:40px"><h2 style="margin-bottom:12px">Other refs</h2>{table(OH, other)}
 {cmd("layr ref list")}</div>'''
-    return page("Environments", body, tab="Environments")
+    return page("Environments", body, tab="Deploy")
 
 
 def environment_page():
@@ -105,7 +109,7 @@ def environment_page():
 <div><button class="btn primary" type="button" data-dialog="dlg-move">Move env/prod…</button></div></div></div>
 <div class="callout" style="margin-bottom:24px"><b>Protection</b> <span class="muted">· required:</span> unit, e2e, 1 approval. <span class="muted">Who may move:</span> alice, bob. <a href="settings-protection.html">Rules</a></div>
 <h2 style="margin-bottom:12px">Position history</h2>{table(H, hist)}{cmd("layr ref log env/prod")}'''
-    return page("env/prod", body, tab="Environments", dialogs=dlg)
+    return page("env/prod", body, tab="Deploy", dialogs=dlg)
 
 
 TOML = """[runnable.app]
@@ -140,7 +144,7 @@ def registry_page():
     charts = [[sid("chart"), sid("1.4.2"), ref("release/1.4.2"), sid("sha256:0a5c…e811")],
               [sid("chart"), sid("1.4.1"), ref("release/1.4.1"), sid("sha256:93f0…2c6d")]]
     toml = "".join(f'<span class="l">{e(l)}</span>' for l in TOML.split("\n"))
-    main = f'''{pagehead("Registry", "", "Every ref, line and change is an image. Same state, same digest.")}
+    main = f'''{subnav([("Environments", "environments.html"), ("Images", "registry.html")], "Images")}{pagehead("Images", "", "Every ref, line and change is an image. Same state, same digest.")}
 <div class="callout" style="margin-bottom:24px">Images are built on demand from the exact state when a tag is first pulled.</div>
 <h2 style="margin-bottom:12px">Images</h2>{table(H, rows)}
 <h2 style="margin:32px 0 12px">Helm charts</h2>{table(CH, charts)}
@@ -149,9 +153,9 @@ def registry_page():
 {copyfield("docker login cloud.acme.dev -u alice --password-stdin")}
 {copyfield("docker pull cloud.acme.dev/shop/app:prod")}
 {copyfield("helm install shop oci://cloud.acme.dev/shop/chart --version 1.4.2")}</div>
-<p class="note" style="margin-top:8px">Get a token with {sid("layr access token alice")}. <a href="settings-tokens.html">Tokens</a></p></section>
+<p class="note" style="margin-top:8px">Get a token with {sid("layr access token alice")}. <a href="settings-access.html">Tokens</a></p></section>
 <section><h3>Deterministic</h3><p class="note">Image layers come from the state's files only, so the same state gives the same digest on every machine.</p></section></aside>'''
-    return page("Registry", f'<div class="cols"><div>{main}</div>{side}</div>', tab="Registry")
+    return page("Registry", f'<div class="cols"><div>{main}</div>{side}</div>', tab="Deploy")
 
 
 def activity_page():

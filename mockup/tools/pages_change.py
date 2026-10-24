@@ -26,7 +26,7 @@ def changes_page():
                "A change keeps its id through amends and replays. Each version is an exact state.")}
 <div class="filters"><input class="input grow" type="search" value="is:open" style="font-family:var(--mono);font-size:13px">
 {sel(["Author"])}{sel(["Line"])}{sel(["Attestation"])}{sel(["Queue"])}</div>
-<div class="list"><div class="lhd"><b>3 open</b><a class="muted" href="#">41 merged</a><a class="muted" href="#">6 closed</a></div>{"".join(items)}</div>
+<div class="list"><div class="lhd"><b>3 open</b><a class="muted" href="queue.html">1 in queue</a><a class="muted" href="#">41 merged</a><a class="muted" href="#">6 closed</a></div>{"".join(items)}</div>
 <h2 style="margin:32px 0 12px">Recently merged</h2>
 <div class="list">{"".join(f'<div class="item"><span class="mark" style="color:var(--purple-900)" aria-hidden="true">✓</span><div class="main"><a class="title" href="state.html">{e(t)}</a><div class="meta"><span class="mono">{n}</span>{badge("merged")}<span>by {a}</span><span>{w}</span></div></div></div>' for t, n, a, w in MERGED)}</div>'''
     dlg = dialog("dlg-change", "New change", f'''<p class="muted">Every save on a line already belongs to a change. Pick the line to ask for review and merge.</p>
@@ -243,3 +243,84 @@ def change_steps_page():
 PAGES = {"changes.html": changes_page, "change.html": overview_page, "change-files.html": files_page,
          "change-behavior.html": behavior_page, "change-checks.html": change_checks_page,
          "change-steps.html": change_steps_page}
+
+
+# ---------- Simplified change page (spec section 12) ----------
+
+def ctabs(c):
+    tabs = [("Overview", "change.html", None), ("Files", "change-files.html", "4"), ("Behavior", "change-behavior.html", "3")]
+    if c["agent"]:
+        tabs.append(("Steps", "change-steps.html", "38"))
+    return tabs
+
+
+def chead(c, tab):
+    who_ = f"{e(c['agent'])} for {e(c['author'])}" if c["agent"] else e(c["author"])
+    vers = ["v1 · Oct 22, 10:14", "v2 · Oct 22, 16:40", "v3 · Oct 23, 18:55"] if c["v"] == "v3" else ["v1 · Oct 23, 21:20"]
+    vm = "".join(f'<a href="change.html">{e(x)}</a>' for x in vers)
+    tabs = "".join(f'<a href="{h}"{CUR if n == tab else ""}>{n}{f"<span class=count>{k}</span>" if k else ""}</a>' for n, h, k in ctabs(c))
+    return f'''<div class="chead"><h1>{e(c["title"])} <span class="id mono" style="font-size:20px">{c["n"]}</span></h1>
+<div class="meta">{badge("open")}<span><b style="color:var(--text);font-weight:500">{who_}</b> wants to merge {sid(c["line"])} into {sid("main")}</span>
+<div class="menu-wrap"><button class="btn sm" type="button" data-menu="m-ver">{c["v"]} {icon("chev")}</button><div class="menu" id="m-ver"><div class="lbl">Versions</div>{vm}</div></div></div></div>
+<div class="tabs-wrap" style="margin:16px 0 24px"><nav class="tabs" style="padding:0" aria-label="Change">{tabs}</nav></div>'''
+
+
+def check_line(state, text, detail=""):
+    mark = {"ok": '<span class="ok">✓</span>', "warn": '<span class="warn">●</span>', "bad": '<span class="bad">✕</span>'}[state]
+    d = f'<div class="note" style="margin:2px 0 0 22px">{detail}</div>' if detail else ""
+    return f'<li style="display:block">{mark} {text}{d}</li>'
+
+
+def cside(c):
+    if c["n"] == "b71e40":
+        secret = check_line("bad", f"Possible secret in {sid('src/coupons/test.rs:14')}",
+                            '<button class="btn sm" type="button">Move to overlay</button> <button class="btn sm" type="button">Not a secret</button>'
+                            + cmd("layr approve --declassify src/coupons/test.rs@a1f3 0c7f55d1"))
+    else:
+        secret = check_line("ok", "No secret values in shared files")
+    items = "".join([
+        check_line("ok", f"{sid('src/payments/')} approved by alice for v3"),
+        check_line("warn", f"{sid('web/')} needs an approval from bob"),
+        check_line("ok", "unit, lint passed on this exact state"),
+        check_line("warn", "e2e is running, 3 of 5 min"),
+        check_line("warn", f"{sid('src/cart.rs')} also changes in {sid('agent-4')}"),
+        secret,
+    ])
+    return f'''<aside class="side">
+<section><h3>Merge into main <a href="settings-protection.html">Rules</a></h3><ul class="stack-s">{items}</ul>
+<button class="btn primary" type="button" style="width:100%;margin-top:12px">Merge when ready</button>
+<p class="note" style="margin-top:6px">Joins the queue now. It merges the exact result once checks and approvals pass.</p>
+{cmd("layr queue add " + c["line"])}</section>
+<section><h3>Preview</h3>{copyfield("docker pull cloud.acme.dev/shop/app:change-" + c["n"])}</section>
+</aside>'''
+
+
+def cpage(c, tab, main, file, dialogs=""):
+    body = chead(c, tab) + f'<div class="cols"><div class="stack">{main}</div>{cside(c)}</div>'
+    return page(f"{c['title']} {c['n']}", body, tab="Changes", dialogs=dialogs)
+
+
+def overview_page():
+    log = "".join(f'<span class="l">{e(l)}</span>' for l in LOG.split("\n"))
+    main = f'''<div class="card"><div class="hd">{who("bob")}<span class="muted">opened this change on Oct 22</span></div>
+<div class="bd md" style="padding:16px"><p>Customers can save a card at checkout and use it next time.</p>
+<ul><li>The Stripe customer token is kept in the overlay <code>secrets</code>, never in shared files.</li>
+<li>New table <code>saved_cards</code> with a migration.</li><li>The payment step lists saved cards first.</li></ul></div></div>
+<div class="sect"><h2 style="margin-bottom:16px">Versions</h2><ul class="tl">
+<li class="major"><b>v3</b> {sid("7d3e9a1c")} <span class="when">· Oct 23, 18:55</span><p class="note">Content: handle expired cards (+24 −6 in 2 files)</p></li>
+<li><span class="muted">Replayed onto main {sid("9a0c13d7")}</span> <span class="when">· Oct 23, 09:10</span><p class="note">Base move only. Hidden in the file compare.</p></li>
+<li class="major"><b>v2</b> {sid("5b20e1f7")} <span class="when">· Oct 22, 16:40</span><p class="note">Content: move the token to the overlay secrets (+40 −31 in 4 files)</p></li>
+<li class="major"><b>v1</b> {sid("31d8c0aa")} <span class="when">· Oct 22, 10:14</span><p class="note">First version (+212 −18 in 7 files)</p></li></ul></div>
+<div class="sect"><h2 style="margin-bottom:12px">Checks</h2>{table(CHECK_H, checks_rows())}
+<details style="margin-top:12px"><summary class="note" style="cursor:pointer">Log of e2e on v2 (failed)</summary>
+<div class="frame" style="margin-top:8px"><pre class="code">{log}</pre></div></details></div>
+<div class="sect"><h2 style="margin-bottom:16px">Conversation</h2>
+<div class="thread" style="margin:0"><div class="c"><div class="who">{av("alice")}<b>alice</b><span class="muted">on {sid("src/payments/card.rs:88")} · v2</span></div>
+Do we delete the token when the customer removes the card?</div>
+<div class="c"><div class="who">{av("bob")}<b>bob</b><span class="muted">· v3</span></div>Yes. v3 calls <code>stripe.detach</code> and removes the row.</div></div>
+<textarea class="input" rows="3" placeholder="Leave a comment" style="width:100%;margin-top:12px"></textarea></div>'''
+    return cpage(C812, "Overview", main, "change.html")
+
+
+PAGES = {"changes.html": changes_page, "change.html": overview_page, "change-files.html": files_page,
+         "change-behavior.html": behavior_page, "change-steps.html": change_steps_page}

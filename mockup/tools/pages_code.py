@@ -196,12 +196,19 @@ def states_page():
             for txt, sid_ in autos:
                 out.append(f'<div class="item auto" data-auto hidden><div class="main">{e(txt)}</div><div class="side">{sid(sid_)}</div></div>')
         out.append("</div>")
-    body = f'''{pagehead("States", '<a class="btn" href="bisect.html">Find the state that broke it</a>',
+    body = f'''{pagehead("States", '<button class="btn" type="button" data-dialog="dlg-bisect">Find the state that broke it</button>',
                "Each state is a frozen, signed copy of the whole folder.")}
 <div class="filters">{line_switcher()}<span class="spacer"></span>
 <label class="toggle"><input type="checkbox" data-show="[data-auto]"> Show automatic states</label></div>
 {"".join(out)}'''
-    return page("States", body, tab="Code")
+    dlg = dialog("dlg-bisect", "Find the state that broke it", f'''<p class="muted">Layr runs the command on exact states between a good and a bad one.</p>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">{field("Good state", inp("9a0c13d7", mono=True))}{field("Bad state", inp("e8813c2a", mono=True))}</div>
+{field("Command", inp("cargo test -p checkout", mono=True))}
+<label class="toggle"><input type="checkbox" checked> Search automatic states too</label>
+<div class="callout bad"><b>First bad: auto state {sid("c41e7a90")} by agent-7</b>
+<p class="note" style="margin-top:4px">After tool call <code>apply_patch src/tax.rs</code>. 9 runs, 4 reused from earlier checks.</p></div>
+{cmd("layr bisect run --auto -- cargo test -p checkout")}''', '<button class="btn" type="button" data-close>Close</button><button class="btn primary" type="button">Run</button>')
+    return page("States", body, tab="Code", dialogs=dlg)
 
 
 DIFF_TAX = [
@@ -314,4 +321,4 @@ def bisect_page():
 
 
 PAGES = {"code.html": code_page, "lines.html": lines_page, "states.html": states_page,
-         "state.html": state_page, "bisect.html": bisect_page}
+         "state.html": state_page}

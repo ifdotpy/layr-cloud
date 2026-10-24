@@ -477,3 +477,22 @@ fake text that only fills space; write it in the same tone as the examples.
   and "AWS access" (profile, SSO token).
 - Org People shows "Your invites" with Accept.
 - Org Settings shows "Deployment" (the four stacks and `layr-cloud deploy`).
+
+## 12. Simplification (2026-10-24, lead)
+
+Same features, fewer places. Every removed element has a named new home.
+
+| Before | After | Why |
+|---|---|---|
+| Project tabs: Code, Changes, Queue, Checks, Behavior, Environments, Registry, Activity, Settings (9) | Code, Changes, Checks, Deploy, Activity, Settings (6) | Related views share a tab with a sub navigation |
+| Queue tab | Changes, segment "In queue" | Queue entries are changes in a state |
+| Checks tab and Behavior tab | Checks tab with "Tests" and "Behavior"; check and probe definitions shown there | Probes are checks; definitions live next to results |
+| Environments tab and Registry tab | Deploy tab with "Environments" and "Images" | Image tags map to refs; one place for what runs |
+| Bisect page | Dialog on the States page | It is one action on the history |
+| Change tabs: Overview, Files, Behavior, Checks, Steps | Overview, Files, Behavior, Steps; Steps only when a change has agent steps | Checks table and logs move into Overview |
+| Change sidebar: Reviewers, Required, Queue, Preview, Conflict radar, Secrets (6 blocks) | "Merge" checklist with one action, and Preview | One list answers "can this merge, and if not, why"; radar and secrets show only as checklist lines |
+| Merge box at the bottom of Overview and "Add to queue" in the sidebar | One button in the Merge block: "Merge" (through the queue when main requires it) | No duplicate controls |
+| A CLI line under every action | A small "CLI" copy chip with the command in its tooltip; "Show CLI commands" in the account menu expands all lines | Same teaching, less noise |
+| Project settings: 9 pages in 4 groups | Access (people, roles, path owners, registry tokens), Protection, Private files (overlays and the secret detector), Files (merge rules and caches), Remotes | Group by what people manage |
+| Org tabs: Projects, People, Stores, Machines, Settings | Projects, People, Infrastructure (stores, machines, gateway, executors, deployment), Settings | Stores and machines are one system |
+| Personal items on org pages (person key, invites, your disk, AWS access) and "Machines 3 online" in the top bar | One "You" page from the account menu | Personal and shared settings are apart |

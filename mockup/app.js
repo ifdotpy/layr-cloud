@@ -126,4 +126,15 @@
     const top = r.closest("[id]").querySelector("[data-onion-top]");
     r.addEventListener("input", () => (top.style.opacity = r.value / 100));
   });
+
+  // "Show CLI commands" in the account menu expands every command hint; the choice is kept.
+  const cliOn = () => localStorage.getItem("layr.cli") === "1";
+  const applyCli = () => {
+    document.documentElement.classList.toggle("cli", cliOn());
+    $$("[data-toggle-cli]").forEach((b) => (b.textContent = cliOn() ? "Hide CLI commands" : "Show CLI commands"));
+  };
+  $$("[data-toggle-cli]").forEach((b) =>
+    b.addEventListener("click", () => { localStorage.setItem("layr.cli", cliOn() ? "0" : "1"); applyCli(); })
+  );
+  applyCli();
 })();

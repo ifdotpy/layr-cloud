@@ -26,7 +26,7 @@ def projects_page():
     return org("acme", body, "Projects", dlg_new + dlg_desk)
 
 
-def people_page():
+def old_people_page():
     H = [("Person", ""), ("Login", ""), ("Role", ""), ("Person key", ""), ("Projects", "num"), ("Last seen", "num")]
     rows = [[who("Alice Chen"), sid("alice"), "owner", sid("age1alc…9t2q"), "4", "now"],
             [who("Bob Novak"), sid("bob"), "maintainer", sid("age1b0b…4m8x"), "3", "20 min"],
@@ -94,7 +94,7 @@ def machines_page():
     return org("Machines", body, "Machines")
 
 
-def org_settings_page():
+def old_org_settings_page():
     body = f'''{pagehead("Organization settings")}
 <div class="card"><div class="bd stack-s">{field("Name", inp("acme", mono=True))}
 <dl class="kv"><dt>AWS account</dt><dd class="mono">4127 0915 3381</dd><dt>Region</dt><dd class="mono">eu-central-1</dd>
@@ -114,5 +114,58 @@ def org_settings_page():
     return org("Settings", body, "Settings")
 
 
-PAGES = {"index.html": projects_page, "people.html": people_page, "stores.html": stores_page,
-         "machines.html": machines_page, "org-settings.html": org_settings_page}
+
+
+
+# ---------- Simplified org level (spec section 12) ----------
+# The old pages are cut into parts: shared infrastructure, and personal items for the "You" page.
+
+def _parts(html):
+    main = html[html.index('<main class="page">') + len('<main class="page">'):html.index("</main>")]
+    dialogs = html[html.index("</main>") + len("</main>"):html.index('<script src="app.js">')]
+    return main, dialogs
+
+
+def _cut(text, marker):
+    i = text.index(marker)
+    return text[:i], text[i:]
+
+
+def infrastructure_page():
+    stores, _ = _parts(stores_page())
+    stores_shared, _ = _cut(stores, '<section class="sect" style="margin-top:40px"><h2>Your disk</h2>')
+    stores_shared = stores_shared.replace("<h1>Stores</h1>", "<h1>Infrastructure</h1>", 1)
+    machines, _ = _parts(machines_page())
+    machines = machines.replace("<h1>Machines</h1>", "<h2>Machines</h2>", 1)
+    settings, _ = _parts(old_org_settings_page())
+    _, deploy = _cut(settings, '<section class="sect" style="margin-top:40px"><h2>Deployment</h2>')
+    deploy, _ = _cut(deploy, '<div class="card danger-zone"')
+    body = stores_shared + '<div style="margin-top:40px">' + machines + "</div>" + deploy
+    return org("Infrastructure", body, "Infrastructure")
+
+
+def you_page():
+    people, dialogs = _parts(old_people_page())
+    _, personal = _cut(people, '<section class="sect" style="margin-top:40px"><h2>Your invites</h2>')
+    stores, _ = _parts(stores_page())
+    _, disk = _cut(stores, '<section class="sect" style="margin-top:40px"><h2>Your disk</h2>')
+    body = pagehead("You", "", "Your person key, invites, disk and AWS access. Only you see this page.") + personal + disk
+    return page("You", body, scope="org", tab=None)
+
+
+def people_page():
+    html = old_people_page()
+    main, dialogs = _parts(html)
+    shared, _ = _cut(main, '<section class="sect" style="margin-top:40px"><h2>Your invites</h2>')
+    return org("People", shared, "People", dialogs)
+
+
+def org_settings_page():
+    main, dialogs = _parts(old_org_settings_page())
+    before, rest = _cut(main, '<section class="sect" style="margin-top:40px"><h2>Deployment</h2>')
+    _, danger = _cut(rest, '<div class="card danger-zone"')
+    return org("Settings", before + danger, "Settings", dialogs)
+
+
+PAGES = {"index.html": projects_page, "people.html": people_page, "infrastructure.html": infrastructure_page,
+         "you.html": you_page, "org-settings.html": org_settings_page}

@@ -491,3 +491,10 @@ td a.muted:hover { color: var(--link); }
 .vd-side svg { width: 100%; height: auto; }
 .vd-list li { flex-wrap: wrap; }
 .vd-list li .r { margin-left: 0; width: 100%; }
+
+/* Compact CLI hints: a chip with the command as a tooltip; "Show CLI commands" expands them. */
+.cmd .t { display: none; }
+.cmd .chip { font-family: var(--mono); font-size: 11px; padding: 0 5px; border-radius: 4px; border: 1px solid var(--border); color: var(--text-2); cursor: help; }
+html.cli .cmd .t { display: inline; }
+html.cli .cmd .chip { display: none; }
+html:not(.cli) .cmd { display: inline-flex; margin-right: 10px; }

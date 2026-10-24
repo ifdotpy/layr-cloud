@@ -29,7 +29,10 @@ def copybtn(text):
 
 def cmd(text):
     """The CLI line under an action (spec 4.6)."""
-    return f'<div class="cmd"><span class="t">{e(text)}</span>{copybtn(text)}</div>'
+    words = text.split()
+    short = " ".join(words[1:3]) if words and words[0] in ("layr", "layr-cloud") and len(words) > 1 else " ".join(words[:2])
+    return (f'<div class="cmd"><span class="chip" title="{e(text)}">$ {e(short)}</span><span class="t">{e(text)}</span>'
+            f'{copybtn(text)}</div>')
 
 
 def sid(x):
@@ -132,14 +135,12 @@ def copyfield(text):
 # ---------- Shell ----------
 
 PROJECT_TABS = [
-    ("Code", "code.html", None), ("Changes", "changes.html", "3"), ("Queue", "queue.html", "1"),
-    ("Checks", "checks.html", None), ("Behavior", "behavior.html", None),
-    ("Environments", "environments.html", None), ("Registry", "registry.html", None),
-    ("Activity", "activity.html", None), ("Settings", "settings-access.html", None),
+    ("Code", "code.html", None), ("Changes", "changes.html", "3"), ("Checks", "checks.html", None),
+    ("Deploy", "environments.html", None), ("Activity", "activity.html", None), ("Settings", "settings-access.html", None),
 ]
 ORG_TABS = [
-    ("Projects", "index.html", "4"), ("People", "people.html", "4"), ("Stores", "stores.html", None),
-    ("Machines", "machines.html", "4"), ("Settings", "org-settings.html", None),
+    ("Projects", "index.html", "4"), ("People", "people.html", "4"), ("Infrastructure", "infrastructure.html", None),
+    ("Settings", "org-settings.html", None),
 ]
 
 
@@ -155,11 +156,10 @@ def topbar(scope):
 <nav class="crumbs" aria-label="Breadcrumb">{crumbs}</nav>
 <label class="search">{icon("search")}<span class="sr">Search</span><input type="search" placeholder="Search or jump to…"><kbd>/</kbd></label>
 <div class="right">
-<a class="machines-link" href="machines.html">Machines <b>3 online</b></a>
 <div class="menu-wrap"><button class="iconbtn" type="button" data-menu="m-plus" aria-label="Create">{icon("plus")}</button>
 <div class="menu end" id="m-plus"><a href="index.html">New project</a><a href="lines.html">New line</a><a href="changes.html">New change</a><a href="people.html">Invite person</a></div></div>
 <div class="menu-wrap"><button class="iconbtn" type="button" data-menu="m-user" aria-label="Account of alice" style="width:auto">{av("alice", sm=False)}</button>
-<div class="menu end" id="m-user"><div class="lbl">Signed in as alice</div><a href="people.html#key">Your person key</a><a href="machines.html">Your machines</a><hr><a href="#" aria-disabled="true">Sign out</a></div></div>
+<div class="menu end" id="m-user"><div class="lbl">Signed in as alice</div><a href="you.html">You: key, invites, disk</a><button type="button" data-toggle-cli>Show CLI commands</button><hr><a href="#" aria-disabled="true">Sign out</a></div></div>
 </div>
 </header>'''
 
@@ -216,3 +216,9 @@ def pagehead(title, right="", lede=""):
 
 def action(btn_html, command):
     return f'<div>{btn_html}{cmd(command)}</div>'
+
+
+def subnav(items, current):
+    """A segmented sub navigation inside a tab: items are (label, href)."""
+    return '<div class="seg" style="margin-bottom:20px">' + "".join(
+        f'<a href="{h}"{" aria-current=\"true\"" if n == current else ""}>{n}</a>' for n, h in items) + "</div>"

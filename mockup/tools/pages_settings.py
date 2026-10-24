@@ -33,7 +33,8 @@ def access_page():
     owners = [[sid("src/payments/"), "alice", "1"], [sid("web/"), "bob", "1"], [sid("migrations/"), "alice, bob", "1"], [sid(".layr/"), "alice", "1"]]
     c = sect("Access", "Roles: owner, maintainer, writer, reader. A role can expire.",
              table(H, rows) + cmd("layr access grant dan writer --until 2h")) + \
-        sect("Path owners", "Reviews of a change ask the owners of the paths it changes.", table(OH, owners) + cmd("layr protect main --path src/payments/=alice"))
+        sect("Path owners", "Reviews of a change ask the owners of the paths it changes.", table(OH, owners) + cmd("layr protect main --path src/payments/=alice")) + \
+        tokens_page()
     return spage("Access", c)
 
 
@@ -71,7 +72,7 @@ def overlays_page():
     dlg = dialog("dlg-rm", "Remove reader", '''<p>The next push starts a new key epoch. The removed reader cannot open new data.</p>
 <div class="callout warn"><b class="warn">●</b> Files dan already copied stay readable to dan.</div>''' + cmd("layr overlay readers secrets alice bob executor-eu1"),
                  '<button class="btn" type="button" data-close>Cancel</button><button class="btn danger" type="button" data-close>Remove reader</button>')
-    return spage("Overlays", c, dlg)
+    return spage("Private files", c + secrets_page(), dlg)
 
 
 def secrets_page():
@@ -87,7 +88,7 @@ def secrets_page():
         sect("Declassified values", "Values marked as not secret. Only an HMAC fingerprint is stored, never the value.",
              table(DH, decl) + cmd("layr approve --declassify tests/fixtures/fake.key 9a0c13d7")) + \
         sect("Recent refusals", "", table(RH, ref_))
-    return spage("Secrets", c)
+    return c
 
 
 def merge_page():
@@ -98,7 +99,7 @@ def merge_page():
     src = "".join(f'<span class="l">{e(l)}</span>' for l in ["package-lock.json derive=npm", "Cargo.lock derive=cargo", "web/dist/** derive=build"])
     c = sect("Merge rules", "Derived files are rebuilt after a merge, not merged line by line.",
              table(H, rows) + f'<div class="frame" style="margin-top:16px"><div class="fh">.layrattributes</div><pre class="code">{src}</pre></div>')
-    return spage("Merge rules", c)
+    return c
 
 
 def checks_page():
@@ -146,7 +147,7 @@ def tokens_page():
             [sid("bob"), "pull", "Oct 20", "yesterday", "Nov 20", '<button class="btn sm danger" type="button">Revoke</button>']]
     c = sect("Registry tokens", "Tokens let Docker, Helm and Kubernetes pull images. They cannot write.",
              table(H, rows) + cmd("layr access token k8s-prod --until 90d") + cmd("layr access token --revoke bob"))
-    return spage("Registry tokens", c)
+    return c
 
 
 def caches_page():
@@ -155,7 +156,7 @@ def caches_page():
             [sid("topic-checkout"), sid("target/"), "128 MiB", "yes, changes only"], [sid("agent-1 … agent-16"), sid("target/"), "16 × 128 MiB", "yes, changes only"]]
     c = sect("Caches", "Regenerable folders. A new line gets them warm, and they never enter a state.",
              table(H, rows) + cmd("layr cache add target/") + cmd("layr cache list"))
-    return spage("Caches", c)
+    return c
 
 
 PAGES = {"settings-access.html": access_page, "settings-protection.html": protection_page,
@@ -163,3 +164,18 @@ PAGES = {"settings-access.html": access_page, "settings-protection.html": protec
          "settings-merge.html": merge_page, "settings-checks.html": checks_page,
          "settings-remotes.html": remotes_page, "settings-tokens.html": tokens_page,
          "settings-caches.html": caches_page}
+
+
+SNAV = [
+    ("Project", [("Access", "settings-access.html"), ("Protection", "settings-protection.html"),
+                 ("Private files", "settings-overlays.html"), ("Files", "settings-files.html"), ("Remotes", "settings-remotes.html")]),
+]
+
+
+def files_page():
+    return spage("Files", merge_page() + caches_page())
+
+
+PAGES = {"settings-access.html": access_page, "settings-protection.html": protection_page,
+         "settings-overlays.html": overlays_page, "settings-files.html": files_page,
+         "settings-remotes.html": remotes_page}
