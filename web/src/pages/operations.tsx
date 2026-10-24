@@ -150,7 +150,7 @@ export function ChecksPage({
                 >
                   {data.states.map((s) => (
                     <option value={s.id}>
-                      {short(s.id)} {s.message}
+                      {short(s.id)} {shortText(s.message)}
                     </option>
                   ))}
                 </select>
@@ -164,7 +164,7 @@ export function ChecksPage({
                 >
                   {data.states.map((s) => (
                     <option value={s.id}>
-                      {short(s.id)} {s.message}
+                      {short(s.id)} {shortText(s.message)}
                     </option>
                   ))}
                 </select>

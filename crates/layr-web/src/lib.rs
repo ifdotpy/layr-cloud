@@ -11,8 +11,8 @@ use wasm_bindgen::prelude::*;
 use zeroize::Zeroizing;
 mod changes;
 mod metadata;
-mod screens;
 mod overlays;
+mod screens;
 
 fn js(error: anyhow::Error) -> JsValue {
     JsValue::from_str(&format!("{error:#}"))
@@ -1071,7 +1071,9 @@ mod tests {
         if let Ok(fixtures) = env::var("LAYR_WEB_TEST_FIXTURES") {
             let fixtures = PathBuf::from(fixtures);
             fn install_all(session: &mut Session, root: &std::path::Path, object: &str) {
-                if session.stores["test"].trees.contains_key(object) { return; }
+                if session.stores["test"].trees.contains_key(object) {
+                    return;
+                }
                 let bytes = fs::read(root.join(object)).unwrap();
                 if let Some(base) = session.base("test", object, &bytes).unwrap() {
                     install_all(session, root, &base);
@@ -1085,23 +1087,55 @@ mod tests {
                     if object.ends_with(".tree.age") {
                         install_all(&mut session, &root, object);
                     } else if object.ends_with(".data.age") {
-                        session.stores.get_mut("test").unwrap().parts.insert(object.into(), fs::read(&path).unwrap());
+                        session
+                            .stores
+                            .get_mut("test")
+                            .unwrap()
+                            .parts
+                            .insert(object.into(), fs::read(&path).unwrap());
                     }
                 }
             }
-            let request: Value = serde_json::from_str(&fs::read_to_string(fixtures.join("request.json")).unwrap()).unwrap();
+            let request: Value =
+                serde_json::from_str(&fs::read_to_string(fixtures.join("request.json")).unwrap())
+                    .unwrap();
             let args = json!([request["probe_base"], request["probe_head"]]);
-            let behavior = session.answer("test", "probeDiff", &args, i64::MAX / 2).unwrap();
-            let expected: Value = serde_json::from_str(&fs::read_to_string(fixtures.join("probe-diff.json")).unwrap()).unwrap();
+            let behavior = session
+                .answer("test", "probeDiff", &args, i64::MAX / 2)
+                .unwrap();
+            let expected: Value = serde_json::from_str(
+                &fs::read_to_string(fixtures.join("probe-diff.json")).unwrap(),
+            )
+            .unwrap();
             assert_eq!(behavior, expected);
-            let rows = session.answer("test", "screens", &args, i64::MAX / 2).unwrap();
+            let rows = session
+                .answer("test", "screens", &args, i64::MAX / 2)
+                .unwrap();
             assert_eq!(rows.as_array().unwrap().len(), 5);
-            let home = rows.as_array().unwrap().iter().find(|r| r["screen"] == "Home@Phone").unwrap();
+            let home = rows
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|r| r["screen"] == "Home@Phone")
+                .unwrap();
             assert_eq!(home["changed_share"], 0.25);
             assert_eq!(home["text_changes"], 1);
-            assert!(home["base_url"].as_str().unwrap().starts_with("data:image/png;base64,"));
-            assert!(rows.as_array().unwrap().iter().any(|r| r["changed_share"].is_null()));
-            assert_eq!(session.answer("test", "copies", &json!([]), 0).unwrap(), serde_json::from_str::<Value>(&fs::read_to_string(fixtures.join("copies.json")).unwrap()).unwrap());
+            assert!(home["base_url"]
+                .as_str()
+                .unwrap()
+                .starts_with("data:image/png;base64,"));
+            assert!(rows
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|r| r["changed_share"].is_null()));
+            assert_eq!(
+                session.answer("test", "copies", &json!([]), 0).unwrap(),
+                serde_json::from_str::<Value>(
+                    &fs::read_to_string(fixtures.join("copies.json")).unwrap()
+                )
+                .unwrap()
+            );
             assert_eq!(session.project("test").unwrap().bisect_results().len(), 2);
             if let Ok(output) = env::var("LAYR_WEB_TEST_SCREENS_OUT") {
                 fs::write(output, serde_json::to_vec_pretty(&json!({"base":request["probe_base"],"head":request["probe_head"],"screens":rows})).unwrap()).unwrap();
