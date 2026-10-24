@@ -210,6 +210,15 @@ test('stored screen controls preserve pixels, regions and escaped structure', as
   const route = pages.find(route => route.name === 'Change behavior screens')!;
   await page.goto(`/?source=fixture#${route.path}`);
   await route.check(page);
+  const screenRows = page.getByLabel('UI differences', {exact:true}).locator('li');
+  await expect(screenRows).toHaveCount(5);
+  for (const row of await screenRows.all()) {
+    await expect(row.locator('button')).toHaveCount(1);
+    await expect(row.locator('button .vd-screen-status')).toBeVisible();
+  }
+  const firstScreen = screenRows.first().getByRole('button');
+  await expect(firstScreen).toHaveAttribute('aria-pressed', 'true');
+  const initialBorder = await firstScreen.evaluate(element => getComputedStyle(element).borderColor);
   const modes = page.getByRole('group', {name:'UI diff view'});
   await modes.getByRole('button', {name:'Swipe',exact:true}).click();
   const swipe = page.getByRole('slider', {name:'Swipe position'});
@@ -221,7 +230,11 @@ test('stored screen controls preserve pixels, regions and escaped structure', as
   await modes.getByRole('button', {name:'Difference',exact:true}).click();
   await expect(page.getByRole('img', {name:'1 changed pixel region, 0 changed nodes',exact:true})).toBeVisible();
   await expect(page.locator('.diff-regions rect')).toHaveCount(1);
-  await page.getByRole('button', {name:'Native@Phone',exact:true}).click();
+  const nativeScreen = page.getByRole('button', {name:'Native@Phone',exact:true});
+  await nativeScreen.click();
+  await expect(nativeScreen).toHaveAttribute('aria-pressed', 'true');
+  await expect(firstScreen).toHaveAttribute('aria-pressed', 'false');
+  expect(await nativeScreen.evaluate(element => getComputedStyle(element).borderColor)).toBe(initialBorder);
   await expect(page.locator('main')).toContainText('No PNG captured. Open Structure to review this screen.');
   await modes.getByRole('button', {name:'Structure',exact:true}).click();
   await expect(page.getByRole('region', {name:'Structure diff of Native@Phone',exact:true})).toContainText('+<node text="110">');

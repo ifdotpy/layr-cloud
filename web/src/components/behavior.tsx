@@ -175,8 +175,10 @@ export function VisualDiff({ screens }: { screens: ScreenDiff[] }) {
           <section><h3>Screens</h3><ul>
             {screens.map((screen, i) => (
               <li key={`${screen.probe}:${screen.path}`}>
-                <button class="btn ghost sm" type="button" aria-pressed={index === i} onClick={() => setIndex(i)}>{screen.name}</button>
-                <span class="r">{screen.changed_share === null ? "Structure only" : `${(screen.changed_share * 100).toFixed(1)}% of pixels`} · {screen.changed ? "changed" : "unchanged"}</span>
+                <button class="vd-screen" type="button" aria-label={screen.name} aria-pressed={index === i} onClick={() => setIndex(i)}>
+                  <span>{screen.name}</span>
+                  <span class="vd-screen-status">{screen.changed_share === null ? "Structure only" : `${(screen.changed_share * 100).toFixed(1)}% of pixels`} · {screen.changed ? "changed" : "unchanged"}</span>
+                </button>
               </li>
             ))}
           </ul></section>

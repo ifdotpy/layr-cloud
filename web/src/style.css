@@ -476,7 +476,12 @@ td a.muted:hover { color: var(--link); }
 
 /* UI diffs */
 .vd { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 16px; }
-.vd-list ul li { cursor: pointer; }
+.vd-list ul li { padding: 0; margin-bottom: 4px; }
+.vd-screen { display: flex; flex-direction: column; gap: 4px; width: 100%; padding: 10px 12px; text-align: left; font: inherit; color: var(--text); background: var(--surface); border: 1px solid transparent; border-radius: var(--r); cursor: pointer; }
+.vd-screen-status { font-size: 12px; color: var(--text-2); }
+.vd-screen:hover { background: var(--surface-2); }
+.vd-screen[aria-pressed="true"] { background: var(--surface-2); border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.vd-screen:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .vd-side { display: flex; gap: 16px; flex-wrap: wrap; }
 .vd figure { margin: 0; }
 .vd figcaption { font-size: 12px; color: var(--text-2); margin-bottom: 6px; }
@@ -491,8 +496,6 @@ td a.muted:hover { color: var(--link); }
 .vd-side { flex-wrap: nowrap; }
 .vd-side figure { flex: 1 1 0; min-width: 0; }
 .vd-side svg { width: 100%; height: auto; }
-.vd-list li { flex-wrap: wrap; }
-.vd-list li .r { margin-left: 0; width: 100%; }
 
 /* Compact CLI hints: a chip with the command as a tooltip; "Show CLI commands" expands them. */
 .cmd .t { display: none; }
