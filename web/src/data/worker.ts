@@ -84,8 +84,22 @@ async function unlock(method: string, args: unknown[], base: string) {
       aliases.set(project, name);
       routes.set(name, {gateway: name, prefix: ''});
       await loadStore(name);
-      for (const entry of await gateway.list(name, 'overlays/', proof(name))) {
+      const overlayObjects = await gateway.list(name, 'overlays/', proof(name));
+      const overlayKeys = new Set(overlayObjects.map(entry => entry.key));
+      for (const entry of overlayObjects) {
         if (/^overlays\/[^/]+\/keys\/[^/]+\.json$/.test(entry.key)) session.overlay_key(name, entry.key, await gateway.signedObject(name, entry.key, proof(name)));
+        const hidden = /^overlays\/([0-9a-f-]{36})\/keys\/([0-9a-f-]{36})-[0-9a-f-]{36}\.age$/.exec(entry.key);
+        if (!hidden) continue;
+        const prefix = `overlays/${hidden[1]}/epochs/${hidden[2]}`;
+        const slotObject = `${prefix}/slots/${slotName}`;
+        if (!overlayKeys.has(slotObject)) continue;
+        const slot = await gateway.object(name, slotObject, proof(name));
+        // A foreign slot is silent, including when its manifest is malformed or absent.
+        if (!session.overlay_slot_opens(slot)) continue;
+        const alias = session.open_hidden_overlay(name, entry.key, slot, await gateway.object(name, entry.key, proof(name)));
+        if (!alias) continue;
+        routes.set(alias, {gateway: name, prefix: prefix + '/'});
+        await loadStore(alias);
       }
       for (const layer of JSON.parse(session.overlay_slots(name))) {
         const slot = await gateway.object(name, `${layer.prefix}/slots/${layer.slot}`, proof(name));

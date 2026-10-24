@@ -311,6 +311,7 @@ impl Session {
         Ok(())
     }
     fn finish(&mut self, name: &str) -> Result<()> {
+        self.prepare_hidden_records(name)?;
         let parent_keys = self
             .stores
             .get(name)

@@ -4,6 +4,8 @@ use serde::Deserialize;
 
 #[derive(Clone, Deserialize)]
 pub(super) struct OverlayKey {
+    #[serde(default)]
+    pub hidden: bool,
     pub overlay: String,
     pub name: String,
     pub epoch: String,
@@ -35,6 +37,24 @@ impl Session {
         bytes: &[u8],
     ) -> std::result::Result<(), JsValue> {
         self.register_overlay(name, object, bytes).map_err(js)
+    }
+    pub fn overlay_slot_opens(&self, slot: &[u8]) -> bool {
+        self.person
+            .as_ref()
+            .and_then(|person| keys::open_slot(slot, person).ok())
+            .map(Zeroizing::new)
+            .is_some()
+    }
+    /// A slot that is absent or belongs to another person reveals no overlay.
+    pub fn open_hidden_overlay(
+        &mut self,
+        name: &str,
+        object: &str,
+        slot: &[u8],
+        manifest: &[u8],
+    ) -> std::result::Result<String, JsValue> {
+        self.open_hidden_layer(name, object, slot, manifest)
+            .map_err(js)
     }
     pub fn overlay_slots(&self, name: &str) -> std::result::Result<String, JsValue> {
         self.overlay_candidates(name).and_then(encoded).map_err(js)
@@ -87,6 +107,9 @@ impl Session {
         if object != format!("overlays/{}/keys/{}-{}.json", key.overlay, key.epoch, r.id) {
             bail!("overlay key differs from object name");
         }
+        if key.hidden {
+            bail!("hidden overlay key was published without encryption");
+        }
         let authority = store
             .authorities
             .get(&key.name)
@@ -108,6 +131,121 @@ impl Session {
             }
         }
         store.published.insert(next.key.name.clone(), next);
+        Ok(())
+    }
+    fn open_hidden_layer(
+        &mut self,
+        name: &str,
+        object: &str,
+        slot: &[u8],
+        manifest: &[u8],
+    ) -> Result<String> {
+        let person = self.person.as_ref().context("locked")?;
+        let identity = match keys::open_slot(slot, person) {
+            Ok(identity) => Zeroizing::new(identity),
+            Err(_) => return Ok(String::new()),
+        };
+        let parent = self.stores.get(name).context("store is locked")?;
+        let plain = Zeroizing::new(keys::decrypt(&identity, manifest)?);
+        let line = std::str::from_utf8(&plain)?.trim_end_matches('\n');
+        let raw = record::parse_line(line, None)?;
+        let r: Record = serde_json::from_str(raw.get())?;
+        let signer = parent
+            .keys
+            .get(&r.machine)
+            .context("hidden overlay signer is not trusted")?;
+        record::verify_line(line.as_bytes(), signer)?;
+        layr_model::validation::validate(&r)?;
+        let key: OverlayKey = serde_json::from_value(r.data.clone())?;
+        layr_model::validation::check_name("overlay", &key.name)?;
+        if r.op != "overlay.key"
+            || !key.hidden
+            || key.parent != parent.descriptor.project
+            || key.store != parent.descriptor.recipient
+            || key.overlay != r.project
+            || !format::is_uuid(&key.overlay)
+            || !format::is_uuid(&key.epoch)
+            || keys::recipient_of(&identity)? != key.recipient
+            || object != format!("overlays/{}/keys/{}-{}.age", key.overlay, key.epoch, r.id)
+        {
+            bail!("hidden overlay manifest differs from its slot or object");
+        }
+        let published = Published {
+            key,
+            record: r,
+            line: line.into(),
+        };
+        let existing = parent.published.get(&published.key.name).or_else(|| {
+            self.stores
+                .get(&format!("{name}::{}", published.key.name))
+                .and_then(|store| store.parent.as_ref().map(|(_, published, _)| published))
+        });
+        if let Some(old) = existing {
+            if old.key.overlay != published.key.overlay {
+                bail!("conflicting overlay identities");
+            }
+            if old.order() >= published.order() {
+                return Ok(String::new());
+            }
+        }
+        let alias = format!("{name}::{}", published.key.name);
+        // Authority is derived from the overlay's own log in finish_records, before folding.
+        let authority: Authority = serde_json::from_value(json!({
+            "machines":[], "previous":null, "retained":{}, "changes":{},
+        }))?;
+        self.stores.insert(
+            alias.clone(),
+            Store {
+                identity,
+                descriptor: format::Descriptor {
+                    format: 2,
+                    project: published.key.overlay.clone(),
+                    recipient: published.key.recipient.clone(),
+                },
+                segments: BTreeMap::new(),
+                keys: BTreeMap::new(),
+                model: Model::default(),
+                trees: BTreeMap::new(),
+                parts: BTreeMap::new(),
+                authorities: BTreeMap::new(),
+                published: BTreeMap::new(),
+                parent: Some((name.into(), published, authority)),
+            },
+        );
+        Ok(alias)
+    }
+    pub(super) fn prepare_hidden_records(&mut self, name: &str) -> Result<()> {
+        let store = self.stores.get(name).context("store is locked")?;
+        let Some((parent_name, published, _)) = &store.parent else {
+            return Ok(());
+        };
+        if !published.key.hidden {
+            return Ok(());
+        }
+        let parent = self.stores.get(parent_name).context("parent is locked")?;
+        let lines = Zeroizing::new(
+            store
+                .segments
+                .values()
+                .flat_map(|text| text.lines().map(str::to_owned))
+                .collect::<Vec<_>>(),
+        );
+        let (overlay, authority) = layr_model::authority::from_overlay_lines(
+            &parent.descriptor.project,
+            &published.key.overlay,
+            &lines,
+            &parent.keys,
+        )?;
+        if overlay != published.key.name || !authority.permits(&published.record, &published.line) {
+            bail!("hidden overlay key has no creator authority");
+        }
+        self.stores
+            .get_mut(name)
+            .context("store is locked")?
+            .parent
+            .as_mut()
+            .context("parent is absent")?
+            .2 = authority;
         Ok(())
     }
     fn overlay_candidates(&self, name: &str) -> Result<Value> {
@@ -217,7 +355,7 @@ impl Session {
                 .get(overlay)
                 .map(|a| a.machines.clone())
                 .unwrap_or_default();
-            let mut row = json!({"id":id,"name":overlay,"patterns":info["patterns"].as_array().cloned().unwrap_or_default(),"readers":readers,"managers":managers,"readable":model.is_some(),"hidden":model.is_none()});
+            let mut row = json!({"id":id,"name":overlay,"patterns":info["patterns"].as_array().cloned().unwrap_or_default(),"readers":readers,"managers":managers,"readable":model.is_some(),"hidden":info["hidden"].as_bool().unwrap_or(false)});
             if let Some(published) = store.published.get(overlay) {
                 row["epoch"] = json!(published.key.epoch);
             }
@@ -231,6 +369,46 @@ impl Session {
             }
             rows.push(row);
         }
+        // Hidden creation metadata exists only inside a verified, readable overlay.
+        for layer in self.stores.values() {
+            let Some((parent, published, authority)) = &layer.parent else {
+                continue;
+            };
+            if parent != name || !published.key.hidden {
+                continue;
+            }
+            let Some(project) = layer.model.projects.get(&published.key.overlay) else {
+                continue;
+            };
+            let Some(info) = project.overlay_setting("overlay") else {
+                continue;
+            };
+            if info["hidden"] != true || info["project"] != store.descriptor.project {
+                continue;
+            }
+            let policy = project.access_policy(now, true);
+            let readers: Vec<_> = policy
+                .access
+                .iter()
+                .filter(|(_, role)| **role >= layr_model::policy::Role::Reader)
+                .map(|(name, _)| name.clone())
+                .collect();
+            let settings = project.overlay_setting(&format!("overlay.{}", published.key.name));
+            let mut row = json!({"id":published.key.overlay,"name":published.key.name,
+                "patterns":settings.and_then(|v|v["patterns"].as_array()).cloned().unwrap_or_default(),
+                "readers":readers,"managers":authority.machines,"readable":true,"hidden":true,
+                "epoch":published.key.epoch,"policy":policy});
+            for field in ["owner", "mode"] {
+                if let Some(value) = settings
+                    .and_then(|v| v.get(field))
+                    .or_else(|| info.get(field))
+                {
+                    row[field] = value.clone();
+                }
+            }
+            rows.push(row);
+        }
+        rows.sort_by(|a, b| a["name"].as_str().cmp(&b["name"].as_str()));
         Ok(json!(rows))
     }
     pub(super) fn layers(&self, name: &str, state: &str) -> Result<Vec<Value>> {
@@ -250,15 +428,25 @@ impl Session {
             None => (s.state.line.as_deref(), s.machine.as_str()),
         };
         let Some(line) = line else { return Ok(vec![]) };
-        let scoped = format!("stack.{line}@{machine}");
-        let plain = format!("stack.{line}");
-        let stack = p
-            .config
-            .get(&scoped)
-            .or_else(|| p.config.get(&plain))
-            .cloned()
-            .unwrap_or(json!([]));
-        let stack: Vec<layr_model::validation::Layer> = serde_json::from_value(stack)?;
+        // The shared model handles visible stacks and hidden follow-mode selection.
+        let mut model = store.model.clone();
+        for layer in self.stores.values() {
+            if layer
+                .parent
+                .as_ref()
+                .is_some_and(|(parent, _, _)| parent == name)
+            {
+                model.projects.extend(layer.model.projects.clone());
+            }
+        }
+        let selected = layr_model::Line {
+            id: line.into(),
+            name: String::new(),
+            head: state.into(),
+            owner: 0,
+            machine: machine.into(),
+        };
+        let stack = model.layers(&store.descriptor.project, &selected)?;
         Ok(stack
             .into_iter()
             .filter_map(|l| {
@@ -322,6 +510,63 @@ pub(super) type Parent = (String, Published, Authority);
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn hidden_discovery_is_silent_for_foreign_slots_and_requires_own_authority() {
+        let (mut session, _, _, signer) = crate::tests::fixture();
+        let machine = "01a12290-0000-7000-8000-000000000002";
+        let overlay = "01a12290-0000-7000-8000-000000000004";
+        let epoch = "01a12290-0000-7000-8000-000000000005";
+        let id = "01a12290-0000-7000-8000-000000000006";
+        let identity = Zeroizing::new(keys::generate_identity());
+        let recipient = keys::recipient_of(&identity).unwrap();
+        let person = session.person.as_ref().unwrap();
+        let slot = keys::seal_slot(&identity, &keys::recipient_of(person).unwrap()).unwrap();
+        let foreign = Zeroizing::new(keys::generate_identity());
+        let foreign_slot =
+            keys::seal_slot(&identity, &keys::recipient_of(&foreign).unwrap()).unwrap();
+        assert!(!session.overlay_slot_opens(&foreign_slot));
+        assert_eq!(
+            session
+                .open_hidden_layer("test", "invalid object", &foreign_slot, b"invalid manifest")
+                .unwrap(),
+            ""
+        );
+        assert_eq!(session.stores.len(), 1);
+        assert!(session.overlay_slot_opens(&slot));
+        let store = session.stores.get_mut("test").unwrap();
+        store.keys.insert(machine.into(), signer.verifying_key());
+        let data = json!({"hidden":true,"overlay":overlay,"name":"secret","epoch":epoch,"parent":store.descriptor.project,"store":store.descriptor.recipient,"recipient":recipient,"readers":{}});
+        let r = json!({"id":id,"machine":machine,"project":overlay,"seq":3,"time":3,"op":"overlay.key","actor":{"uid":0,"name":"test"},"states":[],"lines":{},"data":data});
+        let body = r.to_string();
+        let line = format!(
+            "{{\"r\":{body},\"s\":\"{}\"}}",
+            keys::sign_bytes(body.as_bytes(), &signer)
+        );
+        let manifest = keys::encrypt(&recipient, line.as_bytes()).unwrap();
+        let object = format!("overlays/{overlay}/keys/{epoch}-{id}.age");
+        assert!(session
+            .open_hidden_layer("test", &object.replace(epoch, id), &slot, &manifest)
+            .is_err());
+        assert!(session
+            .register_overlay("test", &object.replace(".age", ".json"), line.as_bytes())
+            .is_err());
+        let forged =
+            keys::encrypt(&recipient, line.replace("secret", "forged").as_bytes()).unwrap();
+        assert!(session
+            .open_hidden_layer("test", &object, &slot, &forged)
+            .is_err());
+        let alias = session
+            .open_hidden_layer("test", &object, &slot, &manifest)
+            .unwrap();
+        assert_eq!(alias, "test::secret");
+        // Possessing a slot is insufficient: its own creation and manager chain must verify.
+        assert!(session.prepare_hidden_records(&alias).is_err());
+        assert!(session.stores[&alias].model.projects.is_empty());
+        assert!(session.stores["test"].published.is_empty());
+        session.lock();
+        assert!(session.stores.is_empty());
+        assert!(session.person.is_none());
+    }
     #[test]
     fn epoch_keys_require_parent_authority_and_exact_bindings() {
         let (mut session, _, _, signer) = crate::tests::fixture();
