@@ -33,6 +33,7 @@ import {
   when,
 } from "../components/ui";
 import { DiffBrowser, DiffFiles } from "../components/diff";
+import { plural, shortText } from "../labels";
 
 export function CodePage({
   source,
@@ -146,19 +147,19 @@ export function CodePage({
             )}
           </Dropdown>
           <a class="btn ghost" href={projectUrl(project.id, "lines")}>
-            <b>{data.lines.length}</b> lines
+            {plural(data.lines.length, "line")}
           </a>
           <a
             class="btn ghost"
             href={projectUrl(project.id, "deploy/environments")}
           >
-            <b>{data.refs.length}</b> refs
+            {plural(data.refs.length, "ref")}
           </a>
           <a class="btn ghost" href={projectUrl(project.id, "states")}>
-            <b>{data.states?.length ?? 0}</b> states
+            {plural(data.states?.length ?? 0, "state")}
           </a>
           <a class="btn ghost" href={projectUrl(project.id, "overlays")}>
-            <b>{project.overlays?.length ?? 0}</b> overlays
+            {plural(project.overlays?.length ?? 0, "overlay")}
           </a>
           <span class="spacer" />
           {data.tree && (
@@ -310,7 +311,7 @@ export function CodePage({
               {project.overlays.map((o) => (
                 <li>
                   <Mono>{o.name}</Mono>
-                  <span class="r">{o.readers.length} readers</span>
+                  <span class="r">{plural(o.readers.length, "reader")}</span>
                 </li>
               ))}
             </ul>
@@ -455,7 +456,7 @@ export function LinesPage({
             aria-expanded={agents}
             onClick={() => setAgents(!agents)}
           >
-            {agents ? "Hide" : "Show"} {agentLines.length} agent lines
+            {agents ? "Hide" : "Show"} {plural(agentLines.length, "agent line")}
           </button>
         )}
       </div>
@@ -570,7 +571,7 @@ export function StatesPage({
           Show automatic states
         </label>
         <span class="spacer" />
-        <span class="muted">{data.length} states loaded</span>
+        <span class="muted">{plural(data.length, "state")} loaded</span>
       </div>
       <div class="list">
         {data.map((s) => (

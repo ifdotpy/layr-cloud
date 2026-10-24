@@ -24,6 +24,7 @@ import {
 import { BehaviorCards } from "../components/behavior";
 import { DiffBrowser, DiffFiles, InterdiffBrowser } from "../components/diff";
 import { changeStatus, loadChangeIndex } from "../data/change-index";
+import { object, plural, shortText } from "../labels";
 
 export function ChangesPage({
   source,
@@ -90,13 +91,7 @@ export function ChangesPage({
               command="layr queue run"
               primary
             />
-          ) : (
-            <ReadOnlyAction
-              label="New change"
-              command="layr save -m 'Describe the change'"
-              primary
-            />
-          )
+          ) : undefined
         }
       />
       {section === "queue" ? (
@@ -170,7 +165,7 @@ export function ChangesPage({
               value={filter}
               onInput={(e) => setFilter(e.currentTarget.value)}
             />
-            <span class="muted">{rows.length} changes</span>
+            <span class="muted">{plural(rows.length, "change")}</span>
           </div>
           {rows.length ? (
             <div class="list">
@@ -189,7 +184,7 @@ export function ChangesPage({
                           "change/" + c.change_id + "/overview",
                         )}
                       >
-                        {v.state.message || "Change"}
+                        {shortText(v.state.message || "Change")}
                       </a>
                       <div class="meta">
                         <Mono>{short(c.change_id)}</Mono>
@@ -200,10 +195,10 @@ export function ChangesPage({
                     </div>
                     <div class="side">
                       {section === "merged" ? (
-                        <span class="stamp purple">merged</span>
-                      ) : (
-                        <Status value={changeStatus(c, data.queue)} />
-                      )}
+                        <Status value="merged" />
+                      ) : section === "closed" ? (
+                        <Status value="closed" />
+                      ) : null}
                     </div>
                   </div>
                 );
@@ -222,9 +217,7 @@ export function ChangesPage({
           )}
         </>
       )}
-      <Cmd
-        text={section === "queue" ? "layr queue list" : "layr change list"}
-      />
+      {section === "queue" && <Cmd text="layr queue list" />}
     </>
   );
 }
@@ -242,7 +235,7 @@ export function ChangePage({
   const [version, setVersion] = useState(""),
     [from, setFrom] = useState(""),
     [to, setTo] = useState(""),
-    [quick, setQuick] = useState("Since your review"),
+    [choice, setQuick] = useState(""),
     [diffMode, setDiffMode] = useState("Unified");
   const { data, error } = useData(async () => {
     const [change, queue, operations] = await Promise.all([
@@ -255,15 +248,36 @@ export function ChangePage({
   const change = data?.change;
   const { data: viewer } = useData(() => source.you(), [source]);
   const latest = change?.versions.at(-1);
-  const reviewed = [...(change?.versions ?? [])]
+  const reviewed = [...(change?.versions.slice(0, -1) ?? [])]
     .reverse()
     .find(
       (v) =>
         viewer?.login &&
         v.attestations.some(
-          (a) => a.kind === "approval" && a.signer === `person:${viewer.login}`,
+          (a) =>
+            ["approval", "review", "comment"].includes(a.kind) &&
+            a.signer === `person:${viewer.login}`,
         ),
     );
+  const { data: merge, error: mergeError } = useData(
+    async () =>
+      latest
+        ? source.mergeStatus(
+            project.id,
+            latest.state.id,
+            project.default_line ?? "main",
+          )
+        : undefined,
+    [source, project.id, latest?.state.id],
+  );
+  const changeState = merge?.already_in_target
+    ? "merged"
+    : data
+      ? changeStatus(data.change, data.queue)
+      : "open";
+  const history = ["merged", "closed"].includes(changeState);
+  const quick =
+    choice || (!history && reviewed ? "Since your review" : "All changes");
   const selected =
     change?.versions.find((v) => v.version === version) ??
     change?.versions.at(-1);
@@ -331,21 +345,10 @@ export function ChangePage({
     change?.behavior.head,
     section,
   ]);
-  const { data: merge, error: mergeError } = useData(
-    async () =>
-      latest
-        ? source.mergeStatus(
-            project.id,
-            latest.state.id,
-            project.default_line ?? "main",
-          )
-        : undefined,
-    [source, project.id, latest?.state.id],
-  );
   if (!data || !selected) return <LoadError error={error} />;
   const c = data.change,
     s = selected.state,
-    status = merge?.already_in_target ? "merged" : changeStatus(c, data.queue),
+    status = String(changeState),
     url = projectUrl(project.id, "change/" + c.change_id);
   const steps = data.operations.flatMap((op) =>
     (op.states ?? []).filter(
@@ -369,24 +372,85 @@ export function ChangePage({
   const selectedChecks = selected.attestations.filter(
     (a) => a.kind === "check",
   );
-  const currentStep =
-    merge?.already_in_target || status === "merged"
-      ? 4
-      : merge?.allowed === true
-        ? 3
-        : 1;
+  const mergeOperation = data.operations.find(
+    (operation) =>
+      operation.op === "merge" &&
+      object(operation.data).theirs === latest!.state.id,
+  );
+  const pathGroups: Record<string, string[]> = {};
+  for (const path of merge?.path_requirements ?? [])
+    (pathGroups[path.role] ??= []).push(path.path);
+  const evidenceRows = (
+    attestations: typeof selected.attestations,
+    asOf = Infinity,
+  ) =>
+    attestations.map((attestation) => {
+      const operation = data.operations.find(
+        (item) =>
+          object(object(item.data).attestation).attestation_id ===
+          attestation.attestation_id,
+      );
+      const revoked = data.operations.some(
+        (item) =>
+          item.time <= asOf &&
+          Array.isArray(object(item.data).revokes) &&
+          (object(item.data).revokes as string[]).includes(
+            attestation.attestation_id,
+          ),
+      );
+      const exit = object(object(operation?.data).check).exit;
+      const result =
+        revoked || attestation.kind === "revoke"
+          ? "revoked"
+          : attestation.kind === "check"
+            ? typeof exit === "number"
+              ? exit === 0
+                ? "passed"
+                : "failed"
+              : "Not recorded"
+            : attestation.kind === "approval"
+              ? "approved"
+              : "signed";
+      const attestedVersion =
+        c.versions.find((value) => value.state.id === attestation.subject.id)
+          ?.version ?? "Not recorded";
+      return [
+        attestation.kind,
+        <Status value={result} />,
+        <span title={attestation.subject.id}>{attestedVersion}</span>,
+        <span title={attestation.signer}>
+          {operation?.actor.name ||
+            (attestation.signer.startsWith("person:")
+              ? attestation.signer.slice(7)
+              : "Name not recorded")}
+        </span>,
+        when(attestation.time),
+      ];
+    });
+  const currentStep = history ? 4 : merge?.allowed === true ? 3 : 1;
   return (
     <>
       <div class="chead">
         <h1>
-          {s.message || "Change"}{" "}
+          {shortText(s.message || "Change")}{" "}
           <span class="id mono">{short(c.change_id)}</span>
         </h1>
         <div class="meta">
           <Status value={status} />
-          <Who name={s.author.name} />
+          <Who
+            name={
+              status === "merged" && mergeOperation
+                ? mergeOperation.actor.name
+                : s.author.name
+            }
+          />
           <span>
-            wants to merge into <Mono>main</Mono>
+            {status === "merged"
+              ? "merged into"
+              : status === "closed"
+                ? "closed the change for"
+                : "wants to merge into"}{" "}
+            <Mono>{project.default_line ?? "main"}</Mono>
           </span>
           <label class="row">
             <span class="sr">Version</span>
@@ -399,7 +463,7 @@ export function ChangePage({
               {c.versions.map((v) => (
                 <option value={v.version}>
                   {v.version} · {when(v.state.time)} ·{" "}
-                  {v.state.message || "Automatic state"}
+                  {shortText(v.state.message || "Automatic state")}
                   {viewer?.login &&
                   v.attestations.some(
                     (a) =>
@@ -425,7 +489,7 @@ export function ChangePage({
           {section === "overview" ? (
             <>
               <Card title={<Who name={s.author.name} />}>
-                <p>{s.message || "No description recorded."}</p>
+                <p>{shortText(s.message || "No description recorded.")}</p>
               </Card>
               <Section title="Versions">
                 <ul class="tl">
@@ -439,45 +503,20 @@ export function ChangePage({
                         {short(v.state.id)}
                       </a>
                       <span class="when"> · {when(v.state.time)}</span>
-                      <p class="note">{v.state.message}</p>
+                      <p class="note">{shortText(v.state.message)}</p>
                     </li>
                   ))}
                 </ul>
               </Section>
-              <Section title="Checks">
+              <Section title="Checks and approvals">
                 <Table
-                  label="Change checks"
-                  headers={["Kind", "Subject", "Signer", "Time"]}
-                  rows={selectedChecks.map((a) => [
-                    a.kind,
-                    <Mono>{short(a.subject.id)}</Mono>,
-                    <Mono>{short(a.signer)}</Mono>,
-                    when(a.time),
-                  ])}
-                />
-                {!selectedChecks.length && (
-                  <Empty>
-                    No check attestations recorded for this version.
-                  </Empty>
-                )}
-                <p class="note">
-                  Attestations name exact states. Their payloads determine the
-                  result.
-                </p>
-              </Section>
-              <Section title="Attestations">
-                <Table
-                  headers={["Kind", "State", "Signer", "Time"]}
-                  rows={selected.attestations.map((a) => [
-                    a.kind,
-                    <Mono>{short(a.subject.id)}</Mono>,
-                    <Mono>{short(a.signer)}</Mono>,
-                    when(a.time),
-                  ])}
+                  label="Checks and approvals"
+                  headers={["Kind", "Result", "Version", "By", "Time"]}
+                  rows={evidenceRows(selected.attestations)}
                 />
               </Section>
               <Section title="Conversation">
-                <Empty>No comments recorded.</Empty>
+                <p class="note">No comments yet.</p>
               </Section>
             </>
           ) : section === "files" ? (
@@ -498,6 +537,7 @@ export function ChangePage({
                     <>
                       <button
                         type="button"
+                        disabled={!reviewed}
                         onClick={() => {
                           setQuick("Since your review");
                           setFrom("");
@@ -554,7 +594,7 @@ export function ChangePage({
                           {c.versions.map((v) => (
                             <option value={v.version}>
                               {v.version} · {when(v.state.time)} ·{" "}
-                              {v.state.message || "Automatic state"}
+                              {shortText(v.state.message || "Automatic state")}
                               {viewer?.login &&
                               v.attestations.some(
                                 (a) =>
@@ -585,7 +625,7 @@ export function ChangePage({
                           {c.versions.map((v) => (
                             <option value={v.version}>
                               {v.version} · {when(v.state.time)} ·{" "}
-                              {v.state.message || "Automatic state"}
+                              {shortText(v.state.message || "Automatic state")}
                               {viewer?.login &&
                               v.attestations.some(
                                 (a) =>
@@ -611,7 +651,7 @@ export function ChangePage({
                 {/* TODO: Add aggregate line counts when the canonical model interdiff supplies totals. */}
                 {files && !("missing" in files) && (
                   <span class="muted small">
-                    {files.files.length} files
+                    {plural(files.files.length, "file")}
                     {"compared" in files && files.compared === false
                       ? " to compare"
                       : ""}
@@ -684,14 +724,15 @@ export function ChangePage({
           ) : section === "steps" && steps.length ? (
             <>
               <div class="callout">
-                {steps.length} steps. Every step is a state you can open.
+                {plural(steps.length, "step")}. Every step is a state you can
+                open.
               </div>
               <ul class="tl">
                 {steps.map((step) => (
                   <li>
                     <span class="when">{when(step.time)}</span>{" "}
                     <b>{step.author.session}</b>
-                    <p>{step.message || "Automatic state"}</p>
+                    <p>{shortText(step.message || "Automatic state")}</p>
                     <a href={projectUrl(project.id, "state/" + step.id)}>
                       View diff
                     </a>{" "}
@@ -704,100 +745,138 @@ export function ChangePage({
             <Empty>No agent steps recorded for this change.</Empty>
           )}
         </div>
-        <aside class="side" aria-label="Merge checklist">
+        <aside
+          class="side"
+          aria-label={history ? "Change history" : "Merge checklist"}
+        >
           <section>
             <h2 class="side-title">
-              Merge into main{" "}
+              {history ? "Change history" : "Merge into main"}{" "}
               <a href={projectUrl(project.id, "settings/protection")}>Rules</a>
             </h2>
             <div class="stepper" role="list" aria-label="Merge progress">
-              {["Saved", "Checks", "Approvals", "Queue", "Merged"].map(
-                (label, i) => (
-                  <div
-                    class={`step ${i < currentStep ? "done" : i === currentStep ? "now" : ""}`}
-                    role="listitem"
-                  >
-                    <i />
-                    <span>{label}</span>
-                  </div>
-                ),
-              )}
+              {[
+                "Saved",
+                "Checks",
+                "Approvals",
+                "Queue",
+                status === "closed" ? "Closed" : "Merged",
+              ].map((label, i) => (
+                <div
+                  class={`step ${i < currentStep ? "done" : i === currentStep ? "now" : ""}`}
+                  role="listitem"
+                >
+                  <i />
+                  <span>{label}</span>
+                </div>
+              ))}
             </div>
-            <ul class="stack-s">
-              <li>✓ {c.versions.length} saved versions</li>
-              {merge ? (
-                <>
+            {history ? (
+              <div class="stack-s">
+                <p>
+                  {status === "merged" ? "Merged" : "Closed"}
+                  {mergeOperation ? (
+                    <>
+                      {" "}
+                      {when(mergeOperation.time)} by {mergeOperation.actor.name}
+                    </>
+                  ) : (
+                    ", time and name are not recorded."
+                  )}
+                </p>
+                <Table
+                  label="Historical checks and approvals"
+                  headers={["Kind", "Result", "Version", "By", "Time"]}
+                  rows={evidenceRows(
+                    latest!.attestations.filter(
+                      (a) => !mergeOperation || a.time <= mergeOperation.time,
+                    ),
+                    mergeOperation?.time,
+                  )}
+                />
+              </div>
+            ) : (
+              <>
+                <ul class="stack-s">
+                  <li>✓ {plural(c.versions.length, "saved version")}</li>
+                  {merge ? (
+                    <>
+                      <li>
+                        {merge.approvals_needed === 0 ? (
+                          <>
+                            No approval required ·{" "}
+                            {plural(
+                              merge.approvals.filter((a) => a.met === true)
+                                .length,
+                              "approval",
+                            )}{" "}
+                            on {latest!.version}
+                          </>
+                        ) : (
+                          <>
+                            {
+                              merge.approvals.filter((a) => a.met === true)
+                                .length
+                            }{" "}
+                            of {plural(merge.approvals_needed, "approval")} from{" "}
+                            {merge.approvers.join(", ") || "maintainers"} on{" "}
+                            {latest!.version}
+                          </>
+                        )}
+                      </li>
+                      {merge.checks.map((check) => (
+                        <li>
+                          <Status value={check.result} /> {check.name}
+                        </li>
+                      ))}
+                      {Object.entries(pathGroups).map(([role, paths]) => (
+                        <li>
+                          {plural(paths.length, "file")}{" "}
+                          {paths.length === 1 ? "needs" : "need"} {role}:{" "}
+                          <span class="mono">{paths.join(", ")}</span>
+                        </li>
+                      ))}
+                      {merge.path_requirements.some((p) => p.met === null) && (
+                        <li class="muted">Your role is not known here.</li>
+                      )}
+                      {merge.undecided_reasons
+                        .filter((reason) => !reason.includes("actor's role"))
+                        .map((reason) => (
+                          <li class="muted">{reason}</li>
+                        ))}
+                    </>
+                  ) : (
+                    <>
+                      <li>
+                        {plural(checks.length, "check attestation")} on{" "}
+                        {latest!.version}
+                      </li>
+                      <li>
+                        {plural(approvals.length, "approval attestation")} on{" "}
+                        {latest!.version}
+                      </li>
+                      <li class="muted">
+                        {mergeError?.message ??
+                          "Merge evaluation is not available."}
+                      </li>
+                    </>
+                  )}
                   <li>
-                    {merge.approvals.filter((a) => a.met === true).length} of{" "}
-                    {merge.approvals_needed} approvals from{" "}
-                    {merge.approvers.length
-                      ? merge.approvers.join(", ")
-                      : "maintainers"}{" "}
-                    on {latest!.version}
+                    {entry ? (
+                      <Status value={entry.status} />
+                    ) : (
+                      <span class="muted">Not in queue</span>
+                    )}
                   </li>
-                  {merge.checks.map((check) => (
-                    <li>
-                      <Status value={check.result} /> {check.name}
-                    </li>
-                  ))}
-                  {merge.path_requirements.map((path) => (
-                    <li>
-                      <span
-                        class={
-                          path.met === true
-                            ? "ok"
-                            : path.met === false
-                              ? "bad"
-                              : "muted"
-                        }
-                      >
-                        {path.met === true
-                          ? "✓"
-                          : path.met === false
-                            ? "✕"
-                            : "●"}
-                      </span>{" "}
-                      <Mono>{path.path}</Mono> → {path.role}:{" "}
-                      {path.met === null
-                        ? "role not known here"
-                        : path.met
-                          ? "met"
-                          : "not met"}
-                    </li>
-                  ))}
-                  {merge.undecided_reasons.map((reason) => (
-                    <li class="muted">{reason}</li>
-                  ))}
-                </>
-              ) : (
-                <>
-                  <li>
-                    {checks.length} check attestations on {latest!.version}
-                  </li>
-                  <li>
-                    {approvals.length} approval attestations on{" "}
-                    {latest!.version}
-                  </li>
-                  <li class="muted">
-                    {mergeError?.message ??
-                      "Merge evaluation is not available."}
-                  </li>
-                </>
-              )}
-              <li>
-                {entry ? (
-                  <Status value={entry.status} />
-                ) : (
-                  <span class="muted">Not in queue</span>
-                )}
-              </li>
-            </ul>
-            <ReadOnlyAction
-              label={status === "merged" ? "Merged" : "Merge"}
-              command={`layr queue add ${latest!.state.id}`}
-              primary
-            />
-            <p class="note">Read only here. Use the CLI command.</p>
+                </ul>
+                <ReadOnlyAction
+                  label="Merge"
+                  command={`layr queue add ${latest!.state.id}`}
+                  primary
+                />
+                <p class="note">Read only here. Use the CLI command.</p>
+              </>
+            )}
           </section>
           <section>
             <h2 class="side-title">Preview</h2>

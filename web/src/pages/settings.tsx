@@ -1,3 +1,4 @@
+import { machineLabel, personLabel } from "../labels";
 import type { DataSource, Project } from "../data/source";
 import {
   CopyRing,
@@ -20,7 +21,31 @@ const PAGES: [string, string][] = [
   ["Copies", "copies"],
 ];
 
-function Access({ project }: { project: Project }) {
+function Access({ project, source }: { project: Project; source: DataSource }) {
+  const { data: identities } = useData(async () => {
+    const [operations, machines, people] = await Promise.all([
+      source.opLog(project.id).catch(() => []),
+      source.machines().catch(() => []),
+      source.people().catch(() => []),
+    ]);
+    return { operations, machines, people };
+  }, [source, project.id]);
+  const principalName = (principal: string) => {
+    const machineId = principal.replace(/^machine:/, "");
+    const name =
+      principal.startsWith("machine:") ||
+      identities?.machines.some((machine) => machine.id === machineId)
+        ? machineLabel(machineId, identities?.machines ?? [])
+        : personLabel(principal, identities?.operations, identities?.people);
+    return (
+      <span
+        title={principal}
+        class={name.startsWith("uid ") ? "muted" : undefined}
+      >
+        {name}
+      </span>
+    );
+  };
   const access = Object.entries(project.policy?.access ?? {}).filter(
     ([, role]) => role !== "none",
   );
@@ -59,14 +84,14 @@ function Access({ project }: { project: Project }) {
             ]}
             rows={[
               ...access.map(([principal, role]) => [
-                <Mono>{principal}</Mono>,
+                principalName(principal),
                 role,
                 reads(principal),
                 "Access policy",
                 "No time limit",
               ]),
               ...grants.map(([principal, [role, until]]) => [
-                <Mono>{principal}</Mono>,
+                principalName(principal),
                 role,
                 reads(principal),
                 "Temporary grant",
@@ -360,7 +385,7 @@ export function SettingsPage({
       </nav>
       <div>
         {page === "access" ? (
-          <Access project={project} />
+          <Access project={project} source={source} />
         ) : page === "protection" ? (
           <Protection project={project} />
         ) : page === "private-files" ? (

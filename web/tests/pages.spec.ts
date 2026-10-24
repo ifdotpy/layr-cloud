@@ -55,6 +55,19 @@ for (const route of pages) {
           await testInfo.attach(`overlay-access-contrast-${view.name}`, { body: JSON.stringify(contrast, null, 2), contentType: 'application/json' });
           expect.soft(contrast.ratio, `overlay access badge (${view.name}) contrast`).toBeGreaterThanOrEqual(4.5);
         }
+        if (route.name === 'Activity') {
+          const badge = page.locator('main tbody .badge.ok').first();
+          await page.mouse.move(0, 0);
+          const normal = await measureContrast(badge);
+          await badge.hover();
+          const hover = await measureContrast(badge);
+          expect(hover.backgroundRgb, 'badge background must not change with its row').toBe(normal.backgroundRgb);
+          expect.soft(normal.ratio).toBeGreaterThanOrEqual(4.5);
+          expect.soft(hover.ratio).toBeGreaterThanOrEqual(4.5);
+          await testInfo.attach(`badge-row-contrast-${view.name}`, { body: JSON.stringify({normal, hover}, null, 2), contentType: 'application/json' });
+          await page.mouse.move(0, 0);
+          await badge.evaluate(element => { const frame = element.closest('.tbl-frame'); if (frame) frame.scrollLeft = 0; });
+        }
         const screenshot = testInfo.outputPath(`${view.name}.png`);
         await page.screenshot({
           path: screenshot,

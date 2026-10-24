@@ -1,44 +1,97 @@
-import type { ComponentChildren } from "preact";
-import { useState } from "preact/hooks";
-import type { DataSource, Overlay, Project } from "../data/source";
+import type {
+  DataSource,
+  Machine,
+  Operation,
+  Overlay,
+  Person,
+  Project,
+} from "../data/source";
 import {
   Badge,
   Cmd,
-  Dialog,
   Empty,
+  LoadError,
   Mono,
   PageHead,
+  ReadOnlyAction,
   Table,
   Who,
   bytes,
+  short,
+  useData,
   when,
-  operationName,
 } from "../components/ui";
+import {
+  machineLabel,
+  operationLabel,
+  personLabel,
+  plural,
+  shortText,
+} from "../labels";
 import { projectUrl } from "../router";
 
 type PageProps = { source: DataSource; project: Project };
+type Identities = {
+  machines: Machine[];
+  people: Person[];
+  operations: Operation[];
+};
 const readOnlyReason = "Read only here. Use the CLI command.";
 const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
-const words = (value: string) => value.split(/[\s,]+/).filter(Boolean);
 const names = (overlay: Overlay) =>
   overlay.paths ?? overlay.files?.map((file) => file.path);
-const count = (overlay: Overlay) => names(overlay)?.length;
-const fileCount = (overlay: Overlay) =>
-  count(overlay) === undefined
+const fileCount = (overlay: Overlay) => {
+  const count = names(overlay)?.length;
+  return count === undefined
     ? "File count not recorded"
-    : `${count(overlay)} ${count(overlay) === 1 ? "file" : "files"}`;
+    : plural(count, "file");
+};
 const changed = (overlay: Overlay) =>
   overlay.history?.length
     ? Math.max(...overlay.history.map((operation) => operation.time))
     : undefined;
-const kind = (principal: string) =>
-  principal.startsWith("machine:") ? "machine" : "person";
 
-function Principal({ name }: { name: string }) {
-  return kind(name) === "machine" ? (
-    <span class="ref">{name}</span>
+function useIdentities(source: DataSource, project: Project) {
+  return useData(async () => {
+    const [machines, people, operations] = await Promise.all([
+      source.machines(),
+      source.people(),
+      source.opLog(project.id),
+    ]);
+    return { machines, people, operations };
+  }, [source, project.id]);
+}
+
+function Principal({
+  name,
+  identities,
+  machine = false,
+}: {
+  name: string;
+  identities: Identities;
+  machine?: boolean;
+}) {
+  const id = name.replace(/^machine:/, "");
+  if (
+    machine ||
+    name.startsWith("machine:") ||
+    identities.machines.some((item) => item.id === id)
+  ) {
+    return (
+      <span title={name}>
+        {shortText(machineLabel(id, identities.machines))}
+      </span>
+    );
+  }
+  const label = personLabel(name, identities.operations, identities.people);
+  return label.startsWith("uid ") ? (
+    <span class="muted" title={name}>
+      {label}
+    </span>
   ) : (
-    <Who name={name.replace(/^person:/, "")} />
+    <span title={name}>
+      <Who name={shortText(label)} />
+    </span>
   );
 }
 
@@ -50,315 +103,165 @@ function Access({ overlay }: { overlay: Overlay }) {
   );
 }
 
-function PhaseTwo({
-  label,
-  danger = false,
-}: {
-  label: string;
-  danger?: boolean;
-}) {
+function WriteAction({ label, command }: { label: string; command: string }) {
   return (
     <div class="stack-s">
+      <ReadOnlyAction label={label} command={command} />
       <p class="note">{readOnlyReason}</p>
-      <button
-        class={`btn ${danger ? "danger" : "primary"}`}
-        type="button"
-        disabled
-        title={readOnlyReason}
-      >
-        {label}
-      </button>
     </div>
   );
 }
 
-function CommandDialog({
-  title,
-  open,
-  onClose,
-  children,
-  label = title,
-  danger = false,
-}: {
-  title: string;
-  open: boolean;
-  onClose: () => void;
-  children: ComponentChildren;
-  label?: string;
-  danger?: boolean;
-}) {
+function ManagerRisk({ overlay }: { overlay: Overlay }) {
+  return overlay.managers.length === 1 ? (
+    <p class="note" style={{ marginTop: 8 }}>
+      <span class="warn">
+        Only 1 key manager. If it is lost, no one can change readers.
+      </span>
+    </p>
+  ) : null;
+}
+
+function Epoch({ overlay, id }: { overlay: Overlay; id: string }) {
+  // Missing dates cannot establish a chronological epoch number.
+  const recorded = overlay.epochs ?? [];
+  const epochs = recorded.every((epoch) => epoch.time !== undefined)
+    ? [...recorded].sort((a, b) => a.time! - b.time!)
+    : [];
+  const index = epochs.findIndex((epoch) => epoch.id === id);
+  const epoch = epochs[index];
   return (
-    <Dialog title={title} open={open} onClose={onClose}>
-      {children}
-      <PhaseTwo label={label} danger={danger} />
-    </Dialog>
+    <span title={id}>
+      {index < 0 ? (
+        <>
+          epoch <Mono>{short(id)}</Mono>
+        </>
+      ) : (
+        <>
+          epoch {index + 1} · {when(epoch.time)}
+        </>
+      )}
+    </span>
   );
 }
 
-function NewOverlay({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [name, setName] = useState("");
-  const [readers, setReaders] = useState("");
-  const [patterns, setPatterns] = useState("");
-  const [hidden, setHidden] = useState(false);
-  const target = quote(name.trim() || "<name>");
-  const create = `layr overlay create ${target} --readers ${quote(words(readers).join(",") || "<readers>")}`;
-  return (
-    <CommandDialog
-      title="New overlay"
-      label="Create overlay"
-      open={open}
-      onClose={onClose}
-    >
-      <p class="muted">
-        Private files have their own history, readers and key. They travel
-        encrypted with each push.
-      </p>
-      <label class="field">
-        <span>Name</span>
-        <input
-          class="input mono"
-          value={name}
-          placeholder="Overlay name"
-          onInput={(event) => setName(event.currentTarget.value)}
-        />
-      </label>
-      <label class="field">
-        <span>Readers</span>
-        <input
-          class="input mono"
-          value={readers}
-          placeholder="Person and machine names, separated by commas"
-          onInput={(event) => setReaders(event.currentTarget.value)}
-        />
-      </label>
-      <label class="field">
-        <span>Files that belong to it</span>
-        <input
-          class="input mono"
-          value={patterns}
-          placeholder=".env*, config/*.key"
-          onInput={(event) => setPatterns(event.currentTarget.value)}
-        />
-      </label>
-      <label class="row">
-        <input
-          type="checkbox"
-          role="switch"
-          checked={hidden}
-          onChange={(event) => setHidden(event.currentTarget.checked)}
-        />
-        <span>Hidden: only its readers know it exists</span>
-      </label>
-      <p class="note">A visible overlay cannot become hidden later.</p>
-      <p class="note">
-        This machine becomes the first key manager. Add a second manager so a
-        lost laptop cannot lock the key.
-      </p>
-      <Cmd text={create + (hidden ? " --hidden" : "")} />
-      {!hidden && <Cmd text={create + " --hidden"} />}
-      <Cmd
-        text={`layr overlay route ${target} ${(words(patterns).length ? words(patterns) : ["<pattern>"]).map(quote).join(" ")}`}
-      />
-    </CommandDialog>
+export function OverlaysPage({ source, project }: PageProps) {
+  const { data: identities, error } = useIdentities(source, project);
+  if (!identities) return <LoadError error={error} />;
+  const overlays = project.overlays;
+  const showKey = overlays?.some(
+    (overlay) => overlay.readable && overlay.epoch,
   );
-}
-
-export function OverlaysPage({ project }: PageProps) {
-  const [create, setCreate] = useState(false);
+  const showChanged = overlays?.some(
+    (overlay) => overlay.readable && changed(overlay) !== undefined,
+  );
   return (
     <>
       <PageHead
         title="Overlays"
         description="Private files in this project. Each overlay has its own readers and key. Only readers see its files."
         actions={
-          <button
-            class="btn primary"
-            type="button"
-            onClick={() => setCreate(true)}
-          >
-            New overlay
-          </button>
+          <WriteAction
+            label="New overlay"
+            command="layr overlay create <name> --readers <readers>"
+          />
         }
       />
-      {project.overlays === undefined ? (
+      {overlays === undefined ? (
         <Empty>No overlay records are available.</Empty>
-      ) : !project.overlays.length ? (
+      ) : !overlays.length ? (
         <Empty>No overlays are recorded.</Empty>
       ) : (
-        <Table
-          label="Project overlays"
-          headers={[
-            "Overlay",
-            "Files",
-            "Readers",
-            "Your access",
-            "Key",
-            "Changed",
-          ]}
-          rows={project.overlays.map((overlay) => [
-            <div class="row">
-              <a
-                href={projectUrl(
-                  project.id,
-                  `overlay/${encodeURIComponent(overlay.id)}`,
-                )}
-              >
-                {overlay.name}
-              </a>
-              {overlay.hidden && <Badge kind="purple">hidden</Badge>}
-            </div>,
-            overlay.readable ? fileCount(overlay) : "Files are hidden",
-            <div class="row" style={{ gap: 6 }}>
-              {overlay.readers.length
-                ? overlay.readers.map((reader) => (
-                    <Principal key={reader} name={reader} />
-                  ))
-                : "No readers recorded"}
-            </div>,
-            <div class="row">
-              <Access overlay={overlay} />
-              {overlay.readable && overlay.managers.length === 1 && (
-                <Badge kind="warn">● 1 key manager</Badge>
-              )}
-            </div>,
-            overlay.readable ? (
-              overlay.epoch ? (
-                <Mono>epoch {overlay.epoch}</Mono>
-              ) : (
-                "Not recorded"
-              )
-            ) : (
-              "Hidden"
-            ),
-            overlay.readable ? when(changed(overlay)) : "Hidden",
-          ])}
-        />
+        <>
+          <Table
+            label="Project overlays"
+            headers={[
+              "Overlay",
+              "Files",
+              "Readers",
+              "Your access",
+              ...(showKey ? ["Key"] : []),
+              ...(showChanged ? ["Changed"] : []),
+            ]}
+            rows={overlays.map((overlay) => [
+              <div class="row">
+                <a
+                  href={projectUrl(
+                    project.id,
+                    `overlay/${encodeURIComponent(overlay.id)}`,
+                  )}
+                >
+                  {shortText(overlay.name)}
+                </a>
+                {overlay.hidden && <Badge>hidden</Badge>}
+              </div>,
+              overlay.readable ? fileCount(overlay) : "Files are hidden",
+              <div class="row" style={{ gap: 6 }}>
+                {overlay.readers.length
+                  ? overlay.readers.map((reader) => (
+                      <Principal
+                        key={reader}
+                        name={reader}
+                        identities={identities}
+                      />
+                    ))
+                  : "No readers recorded"}
+              </div>,
+              <div>
+                <div class="row">
+                  <Access overlay={overlay} />
+                  {overlay.readable && (
+                    <Badge>
+                      {plural(overlay.managers.length, "key manager")}
+                    </Badge>
+                  )}
+                </div>
+                {overlay.readable && <ManagerRisk overlay={overlay} />}
+              </div>,
+              ...(showKey
+                ? [
+                    overlay.readable ? (
+                      overlay.epoch ? (
+                        <Epoch overlay={overlay} id={overlay.epoch} />
+                      ) : (
+                        "Not recorded"
+                      )
+                    ) : (
+                      "Hidden"
+                    ),
+                  ]
+                : []),
+              ...(showChanged
+                ? [overlay.readable ? when(changed(overlay)) : "Hidden"]
+                : []),
+            ])}
+          />
+          {(!showKey || !showChanged) && (
+            <p class="note" style={{ marginTop: 8 }}>
+              {[
+                !showKey && "Key epochs are not recorded.",
+                !showChanged && "Overlay change dates are not recorded.",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            </p>
+          )}
+        </>
       )}
       <p class="footnote">
         Private overlays show their names to everyone. Only readers see their
         files. Hidden overlays appear only to their readers.
       </p>
-      <NewOverlay open={create} onClose={() => setCreate(false)} />
     </>
   );
 }
 
-function OverlayDialogs({
-  overlay,
-  action,
-  reader,
-  onClose,
-}: {
-  overlay: Overlay;
-  action: string;
-  reader: string;
-  onClose: () => void;
-}) {
-  const [addition, setAddition] = useState("");
-  const [paths, setPaths] = useState("");
-  const [manager, setManager] = useState("");
-  const target = quote(overlay.name);
-  const readersCommand = (values: string[]) =>
-    `layr overlay readers ${target}${values.length ? " " + values.map(quote).join(" ") : ""}`;
-  return (
-    <>
-      <CommandDialog
-        title="Add reader"
-        open={action === "add"}
-        onClose={onClose}
-      >
-        <label class="field">
-          <span>Person or machine</span>
-          <input
-            class="input mono"
-            value={addition}
-            placeholder="person:name or machine:name"
-            onInput={(event) => setAddition(event.currentTarget.value)}
-          />
-        </label>
-        <p class="muted">
-          At the next push, Layr seals the overlay key to the reader's key in
-          each store. No new epoch is needed.
-        </p>
-        <Cmd
-          text={readersCommand([
-            ...overlay.readers,
-            addition.trim() || "<reader>",
-          ])}
-        />
-      </CommandDialog>
-      <CommandDialog
-        title="Remove reader"
-        open={action === "remove"}
-        onClose={onClose}
-        danger
-      >
-        <p>
-          Remove <Mono>{reader}</Mono> from <Mono>{overlay.name}</Mono>.
-        </p>
-        <p>
-          The next push starts a new key epoch. The removed reader cannot open
-          data saved after that.
-        </p>
-        <div class="callout warn">
-          <b>● Already copied files stay readable to this reader.</b>
-          <p>Rotate the actual secrets, such as passwords and API keys.</p>
-        </div>
-        <Cmd
-          text={readersCommand(
-            overlay.readers.filter((value) => value !== reader),
-          )}
-        />
-      </CommandDialog>
-      <CommandDialog
-        title="Move files into this overlay"
-        label="Move"
-        open={action === "move"}
-        onClose={onClose}
-      >
-        <label class="field">
-          <span>Paths</span>
-          <input
-            class="input mono"
-            value={paths}
-            placeholder="config/sentry.dsn"
-            onInput={(event) => setPaths(event.currentTarget.value)}
-          />
-        </label>
-        <p class="muted">
-          From the next state, these files live in the overlay. Earlier states
-          keep them in shared history. Layr does not rewrite history.
-        </p>
-        <Cmd
-          text={`layr overlay move ${target} ${(words(paths).length ? words(paths) : ["<path>"]).map(quote).join(" ")}`}
-        />
-      </CommandDialog>
-      <CommandDialog
-        title="Add key manager"
-        open={action === "manager"}
-        onClose={onClose}
-      >
-        <label class="field">
-          <span>Machine</span>
-          <input
-            class="input mono"
-            value={manager}
-            placeholder="machine:name"
-            onInput={(event) => setManager(event.currentTarget.value)}
-          />
-        </label>
-        <p class="note">Only key managers change readers and the key.</p>
-        <Cmd
-          text={`layr overlay managers ${target} ${[...overlay.managers, manager.trim() || "<machine>"].map(quote).join(" ")}`}
-        />
-      </CommandDialog>
-    </>
-  );
-}
-
-export function OverlayPage({ project, id }: PageProps & { id: string }) {
-  const [action, setAction] = useState("");
-  const [reader, setReader] = useState("");
+export function OverlayPage({
+  source,
+  project,
+  id,
+}: PageProps & { id: string }) {
+  const { data: identities, error } = useIdentities(source, project);
   const overlay = project.overlays?.find(
     (item) => item.id === id || item.name === id,
   );
@@ -373,7 +276,19 @@ export function OverlayPage({ project, id }: PageProps & { id: string }) {
         </Empty>
       </>
     );
+  if (!identities) return <LoadError error={error} />;
   const paths = names(overlay);
+  const target = quote(overlay.name);
+  const showReaderKey = overlay.readers.some((principal) =>
+    overlay.reader_details?.some(
+      (item) => item.principal === principal && item.key,
+    ),
+  );
+  const showReaderSince = overlay.readers.some((principal) =>
+    overlay.reader_details?.some(
+      (item) => item.principal === principal && item.since !== undefined,
+    ),
+  );
   return (
     <>
       <p class="small" style={{ marginBottom: 8 }}>
@@ -383,23 +298,24 @@ export function OverlayPage({ project, id }: PageProps & { id: string }) {
       <PageHead
         title={
           <span class="mono" style={{ fontSize: 24 }}>
-            {overlay.name}
+            {shortText(overlay.name)}
           </span>
         }
         description={
           <>
             <Access overlay={overlay} />{" "}
-            {overlay.hidden && <Badge kind="purple">hidden</Badge>}{" "}
+            {overlay.hidden && <Badge>hidden</Badge>}{" "}
             {overlay.readable && (
               <>
-                {fileCount(overlay)} · {overlay.readers.length}{" "}
-                {overlay.readers.length === 1 ? "reader" : "readers"} ·{" "}
-                {overlay.managers.length}{" "}
-                {overlay.managers.length === 1 ? "key manager" : "key managers"}{" "}
+                {fileCount(overlay)} ·{" "}
+                {plural(overlay.readers.length, "reader")} ·{" "}
+                <Badge>{plural(overlay.managers.length, "key manager")}</Badge>{" "}
                 ·{" "}
-                {overlay.epoch
-                  ? `key epoch ${overlay.epoch}`
-                  : "Key epoch not recorded"}{" "}
+                {overlay.epoch ? (
+                  <Epoch overlay={overlay} id={overlay.epoch} />
+                ) : (
+                  "Key epoch not recorded"
+                )}{" "}
                 · <span class="stamp accent">encrypted</span>
               </>
             )}
@@ -407,9 +323,10 @@ export function OverlayPage({ project, id }: PageProps & { id: string }) {
         }
         actions={
           overlay.readable && (
-            <button class="btn" type="button" onClick={() => setAction("move")}>
-              Move files in
-            </button>
+            <WriteAction
+              label="Move files in"
+              command={`layr overlay move ${target} <path>`}
+            />
           )
         }
       />
@@ -424,32 +341,37 @@ export function OverlayPage({ project, id }: PageProps & { id: string }) {
             ) : !paths.length ? (
               <Empty>No files are recorded.</Empty>
             ) : (
-              <Table
-                label="Overlay files"
-                headers={["Path", "Last state", "Size", "Changed"]}
-                rows={paths.map((path) => {
-                  const file = overlay.files?.find(
-                    (item) => item.path === path,
-                  );
-                  return [
-                    <Mono>{path}</Mono>,
-                    file?.state ? (
-                      <a
-                        href={projectUrl(
-                          project.id,
-                          `state/${encodeURIComponent(file.state)}`,
-                        )}
-                      >
-                        <Mono>{file.state}</Mono>
-                      </a>
-                    ) : (
-                      "Not recorded"
-                    ),
-                    bytes(file?.size),
-                    "Not recorded",
-                  ];
-                })}
-              />
+              <>
+                <Table
+                  label="Overlay files"
+                  headers={["Path", "Last state", "Size"]}
+                  rows={paths.map((path) => {
+                    const file = overlay.files?.find(
+                      (item) => item.path === path,
+                    );
+                    return [
+                      <Mono>{shortText(path)}</Mono>,
+                      file?.state ? (
+                        <a
+                          href={projectUrl(
+                            project.id,
+                            `state/${encodeURIComponent(file.state)}`,
+                          )}
+                          title={file.state}
+                        >
+                          <Mono>{short(file.state)}</Mono>
+                        </a>
+                      ) : (
+                        "Not recorded"
+                      ),
+                      bytes(file?.size),
+                    ];
+                  })}
+                />
+                <p class="note" style={{ marginTop: 8 }}>
+                  File change dates are not recorded.
+                </p>
+              </>
             )}
             {overlay.readable && (
               <p class="note" style={{ marginTop: 8 }}>
@@ -457,7 +379,7 @@ export function OverlayPage({ project, id }: PageProps & { id: string }) {
                 {overlay.patterns.length
                   ? overlay.patterns.map((pattern) => (
                       <span style={{ marginRight: 8 }} key={pattern}>
-                        <Mono>{pattern}</Mono>
+                        <Mono>{shortText(pattern)}</Mono>
                       </span>
                     ))
                   : "No patterns recorded."}{" "}
@@ -471,53 +393,72 @@ export function OverlayPage({ project, id }: PageProps & { id: string }) {
               <h2>Readers</h2>
               <span class="spacer" />
               {overlay.readable && (
-                <button
-                  class="btn sm"
-                  type="button"
-                  onClick={() => setAction("add")}
-                >
-                  Add reader
-                </button>
+                <WriteAction
+                  label="Add reader"
+                  command={`layr overlay readers ${target} <current-readers> <reader>`}
+                />
               )}
             </div>
             {!overlay.readers.length ? (
               <Empty>No readers are recorded.</Empty>
             ) : (
-              <Table
-                label="Overlay readers"
-                headers={
-                  overlay.readable
-                    ? ["Reader", "Kind", "Key", "Since", "Action"]
-                    : ["Reader", "Kind"]
-                }
-                rows={overlay.readers.map((principal) => {
-                  const details = overlay.reader_details?.find(
-                    (item) => item.principal === principal,
-                  );
-                  const identity = [
-                    <Principal name={principal} />,
-                    kind(principal),
-                  ];
-                  return overlay.readable
-                    ? [
-                        ...identity,
-                        <Mono>{details?.key ?? "Not recorded"}</Mono>,
-                        when(details?.since),
-                        <button
-                          class="btn sm danger"
-                          type="button"
-                          aria-label={`Remove reader ${principal}`}
-                          onClick={() => {
-                            setReader(principal);
-                            setAction("remove");
-                          }}
-                        >
-                          Remove
-                        </button>,
-                      ]
-                    : identity;
-                })}
-              />
+              <>
+                <Table
+                  label="Overlay readers"
+                  headers={[
+                    "Reader",
+                    "Kind",
+                    ...(overlay.readable
+                      ? [
+                          ...(showReaderKey ? ["Key"] : []),
+                          ...(showReaderSince ? ["Since"] : []),
+                          "Action",
+                        ]
+                      : []),
+                  ]}
+                  rows={overlay.readers.map((principal) => {
+                    const details = overlay.reader_details?.find(
+                      (item) => item.principal === principal,
+                    );
+                    const machine =
+                      principal.startsWith("machine:") ||
+                      identities.machines.some((item) => item.id === principal);
+                    return [
+                      <Principal name={principal} identities={identities} />,
+                      machine ? "machine" : "person",
+                      ...(overlay.readable
+                        ? [
+                            ...(showReaderKey
+                              ? [
+                                  details?.key ? (
+                                    <span title={details.key}>
+                                      <Mono>{shortText(details.key)}</Mono>
+                                    </span>
+                                  ) : (
+                                    "Not recorded"
+                                  ),
+                                ]
+                              : []),
+                            ...(showReaderSince ? [when(details?.since)] : []),
+                            <WriteAction
+                              label="Remove"
+                              command={`layr overlay readers ${target} <remaining-readers>`}
+                            />,
+                          ]
+                        : []),
+                    ];
+                  })}
+                />
+                {overlay.readable && (!showReaderKey || !showReaderSince) && (
+                  <p class="note" style={{ marginTop: 8 }}>
+                    {!showReaderKey && !showReaderSince
+                      ? "Reader keys and key dates are not recorded."
+                      : !showReaderKey
+                        ? "Reader keys are not recorded."
+                        : "Reader key dates are not recorded."}
+                  </p>
+                )}
+              </>
             )}
           </section>
           {overlay.readable && (
@@ -534,15 +475,19 @@ export function OverlayPage({ project, id }: PageProps & { id: string }) {
                         class={epoch.id === overlay.epoch ? "major" : ""}
                       >
                         <b>
-                          epoch <Mono>{epoch.id}</Mono>
-                        </b>{" "}
-                        <span class="when">· {when(epoch.time)}</span>
+                          <Epoch overlay={overlay} id={epoch.id} />
+                        </b>
                         <p class="note">
-                          {epoch.reason ?? "No reason is recorded."}
+                          {shortText(epoch.reason ?? "No reason is recorded.")}
                         </p>
                         {epoch.machine && (
                           <p class="note">
-                            Machine: <Mono>{epoch.machine}</Mono>
+                            Machine:{" "}
+                            <Principal
+                              name={epoch.machine}
+                              machine
+                              identities={identities}
+                            />
                           </p>
                         )}
                       </li>
@@ -557,17 +502,21 @@ export function OverlayPage({ project, id }: PageProps & { id: string }) {
                 ) : (
                   <Table
                     label="Signed overlay operations"
-                    headers={["When", "Who", "What", "Operation", "Signature"]}
+                    headers={["When", "Who", "What", "Signature"]}
                     rows={overlay.history.map((operation) => [
                       when(operation.time),
-                      <Who name={operation.actor.name} />,
-                      <Mono>{operationName(operation.op)}</Mono>,
-                      <Mono>{operation.id}</Mono>,
-                      <span class="stamp accent">signed</span>,
+                      <Principal
+                        name={`user:${operation.actor.uid}`}
+                        identities={identities}
+                      />,
+                      <span title={`${operation.op} · ${short(operation.id)}`}>
+                        {operationLabel(operation)}
+                      </span>,
+                      <Badge kind="ok">✓ signed</Badge>,
                     ])}
                   />
                 )}
-                <Cmd text={`layr overlay log ${quote(overlay.name)}`} />
+                <Cmd text={`layr overlay log ${target}`} />
               </section>
             </>
           )}
@@ -575,46 +524,41 @@ export function OverlayPage({ project, id }: PageProps & { id: string }) {
         {overlay.readable && (
           <aside class="side">
             <section>
-              <h3>
-                Key managers <span class="spacer" />
-                <button
-                  class="btn sm"
-                  type="button"
-                  onClick={() => setAction("manager")}
-                >
-                  Add
-                </button>
-              </h3>
+              <h2 class="side-title">Key managers</h2>
+              <WriteAction
+                label="Add key manager"
+                command={`layr overlay managers ${target} <current-managers> <machine>`}
+              />
               {overlay.managers.length ? (
                 <ul>
                   {overlay.managers.map((manager) => (
                     <li key={manager}>
-                      <Mono>{manager}</Mono>
+                      <Principal
+                        name={manager}
+                        machine={!/^(person:|user:|uid:)/.test(manager)}
+                        identities={identities}
+                      />
                     </li>
                   ))}
                 </ul>
               ) : (
                 <p class="note">No key managers are recorded.</p>
               )}
-              {overlay.managers.length === 1 && (
-                <p style={{ marginTop: 8 }}>
-                  <Badge kind="warn">● 1 key manager</Badge>
-                </p>
-              )}
+              <ManagerRisk overlay={overlay} />
               <p class="note" style={{ marginTop: 8 }}>
                 Only managers change readers and the key. Other machines can
                 push data encrypted to it.
               </p>
             </section>
             <section>
-              <h3>Peers that may hold it</h3>
+              <h2 class="side-title">Peers that may hold it</h2>
               {overlay.peers === undefined ? (
                 <p class="note">No peer records are available.</p>
               ) : overlay.peers.length ? (
                 <ul>
                   {overlay.peers.map((peer) => (
                     <li key={peer}>
-                      <Mono>{peer}</Mono>
+                      <Principal name={peer} machine identities={identities} />
                     </li>
                   ))}
                 </ul>
@@ -626,16 +570,19 @@ export function OverlayPage({ project, id }: PageProps & { id: string }) {
               </p>
             </section>
             <section>
-              <h3>In stores</h3>
+              <h2 class="side-title">In stores</h2>
               {!overlay.slots?.length ? (
                 <p class="note">No store slots are recorded.</p>
               ) : (
                 <ul>
                   {overlay.slots.map((slot) => (
                     <li key={`${slot.store}/${slot.epoch}`}>
-                      <Mono>{slot.store}</Mono>
+                      <span title={slot.store}>
+                        <Mono>{shortText(slot.store)}</Mono>
+                      </span>
                       <span class="r">
-                        epoch {slot.epoch} · {slot.count} slots
+                        <Epoch overlay={overlay} id={slot.epoch} /> ·{" "}
+                        {plural(slot.count, "slot")}
                       </span>
                     </li>
                   ))}
@@ -645,15 +592,6 @@ export function OverlayPage({ project, id }: PageProps & { id: string }) {
           </aside>
         )}
       </div>
-      {overlay.readable && (
-        <OverlayDialogs
-          key={overlay.id}
-          overlay={overlay}
-          action={action}
-          reader={reader}
-          onClose={() => setAction("")}
-        />
-      )}
     </>
   );
 }

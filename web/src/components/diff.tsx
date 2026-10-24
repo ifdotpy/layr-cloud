@@ -2,6 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 import type { DataSource, FileDiff } from "../data/source";
 import { CodeText, Empty, Icon, LoadError, ToggleButtons, useData } from "./ui";
 import { textDiff } from "../text-diff";
+import { plural } from "../labels";
 /** Text arrives from DataSource. It is always escaped by Preact. */
 export function DiffFiles({
   files,
@@ -20,7 +21,7 @@ export function DiffFiles({
     <div class={`diffs ${mode === "Split" ? "split" : ""}`}>
       {toolbar && (
         <div class="row diff-toolbar">
-          <h2>{total} files changed</h2>
+          <h2>{plural(total, "file")} changed</h2>
           <span class="spacer" />
           <ToggleButtons
             label="Diff view"
@@ -43,6 +44,19 @@ export function DiffFiles({
 function DiffFile({ file, mode }: { file: FileDiff; mode: string }) {
   const [show, setShow] = useState(!file.derived);
   const lines = textDiff(file.before ?? "", file.after ?? "");
+  const modeLabel =
+    file.before_mode !== file.after_mode &&
+    (file.before_mode || file.after_mode)
+      ? !file.before_mode
+        ? "new file"
+        : !file.after_mode
+          ? "deleted"
+          : `mode ${file.before_mode.slice(-3)} → ${file.after_mode.slice(-3)}`
+      : file.before === undefined && file.after !== undefined
+        ? "new file"
+        : file.after === undefined && file.before !== undefined
+          ? "deleted"
+          : undefined;
   return (
     <div class="frame">
       <div class="fh">
@@ -50,13 +64,7 @@ function DiffFile({ file, mode }: { file: FileDiff; mode: string }) {
         {file.added !== undefined && <span class="add">+{file.added}</span>}
         {file.removed !== undefined && <span class="del">−{file.removed}</span>}
         {file.derived && <span class="badge">derived</span>}
-        {file.before_mode !== file.after_mode &&
-          (file.before_mode || file.after_mode) && (
-            <span class="muted small">
-              mode {file.before_mode ?? "absent"} →{" "}
-              {file.after_mode ?? "absent"}
-            </span>
-          )}
+        {modeLabel && <span class="muted small">{modeLabel}</span>}
         <span class="spacer" />
         {file.derived && (
           <button class="btn sm" type="button" onClick={() => setShow(!show)}>
@@ -147,7 +155,7 @@ export function DiffBrowser({
     <div class="files-grid">
       <aside class="side" aria-label="Compared files">
         <section>
-          <h2 class="side-title">{files.length} files</h2>
+          <h2 class="side-title">{plural(files.length, "file")}</h2>
           <ul>
             {files.map((file) => (
               <li>
@@ -223,7 +231,7 @@ export function InterdiffBrowser({
     <div class="files-grid">
       <aside class="side" aria-label="Compared files">
         <section>
-          <h2 class="side-title">{files.length} files</h2>
+          <h2 class="side-title">{plural(files.length, "file")}</h2>
           <ul>
             {files.map((file) => (
               <li>

@@ -166,7 +166,6 @@ export function App({
                 {project && (
                   <>
                     <a href={projectUrl(project.id, "lines")}>New line</a>
-                    <a href={projectUrl(project.id, "changes")}>New change</a>
                   </>
                 )}
                 <a href="#/people">Invite person</a>

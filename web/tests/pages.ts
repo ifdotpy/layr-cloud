@@ -47,6 +47,7 @@ const short = (id: string) => id.replaceAll('-', '').slice(0, 12);
 const route = (path: string) => `/project/${encodeURIComponent(project.id)}/${path}`;
 const main = (page: Page) => page.locator('main');
 const text = async (page: Page, value: string) => { await expect(main(page)).toContainText(value); };
+const counted = (count: number, noun: string) => `${count} ${noun}${count === 1 ? '' : 's'}`;
 const table = async (page: Page, name: string, count: number) => {
   const target = main(page).getByRole('table', { name, exact: true });
   await expect(target).toBeVisible();
@@ -63,7 +64,7 @@ export const pages: PageCase[] = [
     check: async page => {
       await expect(main(page).locator('.list > .item')).toHaveCount(projects.length);
       for (const item of projects) await text(page, item.name);
-      await text(page, `${lines.length} lines`);
+      await text(page, counted(lines.length, 'line'));
     },
   },
   {
@@ -109,9 +110,9 @@ export const pages: PageCase[] = [
       if (!rootTree) throw new Error(`Missing root tree fixture for ${mainLine.head}`);
       await table(page, 'Files', rootTree.entries.length);
       for (const entry of rootTree.entries) await text(page, entry.name);
-      await text(page, `${lines.length} lines`);
+      await text(page, counted(lines.length, 'line'));
       await text(page, `${refs.length} refs`);
-      await text(page, `${states.length} states`);
+      await text(page, counted(states.length, 'state'));
     },
   },
   {
@@ -136,11 +137,11 @@ export const pages: PageCase[] = [
     name: 'States', path: route('states'), heading: 'States',
     check: async page => {
       await expect(main(page).locator('.list > .item')).toHaveCount(states.length);
-      await text(page, `${states.length} states`);
+      await text(page, counted(states.length, 'state'));
       await text(page, states[0].message);
       await main(page).getByRole('checkbox', { name: 'Show automatic states' }).check();
       await expect(main(page).locator('.list > .item')).toHaveCount(automatic.length);
-      await text(page, `${automatic.length} states`);
+      await text(page, counted(automatic.length, 'state'));
       await main(page).getByRole('checkbox', { name: 'Show automatic states' }).uncheck();
       await expect(main(page).locator('.list > .item')).toHaveCount(states.length);
     },
@@ -173,9 +174,9 @@ for (const status of ['open', 'merged', 'closed'] as const) {
   pages.push({
     name: `Changes ${status}`, path: route(`changes${status === 'open' ? '' : '/' + status}`), heading: 'Changes',
     check: async page => {
-      await text(page, `${expected.length} changes`);
+      await text(page, counted(expected.length, 'change'));
       await expect(main(page).locator('.list > .item')).toHaveCount(expected.length);
-      for (const item of expected) await text(page, item.versions.at(-1)!.state.message);
+      for (const item of expected) await text(page, item.versions.at(-1)!.state.message.replace(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/gi, short));
       if (!expected.length) await text(page, `No ${status} changes recorded.`);
     },
   });
@@ -197,22 +198,41 @@ for (const tab of ['overview', 'files', 'behavior', 'steps']) {
     name: `Change ${tab}`, path: route(`change/${change.change_id}/${tab}`), heading: selectedVersion.state.message,
     check: async page => {
       await expect(main(page).getByRole('combobox', { name: 'Version', exact: true }).locator('option')).toHaveCount(change.versions.length);
-      await text(page, `${change.versions.length} saved versions`);
+      const historical = expectedChanges('merged').some(item => item.change_id === change.change_id);
+      const evaluation = mergeStatuses.find(value => value.state === selectedVersion.state.id && value.target === (project.default_line ?? 'main'));
+      const sidebar = main(page).getByRole('complementary', { name: historical ? 'Change history' : 'Merge checklist', exact: true });
+      await expect(sidebar).toBeVisible();
+      if (historical) {
+        await expect(sidebar.getByRole('button', { name: 'Merge', exact: true })).toHaveCount(0);
+        await expect(sidebar.getByRole('table', { name: 'Historical checks and approvals', exact: true })).toBeVisible();
+        await expect(sidebar).not.toContainText('No approval required');
+        await expect(sidebar).not.toContainText('Not in queue');
+        await expect(sidebar).not.toContainText('role not known here');
+        await expect(sidebar.getByRole('button')).toHaveCount(0);
+      } else {
+        await text(page, counted(change.versions.length, 'saved version'));
+        if (evaluation?.approvals_needed === 0) await expect(sidebar).toContainText('No approval required');
+      }
       if (tab === 'overview') {
         await expect(section(page, 'Versions').locator('li')).toHaveCount(change.versions.length);
-        await table(page, 'Change checks', selectedVersion.attestations.filter(item => item.kind === 'check').length);
-        await expect(section(page, 'Attestations').locator('tbody tr')).toHaveCount(selectedVersion.attestations.length);
-        const evaluation = mergeStatuses.find(value => value.state === selectedVersion.state.id && value.target === (project.default_line ?? 'main'));
-        if (evaluation) await text(page, `${evaluation.approvals.filter(item => item.met === true).length} of ${evaluation.approvals_needed} approvals`);
+        const evidence = await table(page, 'Checks and approvals', selectedVersion.attestations.length);
+        await expect(evidence.getByRole('columnheader')).toHaveText(['Kind', 'Result', 'Version', 'By', 'Time']);
+        await expect(main(page).getByRole('table', { name: 'Change checks', exact: true })).toHaveCount(0);
+        await expect(main(page).getByRole('heading', { name: 'Attestations', exact: true })).toHaveCount(0);
+        await expect(section(page, 'Conversation')).toContainText('No comments yet.');
+        if (!historical && evaluation && evaluation.approvals_needed > 0) {
+          await expect(sidebar).toContainText(`${evaluation.approvals.filter(item => item.met === true).length} of ${counted(evaluation.approvals_needed, 'approval')}`);
+        }
       } else if (tab === 'files') {
         const previous = change.versions.at(-2) ?? change.versions[0];
         const head = selectedVersion.state.id;
-        const reviewed = [...change.versions].reverse().find(version => you.login && version.attestations.some(
+        const reviewed = [...change.versions.slice(0, -1)].reverse().find(version => you.login && version.attestations.some(
           attestation => attestation.kind === 'approval' && attestation.signer === `person:${you.login}`));
+        const eligibleReview = !historical && reviewed;
         const inspectDiff = async (base: string, missing: string, fromVersion?: string, toVersion = selectedVersion.version) => {
           const native = interdiffs.find(value => value.change_id === change.change_id && value.from === fromVersion && value.to === toVersion);
           if (native) {
-            await expect(main(page).locator('.compare-bar')).toContainText(`${native.files.length} files`);
+            await expect(main(page).locator('.compare-bar')).toContainText(counted(native.files.length, 'file'));
             await expect(main(page).locator('.files-grid .file-link')).toHaveCount(native.files.length);
             if (!native.files.length) await text(page, 'No code changes between these versions.');
             else {
@@ -242,7 +262,7 @@ for (const tab of ['overview', 'files', 'behavior', 'steps']) {
           const captured = fixture<Diff | null>('diff', null);
           const exact = captured?.base === base && captured.head === head ? captured : undefined;
           const expectedPaths = exact ? exact.files.map(file => file.path) : changed;
-          await expect(main(page).locator('.compare-bar')).toContainText(`${expectedPaths.length} files`);
+          await expect(main(page).locator('.compare-bar')).toContainText(counted(expectedPaths.length, 'file'));
           await expect(main(page).locator('.files-grid .file-link')).toHaveCount(expectedPaths.length);
           for (const path of expectedPaths) await text(page, path);
           if (expectedPaths.length) {
@@ -269,10 +289,16 @@ for (const tab of ['overview', 'files', 'behavior', 'steps']) {
           await page.keyboard.press('Escape');
           await expect(compare).toHaveAttribute('aria-expanded', 'false');
         };
-        await expect(compare).toContainText('Changes since your review');
-        await inspectDiff(reviewed?.state.id ?? selectedVersion.state.parents[0], reviewed
-          ? `Version ${reviewed.version} is not in this store yet.` : 'The base is not in this store yet.', reviewed?.version);
+        const inspectDefault = async () => {
+          await expect(compare).toContainText(eligibleReview ? 'Changes since your review' : 'Everything in this change');
+          await inspectDiff(eligibleReview ? reviewed.state.id : selectedVersion.state.parents[0], eligibleReview
+            ? `Version ${reviewed.version} is not in this store yet.` : 'The base is not in this store yet.', eligibleReview ? reviewed.version : undefined);
+        };
+        await inspectDefault();
         await openCompare();
+        const reviewChoice = choices.getByRole('button', { name: /^Since your review/ });
+        if (eligibleReview) await expect(reviewChoice).toBeEnabled();
+        else await expect(reviewChoice).toBeDisabled();
         await choices.getByRole('button', { name: /^Only the latest update/ }).click();
         await expect(compare).toHaveAttribute('aria-expanded', 'false');
         await openCompare();
@@ -294,10 +320,9 @@ for (const tab of ['overview', 'files', 'behavior', 'steps']) {
           await inspectDiff(version.state.id, `Version ${native.from} is not in this store yet.`, native.from, native.to);
         }
         await openCompare();
-        await choices.getByRole('button', { name: /^Since your review/ }).click();
+        await choices.getByRole('button', { name: eligibleReview ? /^Since your review/ : /^Everything in this change/ }).click();
         await expect(compare).toHaveAttribute('aria-expanded', 'false');
-        await inspectDiff(reviewed?.state.id ?? selectedVersion.state.parents[0], reviewed
-          ? `Version ${reviewed.version} is not in this store yet.` : 'The base is not in this store yet.', reviewed?.version);
+        await inspectDefault();
       } else if (tab === 'behavior') {
         for (const probe of change.behavior.probes ?? []) {
           await text(page, probe.probe);
@@ -308,7 +333,7 @@ for (const tab of ['overview', 'files', 'behavior', 'steps']) {
         const steps = operations.flatMap(operation => operation.states ?? []).filter(state =>
           state.kind === 'auto' && state.author.session && (state.change_id === change.change_id || state.line === selectedVersion.state.line));
         if (steps.length) {
-          await text(page, `${steps.length} steps.`);
+          await text(page, `${counted(steps.length, 'step')}.`);
           await expect(main(page).locator('.tl > li')).toHaveCount(steps.length);
         } else await text(page, 'No agent steps recorded for this change.');
       }
@@ -381,10 +406,28 @@ pages.push(
   {
     name: 'Activity', path: route('activity'), heading: 'Activity',
     check: async page => {
-      await table(page, 'Operations', operations.length);
-      if (operations.length) await text(page, operations[0].actor.session ?? operations[0].actor.name);
-      await expect(main(page).getByRole('combobox', { name: 'Person filter' }).locator('option')).toHaveCount(new Set(operations.map(item => item.actor.name)).size + 1);
-      await expect(main(page).getByRole('combobox', { name: 'Operation filter' }).locator('option')).toHaveCount(new Set(operations.map(item => item.op)).size + 1);
+      await table(page, 'Operations', Math.min(50, operations.length));
+      const person = main(page).getByRole('combobox', { name: 'Person filter' });
+      const kind = main(page).getByRole('combobox', { name: 'Operation filter' });
+      await expect(person.locator('option')).toHaveCount(new Set(operations.map(item => item.actor.name)).size + 1);
+      await expect(kind.locator('option')).toHaveCount(new Set(operations.map(item => item.op)).size + 1);
+      const more = main(page).getByRole('button', { name: 'Show more', exact: true });
+      if (operations.length > 50) {
+        await more.click();
+        await table(page, 'Operations', Math.min(100, operations.length));
+      } else await expect(more).toHaveCount(0);
+      if (operations.length) {
+        const first = operations[0];
+        await person.selectOption(first.actor.name);
+        await table(page, 'Operations', Math.min(50, operations.filter(item => item.actor.name === first.actor.name).length));
+        await kind.selectOption(first.op);
+        await table(page, 'Operations', Math.min(50, operations.filter(item => item.actor.name === first.actor.name && item.op === first.op).length));
+        await person.selectOption('Anyone');
+        await table(page, 'Operations', Math.min(50, operations.filter(item => item.op === first.op).length));
+        await kind.selectOption('All kinds');
+      }
+      await table(page, 'Operations', Math.min(50, operations.length));
+      await expect(main(page).locator('.tl')).toHaveCount(0);
     },
   },
 );
@@ -407,7 +450,7 @@ for (const [name, path, heading, empty] of [
         const grants = Object.entries(policy.grants).filter(([, [role]]) => role !== 'none');
         if (access.length + grants.length) {
           await table(page, 'Project access', access.length + grants.length);
-          for (const [principal] of [...access, ...grants]) await text(page, principal);
+          for (const [principal] of [...access, ...grants]) await expect(main(page).getByTitle(principal, { exact: true }).first()).toBeVisible();
         } else await text(page, 'No project roles are available from the access policy.');
       }
       if (path === 'protection') {
@@ -470,7 +513,13 @@ if (overlay) pages.push({
   name: 'Overlay', path: route(`overlay/${encodeURIComponent(overlay.id)}`), heading: overlay.name,
   check: async page => {
     await table(page, 'Overlay readers', overlay.readers.length);
-    for (const reader of overlay.readers) await text(page, reader);
+    for (const reader of overlay.readers) {
+      const uid = reader.match(/^(?:user:|uid:)?(\d+)$/)?.[1];
+      const names = [...new Set(operations.filter(item => String(item.actor.uid) === uid).map(item => item.actor.name).filter(Boolean))];
+      if (uid) await text(page, names.length === 1 ? names[0] : `uid ${uid}`);
+      else if (reader.startsWith('person:')) await text(page, reader.slice(7));
+      else await expect(main(page).getByTitle(reader, { exact: true }).first()).toBeVisible();
+    }
     if (overlay.readable) {
       const paths = overlay.paths ?? overlay.files?.map(file => file.path);
       if (paths?.length) {

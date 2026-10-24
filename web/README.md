@@ -33,6 +33,8 @@ npm run test:e2e
 
 Playwright writes the page screenshots and axe reports to `web/test-results/`. These outputs are not committed. Screenshots use 1280 pixels in light and dark, and 390 pixels in light.
 
+`npm test` checks the test types before the unit tests. Run `npm run test:types` to check them separately.
+
 ## Data boundary
 
 Every page reads through `src/data/source.ts`. CLI twins retain the model JSON field names and full IDs. `FixtureSource` only reshapes JSON from the real store recipe. `ModelSource` uses the verified Rust model in a Web Worker. No secret material enters browser storage.

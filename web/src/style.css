@@ -447,12 +447,12 @@ pre.code, .md pre { background: var(--surface-2); }
 
 /* Filled status badges. */
 .badge { background: var(--surface-2); }
-.badge.ok { background: color-mix(in oklch, var(--green-900) 14%, transparent); border-color: transparent; }
-.badge.warn { background: color-mix(in oklch, var(--amber-900) 16%, transparent); border-color: transparent; }
-.badge.bad { background: color-mix(in oklch, var(--red-900) 14%, transparent); border-color: transparent; }
-.badge.purple { color: var(--purple-900); background: color-mix(in oklch, var(--purple-900) 14%, transparent); border-color: transparent; }
-.badge.blue { color: var(--blue-900); background: color-mix(in oklch, var(--blue-900) 14%, transparent); border-color: transparent; }
-.ref { background: color-mix(in oklch, var(--blue-900) 12%, transparent); color: var(--blue-900); }
+.badge.ok { background: color-mix(in srgb, var(--green-900) 14%, var(--surface)); border-color: transparent; }
+.badge.warn { background: color-mix(in srgb, var(--amber-900) 16%, var(--surface)); border-color: transparent; }
+.badge.bad { background: color-mix(in srgb, var(--red-900) 14%, var(--surface)); border-color: transparent; }
+.badge.purple { color: var(--purple-900); background: color-mix(in srgb, var(--purple-900) 14%, var(--surface)); border-color: transparent; }
+.badge.blue { color: var(--blue-900); background: color-mix(in srgb, var(--blue-900) 14%, var(--surface)); border-color: transparent; }
+.ref { background: color-mix(in srgb, var(--blue-900) 12%, var(--surface)); color: var(--blue-900); }
 .mark.open { color: var(--green-900); }
 
 /* People have colors. */

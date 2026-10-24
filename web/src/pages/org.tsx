@@ -24,6 +24,7 @@ import {
   when,
 } from "../components/ui";
 import { projectUrl } from "../router";
+import { plural } from "../labels";
 
 interface ProjectSummary {
   project: Project;
@@ -149,7 +150,7 @@ function Projects({ source }: { source: DataSource }) {
                     </span>
                     <span>
                       {lines
-                        ? `${lines.length} lines`
+                        ? plural(lines.length, "line")
                         : "Line count not available"}
                     </span>
                     <span>

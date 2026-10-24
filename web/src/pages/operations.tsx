@@ -1,6 +1,20 @@
 import { useState } from "preact/hooks";
-import type { DataSource, Project, Operation, Behavior } from "../data/source";
+import type {
+  DataSource,
+  Project,
+  Operation,
+  Behavior,
+  Line,
+} from "../data/source";
 import { projectUrl } from "../router";
+import {
+  machineLabel,
+  object,
+  operationLabel,
+  personLabel,
+  plural,
+  shortText,
+} from "../labels";
 import {
   Badge,
   Card,
@@ -20,7 +34,6 @@ import {
   short,
   useData,
   when,
-  operationName,
 } from "../components/ui";
 import { BehaviorCards } from "../components/behavior";
 
@@ -456,18 +469,41 @@ export function DeployPage({
     </>
   );
 }
-function operationTarget(op: Operation) {
-  const lines = Object.values(op.lines ?? {});
-  return (
-    lines
-      .map(
-        (l) =>
-          `${l.after?.name ?? l.before?.name ?? ""} → ${short(l.after?.head)}`,
-      )
+function operationTarget(op: Operation, lines: Line[]) {
+  if (op.op === "config") return "";
+  const recorded =
+    Object.values(op.lines ?? {})
+      .map((change) => {
+        const line = change.after ?? change.before;
+        return line ? `${shortText(line.name)} ${short(line.head)}` : "";
+      })
+      .filter(Boolean)
       .join(", ") ||
-    op.states?.map((s) => short(s.id)).join(", ") ||
-    short(op.project)
-  );
+    op.states
+      ?.map((state) => {
+        const line = lines.find((line) => line.id === state.line);
+        return [line && shortText(line.name), short(state.id)]
+          .filter(Boolean)
+          .join(" ");
+      })
+      .join(", ");
+  if (recorded) return recorded;
+  const data = object(op.data),
+    queueChange = object(data.queue_change),
+    queue = object(queueChange.after ?? queueChange.before),
+    refChange = object(data.ref_change),
+    ref = object(refChange.after ?? refChange.before),
+    subject = object(object(data.attestation).subject),
+    state =
+      queue.state ??
+      data.state ??
+      (subject.kind === "state" ? subject.id : undefined) ??
+      ref.target,
+    line = lines.find((line) => line.id === (queue.target_line ?? data.line)),
+    name = line?.name ?? (typeof queue.into === "string" ? queue.into : "");
+  return [shortText(name), typeof state === "string" ? short(state) : ""]
+    .filter(Boolean)
+    .join(" ");
 }
 export function ActivityPage({
   source,
@@ -477,14 +513,19 @@ export function ActivityPage({
   project: Project;
 }) {
   const [person, setPerson] = useState("Anyone"),
-    [kind, setKind] = useState("All kinds");
+    [kind, setKind] = useState("All kinds"),
+    [limit, setLimit] = useState(50);
   const { data, error } = useData(async () => {
-    const [operations, refs, copies] = await Promise.all([
-      source.opLog(project.id),
-      source.refs(project.id),
-      source.copies(project.id),
-    ]);
-    return { operations, refs, copies };
+    const [operations, refs, copies, machines, people, lines] =
+      await Promise.all([
+        source.opLog(project.id),
+        source.refs(project.id),
+        source.copies(project.id),
+        source.machines(),
+        source.people(),
+        source.lines(project.id),
+      ]);
+    return { operations, refs, copies, machines, people, lines };
   }, [source, project.id]);
   if (!data) return <LoadError error={error} />;
   const operations = data.operations.filter(
@@ -521,7 +562,12 @@ export function ActivityPage({
   ];
   const agents = lastHour.filter((o) => o.actor.session),
     people = lastHour.filter((o) => !o.actor.session),
-    machines = new Set(lastHour.map((o) => o.machine));
+    machines = new Set(lastHour.map((o) => o.machine)),
+    agentCount = new Set(agents.map((o) => o.actor.session)).size,
+    personCount = new Set(people.map((o) => o.actor.uid)).size,
+    environmentCount = data.refs.filter((r) =>
+      r.name.startsWith("env/"),
+    ).length;
   return (
     <div class="stack">
       <PageHead
@@ -533,22 +579,30 @@ export function ActivityPage({
           class="input"
           aria-label="Person filter"
           value={person}
-          onChange={(e) => setPerson(e.currentTarget.value)}
+          onChange={(e) => {
+            setPerson(e.currentTarget.value);
+            setLimit(50);
+          }}
         >
           <option>Anyone</option>
           {[...new Set(data.operations.map((o) => o.actor.name))].map((p) => (
-            <option>{p}</option>
+            <option value={p}>{shortText(p)}</option>
           ))}
         </select>
         <select
           class="input"
           aria-label="Operation filter"
           value={kind}
-          onChange={(e) => setKind(e.currentTarget.value)}
+          onChange={(e) => {
+            setKind(e.currentTarget.value);
+            setLimit(50);
+          }}
         >
           <option>All kinds</option>
           {[...new Set(data.operations.map((o) => o.op))].map((k) => (
-            <option value={k}>{operationName(k)}</option>
+            <option value={k} title={k}>
+              {operationLabel(k)}
+            </option>
           ))}
         </select>
       </div>
@@ -570,52 +624,38 @@ export function ActivityPage({
           <div class="bd">
             <Pulse
               sources={[
-                [
-                  `${new Set(agents.map((o) => o.actor.session)).size} agents`,
-                  agents.length,
-                ],
-                [
-                  `${new Set(people.map((o) => o.actor.name)).size} people`,
-                  people.length,
-                ],
-                [`${machines.size} machines`, lastHour.length],
+                {
+                  name: plural(agentCount, "agent"),
+                  count: agentCount,
+                  rate: agents.length,
+                },
+                {
+                  name: plural(personCount, "person", "people"),
+                  count: personCount,
+                  rate: people.length,
+                },
+                {
+                  name: plural(machines.size, "machine"),
+                  count: machines.size,
+                  rate: lastHour.length,
+                },
               ]}
               targets={[
-                [
-                  `${data.refs.filter((r) => r.name.startsWith("env/")).length} environments`,
-                  lastHour.filter((o) => o.op === "ref.set").length,
-                ],
-                [
-                  `${data.copies.length} copies`,
-                  lastHour.filter((o) => o.op === "push" || o.op === "sync")
-                    .length,
-                ],
+                {
+                  name: plural(environmentCount, "environment"),
+                  count: environmentCount,
+                  rate: lastHour.filter((o) => o.op === "ref.set").length,
+                },
+                {
+                  name: plural(data.copies.length, "copy", "copies"),
+                  count: data.copies.length,
+                  rate: lastHour.filter(
+                    (o) => o.op === "push" || o.op === "sync",
+                  ).length,
+                },
               ]}
             />
             <p class="note">Flow rate uses operations from the last hour.</p>
-          </div>
-          <div class="feed">
-            {operations.slice(0, 5).map((op) => (
-              <div class="feed-row">
-                <span class="muted small mono">
-                  {new Date(op.time).toISOString().slice(11, 16)}
-                </span>
-                <span>
-                  {op.actor.session ?? op.actor.name} {operationName(op.op)}{" "}
-                  {operationTarget(op)}
-                </span>
-                <span class="muted small mono">{short(op.id)}</span>
-                <span class="feed-stamp">
-                  <span class={`stamp ${op.op === "merge" ? "purple" : ""}`}>
-                    {op.op === "merge"
-                      ? "merged"
-                      : op.op === "push"
-                        ? "encrypted"
-                        : "signed"}
-                  </span>
-                </span>
-              </div>
-            ))}
           </div>
         </div>
       ) : (
@@ -632,26 +672,47 @@ export function ActivityPage({
             "Time",
             "Signature",
           ]}
-          rows={operations.map((op) => [
-            <Mono>{operationName(op.op)}</Mono>,
-            <Who name={op.actor.session ?? op.actor.name} />,
-            <Mono>{short(op.machine)}</Mono>,
-            <Mono>{operationTarget(op)}</Mono>,
-            when(op.time),
-            <Badge kind="ok">✓ signed</Badge>,
-          ])}
+          rows={operations.slice(0, limit).map((op) => {
+            const actor = shortText(
+              op.actor.session ??
+                personLabel(String(op.actor.uid), data.operations, data.people),
+            );
+            return [
+              <span title={op.op}>{operationLabel(op)}</span>,
+              actor.startsWith("uid ") ? (
+                <span class="muted">{actor}</span>
+              ) : (
+                <Who name={actor} />
+              ),
+              <span title={short(op.machine)}>{machineLabel(op.machine, data.machines)}</span>,
+              <Mono>{operationTarget(op, data.lines)}</Mono>,
+              when(op.time),
+              <Badge kind="ok">✓ signed</Badge>,
+            ];
+          })}
         />
+        {operations.length > limit && (
+          <button
+            class="btn"
+            type="button"
+            onClick={() => setLimit(limit + 50)}
+          >
+            Show more
+          </button>
+        )}
         <Cmd text="layr op log" />
       </Section>
     </div>
   );
 }
+type FlowNode = { name: string; count: number; rate: number };
+
 function Pulse({
   sources,
   targets,
 }: {
-  sources: [string, number][];
-  targets: [string, number][];
+  sources: FlowNode[];
+  targets: FlowNode[];
 }) {
   return (
     <svg
@@ -660,40 +721,42 @@ function Pulse({
       role="img"
       aria-label="Operations flow through the queue into main, then to environments and copies"
     >
-      {sources.map(([name, rate], i) => {
-        const y = 50 + i * 70,
-          id = "pulse-source-" + i;
-        return (
-          <g>
-            <path
-              id={id}
-              d={`M220,${y} C320,${y} 280,120 364,120`}
-              class="flow"
-            />
-            {rate > 0 && (
-              <circle r="3" class="dot">
-                <animateMotion
-                  dur={`${Math.max(1, 10 / rate)}s`}
-                  repeatCount="indefinite"
-                >
-                  <mpath href={"#" + id} />
-                </animateMotion>
-              </circle>
-            )}
-            <rect
-              x="80"
-              y={y - 15}
-              width="140"
-              height="30"
-              rx="6"
-              class="node"
-            />
-            <text x="150" y={y + 4} text-anchor="middle">
-              {name}
-            </text>
-          </g>
-        );
-      })}
+      {sources
+        .filter((node) => node.count > 0)
+        .map(({ name, rate }, i) => {
+          const y = 50 + i * 70,
+            id = "pulse-source-" + i;
+          return (
+            <g>
+              <path
+                id={id}
+                d={`M220,${y} C320,${y} 280,120 364,120`}
+                class="flow"
+              />
+              {rate > 0 && (
+                <circle r="3" class="dot">
+                  <animateMotion
+                    dur={`${Math.max(1, 10 / rate)}s`}
+                    repeatCount="indefinite"
+                  >
+                    <mpath href={"#" + id} />
+                  </animateMotion>
+                </circle>
+              )}
+              <rect
+                x="80"
+                y={y - 15}
+                width="140"
+                height="30"
+                rx="6"
+                class="node"
+              />
+              <text x="150" y={y + 4} text-anchor="middle">
+                {name}
+              </text>
+            </g>
+          );
+        })}
       <circle cx="410" cy="120" r="58" class="halo" />
       <circle cx="410" cy="120" r="44" class="hub" />
       <text x="410" y="118" text-anchor="middle" class="hub-t">
@@ -702,40 +765,42 @@ function Pulse({
       <text x="410" y="134" text-anchor="middle" class="hub-s">
         via queue
       </text>
-      {targets.map(([name, rate], i) => {
-        const y = 70 + i * 100,
-          id = "pulse-target-" + i;
-        return (
-          <g>
-            <path
-              id={id}
-              d={`M456,120 C540,120 500,${y} 600,${y}`}
-              class="flow"
-            />
-            {rate > 0 && (
-              <circle r="3" class="dot out">
-                <animateMotion
-                  dur={`${Math.max(1, 10 / rate)}s`}
-                  repeatCount="indefinite"
-                >
-                  <mpath href={"#" + id} />
-                </animateMotion>
-              </circle>
-            )}
-            <rect
-              x="600"
-              y={y - 15}
-              width="140"
-              height="30"
-              rx="6"
-              class="node"
-            />
-            <text x="670" y={y + 4} text-anchor="middle">
-              {name}
-            </text>
-          </g>
-        );
-      })}
+      {targets
+        .filter((node) => node.count > 0)
+        .map(({ name, rate }, i) => {
+          const y = 70 + i * 100,
+            id = "pulse-target-" + i;
+          return (
+            <g>
+              <path
+                id={id}
+                d={`M456,120 C540,120 500,${y} 600,${y}`}
+                class="flow"
+              />
+              {rate > 0 && (
+                <circle r="3" class="dot out">
+                  <animateMotion
+                    dur={`${Math.max(1, 10 / rate)}s`}
+                    repeatCount="indefinite"
+                  >
+                    <mpath href={"#" + id} />
+                  </animateMotion>
+                </circle>
+              )}
+              <rect
+                x="600"
+                y={y - 15}
+                width="140"
+                height="30"
+                rx="6"
+                class="node"
+              />
+              <text x="670" y={y + 4} text-anchor="middle">
+                {name}
+              </text>
+            </g>
+          );
+        })}
     </svg>
   );
 }

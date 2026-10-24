@@ -1,15 +1,8 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { operationLabel, plural } from "../labels";
 
-export const operationName = (op: string) =>
-  op
-    .replace(/^commit(?=\.|$)/, "save")
-    .replace(/^snapshot(?=\.|$)/, "auto save")
-    .replace(/^stash(?=\.|$)/, "park")
-    .replace(/^rebase(?=\.|$)/, "replay")
-    .replace(/^cherry-pick(?=\.|$)/, "pick")
-    .replace(/^revert(?=\.|$)/, "invert")
-    .replaceAll(".", " ");
+export const operationName = operationLabel;
 export const short = (id?: string) =>
   id ? id.replaceAll("-", "").slice(0, 12) : "Unknown";
 export const when = (time?: number) =>
@@ -441,7 +434,7 @@ export function CopyRing({ copy }: { copy: import("../data/source").Copy }) {
         class="ring"
         viewBox="0 0 84 84"
         role="img"
-        aria-label={`${have} of ${total} states`}
+        aria-label={`${have} of ${plural(total, "state")}`}
       >
         <circle cx="42" cy="42" r="34" class="ring-bg" />
         <circle
@@ -466,7 +459,7 @@ export function CopyRing({ copy }: { copy: import("../data/source").Copy }) {
             <span class="stamp green">complete</span>
           ) : (
             <span class="muted small">
-              {Math.max(0, total - have)} states not here yet
+              {plural(Math.max(0, total - have), "state")} not here yet
             </span>
           )}
         </div>

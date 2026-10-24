@@ -10,7 +10,12 @@
     "test": "tsx --test tests/*.test.ts",
     "test:e2e": "playwright test",
     "build:wasm": "node scripts/build-model-wasm.mjs",
-    "prebuild": "npm run build:wasm"
+    "prebuild": "npm run build:wasm",
+    "test:types": "tsc -p tests/tsconfig.json",
+    "pretest": "npm run test:types"
+  },
+  "overrides": {
+    "playwright-core": "1.56.1"
   },
   "dependencies": {
     "preact": "10.27.2"
@@ -18,6 +23,7 @@
   "devDependencies": {
     "@axe-core/playwright": "4.10.2",
     "@playwright/test": "1.56.1",
+    "@types/node": "22.18.12",
     "tsx": "4.20.6",
     "typescript": "5.9.3",
     "vite": "7.1.12"
