@@ -37,6 +37,7 @@ function EvidenceTable({
   rows: EvidenceRow[];
 }) {
   const [expanded, setExpanded] = useState(false);
+  if (!rows.length) return <Empty>No attestations recorded for this state.</Empty>;
   const active = rows.filter((row) => !row.revoked);
   const revoked = rows.filter((row) => row.revoked);
   const headers = ["Kind", "Result", "Version", "By", "Time"];
@@ -760,7 +761,7 @@ export function ChangePage({
               </h2>
               <BehaviorCards behavior={c.behavior} screens={screens} />
               {screensError && (
-                <Empty>UI diffs are not available in the browser yet.</Empty>
+                <Empty>UI diffs could not be loaded: {screensError}</Empty>
               )}
             </>
           ) : section === "steps" && steps.length ? (

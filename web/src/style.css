@@ -586,3 +586,8 @@ html:not(.cli) .cmd { display: inline-flex; margin-right: 10px; }
 .history-evidence td { white-space: nowrap; }
 .evidence-table details { margin-top: 8px; }
 .evidence-table summary { color: var(--text-2); cursor: pointer; font-size: 13px; }
+
+.vd-stack img { width: 100%; height: auto; image-rendering: auto; }
+.vd-side img { height: auto; }
+.structure-diff { max-width: 100%; overflow: auto; white-space: pre; }
+.diff-regions .structure-region { fill: transparent; stroke: var(--blue-900); stroke-dasharray: 2 2; }

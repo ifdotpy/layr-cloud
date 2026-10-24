@@ -70,8 +70,8 @@ export function ChecksPage({
     if (behavior && b && h)
       try {
         screens = await source.screens(project.id, b, h);
-      } catch {
-        screensError = "UI diffs are not available in the browser yet.";
+      } catch (error) {
+        screensError = error instanceof Error ? error.message : String(error);
       }
     return { states, b, h, comparison, comparisonError, screens, screensError };
   }, [source, project.id, behavior, pair?.join()]);

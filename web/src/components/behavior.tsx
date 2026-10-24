@@ -11,7 +11,7 @@ import {
   ToggleButtons,
   short,
 } from "./ui";
-import { DiffFiles } from "./diff";
+import { plural } from "../labels";
 
 const object = (value: Json | undefined): Record<string, Json> =>
   value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -52,7 +52,7 @@ export function BehaviorCards({
     <div class="stack">
       {behavior.reason && <div class="callout">{behavior.reason}</div>}
       {screens.length > 0 && <VisualDiff screens={screens} />}{" "}
-      {(behavior.probes ?? []).map((p) => (
+      {(behavior.probes ?? []).filter((p) => !screens.some((s) => s.probe === p.probe)).map((p) => (
         <ProbeCard key={p.probe} probe={p} behavior={behavior} />
       ))}
       {!behavior.probes?.length && <Empty>No probe results recorded.</Empty>}
@@ -156,153 +156,58 @@ export function VisualDiff({ screens }: { screens: ScreenDiff[] }) {
   const [index, setIndex] = useState(0),
     [mode, setMode] = useState("Side by side"),
     [range, setRange] = useState(50);
-  const s = screens[index],
-    modes = ["Side by side", "Swipe", "Onion skin", "Difference", "Structure"];
+  const s = screens[Math.min(index, screens.length - 1)];
+  if (!s) return null;
+  const modes = ["Side by side", "Swipe", "Onion skin", "Difference", "Structure"];
+  const width = Math.max(s.before?.width ?? 0, s.after?.width ?? 0),
+    height = Math.max(s.before?.height ?? 0, s.after?.height ?? 0);
+  const both = Boolean(s.base_url && s.head_url);
+  const image = (side: "base" | "head") => {
+    const url = side === "base" ? s.base_url : s.head_url;
+    const dimensions = side === "base" ? s.before : s.after;
+    return url && dimensions ? <img src={url} alt={`${side === "base" ? "Base" : "Head"} screen of ${s.name}`} width={dimensions.width} height={dimensions.height} />
+      : <p class="note">No {side} PNG captured.</p>;
+  };
   return (
-    <Card
-      title="UI diffs"
-      actions={
-        <Badge>
-          {screens.filter((s) => s.changed_share > 0).length} of{" "}
-          {screens.length} screens changed
-        </Badge>
-      }
-    >
+    <Card title="UI diffs" actions={<Badge>{screens.filter((s) => s.changed).length} of {plural(screens.length, "screen")} changed</Badge>}>
       <div class="vd">
         <aside class="side vd-list" aria-label="UI differences">
-          <section>
-            <h3>Screens</h3>
-            <ul>
-              {screens.map((screen, i) => (
-                <li>
-                  <button
-                    class="btn ghost sm"
-                    type="button"
-                    aria-pressed={index === i}
-                    onClick={() => setIndex(i)}
-                  >
-                    {screen.route}
-                  </button>
-                  <span class="r">
-                    {screen.width} × {screen.height} ·{" "}
-                    {(screen.changed_share * 100).toFixed(1)}% of pixels
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
+          <section><h3>Screens</h3><ul>
+            {screens.map((screen, i) => (
+              <li key={`${screen.probe}:${screen.path}`}>
+                <button class="btn ghost sm" type="button" aria-pressed={index === i} onClick={() => setIndex(i)}>{screen.name}</button>
+                <span class="r">{screen.changed_share === null ? "Structure only" : `${(screen.changed_share * 100).toFixed(1)}% of pixels`} · {screen.changed ? "changed" : "unchanged"}</span>
+              </li>
+            ))}
+          </ul></section>
         </aside>
         <div class="vd-main">
-          <div class="row">
-            <b class="mono">{s.route}</b>
-            <span class="spacer" />
-            <ToggleButtons
-              label="UI diff view"
-              items={modes}
-              value={mode}
-              onChange={setMode}
-            />
+          <div class="row"><b class="mono">{s.name}</b><span class="spacer" />
+            <ToggleButtons label="UI diff view" items={modes} value={mode} onChange={setMode} />
           </div>
           {mode === "Structure" ? (
-            s.structure ? (
-              <div class="stack-s">
-                <p>{s.structure.summary}</p>
-                <DiffFiles
-                  files={[
-                    {
-                      path: s.name + ".html",
-                      before: s.structure.before,
-                      after: s.structure.after,
-                      added: s.structure.after.split("\n").length,
-                      removed: s.structure.before.split("\n").length,
-                    },
-                  ]}
-                />
+            s.structure_available ? <div class="stack-s">
+              <p>{plural(s.elements_added, "element")} added · {plural(s.elements_removed, "element")} removed · {plural(s.text_changes, "text change")}</p>
+              {s.structure_diff ? <pre class="code structure-diff" tabIndex={0} role="region" aria-label={`Structure diff of ${s.name}`}>{s.structure_diff.split("\n").map((line, i) => <div key={i} class={line.startsWith("+") ? "add" : line.startsWith("-") ? "del" : ""}>{line || " "}</div>)}</pre>
+                : <p class="note">No structure changes.</p>}
+              {s.structure_regions.length > 0 && <p class="note">{plural(s.structure_regions.length, "changed node")} outlined in Difference.</p>}
+            </div> : <Empty>No structure captured for this screen.</Empty>
+          ) : !s.base_url && !s.head_url ? <Empty>No PNG captured. Open Structure to review this screen.</Empty>
+            : mode === "Side by side" || !both ? <div class="vd-side">
+              <figure><figcaption>base</figcaption>{image("base")}</figure>
+              <figure><figcaption>head</figcaption>{image("head")}</figure>
+            </div> : <>
+              <div class="vd-stack" style={{aspectRatio: `${width} / ${height}`}}>
+                <img src={mode === "Difference" ? s.head_url : s.base_url} class={mode === "Difference" ? "dim-screen" : ""} alt={`${mode === "Difference" ? "Head" : "Base"} screen of ${s.name}`} width={width} height={height} />
+                {mode !== "Difference" ? <img class="vd-top" style={mode === "Swipe" ? {clipPath: `inset(0 0 0 ${range}%)`} : {opacity: range / 100}} src={s.head_url} alt={`Head screen of ${s.name}`} width={width} height={height} />
+                  : <svg class="vd-top diff-regions" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${plural(s.regions.length, "changed pixel region")}, ${plural(s.structure_regions.length, "changed node")}`}>
+                    {s.regions.map((r) => <rect x={r.x} y={r.y} width={r.width} height={r.height} />)}
+                    {s.structure_regions.map((r) => <rect class="structure-region" x={r.x} y={r.y} width={r.width} height={r.height}><title>{r.change}</title></rect>)}
+                  </svg>}
               </div>
-            ) : (
-              <Empty>No structure captured for this screen.</Empty>
-            )
-          ) : mode === "Side by side" ? (
-            <div class="vd-side">
-              <figure>
-                <figcaption>base</figcaption>
-                <img
-                  src={s.base_url}
-                  alt={`Base screen of ${s.route}`}
-                  width={s.width}
-                  height={s.height}
-                />
-              </figure>
-              <figure>
-                <figcaption>head</figcaption>
-                <img
-                  src={s.head_url}
-                  alt={`Head screen of ${s.route}`}
-                  width={s.width}
-                  height={s.height}
-                />
-              </figure>
-            </div>
-          ) : (
-            <>
-              <div class="vd-stack">
-                <img
-                  src={mode === "Difference" ? s.head_url : s.base_url}
-                  class={mode === "Difference" ? "dim-screen" : ""}
-                  alt={`Base screen of ${s.route}`}
-                  width={s.width}
-                  height={s.height}
-                />
-                {mode !== "Difference" ? (
-                  <img
-                    class="vd-top"
-                    style={
-                      mode === "Swipe"
-                        ? { clipPath: `inset(0 0 0 ${range}%)` }
-                        : { opacity: range / 100 }
-                    }
-                    src={s.head_url}
-                    alt={`Head screen of ${s.route}`}
-                    width={s.width}
-                    height={s.height}
-                  />
-                ) : (
-                  <svg
-                    class="vd-top diff-regions"
-                    viewBox={`0 0 ${s.width} ${s.height}`}
-                    role="img"
-                    aria-label={`${s.regions.length} changed regions`}
-                  >
-                    {s.regions.map((r) => (
-                      <rect x={r.x} y={r.y} width={r.width} height={r.height} />
-                    ))}
-                  </svg>
-                )}
-              </div>
-              {mode !== "Difference" && (
-                <label class="vd-range">
-                  base
-                  <input
-                    type="range"
-                    aria-label={
-                      mode === "Swipe" ? "Swipe position" : "Head opacity"
-                    }
-                    min="0"
-                    max="100"
-                    value={range}
-                    onInput={(e) => setRange(Number(e.currentTarget.value))}
-                  />
-                  head
-                </label>
-              )}
-              {mode === "Difference" && (
-                <p class="note">
-                  {s.regions.length} changed regions. Unchanged pixels are
-                  dimmed.
-                </p>
-              )}
-            </>
-          )}
+              {mode !== "Difference" ? <label class="vd-range">base<input type="range" aria-label={mode === "Swipe" ? "Swipe position" : "Head opacity"} min="0" max="100" value={range} onInput={(e) => setRange(Number(e.currentTarget.value))} />head</label>
+                : <p class="note">{plural(s.regions.length, "changed pixel region")}. {plural(s.structure_regions.length, "changed node")}. The stored head is dimmed behind the outlines.</p>}
+            </>}
         </div>
       </div>
     </Card>
