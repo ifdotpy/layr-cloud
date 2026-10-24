@@ -627,6 +627,9 @@ impl Session {
         Ok(files)
     }
 }
+// TODO(cli-overlay-json): replace this adapter with the shared layr-model epoch
+// function after that branch merges. Its canonical record order may differ from
+// this temporary sequence-based numbering; keep CLI and browser on one function.
 // A key can be republished (for reader additions or another store). Number distinct
 // identities in signed sequence order; wall-clock skew never changes their ordinal.
 fn key_epochs(records: &[Record]) -> Vec<Value> {
