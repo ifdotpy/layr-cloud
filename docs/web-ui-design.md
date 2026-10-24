@@ -110,3 +110,25 @@ A store with more than 100 000 records shows lines and refs first and loads hist
 
 Steps 1 and 2 run in parallel. Step 3 starts when step 1 has the model API, using its golden
 stores as fixtures.
+
+## 9. Contract between the data layer and the pages (lead, 2026-10-24)
+
+The site has two parts with one contract:
+
+- **Data layer** (`crates/layr-web` + `web/src/data/`): unlock, gateway fetch, verification, the
+  `layr-model` read model in a Web Worker. It implements the TypeScript interface `DataSource`
+  in `web/src/data/source.ts`.
+- **Pages** (`web/src/pages/`): Preact components that only call `DataSource`. They never fetch,
+  decrypt or parse records themselves.
+
+`DataSource` methods return the JSON shapes of the CLI's `--json` output (the golden test t37
+proves `layr-model` gives the same shapes): `lines(project)` = `layr line list --json`,
+`log(project, line, {auto})` = `layr log --json`, `changeShow(project, id)` = `layr change show
+--json`, `refs`, `refLog`, `queue`, `attestations`, `opLog`, `probeDiff` likewise. Additional
+methods without a CLI twin: `projects()`, `tree(project, state, path)`, `file(project, state,
+path)`, `diff(project, a, b, path?)`, `copies(project)`, `people()`, `machines()`, `stores()`,
+`you()`. Their shapes are defined in `source.ts` with comments.
+
+The pages are developed against `FixtureSource`, which reads JSON files produced by the golden
+fixture (`cargo run -p layr-model --example store_golden`), so pages show real Layr data from
+the first day. `ModelSource` (the Worker) replaces it without page changes.
