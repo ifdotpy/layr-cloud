@@ -1,9 +1,10 @@
 # Layr Cloud on AWS
 
 These templates deploy a project store, a gateway, and an executor on Amazon Web Services (AWS).
-The gateway and executor use the same `layr` release binary.
+The gateway runs `layr-gateway`.
+The executor runs `layr`.
 No command in this runbook requires Node.js.
-The [Cloud design](../../docs/cloud-design.md) defines the contracts.
+The [gateway README](../../README.md#store-gateway) describes the server contract.
 
 | File | Resources |
 | --- | --- |
@@ -44,7 +45,7 @@ See the [AWS conditional-write policy reference](https://docs.aws.amazon.com/Ama
 ## Requirements
 
 - AWS CLI v2 with a deployment profile and permission to create the template resources.
-- `jq`, Python 3, `tar`, and a static Linux ARM64 `layr` binary.
+- `jq`, Python 3, `tar`, and static Linux ARM64 binaries for `layr-gateway` and `layr`.
 - A Debian 13 ARM64 Amazon Machine Image (AMI) with cloud-init and IPv6 support.
 - A tailnet with MagicDNS, HTTPS certificates, Tailscale SSH, and the tags below.
 - A project with a store remote and a machine slot for each executor.
@@ -465,7 +466,7 @@ Restart `layr.service` after any registry listener or user change.
 
 ## Upgrade and recover
 
-Publish a new archive and both release manifests with the release commands above.
+Publish each new archive and its release manifest with the release commands above.
 The host checks its manifest every five minutes.
 It switches the release symlink only after the digest and archive checks pass.
 It retains the current release and one previous release.
@@ -555,5 +556,5 @@ orb -m layr-dev -u root bash -lc \
 Install `python3-venv` in the VM first if its Python installation lacks `ensurepip`.
 The volume tests create temporary loop devices and test btrfs mounts as root.
 They reject ext4 and preserve data across repeat mounts.
-The release tests use synthetic ELF headers. They do not execute the `layr` binary.
+The release tests use synthetic ELF headers. They do not execute either release binary.
 A template lint result does not prove AWS deployment, first boot, or a live gateway request.
