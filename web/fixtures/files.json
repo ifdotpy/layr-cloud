@@ -2,1273 +2,1486 @@
   {
     "path": ".gitignore",
     "size": 5,
-    "state": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5",
+    "state": "01a16e74-cff3-7561-8dc7-b249781d7bed",
     "text": "out/\n"
   },
   {
     "path": "data.bin",
     "size": 8,
-    "state": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5"
+    "state": "01a16e74-cff3-7561-8dc7-b249781d7bed"
   },
   {
     "path": "docs/guide.txt",
     "size": 32,
-    "state": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5",
+    "state": "01a16e74-cff3-7561-8dc7-b249781d7bed",
     "text": "Guide from the encrypted store.\n"
   },
   {
     "path": "large.txt",
     "size": 65537,
-    "state": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5"
+    "state": "01a16e74-cff3-7561-8dc7-b249781d7bed"
   },
   {
     "path": "layr.toml",
-    "size": 120,
-    "state": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5",
-    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+    "size": 231,
+    "state": "01a16e74-cff3-7561-8dc7-b249781d7bed",
+    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
   },
   {
     "path": "metric-link",
     "size": 10,
-    "state": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5",
+    "state": "01a16e74-cff3-7561-8dc7-b249781d7bed",
     "text": "metric.txt"
   },
   {
     "path": "metric.txt",
     "size": 4,
-    "state": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5",
+    "state": "01a16e74-cff3-7561-8dc7-b249781d7bed",
     "text": "100\n"
   },
   {
     "path": "probe.py",
     "size": 165,
-    "state": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5",
+    "state": "01a16e74-cff3-7561-8dc7-b249781d7bed",
     "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+  },
+  {
+    "path": "screens.py",
+    "size": 943,
+    "state": "01a16e74-cff3-7561-8dc7-b249781d7bed",
+    "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
   },
   {
     "path": "tool.sh",
     "size": 17,
-    "state": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5",
+    "state": "01a16e74-cff3-7561-8dc7-b249781d7bed",
     "text": "#!/bin/sh\nexit 0\n"
   },
   {
     "path": ".gitignore",
     "size": 5,
-    "state": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35",
+    "state": "01a16e74-d04d-77bc-aae3-ad86a604d396",
     "text": "out/\n"
   },
   {
     "path": "data.bin",
     "size": 8,
-    "state": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35"
+    "state": "01a16e74-d04d-77bc-aae3-ad86a604d396"
   },
   {
     "path": "docs/guide.txt",
     "size": 32,
-    "state": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35",
+    "state": "01a16e74-d04d-77bc-aae3-ad86a604d396",
     "text": "Guide from the encrypted store.\n"
   },
   {
     "path": "feature.txt",
     "size": 12,
-    "state": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35",
+    "state": "01a16e74-d04d-77bc-aae3-ad86a604d396",
     "text": "version one\n"
   },
   {
     "path": "large.txt",
     "size": 65537,
-    "state": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35"
+    "state": "01a16e74-d04d-77bc-aae3-ad86a604d396"
   },
   {
     "path": "layr.toml",
-    "size": 120,
-    "state": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35",
-    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+    "size": 231,
+    "state": "01a16e74-d04d-77bc-aae3-ad86a604d396",
+    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
   },
   {
     "path": "metric-link",
     "size": 10,
-    "state": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35",
+    "state": "01a16e74-d04d-77bc-aae3-ad86a604d396",
     "text": "metric.txt"
   },
   {
     "path": "metric.txt",
     "size": 4,
-    "state": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35",
+    "state": "01a16e74-d04d-77bc-aae3-ad86a604d396",
     "text": "100\n"
   },
   {
     "path": "probe.py",
     "size": 165,
-    "state": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35",
+    "state": "01a16e74-d04d-77bc-aae3-ad86a604d396",
     "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+  },
+  {
+    "path": "screens.py",
+    "size": 943,
+    "state": "01a16e74-d04d-77bc-aae3-ad86a604d396",
+    "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
   },
   {
     "path": "tool.sh",
     "size": 17,
-    "state": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35",
+    "state": "01a16e74-d04d-77bc-aae3-ad86a604d396",
     "text": "#!/bin/sh\nexit 0\n"
   },
   {
     "path": ".gitignore",
     "size": 5,
-    "state": "01a16dd3-2e24-7234-8b50-f996f5c822a0",
+    "state": "01a16e74-d0fd-765a-91e4-7b25d09dcd1a",
     "text": "out/\n"
   },
   {
     "path": "data.bin",
     "size": 8,
-    "state": "01a16dd3-2e24-7234-8b50-f996f5c822a0"
+    "state": "01a16e74-d0fd-765a-91e4-7b25d09dcd1a"
   },
   {
     "path": "docs/guide.txt",
     "size": 32,
-    "state": "01a16dd3-2e24-7234-8b50-f996f5c822a0",
+    "state": "01a16e74-d0fd-765a-91e4-7b25d09dcd1a",
     "text": "Guide from the encrypted store.\n"
   },
   {
     "path": "feature.txt",
     "size": 24,
-    "state": "01a16dd3-2e24-7234-8b50-f996f5c822a0",
+    "state": "01a16e74-d0fd-765a-91e4-7b25d09dcd1a",
     "text": "version one\nversion two\n"
   },
   {
     "path": "large.txt",
     "size": 65537,
-    "state": "01a16dd3-2e24-7234-8b50-f996f5c822a0"
+    "state": "01a16e74-d0fd-765a-91e4-7b25d09dcd1a"
   },
   {
     "path": "layr.toml",
-    "size": 120,
-    "state": "01a16dd3-2e24-7234-8b50-f996f5c822a0",
-    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+    "size": 231,
+    "state": "01a16e74-d0fd-765a-91e4-7b25d09dcd1a",
+    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
   },
   {
     "path": "metric-link",
     "size": 10,
-    "state": "01a16dd3-2e24-7234-8b50-f996f5c822a0",
+    "state": "01a16e74-d0fd-765a-91e4-7b25d09dcd1a",
     "text": "metric.txt"
   },
   {
     "path": "metric.txt",
     "size": 4,
-    "state": "01a16dd3-2e24-7234-8b50-f996f5c822a0",
+    "state": "01a16e74-d0fd-765a-91e4-7b25d09dcd1a",
     "text": "100\n"
   },
   {
     "path": "probe.py",
     "size": 165,
-    "state": "01a16dd3-2e24-7234-8b50-f996f5c822a0",
+    "state": "01a16e74-d0fd-765a-91e4-7b25d09dcd1a",
     "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+  },
+  {
+    "path": "screens.py",
+    "size": 943,
+    "state": "01a16e74-d0fd-765a-91e4-7b25d09dcd1a",
+    "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
   },
   {
     "path": "tool.sh",
     "size": 17,
-    "state": "01a16dd3-2e24-7234-8b50-f996f5c822a0",
+    "state": "01a16e74-d0fd-765a-91e4-7b25d09dcd1a",
     "text": "#!/bin/sh\nexit 0\n"
   },
   {
     "path": ".gitignore",
     "size": 5,
-    "state": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3",
+    "state": "01a16e74-d14b-70f5-b304-015d60d9db64",
     "text": "out/\n"
   },
   {
     "path": "data.bin",
     "size": 8,
-    "state": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3"
+    "state": "01a16e74-d14b-70f5-b304-015d60d9db64"
   },
   {
     "path": "docs/guide.txt",
     "size": 32,
-    "state": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3",
+    "state": "01a16e74-d14b-70f5-b304-015d60d9db64",
     "text": "Guide from the encrypted store.\n"
   },
   {
     "path": "large.txt",
     "size": 65537,
-    "state": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3"
+    "state": "01a16e74-d14b-70f5-b304-015d60d9db64"
   },
   {
     "path": "layr.toml",
-    "size": 120,
-    "state": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3",
-    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+    "size": 231,
+    "state": "01a16e74-d14b-70f5-b304-015d60d9db64",
+    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
   },
   {
     "path": "main.txt",
     "size": 10,
-    "state": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3",
+    "state": "01a16e74-d14b-70f5-b304-015d60d9db64",
     "text": "main only\n"
   },
   {
     "path": "metric-link",
     "size": 10,
-    "state": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3",
+    "state": "01a16e74-d14b-70f5-b304-015d60d9db64",
     "text": "metric.txt"
   },
   {
     "path": "metric.txt",
     "size": 4,
-    "state": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3",
+    "state": "01a16e74-d14b-70f5-b304-015d60d9db64",
     "text": "100\n"
   },
   {
     "path": "probe.py",
     "size": 165,
-    "state": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3",
+    "state": "01a16e74-d14b-70f5-b304-015d60d9db64",
     "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+  },
+  {
+    "path": "screens.py",
+    "size": 943,
+    "state": "01a16e74-d14b-70f5-b304-015d60d9db64",
+    "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
   },
   {
     "path": "tool.sh",
     "size": 17,
-    "state": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3",
+    "state": "01a16e74-d14b-70f5-b304-015d60d9db64",
     "text": "#!/bin/sh\nexit 0\n"
   },
   {
     "path": ".gitignore",
     "size": 5,
-    "state": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+    "state": "01a16e74-d189-74ce-8301-86f483596256",
     "text": "out/\n"
   },
   {
     "path": "data.bin",
     "size": 8,
-    "state": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20"
+    "state": "01a16e74-d189-74ce-8301-86f483596256"
   },
   {
     "path": "docs/guide.txt",
     "size": 32,
-    "state": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+    "state": "01a16e74-d189-74ce-8301-86f483596256",
     "text": "Guide from the encrypted store.\n"
   },
   {
     "path": "feature.txt",
     "size": 24,
-    "state": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+    "state": "01a16e74-d189-74ce-8301-86f483596256",
     "text": "version one\nversion two\n"
   },
   {
     "path": "large.txt",
     "size": 65537,
-    "state": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20"
+    "state": "01a16e74-d189-74ce-8301-86f483596256"
   },
   {
     "path": "layr.toml",
-    "size": 120,
-    "state": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
-    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+    "size": 231,
+    "state": "01a16e74-d189-74ce-8301-86f483596256",
+    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
   },
   {
     "path": "main.txt",
     "size": 10,
-    "state": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+    "state": "01a16e74-d189-74ce-8301-86f483596256",
     "text": "main only\n"
   },
   {
     "path": "metric-link",
     "size": 10,
-    "state": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+    "state": "01a16e74-d189-74ce-8301-86f483596256",
     "text": "metric.txt"
   },
   {
     "path": "metric.txt",
     "size": 4,
-    "state": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+    "state": "01a16e74-d189-74ce-8301-86f483596256",
     "text": "100\n"
   },
   {
     "path": "probe.py",
     "size": 165,
-    "state": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+    "state": "01a16e74-d189-74ce-8301-86f483596256",
     "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+  },
+  {
+    "path": "screens.py",
+    "size": 943,
+    "state": "01a16e74-d189-74ce-8301-86f483596256",
+    "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
   },
   {
     "path": "tool.sh",
     "size": 17,
-    "state": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+    "state": "01a16e74-d189-74ce-8301-86f483596256",
     "text": "#!/bin/sh\nexit 0\n"
   },
   {
     "path": ".gitignore",
     "size": 5,
-    "state": "01a16dd3-2f48-712e-8922-17abb3617a6f",
+    "state": "01a16e74-d24e-7344-95b4-c6253fdc32bc",
     "text": "out/\n"
   },
   {
     "path": "data.bin",
     "size": 8,
-    "state": "01a16dd3-2f48-712e-8922-17abb3617a6f"
+    "state": "01a16e74-d24e-7344-95b4-c6253fdc32bc"
   },
   {
     "path": "divergence.txt",
     "size": 18,
-    "state": "01a16dd3-2f48-712e-8922-17abb3617a6f",
+    "state": "01a16e74-d24e-7344-95b4-c6253fdc32bc",
     "text": "main after replay\n"
   },
   {
     "path": "docs/guide.txt",
     "size": 32,
-    "state": "01a16dd3-2f48-712e-8922-17abb3617a6f",
+    "state": "01a16e74-d24e-7344-95b4-c6253fdc32bc",
     "text": "Guide from the encrypted store.\n"
   },
   {
     "path": "large.txt",
     "size": 65537,
-    "state": "01a16dd3-2f48-712e-8922-17abb3617a6f"
+    "state": "01a16e74-d24e-7344-95b4-c6253fdc32bc"
   },
   {
     "path": "layr.toml",
-    "size": 120,
-    "state": "01a16dd3-2f48-712e-8922-17abb3617a6f",
-    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+    "size": 231,
+    "state": "01a16e74-d24e-7344-95b4-c6253fdc32bc",
+    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
   },
   {
     "path": "main.txt",
     "size": 10,
-    "state": "01a16dd3-2f48-712e-8922-17abb3617a6f",
+    "state": "01a16e74-d24e-7344-95b4-c6253fdc32bc",
     "text": "main only\n"
   },
   {
     "path": "metric-link",
     "size": 10,
-    "state": "01a16dd3-2f48-712e-8922-17abb3617a6f",
+    "state": "01a16e74-d24e-7344-95b4-c6253fdc32bc",
     "text": "metric.txt"
   },
   {
     "path": "metric.txt",
     "size": 4,
-    "state": "01a16dd3-2f48-712e-8922-17abb3617a6f",
+    "state": "01a16e74-d24e-7344-95b4-c6253fdc32bc",
     "text": "100\n"
   },
   {
     "path": "probe.py",
     "size": 165,
-    "state": "01a16dd3-2f48-712e-8922-17abb3617a6f",
+    "state": "01a16e74-d24e-7344-95b4-c6253fdc32bc",
     "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+  },
+  {
+    "path": "screens.py",
+    "size": 943,
+    "state": "01a16e74-d24e-7344-95b4-c6253fdc32bc",
+    "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
   },
   {
     "path": "tool.sh",
     "size": 17,
-    "state": "01a16dd3-2f48-712e-8922-17abb3617a6f",
+    "state": "01a16e74-d24e-7344-95b4-c6253fdc32bc",
     "text": "#!/bin/sh\nexit 0\n"
   },
   {
     "path": ".gitignore",
     "size": 5,
-    "state": "01a16dd3-2f85-7359-bf6c-0777a1f57144",
+    "state": "01a16e74-d28d-75a7-855f-16fe07fa24dd",
     "text": "out/\n"
   },
   {
     "path": "data.bin",
     "size": 8,
-    "state": "01a16dd3-2f85-7359-bf6c-0777a1f57144"
+    "state": "01a16e74-d28d-75a7-855f-16fe07fa24dd"
   },
   {
     "path": "divergence.txt",
     "size": 18,
-    "state": "01a16dd3-2f85-7359-bf6c-0777a1f57144",
+    "state": "01a16e74-d28d-75a7-855f-16fe07fa24dd",
     "text": "main after replay\n"
   },
   {
     "path": "docs/guide.txt",
     "size": 32,
-    "state": "01a16dd3-2f85-7359-bf6c-0777a1f57144",
+    "state": "01a16e74-d28d-75a7-855f-16fe07fa24dd",
     "text": "Guide from the encrypted store.\n"
   },
   {
     "path": "feature.txt",
     "size": 24,
-    "state": "01a16dd3-2f85-7359-bf6c-0777a1f57144",
+    "state": "01a16e74-d28d-75a7-855f-16fe07fa24dd",
     "text": "version one\nversion two\n"
   },
   {
     "path": "large.txt",
     "size": 65537,
-    "state": "01a16dd3-2f85-7359-bf6c-0777a1f57144"
+    "state": "01a16e74-d28d-75a7-855f-16fe07fa24dd"
   },
   {
     "path": "layr.toml",
-    "size": 120,
-    "state": "01a16dd3-2f85-7359-bf6c-0777a1f57144",
-    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+    "size": 231,
+    "state": "01a16e74-d28d-75a7-855f-16fe07fa24dd",
+    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
   },
   {
     "path": "main.txt",
     "size": 10,
-    "state": "01a16dd3-2f85-7359-bf6c-0777a1f57144",
+    "state": "01a16e74-d28d-75a7-855f-16fe07fa24dd",
     "text": "main only\n"
   },
   {
     "path": "metric-link",
     "size": 10,
-    "state": "01a16dd3-2f85-7359-bf6c-0777a1f57144",
+    "state": "01a16e74-d28d-75a7-855f-16fe07fa24dd",
     "text": "metric.txt"
   },
   {
     "path": "metric.txt",
     "size": 4,
-    "state": "01a16dd3-2f85-7359-bf6c-0777a1f57144",
+    "state": "01a16e74-d28d-75a7-855f-16fe07fa24dd",
     "text": "100\n"
   },
   {
     "path": "probe.py",
     "size": 165,
-    "state": "01a16dd3-2f85-7359-bf6c-0777a1f57144",
+    "state": "01a16e74-d28d-75a7-855f-16fe07fa24dd",
     "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+  },
+  {
+    "path": "screens.py",
+    "size": 943,
+    "state": "01a16e74-d28d-75a7-855f-16fe07fa24dd",
+    "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
   },
   {
     "path": "tool.sh",
     "size": 17,
-    "state": "01a16dd3-2f85-7359-bf6c-0777a1f57144",
+    "state": "01a16e74-d28d-75a7-855f-16fe07fa24dd",
     "text": "#!/bin/sh\nexit 0\n"
   },
   {
     "path": ".gitignore",
     "size": 5,
-    "state": "01a16dd3-2fed-7663-8e59-220b60b8bf15",
+    "state": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe",
     "text": "out/\n"
   },
   {
     "path": "data.bin",
     "size": 8,
-    "state": "01a16dd3-2fed-7663-8e59-220b60b8bf15"
+    "state": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe"
   },
   {
     "path": "docs/guide.txt",
     "size": 32,
-    "state": "01a16dd3-2fed-7663-8e59-220b60b8bf15",
+    "state": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe",
     "text": "Guide from the encrypted store.\n"
   },
   {
     "path": "feature.txt",
     "size": 24,
-    "state": "01a16dd3-2fed-7663-8e59-220b60b8bf15",
+    "state": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe",
     "text": "version one\nversion two\n"
   },
   {
     "path": "large.txt",
     "size": 65537,
-    "state": "01a16dd3-2fed-7663-8e59-220b60b8bf15"
+    "state": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe"
   },
   {
     "path": "layr.toml",
-    "size": 120,
-    "state": "01a16dd3-2fed-7663-8e59-220b60b8bf15",
-    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+    "size": 231,
+    "state": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe",
+    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
   },
   {
     "path": "main.txt",
     "size": 10,
-    "state": "01a16dd3-2fed-7663-8e59-220b60b8bf15",
+    "state": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe",
     "text": "main only\n"
   },
   {
     "path": "metric-link",
     "size": 10,
-    "state": "01a16dd3-2fed-7663-8e59-220b60b8bf15",
+    "state": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe",
     "text": "metric.txt"
   },
   {
     "path": "metric.txt",
     "size": 4,
-    "state": "01a16dd3-2fed-7663-8e59-220b60b8bf15",
+    "state": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe",
     "text": "100\n"
   },
   {
     "path": "picked.txt",
     "size": 7,
-    "state": "01a16dd3-2fed-7663-8e59-220b60b8bf15",
+    "state": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe",
     "text": "picked\n"
   },
   {
     "path": "probe.py",
     "size": 165,
-    "state": "01a16dd3-2fed-7663-8e59-220b60b8bf15",
+    "state": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe",
     "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+  },
+  {
+    "path": "screens.py",
+    "size": 943,
+    "state": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe",
+    "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
   },
   {
     "path": "tool.sh",
     "size": 17,
-    "state": "01a16dd3-2fed-7663-8e59-220b60b8bf15",
+    "state": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe",
     "text": "#!/bin/sh\nexit 0\n"
   },
   {
     "path": ".gitignore",
     "size": 5,
-    "state": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a",
+    "state": "01a16e74-d342-76ae-a8cc-79d8a3320192",
     "text": "out/\n"
   },
   {
     "path": "data.bin",
     "size": 8,
-    "state": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a"
+    "state": "01a16e74-d342-76ae-a8cc-79d8a3320192"
   },
   {
     "path": "divergence.txt",
     "size": 18,
-    "state": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a",
+    "state": "01a16e74-d342-76ae-a8cc-79d8a3320192",
     "text": "main after replay\n"
   },
   {
     "path": "docs/guide.txt",
     "size": 32,
-    "state": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a",
+    "state": "01a16e74-d342-76ae-a8cc-79d8a3320192",
     "text": "Guide from the encrypted store.\n"
   },
   {
     "path": "feature.txt",
     "size": 24,
-    "state": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a",
+    "state": "01a16e74-d342-76ae-a8cc-79d8a3320192",
     "text": "version one\nversion two\n"
   },
   {
     "path": "large.txt",
     "size": 65537,
-    "state": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a"
+    "state": "01a16e74-d342-76ae-a8cc-79d8a3320192"
   },
   {
     "path": "layr.toml",
-    "size": 120,
-    "state": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a",
-    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+    "size": 231,
+    "state": "01a16e74-d342-76ae-a8cc-79d8a3320192",
+    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
   },
   {
     "path": "main.txt",
     "size": 10,
-    "state": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a",
+    "state": "01a16e74-d342-76ae-a8cc-79d8a3320192",
     "text": "main only\n"
   },
   {
     "path": "metric-link",
     "size": 10,
-    "state": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a",
+    "state": "01a16e74-d342-76ae-a8cc-79d8a3320192",
     "text": "metric.txt"
   },
   {
     "path": "metric.txt",
     "size": 4,
-    "state": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a",
+    "state": "01a16e74-d342-76ae-a8cc-79d8a3320192",
     "text": "100\n"
   },
   {
     "path": "picked.txt",
     "size": 7,
-    "state": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a",
+    "state": "01a16e74-d342-76ae-a8cc-79d8a3320192",
     "text": "picked\n"
   },
   {
     "path": "probe.py",
     "size": 165,
-    "state": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a",
+    "state": "01a16e74-d342-76ae-a8cc-79d8a3320192",
     "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+  },
+  {
+    "path": "screens.py",
+    "size": 943,
+    "state": "01a16e74-d342-76ae-a8cc-79d8a3320192",
+    "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
   },
   {
     "path": "tool.sh",
     "size": 17,
-    "state": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a",
+    "state": "01a16e74-d342-76ae-a8cc-79d8a3320192",
     "text": "#!/bin/sh\nexit 0\n"
   },
   {
     "path": ".gitignore",
     "size": 5,
-    "state": "01a16dd3-3067-7313-8371-a067af275ca6",
+    "state": "01a16e74-d394-767d-b73a-73d5da6602e4",
     "text": "out/\n"
   },
   {
     "path": "data.bin",
     "size": 8,
-    "state": "01a16dd3-3067-7313-8371-a067af275ca6"
+    "state": "01a16e74-d394-767d-b73a-73d5da6602e4"
   },
   {
     "path": "divergence.txt",
     "size": 18,
-    "state": "01a16dd3-3067-7313-8371-a067af275ca6",
+    "state": "01a16e74-d394-767d-b73a-73d5da6602e4",
     "text": "main after replay\n"
   },
   {
     "path": "docs/guide.txt",
     "size": 32,
-    "state": "01a16dd3-3067-7313-8371-a067af275ca6",
+    "state": "01a16e74-d394-767d-b73a-73d5da6602e4",
     "text": "Guide from the encrypted store.\n"
   },
   {
     "path": "feature.txt",
     "size": 24,
-    "state": "01a16dd3-3067-7313-8371-a067af275ca6",
+    "state": "01a16e74-d394-767d-b73a-73d5da6602e4",
     "text": "version one\nversion two\n"
   },
   {
     "path": "large.txt",
     "size": 65537,
-    "state": "01a16dd3-3067-7313-8371-a067af275ca6"
+    "state": "01a16e74-d394-767d-b73a-73d5da6602e4"
   },
   {
     "path": "layr.toml",
-    "size": 120,
-    "state": "01a16dd3-3067-7313-8371-a067af275ca6",
-    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+    "size": 231,
+    "state": "01a16e74-d394-767d-b73a-73d5da6602e4",
+    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
   },
   {
     "path": "main.txt",
     "size": 10,
-    "state": "01a16dd3-3067-7313-8371-a067af275ca6",
+    "state": "01a16e74-d394-767d-b73a-73d5da6602e4",
     "text": "main only\n"
   },
   {
     "path": "metric-link",
     "size": 10,
-    "state": "01a16dd3-3067-7313-8371-a067af275ca6",
+    "state": "01a16e74-d394-767d-b73a-73d5da6602e4",
     "text": "metric.txt"
   },
   {
     "path": "metric.txt",
     "size": 4,
-    "state": "01a16dd3-3067-7313-8371-a067af275ca6",
+    "state": "01a16e74-d394-767d-b73a-73d5da6602e4",
     "text": "100\n"
   },
   {
     "path": "probe.py",
     "size": 165,
-    "state": "01a16dd3-3067-7313-8371-a067af275ca6",
+    "state": "01a16e74-d394-767d-b73a-73d5da6602e4",
     "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+  },
+  {
+    "path": "screens.py",
+    "size": 943,
+    "state": "01a16e74-d394-767d-b73a-73d5da6602e4",
+    "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
   },
   {
     "path": "tool.sh",
     "size": 17,
-    "state": "01a16dd3-3067-7313-8371-a067af275ca6",
+    "state": "01a16e74-d394-767d-b73a-73d5da6602e4",
     "text": "#!/bin/sh\nexit 0\n"
   },
   {
     "path": ".gitignore",
     "size": 5,
-    "state": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a",
+    "state": "01a16e74-d3be-76de-ab2e-9d4a5321c24c",
     "text": "out/\n"
   },
   {
     "path": "auto.txt",
     "size": 11,
-    "state": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a",
+    "state": "01a16e74-d3be-76de-ab2e-9d4a5321c24c",
     "text": "auto bytes\n"
   },
   {
     "path": "data.bin",
     "size": 8,
-    "state": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a"
+    "state": "01a16e74-d3be-76de-ab2e-9d4a5321c24c"
   },
   {
     "path": "divergence.txt",
     "size": 18,
-    "state": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a",
+    "state": "01a16e74-d3be-76de-ab2e-9d4a5321c24c",
     "text": "main after replay\n"
   },
   {
     "path": "docs/guide.txt",
     "size": 32,
-    "state": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a",
+    "state": "01a16e74-d3be-76de-ab2e-9d4a5321c24c",
     "text": "Guide from the encrypted store.\n"
   },
   {
     "path": "feature.txt",
     "size": 24,
-    "state": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a",
+    "state": "01a16e74-d3be-76de-ab2e-9d4a5321c24c",
     "text": "version one\nversion two\n"
   },
   {
     "path": "large.txt",
     "size": 65537,
-    "state": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a"
+    "state": "01a16e74-d3be-76de-ab2e-9d4a5321c24c"
   },
   {
     "path": "layr.toml",
-    "size": 120,
-    "state": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a",
-    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+    "size": 231,
+    "state": "01a16e74-d3be-76de-ab2e-9d4a5321c24c",
+    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
   },
   {
     "path": "main.txt",
     "size": 10,
-    "state": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a",
+    "state": "01a16e74-d3be-76de-ab2e-9d4a5321c24c",
     "text": "main only\n"
   },
   {
     "path": "metric-link",
     "size": 10,
-    "state": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a",
+    "state": "01a16e74-d3be-76de-ab2e-9d4a5321c24c",
     "text": "metric.txt"
   },
   {
     "path": "metric.txt",
     "size": 4,
-    "state": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a",
+    "state": "01a16e74-d3be-76de-ab2e-9d4a5321c24c",
     "text": "100\n"
   },
   {
     "path": "probe.py",
     "size": 165,
-    "state": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a",
+    "state": "01a16e74-d3be-76de-ab2e-9d4a5321c24c",
     "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+  },
+  {
+    "path": "screens.py",
+    "size": 943,
+    "state": "01a16e74-d3be-76de-ab2e-9d4a5321c24c",
+    "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
   },
   {
     "path": "tool.sh",
     "size": 17,
-    "state": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a",
+    "state": "01a16e74-d3be-76de-ab2e-9d4a5321c24c",
     "text": "#!/bin/sh\nexit 0\n"
   },
   {
     "path": ".gitignore",
     "size": 5,
-    "state": "01a16dd3-30fd-7314-9197-f39af00da84c",
+    "state": "01a16e74-d41d-70f8-936c-4170a4ca5269",
     "text": "out/\n"
   },
   {
     "path": "auto.txt",
     "size": 11,
-    "state": "01a16dd3-30fd-7314-9197-f39af00da84c",
+    "state": "01a16e74-d41d-70f8-936c-4170a4ca5269",
     "text": "auto bytes\n"
   },
   {
     "path": "data.bin",
     "size": 8,
-    "state": "01a16dd3-30fd-7314-9197-f39af00da84c"
+    "state": "01a16e74-d41d-70f8-936c-4170a4ca5269"
   },
   {
     "path": "divergence.txt",
     "size": 18,
-    "state": "01a16dd3-30fd-7314-9197-f39af00da84c",
+    "state": "01a16e74-d41d-70f8-936c-4170a4ca5269",
     "text": "main after replay\n"
   },
   {
     "path": "docs/guide.txt",
     "size": 32,
-    "state": "01a16dd3-30fd-7314-9197-f39af00da84c",
+    "state": "01a16e74-d41d-70f8-936c-4170a4ca5269",
     "text": "Guide from the encrypted store.\n"
   },
   {
     "path": "feature.txt",
     "size": 24,
-    "state": "01a16dd3-30fd-7314-9197-f39af00da84c",
+    "state": "01a16e74-d41d-70f8-936c-4170a4ca5269",
     "text": "version one\nversion two\n"
   },
   {
     "path": "large.txt",
     "size": 65537,
-    "state": "01a16dd3-30fd-7314-9197-f39af00da84c"
+    "state": "01a16e74-d41d-70f8-936c-4170a4ca5269"
   },
   {
     "path": "layr.toml",
-    "size": 120,
-    "state": "01a16dd3-30fd-7314-9197-f39af00da84c",
-    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+    "size": 231,
+    "state": "01a16e74-d41d-70f8-936c-4170a4ca5269",
+    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
   },
   {
     "path": "main.txt",
     "size": 10,
-    "state": "01a16dd3-30fd-7314-9197-f39af00da84c",
+    "state": "01a16e74-d41d-70f8-936c-4170a4ca5269",
     "text": "main only\n"
   },
   {
     "path": "metric-link",
     "size": 10,
-    "state": "01a16dd3-30fd-7314-9197-f39af00da84c",
+    "state": "01a16e74-d41d-70f8-936c-4170a4ca5269",
     "text": "metric.txt"
   },
   {
     "path": "metric.txt",
     "size": 4,
-    "state": "01a16dd3-30fd-7314-9197-f39af00da84c",
+    "state": "01a16e74-d41d-70f8-936c-4170a4ca5269",
     "text": "100\n"
   },
   {
     "path": "probe.py",
     "size": 165,
-    "state": "01a16dd3-30fd-7314-9197-f39af00da84c",
+    "state": "01a16e74-d41d-70f8-936c-4170a4ca5269",
     "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+  },
+  {
+    "path": "screens.py",
+    "size": 943,
+    "state": "01a16e74-d41d-70f8-936c-4170a4ca5269",
+    "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
   },
   {
     "path": "tool.sh",
     "size": 17,
-    "state": "01a16dd3-30fd-7314-9197-f39af00da84c",
+    "state": "01a16e74-d41d-70f8-936c-4170a4ca5269",
     "text": "#!/bin/sh\nexit 0\n"
   },
   {
     "path": ".gitignore",
     "size": 5,
-    "state": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+    "state": "01a16e74-d483-74eb-9aa4-6697c40fe915",
     "text": "out/\n"
   },
   {
     "path": "auto.txt",
     "size": 11,
-    "state": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+    "state": "01a16e74-d483-74eb-9aa4-6697c40fe915",
     "text": "auto bytes\n"
   },
   {
     "path": "data.bin",
     "size": 8,
-    "state": "01a16dd3-316b-75b9-ab00-c6435657f6fc"
+    "state": "01a16e74-d483-74eb-9aa4-6697c40fe915"
   },
   {
     "path": "divergence.txt",
     "size": 18,
-    "state": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+    "state": "01a16e74-d483-74eb-9aa4-6697c40fe915",
     "text": "main after replay\n"
   },
   {
     "path": "docs/guide.txt",
     "size": 32,
-    "state": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+    "state": "01a16e74-d483-74eb-9aa4-6697c40fe915",
     "text": "Guide from the encrypted store.\n"
   },
   {
     "path": "feature.txt",
     "size": 24,
-    "state": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+    "state": "01a16e74-d483-74eb-9aa4-6697c40fe915",
     "text": "version one\nversion two\n"
   },
   {
     "path": "large.txt",
     "size": 65537,
-    "state": "01a16dd3-316b-75b9-ab00-c6435657f6fc"
+    "state": "01a16e74-d483-74eb-9aa4-6697c40fe915"
   },
   {
     "path": "layr.toml",
-    "size": 120,
-    "state": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
-    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+    "size": 231,
+    "state": "01a16e74-d483-74eb-9aa4-6697c40fe915",
+    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
   },
   {
     "path": "main.txt",
     "size": 10,
-    "state": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+    "state": "01a16e74-d483-74eb-9aa4-6697c40fe915",
     "text": "main only\n"
   },
   {
     "path": "metric-link",
     "size": 10,
-    "state": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+    "state": "01a16e74-d483-74eb-9aa4-6697c40fe915",
     "text": "metric.txt"
   },
   {
     "path": "metric.txt",
     "size": 4,
-    "state": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+    "state": "01a16e74-d483-74eb-9aa4-6697c40fe915",
     "text": "100\n"
   },
   {
     "path": "probe.py",
     "size": 165,
-    "state": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+    "state": "01a16e74-d483-74eb-9aa4-6697c40fe915",
     "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+  },
+  {
+    "path": "screens.py",
+    "size": 943,
+    "state": "01a16e74-d483-74eb-9aa4-6697c40fe915",
+    "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
   },
   {
     "path": "tool.sh",
     "size": 17,
-    "state": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+    "state": "01a16e74-d483-74eb-9aa4-6697c40fe915",
     "text": "#!/bin/sh\nexit 0\n"
   },
   {
     "path": ".gitignore",
     "size": 5,
-    "state": "01a16dd3-3294-7559-80e2-5abc69a01943",
+    "state": "01a16e74-d594-76b9-9396-876abef20ffd",
     "text": "out/\n"
   },
   {
     "path": "data.bin",
     "size": 8,
-    "state": "01a16dd3-3294-7559-80e2-5abc69a01943"
+    "state": "01a16e74-d594-76b9-9396-876abef20ffd"
   },
   {
     "path": "docs/guide.txt",
     "size": 32,
-    "state": "01a16dd3-3294-7559-80e2-5abc69a01943",
+    "state": "01a16e74-d594-76b9-9396-876abef20ffd",
     "text": "Guide from the encrypted store.\n"
   },
   {
     "path": "feature.txt",
     "size": 24,
-    "state": "01a16dd3-3294-7559-80e2-5abc69a01943",
+    "state": "01a16e74-d594-76b9-9396-876abef20ffd",
     "text": "version one\nversion two\n"
   },
   {
     "path": "large.txt",
     "size": 65537,
-    "state": "01a16dd3-3294-7559-80e2-5abc69a01943"
+    "state": "01a16e74-d594-76b9-9396-876abef20ffd"
   },
   {
     "path": "layr.toml",
-    "size": 120,
-    "state": "01a16dd3-3294-7559-80e2-5abc69a01943",
-    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+    "size": 231,
+    "state": "01a16e74-d594-76b9-9396-876abef20ffd",
+    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
   },
   {
     "path": "main.txt",
     "size": 10,
-    "state": "01a16dd3-3294-7559-80e2-5abc69a01943",
+    "state": "01a16e74-d594-76b9-9396-876abef20ffd",
     "text": "main only\n"
   },
   {
     "path": "metric-link",
     "size": 10,
-    "state": "01a16dd3-3294-7559-80e2-5abc69a01943",
+    "state": "01a16e74-d594-76b9-9396-876abef20ffd",
     "text": "metric.txt"
   },
   {
     "path": "metric.txt",
     "size": 4,
-    "state": "01a16dd3-3294-7559-80e2-5abc69a01943",
+    "state": "01a16e74-d594-76b9-9396-876abef20ffd",
     "text": "110\n"
   },
   {
     "path": "picked.txt",
     "size": 7,
-    "state": "01a16dd3-3294-7559-80e2-5abc69a01943",
+    "state": "01a16e74-d594-76b9-9396-876abef20ffd",
     "text": "picked\n"
   },
   {
     "path": "probe.py",
     "size": 165,
-    "state": "01a16dd3-3294-7559-80e2-5abc69a01943",
+    "state": "01a16e74-d594-76b9-9396-876abef20ffd",
     "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+  },
+  {
+    "path": "screens.py",
+    "size": 943,
+    "state": "01a16e74-d594-76b9-9396-876abef20ffd",
+    "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
   },
   {
     "path": "tool.sh",
     "size": 17,
-    "state": "01a16dd3-3294-7559-80e2-5abc69a01943",
+    "state": "01a16e74-d594-76b9-9396-876abef20ffd",
     "text": "#!/bin/sh\nexit 0\n"
   },
   {
     "path": "out/metric.json",
     "size": 14,
-    "state": "01a16dd3-332d-713e-9cbf-8103c3cd6af6",
+    "state": "01a16e74-d612-777e-ac14-e062f3ddfd67",
     "text": "{\"value\": 100}"
   },
   {
+    "path": "out/screens/Home@Phone.html",
+    "size": 35,
+    "state": "01a16e74-d63d-75b0-9a0d-83116dec2c5f",
+    "text": "<main nonce=\"100\"><p>100</p></main>"
+  },
+  {
+    "path": "out/screens/Home@Phone.png",
+    "size": 74,
+    "state": "01a16e74-d63d-75b0-9a0d-83116dec2c5f"
+  },
+  {
+    "path": "out/screens/Native@Phone.xml",
+    "size": 38,
+    "state": "01a16e74-d63d-75b0-9a0d-83116dec2c5f",
+    "text": "<node bounds=\"[1,2][4,6]\" text=\"100\"/>"
+  },
+  {
+    "path": "out/screens/Stable@Phone.txt",
+    "size": 5,
+    "state": "01a16e74-d63d-75b0-9a0d-83116dec2c5f",
+    "text": "Same\n"
+  },
+  {
+    "path": "out/screens/Text@Phone.txt",
+    "size": 4,
+    "state": "01a16e74-d63d-75b0-9a0d-83116dec2c5f",
+    "text": "100\n"
+  },
+  {
+    "path": "out/screens/Tree@Phone.json",
+    "size": 39,
+    "state": "01a16e74-d63d-75b0-9a0d-83116dec2c5f",
+    "text": "{\"label\": \"100\", \"frame\": [1, 2, 3, 4]}"
+  },
+  {
     "path": ".gitignore",
     "size": 5,
-    "state": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+    "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
     "text": "out/\n"
   },
   {
     "path": "auto.txt",
     "size": 11,
-    "state": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+    "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
     "text": "auto bytes\n"
   },
   {
     "path": "data.bin",
     "size": 8,
-    "state": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4"
+    "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec"
   },
   {
     "path": "divergence.txt",
     "size": 18,
-    "state": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+    "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
     "text": "main after replay\n"
   },
   {
     "path": "docs/guide.txt",
     "size": 32,
-    "state": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+    "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
     "text": "Guide from the encrypted store.\n"
   },
   {
     "path": "feature.txt",
     "size": 24,
-    "state": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+    "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
     "text": "version one\nversion two\n"
   },
   {
     "path": "large.txt",
     "size": 65537,
-    "state": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4"
+    "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec"
   },
   {
     "path": "layr.toml",
-    "size": 120,
-    "state": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
-    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+    "size": 231,
+    "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
   },
   {
     "path": "main.txt",
     "size": 10,
-    "state": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+    "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
     "text": "main only\n"
   },
   {
     "path": "metric-link",
     "size": 10,
-    "state": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+    "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
     "text": "metric.txt"
   },
   {
     "path": "metric.txt",
     "size": 4,
-    "state": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+    "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
     "text": "110\n"
   },
   {
     "path": "picked.txt",
     "size": 7,
-    "state": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+    "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
     "text": "picked\n"
   },
   {
     "path": "probe.py",
     "size": 165,
-    "state": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+    "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
     "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+  },
+  {
+    "path": "screens.py",
+    "size": 943,
+    "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+    "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
   },
   {
     "path": "tool.sh",
     "size": 17,
-    "state": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+    "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
     "text": "#!/bin/sh\nexit 0\n"
   },
   {
     "path": "out/metric.json",
     "size": 14,
-    "state": "01a16dd3-339c-72fa-a25a-35de7a1483fd",
+    "state": "01a16e74-d69e-75af-aced-784496159970",
     "text": "{\"value\": 110}"
   },
   {
+    "path": "out/screens/Home@Phone.html",
+    "size": 35,
+    "state": "01a16e74-d6cd-7004-a0cb-699913058561",
+    "text": "<main nonce=\"110\"><p>110</p></main>"
+  },
+  {
+    "path": "out/screens/Home@Phone.png",
+    "size": 74,
+    "state": "01a16e74-d6cd-7004-a0cb-699913058561"
+  },
+  {
+    "path": "out/screens/Native@Phone.xml",
+    "size": 38,
+    "state": "01a16e74-d6cd-7004-a0cb-699913058561",
+    "text": "<node bounds=\"[1,2][4,6]\" text=\"110\"/>"
+  },
+  {
+    "path": "out/screens/Stable@Phone.txt",
+    "size": 5,
+    "state": "01a16e74-d6cd-7004-a0cb-699913058561",
+    "text": "Same\n"
+  },
+  {
+    "path": "out/screens/Text@Phone.txt",
+    "size": 4,
+    "state": "01a16e74-d6cd-7004-a0cb-699913058561",
+    "text": "110\n"
+  },
+  {
+    "path": "out/screens/Tree@Phone.json",
+    "size": 39,
+    "state": "01a16e74-d6cd-7004-a0cb-699913058561",
+    "text": "{\"label\": \"110\", \"frame\": [1, 2, 3, 4]}"
+  },
+  {
     "path": ".gitignore",
     "size": 5,
-    "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+    "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
     "text": "out/\n"
   },
   {
     "path": "data.bin",
     "size": 8,
-    "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff"
+    "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f"
   },
   {
     "path": "docs/guide.txt",
     "size": 32,
-    "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+    "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
     "text": "Guide from the encrypted store.\n"
   },
   {
     "path": "feature.txt",
     "size": 24,
-    "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+    "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
     "text": "version one\nversion two\n"
   },
   {
     "path": "large.txt",
     "size": 65537,
-    "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff"
+    "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f"
   },
   {
     "path": "layr.toml",
-    "size": 120,
-    "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
-    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+    "size": 231,
+    "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
+    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
   },
   {
     "path": "main.txt",
     "size": 10,
-    "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+    "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
     "text": "main only\n"
   },
   {
     "path": "metric-link",
     "size": 10,
-    "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+    "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
     "text": "metric.txt"
   },
   {
     "path": "metric.txt",
     "size": 4,
-    "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+    "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
     "text": "150\n"
   },
   {
     "path": "picked.txt",
     "size": 7,
-    "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+    "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
     "text": "picked\n"
   },
   {
     "path": "probe.py",
     "size": 165,
-    "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+    "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
     "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+  },
+  {
+    "path": "screens.py",
+    "size": 943,
+    "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
+    "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
   },
   {
     "path": "tool.sh",
     "size": 17,
-    "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+    "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
     "text": "#!/bin/sh\nexit 0\n"
   },
   {
     "path": ".gitignore",
     "size": 5,
-    "state": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+    "state": "01a16e74-d802-70f6-a817-77f90941446d",
     "text": "out/\n"
   },
   {
     "path": "auto.txt",
     "size": 11,
-    "state": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+    "state": "01a16e74-d802-70f6-a817-77f90941446d",
     "text": "auto bytes\n"
   },
   {
     "path": "data.bin",
     "size": 8,
-    "state": "01a16dd3-34a7-73f2-8a64-b052d21b6c60"
+    "state": "01a16e74-d802-70f6-a817-77f90941446d"
   },
   {
     "path": "divergence.txt",
     "size": 18,
-    "state": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+    "state": "01a16e74-d802-70f6-a817-77f90941446d",
     "text": "main after replay\n"
   },
   {
     "path": "docs/guide.txt",
     "size": 32,
-    "state": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+    "state": "01a16e74-d802-70f6-a817-77f90941446d",
     "text": "Guide from the encrypted store.\n"
   },
   {
     "path": "feature.txt",
     "size": 24,
-    "state": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+    "state": "01a16e74-d802-70f6-a817-77f90941446d",
     "text": "version one\nversion two\n"
   },
   {
     "path": "large.txt",
     "size": 65537,
-    "state": "01a16dd3-34a7-73f2-8a64-b052d21b6c60"
+    "state": "01a16e74-d802-70f6-a817-77f90941446d"
   },
   {
     "path": "layr.toml",
-    "size": 120,
-    "state": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
-    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+    "size": 231,
+    "state": "01a16e74-d802-70f6-a817-77f90941446d",
+    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
   },
   {
     "path": "main.txt",
     "size": 10,
-    "state": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+    "state": "01a16e74-d802-70f6-a817-77f90941446d",
     "text": "main only\n"
   },
   {
     "path": "metric-link",
     "size": 10,
-    "state": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+    "state": "01a16e74-d802-70f6-a817-77f90941446d",
     "text": "metric.txt"
   },
   {
     "path": "metric.txt",
     "size": 4,
-    "state": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+    "state": "01a16e74-d802-70f6-a817-77f90941446d",
     "text": "150\n"
   },
   {
     "path": "picked.txt",
     "size": 7,
-    "state": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+    "state": "01a16e74-d802-70f6-a817-77f90941446d",
     "text": "picked\n"
   },
   {
     "path": "probe.py",
     "size": 165,
-    "state": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+    "state": "01a16e74-d802-70f6-a817-77f90941446d",
     "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+  },
+  {
+    "path": "screens.py",
+    "size": 943,
+    "state": "01a16e74-d802-70f6-a817-77f90941446d",
+    "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
   },
   {
     "path": "tool.sh",
     "size": 17,
-    "state": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+    "state": "01a16e74-d802-70f6-a817-77f90941446d",
     "text": "#!/bin/sh\nexit 0\n"
   },
   {
     "path": "out/metric.json",
     "size": 14,
-    "state": "01a16dd3-34f7-74cf-b03d-87c016cac88f",
+    "state": "01a16e74-d838-77a6-aa6d-36d37a895b8e",
     "text": "{\"value\": 150}"
+  },
+  {
+    "path": "out/screens/Home@Phone.html",
+    "size": 35,
+    "state": "01a16e74-d860-7289-a2b1-627901a4ba6c",
+    "text": "<main nonce=\"150\"><p>150</p></main>"
+  },
+  {
+    "path": "out/screens/Home@Phone.png",
+    "size": 74,
+    "state": "01a16e74-d860-7289-a2b1-627901a4ba6c"
+  },
+  {
+    "path": "out/screens/Native@Phone.xml",
+    "size": 38,
+    "state": "01a16e74-d860-7289-a2b1-627901a4ba6c",
+    "text": "<node bounds=\"[1,2][4,6]\" text=\"150\"/>"
+  },
+  {
+    "path": "out/screens/Stable@Phone.txt",
+    "size": 5,
+    "state": "01a16e74-d860-7289-a2b1-627901a4ba6c",
+    "text": "Same\n"
+  },
+  {
+    "path": "out/screens/Text@Phone.txt",
+    "size": 4,
+    "state": "01a16e74-d860-7289-a2b1-627901a4ba6c",
+    "text": "150\n"
+  },
+  {
+    "path": "out/screens/Tree@Phone.json",
+    "size": 39,
+    "state": "01a16e74-d860-7289-a2b1-627901a4ba6c",
+    "text": "{\"label\": \"150\", \"frame\": [1, 2, 3, 4]}"
   },
   {
     "path": ".gitignore",
     "size": 5,
-    "state": "01a16dd3-3771-76a0-9c90-68e54719a62d",
+    "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9",
     "text": "out/\n"
   },
   {
     "path": "auto.txt",
     "size": 11,
-    "state": "01a16dd3-3771-76a0-9c90-68e54719a62d",
+    "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9",
     "text": "auto bytes\n"
   },
   {
     "path": "data.bin",
     "size": 8,
-    "state": "01a16dd3-3771-76a0-9c90-68e54719a62d"
+    "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9"
   },
   {
     "path": "divergence.txt",
     "size": 18,
-    "state": "01a16dd3-3771-76a0-9c90-68e54719a62d",
+    "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9",
     "text": "main after replay\n"
   },
   {
     "path": "docs/guide.txt",
     "size": 32,
-    "state": "01a16dd3-3771-76a0-9c90-68e54719a62d",
+    "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9",
     "text": "Guide from the encrypted store.\n"
   },
   {
     "path": "feature.txt",
     "size": 24,
-    "state": "01a16dd3-3771-76a0-9c90-68e54719a62d",
+    "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9",
     "text": "version one\nversion two\n"
   },
   {
     "path": "large.txt",
     "size": 65537,
-    "state": "01a16dd3-3771-76a0-9c90-68e54719a62d"
+    "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9"
   },
   {
     "path": "layr.toml",
-    "size": 120,
-    "state": "01a16dd3-3771-76a0-9c90-68e54719a62d",
-    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+    "size": 231,
+    "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9",
+    "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
   },
   {
     "path": "main.txt",
     "size": 10,
-    "state": "01a16dd3-3771-76a0-9c90-68e54719a62d",
+    "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9",
     "text": "main only\n"
   },
   {
     "path": "metric-link",
     "size": 10,
-    "state": "01a16dd3-3771-76a0-9c90-68e54719a62d",
+    "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9",
     "text": "metric.txt"
   },
   {
     "path": "metric.txt",
     "size": 4,
-    "state": "01a16dd3-3771-76a0-9c90-68e54719a62d",
+    "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9",
     "text": "150\n"
   },
   {
     "path": "picked.txt",
     "size": 7,
-    "state": "01a16dd3-3771-76a0-9c90-68e54719a62d",
+    "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9",
     "text": "picked\n"
   },
   {
     "path": "probe.py",
     "size": 165,
-    "state": "01a16dd3-3771-76a0-9c90-68e54719a62d",
+    "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9",
     "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+  },
+  {
+    "path": "screens.py",
+    "size": 943,
+    "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9",
+    "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
   },
   {
     "path": "tool.sh",
     "size": 17,
-    "state": "01a16dd3-3771-76a0-9c90-68e54719a62d",
+    "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9",
     "text": "#!/bin/sh\nexit 0\n"
   }
 ]

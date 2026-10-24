@@ -1,8 +1,114 @@
 [
   {
-    "address": "file:///var/tmp/layr-test.mcWEju/archive",
-    "id": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab:store",
+    "address": "ssh://fixture/model-golden",
+    "id": "01a16e74-cfbd-7799-b375-f621165de230:peer",
+    "kind": "peer",
+    "last": {
+      "actor": {
+        "name": "root",
+        "uid": 0
+      },
+      "bytes_received": 0,
+      "bytes_sent": 91875,
+      "direction": "sync",
+      "id": "01a16e74-df1d-761d-a07e-3f2fa601d73f",
+      "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+      "overlays": [],
+      "records_received": 0,
+      "records_sent": 68,
+      "remote": "peer",
+      "result": "success",
+      "state_ids_received": [],
+      "state_ids_sent": [
+        "01a16e74-cff3-7561-8dc7-b249781d7bed",
+        "01a16e74-d04d-77bc-aae3-ad86a604d396",
+        "01a16e74-d0fd-765a-91e4-7b25d09dcd1a",
+        "01a16e74-d14b-70f5-b304-015d60d9db64",
+        "01a16e74-d189-74ce-8301-86f483596256",
+        "01a16e74-d24e-7344-95b4-c6253fdc32bc",
+        "01a16e74-d28d-75a7-855f-16fe07fa24dd",
+        "01a16e74-d2fa-741a-b742-0a1e4a9c64fe",
+        "01a16e74-d342-76ae-a8cc-79d8a3320192",
+        "01a16e74-d394-767d-b73a-73d5da6602e4",
+        "01a16e74-d3be-76de-ab2e-9d4a5321c24c",
+        "01a16e74-d41d-70f8-936c-4170a4ca5269",
+        "01a16e74-d483-74eb-9aa4-6697c40fe915",
+        "01a16e74-d594-76b9-9396-876abef20ffd",
+        "01a16e74-d612-777e-ac14-e062f3ddfd67",
+        "01a16e74-d63d-75b0-9a0d-83116dec2c5f",
+        "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+        "01a16e74-d69e-75af-aced-784496159970",
+        "01a16e74-d6cd-7004-a0cb-699913058561",
+        "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
+        "01a16e74-d802-70f6-a817-77f90941446d",
+        "01a16e74-d838-77a6-aa6d-36d37a895b8e",
+        "01a16e74-d860-7289-a2b1-627901a4ba6c",
+        "01a16e74-da2f-7198-b2c3-c6f49f7591e9"
+      ],
+      "states_received": 0,
+      "states_sent": 24,
+      "time": 1792854515485,
+      "url": "ssh://fixture/model-golden"
+    },
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "name": "peer",
+    "time": 1792854515485
+  },
+  {
+    "address": "file:///var/tmp/layr-test.f1wlHp/archive",
+    "id": "01a16e74-cfbd-7799-b375-f621165de230:store",
     "kind": "store",
-    "name": "store"
+    "last": {
+      "actor": {
+        "name": "root",
+        "uid": 0
+      },
+      "bytes_received": 0,
+      "bytes_sent": 6028,
+      "direction": "push",
+      "id": "01a16e74-e41e-7554-84ca-5f291b06f604",
+      "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+      "overlays": [
+        "secrets"
+      ],
+      "records_received": 0,
+      "records_sent": 71,
+      "remote": "store",
+      "result": "success",
+      "state_ids_received": [],
+      "state_ids_sent": [
+        "01a16e74-cff3-7561-8dc7-b249781d7bed",
+        "01a16e74-d04d-77bc-aae3-ad86a604d396",
+        "01a16e74-d0fd-765a-91e4-7b25d09dcd1a",
+        "01a16e74-d14b-70f5-b304-015d60d9db64",
+        "01a16e74-d189-74ce-8301-86f483596256",
+        "01a16e74-d24e-7344-95b4-c6253fdc32bc",
+        "01a16e74-d28d-75a7-855f-16fe07fa24dd",
+        "01a16e74-d2fa-741a-b742-0a1e4a9c64fe",
+        "01a16e74-d342-76ae-a8cc-79d8a3320192",
+        "01a16e74-d394-767d-b73a-73d5da6602e4",
+        "01a16e74-d3be-76de-ab2e-9d4a5321c24c",
+        "01a16e74-d41d-70f8-936c-4170a4ca5269",
+        "01a16e74-d483-74eb-9aa4-6697c40fe915",
+        "01a16e74-d594-76b9-9396-876abef20ffd",
+        "01a16e74-d612-777e-ac14-e062f3ddfd67",
+        "01a16e74-d63d-75b0-9a0d-83116dec2c5f",
+        "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+        "01a16e74-d69e-75af-aced-784496159970",
+        "01a16e74-d6cd-7004-a0cb-699913058561",
+        "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
+        "01a16e74-d802-70f6-a817-77f90941446d",
+        "01a16e74-d838-77a6-aa6d-36d37a895b8e",
+        "01a16e74-d860-7289-a2b1-627901a4ba6c",
+        "01a16e74-da2f-7198-b2c3-c6f49f7591e9"
+      ],
+      "states_received": 0,
+      "states_sent": 24,
+      "time": 1792854516766,
+      "url": "file:///var/tmp/layr-test.f1wlHp/archive"
+    },
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "name": "store",
+    "time": 1792854516766
   }
 ]

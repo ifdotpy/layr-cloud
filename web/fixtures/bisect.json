@@ -1,1 +1,84 @@
-[]
+[
+  {
+    "actor": {
+      "name": "root",
+      "uid": 0
+    },
+    "argv": [
+      "sh",
+      "-c",
+      "test ! -f feature.txt"
+    ],
+    "bad": "01a16e74-d189-74ce-8301-86f483596256",
+    "first_bad": "01a16e74-d189-74ce-8301-86f483596256",
+    "good": "01a16e74-cff3-7561-8dc7-b249781d7bed",
+    "id": "01a16e74-dabf-705c-b60e-d7c635ddfbc9",
+    "kind": "commit",
+    "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "message": "feature-v2",
+    "origin": [
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    ],
+    "state": "01a16e74-d189-74ce-8301-86f483596256",
+    "steps": [
+      {
+        "exit": 0,
+        "reused": true,
+        "state": "01a16e74-cff3-7561-8dc7-b249781d7bed"
+      },
+      {
+        "exit": 1,
+        "reused": true,
+        "state": "01a16e74-d189-74ce-8301-86f483596256"
+      },
+      {
+        "exit": 0,
+        "reused": true,
+        "state": "01a16e74-d14b-70f5-b304-015d60d9db64"
+      }
+    ],
+    "time": 1792854514367
+  },
+  {
+    "actor": {
+      "name": "root",
+      "uid": 0
+    },
+    "argv": [
+      "sh",
+      "-c",
+      "test ! -f feature.txt"
+    ],
+    "bad": "01a16e74-d189-74ce-8301-86f483596256",
+    "first_bad": "01a16e74-d189-74ce-8301-86f483596256",
+    "good": "01a16e74-cff3-7561-8dc7-b249781d7bed",
+    "id": "01a16e74-dab1-75b8-9f16-1df9371e17d8",
+    "kind": "commit",
+    "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "message": "feature-v2",
+    "origin": [
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    ],
+    "state": "01a16e74-d189-74ce-8301-86f483596256",
+    "steps": [
+      {
+        "exit": 0,
+        "reused": false,
+        "state": "01a16e74-cff3-7561-8dc7-b249781d7bed"
+      },
+      {
+        "exit": 1,
+        "reused": false,
+        "state": "01a16e74-d189-74ce-8301-86f483596256"
+      },
+      {
+        "exit": 0,
+        "reused": false,
+        "state": "01a16e74-d14b-70f5-b304-015d60d9db64"
+      }
+    ],
+    "time": 1792854514353
+  }
+]

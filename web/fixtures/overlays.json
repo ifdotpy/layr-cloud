@@ -1,21 +1,22 @@
 [
   {
-    "epoch": "01a16dd3-3bf2-76cf-a6c9-fd13614bdc2b",
+    "epoch": "01a16e74-e37b-74fd-a237-c126e10c0e73",
     "epochs": [
       {
-        "id": "01a16dd3-3bf2-76cf-a6c9-fd13614bdc2b",
-        "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
-        "time": 1792843922431
+        "id": "01a16e74-e37b-74fd-a237-c126e10c0e73",
+        "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+        "time": 1792854516611
       }
     ],
     "files": [
       {
-        "path": "private.txt",
-        "size": 14,
-        "state": "01a16dd3-3671-71ec-ac74-0bb792783810",
-        "text": "private bytes\n"
+        "path": "hidden.txt",
+        "size": 20,
+        "state": "01a16e74-dff3-70d2-b8f5-5a7a7f71f56b",
+        "text": "hidden golden bytes\n"
       }
     ],
+    "hidden": true,
     "history": [
       {
         "actor": {
@@ -23,23 +24,30 @@
           "uid": 0
         },
         "data": {
-          "epoch": "01a16dd3-3bf2-76cf-a6c9-fd13614bdc2b",
-          "name": "secrets",
-          "overlay": "01a16dd3-358a-7531-a15f-5eb3472c07e9",
-          "parent": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
-          "readers": {
-            "user:0": "admin",
-            "user:65534": "reader"
-          },
-          "recipient": "age1k5sa75lcgemjxnlgtg22k6xefkm5j6mg67tqdra2lsh3lvx8v9ss6djewg",
-          "store": "age10a4gvc5ymma2yu8swqgw83angtl66psgyct9u87wx20cccqttpvsadxe5m"
+          "bytes_received": 0,
+          "bytes_sent": 196,
+          "direction": "push",
+          "overlay": "hidden-golden",
+          "overlays": [],
+          "records_received": 0,
+          "records_sent": 7,
+          "remote": "store",
+          "result": "success",
+          "state_ids_received": [],
+          "state_ids_sent": [
+            "01a16e74-df78-7371-afba-9bd9accfb92d",
+            "01a16e74-dff3-70d2-b8f5-5a7a7f71f56b"
+          ],
+          "states_received": 0,
+          "states_sent": 2,
+          "url": "file:///var/tmp/layr-test.f1wlHp/archive"
         },
-        "id": "01a16dd3-3bff-7715-a547-c48e5c037d8e",
-        "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
-        "op": "overlay.key",
-        "project": "01a16dd3-358a-7531-a15f-5eb3472c07e9",
-        "seq": 6,
-        "time": 1792843922431
+        "id": "01a16e74-e400-76bd-a633-d565a8c30479",
+        "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+        "op": "push",
+        "project": "01a16e74-df58-77bf-ab56-05139f3b262d",
+        "seq": 8,
+        "time": 1792854516736
       },
       {
         "actor": {
@@ -47,29 +55,54 @@
           "uid": 0
         },
         "data": {
-          "line": "01a16dd3-35e3-7451-bc20-7cc88ad9f25c"
+          "epoch": "01a16e74-e37b-74fd-a237-c126e10c0e73",
+          "hidden": true,
+          "name": "hidden-golden",
+          "overlay": "01a16e74-df58-77bf-ab56-05139f3b262d",
+          "parent": "01a16e74-cfd0-7615-a8d9-3e7995798224",
+          "readers": {
+            "user:0": "admin",
+            "user:65534": "reader"
+          },
+          "recipient": "age1svtc0q8j0nn2unfv2hmvvm2qhgjmkfqzt8rvkvhcpaf0fp9zc9xsse69hw",
+          "store": "age1ns70mfuzdtgyne5cvukeuh2cvvc4zw8c9hfx25s8dk79r7cacveqc6wxe3"
         },
-        "id": "01a16dd3-367d-75b7-b227-26be5f3125e6",
+        "id": "01a16e74-e383-7429-9d7f-0aca605d5064",
+        "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+        "op": "overlay.key",
+        "project": "01a16e74-df58-77bf-ab56-05139f3b262d",
+        "seq": 7,
+        "time": 1792854516611
+      },
+      {
+        "actor": {
+          "name": "root",
+          "uid": 0
+        },
+        "data": {
+          "line": "01a16e74-df96-76d0-9c08-0ef0882bf4da"
+        },
+        "id": "01a16e74-e005-748e-b91d-585f80fff43d",
         "lines": {
-          "01a16dd3-35e3-7451-bc20-7cc88ad9f25c": {
+          "01a16e74-df96-76d0-9c08-0ef0882bf4da": {
             "after": {
-              "head": "01a16dd3-3671-71ec-ac74-0bb792783810",
-              "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
-              "name": "user-0",
+              "head": "01a16e74-dff3-70d2-b8f5-5a7a7f71f56b",
+              "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+              "name": "line-01a16e74-cffc-72cf-8a1d-5c7b03d45827",
               "owner": 0
             },
             "before": {
-              "head": "01a16dd3-35b2-74cf-aafb-dc63f62834ea",
-              "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
-              "name": "user-0",
+              "head": "01a16e74-df78-7371-afba-9bd9accfb92d",
+              "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+              "name": "line-01a16e74-cffc-72cf-8a1d-5c7b03d45827",
               "owner": 0
             }
           }
         },
-        "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+        "machine": "01a16e74-cfbd-7799-b375-f621165de230",
         "op": "commit",
-        "project": "01a16dd3-358a-7531-a15f-5eb3472c07e9",
-        "seq": 5,
+        "project": "01a16e74-df58-77bf-ab56-05139f3b262d",
+        "seq": 6,
         "states": [
           {
             "author": {
@@ -77,19 +110,19 @@
               "name": "Tester",
               "uid": 0
             },
-            "change_id": "01a16dd3-367d-75b7-b227-26bd2eb808cf",
-            "id": "01a16dd3-3671-71ec-ac74-0bb792783810",
+            "change_id": "01a16e74-e004-75b4-9be9-c018eb694e3c",
+            "id": "01a16e74-dff3-70d2-b8f5-5a7a7f71f56b",
             "kind": "commit",
-            "line": "01a16dd3-35e3-7451-bc20-7cc88ad9f25c",
-            "message": "overlay-state",
+            "line": "01a16e74-df96-76d0-9c08-0ef0882bf4da",
+            "message": "hidden-golden-state",
             "parents": [
-              "01a16dd3-35b2-74cf-aafb-dc63f62834ea"
+              "01a16e74-df78-7371-afba-9bd9accfb92d"
             ],
-            "subvol": "e3de4ab9-0a8e-8d45-9152-fb1a6cae7192",
-            "time": 1792843921021
+            "subvol": "c310cdbd-a5b2-6c41-a7dc-90c6c65fb49e",
+            "time": 1792854515716
           }
         ],
-        "time": 1792843921021
+        "time": 1792854515717
       },
       {
         "actor": {
@@ -97,36 +130,61 @@
           "uid": 0
         },
         "data": {
-          "name": "user-0",
-          "start": "01a16dd3-35b2-74cf-aafb-dc63f62834ea"
+          "name": "line-01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+          "start": "01a16e74-df78-7371-afba-9bd9accfb92d"
         },
-        "id": "01a16dd3-35e3-7451-bc20-7cc9b75a3dad",
+        "id": "01a16e74-df96-76d0-9c08-0ef1bdba495c",
         "lines": {
-          "01a16dd3-35e3-7451-bc20-7cc88ad9f25c": {
+          "01a16e74-df96-76d0-9c08-0ef0882bf4da": {
             "after": {
-              "head": "01a16dd3-35b2-74cf-aafb-dc63f62834ea",
-              "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
-              "name": "user-0",
+              "head": "01a16e74-df78-7371-afba-9bd9accfb92d",
+              "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+              "name": "line-01a16e74-cffc-72cf-8a1d-5c7b03d45827",
               "owner": 0
             },
             "before": null
           }
         },
-        "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+        "machine": "01a16e74-cfbd-7799-b375-f621165de230",
         "op": "line.create",
-        "project": "01a16dd3-358a-7531-a15f-5eb3472c07e9",
-        "seq": 4,
-        "time": 1792843920867
+        "project": "01a16e74-df58-77bf-ab56-05139f3b262d",
+        "seq": 5,
+        "time": 1792854515606
       },
       {
         "actor": {
           "name": "root",
           "uid": 0
         },
-        "id": "01a16dd3-35bd-720f-a409-2765bcc49491",
-        "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+        "data": {
+          "config": {
+            "overlay.hidden-golden": {
+              "hidden": true,
+              "id": "01a16e74-df58-77bf-ab56-05139f3b262d",
+              "mode": "follow",
+              "owner": 0,
+              "root": "01a16e74-df78-7371-afba-9bd9accfb92d"
+            }
+          },
+          "name": "hidden-golden",
+          "parent": "01a16e74-cfd0-7615-a8d9-3e7995798224"
+        },
+        "id": "01a16e74-df82-7575-b38b-e60b14650e99",
+        "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+        "op": "overlay.create",
+        "project": "01a16e74-df58-77bf-ab56-05139f3b262d",
+        "seq": 4,
+        "time": 1792854515586
+      },
+      {
+        "actor": {
+          "name": "root",
+          "uid": 0
+        },
+        "id": "01a16e74-df7d-74b0-9e2a-a328afab28a1",
+        "machine": "01a16e74-cfbd-7799-b375-f621165de230",
         "op": "commit",
-        "project": "01a16dd3-358a-7531-a15f-5eb3472c07e9",
+        "project": "01a16e74-df58-77bf-ab56-05139f3b262d",
         "seq": 3,
         "states": [
           {
@@ -135,16 +193,16 @@
               "name": "Tester",
               "uid": 0
             },
-            "change_id": "01a16dd3-35bd-720f-a409-27646e9dd011",
-            "id": "01a16dd3-35b2-74cf-aafb-dc63f62834ea",
+            "change_id": "01a16e74-df7d-74b0-9e2a-a32741c05a46",
+            "id": "01a16e74-df78-7371-afba-9bd9accfb92d",
             "kind": "commit",
-            "message": "overlay secrets",
+            "message": "overlay hidden-golden",
             "parents": [],
-            "subvol": "7f318372-059c-f841-8678-eb9f558d92de",
-            "time": 1792843920829
+            "subvol": "3dd92aa8-0ce7-4b49-9e27-3ff666ecc827",
+            "time": 1792854515581
           }
         ],
-        "time": 1792843920829
+        "time": 1792854515581
       },
       {
         "actor": {
@@ -158,20 +216,21 @@
               "user:65534": "reader"
             },
             "overlay": {
-              "mode": "shared",
-              "name": "secrets",
-              "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04"
+              "hidden": true,
+              "mode": "follow",
+              "name": "hidden-golden",
+              "project": "01a16e74-cfd0-7615-a8d9-3e7995798224"
             }
           },
-          "id": "01a16dd3-358a-7531-a15f-5eb3472c07e9",
-          "name": "model-golden%secrets"
+          "id": "01a16e74-df58-77bf-ab56-05139f3b262d",
+          "name": "model-golden%hidden-golden"
         },
-        "id": "01a16dd3-35ae-7585-bfb4-509ad3f11387",
-        "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+        "id": "01a16e74-df73-7640-b6f4-761d5c156949",
+        "machine": "01a16e74-cfbd-7799-b375-f621165de230",
         "op": "project",
-        "project": "01a16dd3-358a-7531-a15f-5eb3472c07e9",
+        "project": "01a16e74-df58-77bf-ab56-05139f3b262d",
         "seq": 2,
-        "time": 1792843920814
+        "time": 1792854515571
       },
       {
         "actor": {
@@ -180,19 +239,277 @@
         },
         "data": {
           "name": "layr-dev",
-          "public_key": "f45963d1436be4de668d123fe9d291dbdfe04ec4bb9f712409219b3211675ef4"
+          "public_key": "e7afabc8aa437e7d61269b10e3cdc12ba661feda883e0e598d869ea60b9b7ea7"
         },
-        "id": "01a16dd3-35ad-7798-b3ab-da33f00ae7a6",
-        "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+        "id": "01a16e74-df73-7640-b6f4-761c4e8ac5bb",
+        "machine": "01a16e74-cfbd-7799-b375-f621165de230",
         "op": "machine",
-        "project": "01a16dd3-358a-7531-a15f-5eb3472c07e9",
+        "project": "01a16e74-df58-77bf-ab56-05139f3b262d",
         "seq": 1,
-        "time": 1792843920813
+        "time": 1792854515571
       }
     ],
-    "id": "01a16dd3-358a-7531-a15f-5eb3472c07e9",
+    "id": "01a16e74-df58-77bf-ab56-05139f3b262d",
     "managers": [
-      "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+      "01a16e74-cfbd-7799-b375-f621165de230"
+    ],
+    "mode": "follow",
+    "name": "hidden-golden",
+    "owner": 0,
+    "paths": [
+      "hidden.txt"
+    ],
+    "patterns": [],
+    "policy": {
+      "access": {
+        "user:0": "admin",
+        "user:65534": "reader"
+      },
+      "deny": {},
+      "grants": {},
+      "protect": {}
+    },
+    "readable": true,
+    "reader_details": [
+      {
+        "principal": "user:0"
+      },
+      {
+        "principal": "user:65534"
+      }
+    ],
+    "readers": [
+      "user:0",
+      "user:65534"
+    ]
+  },
+  {
+    "epoch": "01a16e74-e3bf-71fe-9617-e17cf21278bf",
+    "epochs": [
+      {
+        "id": "01a16e74-e3bf-71fe-9617-e17cf21278bf",
+        "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+        "time": 1792854516678
+      }
+    ],
+    "files": [
+      {
+        "path": "private.txt",
+        "size": 14,
+        "state": "01a16e74-d97e-7311-ab27-00afdf805f89",
+        "text": "private bytes\n"
+      }
+    ],
+    "hidden": false,
+    "history": [
+      {
+        "actor": {
+          "name": "root",
+          "uid": 0
+        },
+        "data": {
+          "bytes_received": 0,
+          "bytes_sent": 188,
+          "direction": "push",
+          "overlay": "secrets",
+          "overlays": [],
+          "records_received": 0,
+          "records_sent": 6,
+          "remote": "store",
+          "result": "success",
+          "state_ids_received": [],
+          "state_ids_sent": [
+            "01a16e74-d8f5-7745-a063-d41333382960",
+            "01a16e74-d97e-7311-ab27-00afdf805f89"
+          ],
+          "states_received": 0,
+          "states_sent": 2,
+          "url": "file:///var/tmp/layr-test.f1wlHp/archive"
+        },
+        "id": "01a16e74-e40e-7698-83e2-60ce44fd92aa",
+        "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+        "op": "push",
+        "project": "01a16e74-d8d0-7258-b5f5-d2c891dd17ce",
+        "seq": 7,
+        "time": 1792854516750
+      },
+      {
+        "actor": {
+          "name": "root",
+          "uid": 0
+        },
+        "data": {
+          "epoch": "01a16e74-e3bf-71fe-9617-e17cf21278bf",
+          "name": "secrets",
+          "overlay": "01a16e74-d8d0-7258-b5f5-d2c891dd17ce",
+          "parent": "01a16e74-cfd0-7615-a8d9-3e7995798224",
+          "readers": {
+            "user:0": "admin",
+            "user:65534": "reader"
+          },
+          "recipient": "age1lu0gvfs3hl4z9jt4dptglguylvtzlys9lszuzrt57cyqnykm2cns3n96z4",
+          "store": "age1ns70mfuzdtgyne5cvukeuh2cvvc4zw8c9hfx25s8dk79r7cacveqc6wxe3"
+        },
+        "id": "01a16e74-e3c6-7371-a5f1-6b3e972faf64",
+        "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+        "op": "overlay.key",
+        "project": "01a16e74-d8d0-7258-b5f5-d2c891dd17ce",
+        "seq": 6,
+        "time": 1792854516678
+      },
+      {
+        "actor": {
+          "name": "root",
+          "uid": 0
+        },
+        "data": {
+          "line": "01a16e74-d91a-77da-b477-175c38b7e424"
+        },
+        "id": "01a16e74-d987-7089-9d55-2dc6e3eb6eec",
+        "lines": {
+          "01a16e74-d91a-77da-b477-175c38b7e424": {
+            "after": {
+              "head": "01a16e74-d97e-7311-ab27-00afdf805f89",
+              "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+              "name": "user-0",
+              "owner": 0
+            },
+            "before": {
+              "head": "01a16e74-d8f5-7745-a063-d41333382960",
+              "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+              "name": "user-0",
+              "owner": 0
+            }
+          }
+        },
+        "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+        "op": "commit",
+        "project": "01a16e74-d8d0-7258-b5f5-d2c891dd17ce",
+        "seq": 5,
+        "states": [
+          {
+            "author": {
+              "email": "tester@example.com",
+              "name": "Tester",
+              "uid": 0
+            },
+            "change_id": "01a16e74-d987-7089-9d55-2dc59a7bcaef",
+            "id": "01a16e74-d97e-7311-ab27-00afdf805f89",
+            "kind": "commit",
+            "line": "01a16e74-d91a-77da-b477-175c38b7e424",
+            "message": "overlay-state",
+            "parents": [
+              "01a16e74-d8f5-7745-a063-d41333382960"
+            ],
+            "subvol": "92c4f6b8-c9c2-2443-9d8e-a1f58df1984c",
+            "time": 1792854514055
+          }
+        ],
+        "time": 1792854514055
+      },
+      {
+        "actor": {
+          "name": "root",
+          "uid": 0
+        },
+        "data": {
+          "name": "user-0",
+          "start": "01a16e74-d8f5-7745-a063-d41333382960"
+        },
+        "id": "01a16e74-d91a-77da-b477-175de644b291",
+        "lines": {
+          "01a16e74-d91a-77da-b477-175c38b7e424": {
+            "after": {
+              "head": "01a16e74-d8f5-7745-a063-d41333382960",
+              "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+              "name": "user-0",
+              "owner": 0
+            },
+            "before": null
+          }
+        },
+        "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+        "op": "line.create",
+        "project": "01a16e74-d8d0-7258-b5f5-d2c891dd17ce",
+        "seq": 4,
+        "time": 1792854513946
+      },
+      {
+        "actor": {
+          "name": "root",
+          "uid": 0
+        },
+        "id": "01a16e74-d8fb-72e2-bb45-b56dca3907cd",
+        "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+        "op": "commit",
+        "project": "01a16e74-d8d0-7258-b5f5-d2c891dd17ce",
+        "seq": 3,
+        "states": [
+          {
+            "author": {
+              "email": "tester@example.com",
+              "name": "Tester",
+              "uid": 0
+            },
+            "change_id": "01a16e74-d8fb-72e2-bb45-b56c89aa8b76",
+            "id": "01a16e74-d8f5-7745-a063-d41333382960",
+            "kind": "commit",
+            "message": "overlay secrets",
+            "parents": [],
+            "subvol": "0a1aaf24-8ffa-0246-9d2d-1583b9bc4cff",
+            "time": 1792854513915
+          }
+        ],
+        "time": 1792854513915
+      },
+      {
+        "actor": {
+          "name": "root",
+          "uid": 0
+        },
+        "data": {
+          "config": {
+            "access": {
+              "user:0": "admin",
+              "user:65534": "reader"
+            },
+            "overlay": {
+              "hidden": false,
+              "mode": "shared",
+              "name": "secrets",
+              "project": "01a16e74-cfd0-7615-a8d9-3e7995798224"
+            }
+          },
+          "id": "01a16e74-d8d0-7258-b5f5-d2c891dd17ce",
+          "name": "model-golden%secrets"
+        },
+        "id": "01a16e74-d8ef-748d-b09b-d0af8e693bd2",
+        "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+        "op": "project",
+        "project": "01a16e74-d8d0-7258-b5f5-d2c891dd17ce",
+        "seq": 2,
+        "time": 1792854513903
+      },
+      {
+        "actor": {
+          "name": "root",
+          "uid": 0
+        },
+        "data": {
+          "name": "layr-dev",
+          "public_key": "e7afabc8aa437e7d61269b10e3cdc12ba661feda883e0e598d869ea60b9b7ea7"
+        },
+        "id": "01a16e74-d8ef-748d-b09b-d0ae5ac368f0",
+        "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+        "op": "machine",
+        "project": "01a16e74-d8d0-7258-b5f5-d2c891dd17ce",
+        "seq": 1,
+        "time": 1792854513903
+      }
+    ],
+    "id": "01a16e74-d8d0-7258-b5f5-d2c891dd17ce",
+    "managers": [
+      "01a16e74-cfbd-7799-b375-f621165de230"
     ],
     "mode": "shared",
     "name": "secrets",

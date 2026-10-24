@@ -8,8 +8,8 @@ publish.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-layr-store = { git = "https://github.com/ifdotpy/layr", rev = "153a239c9963fd1b0aa140cef51d11037a557ab8", default-features = false, features = ["wasm"] }
-layr-model = { git = "https://github.com/ifdotpy/layr", rev = "153a239c9963fd1b0aa140cef51d11037a557ab8" }
+layr-store = { git = "https://github.com/ifdotpy/layr", rev = "b1a23c100aa1e0b941afc424c14eb155295cbf50", default-features = false, features = ["wasm"] }
+layr-model = { git = "https://github.com/ifdotpy/layr", rev = "b1a23c100aa1e0b941afc424c14eb155295cbf50" }
 anyhow = "1"
 base64 = "0.22"
 ed25519-dalek = "2"

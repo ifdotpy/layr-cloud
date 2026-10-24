@@ -1,17 +1,17 @@
 {
   "line_owners": [
     {
-      "id": "01a16dd3-2d73-774e-9e40-cd73d2601980",
+      "id": "01a16e74-d01e-7126-8780-7d2e115f6fc6",
       "name": "feature",
       "owner": 0
     },
     {
-      "id": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+      "id": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
       "name": "main",
       "owner": 0
     }
   ],
-  "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+  "machine": "01a16e74-cfbd-7799-b375-f621165de230",
   "path_rules": {
     "main": {
       "feature.txt": "maintainer"
@@ -41,7 +41,7 @@
       }
     }
   },
-  "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+  "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
   "values": {
     "access": {
       "user:0": "admin",
@@ -49,17 +49,19 @@
     },
     "check.denymerge": "\"false\"",
     "check.smoke": "\"false\"",
+    "cloud.remote.peer.url": "ssh://fixture/model-golden",
     "cloud.remote.store.store": {
-      "paper_recipient": "age1hj8y8nxajxye26m2adwsf5px0q66ukzgnju0zv08ep4e95gwqc3q8rue8m",
-      "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
-      "recipient": "age10a4gvc5ymma2yu8swqgw83angtl66psgyct9u87wx20cccqttpvsadxe5m"
+      "paper_recipient": "age1ggn8cemhjya4ywuvueht8raxrqenl6yt2gwpm7c03ddu2ssw6qrs5wdu67",
+      "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
+      "recipient": "age1ns70mfuzdtgyne5cvukeuh2cvvc4zw8c9hfx25s8dk79r7cacveqc6wxe3"
     },
-    "cloud.remote.store.url": "file:///var/tmp/layr-test.mcWEju/archive",
+    "cloud.remote.store.url": "file:///var/tmp/layr-test.f1wlHp/archive",
     "overlay.secrets": {
-      "id": "01a16dd3-358a-7531-a15f-5eb3472c07e9",
+      "hidden": false,
+      "id": "01a16e74-d8d0-7258-b5f5-d2c891dd17ce",
       "mode": "shared",
       "owner": 0,
-      "root": "01a16dd3-35b2-74cf-aafb-dc63f62834ea"
+      "root": "01a16e74-d8f5-7745-a063-d41333382960"
     },
     "protect": {
       "env/prod": {
@@ -78,10 +80,10 @@
       }
     },
     "queue.probes": true,
-    "stack.01a16dd3-2d54-704b-8fcf-d8028e578f12": [
+    "stack.01a16e74-cffc-72cf-8a1d-5c7b03d45827": [
       {
         "overlay": "secrets",
-        "state": "01a16dd3-3671-71ec-ac74-0bb792783810"
+        "state": "01a16e74-d97e-7311-ab27-00afdf805f89"
       }
     ]
   }

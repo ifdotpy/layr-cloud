@@ -1,28 +1,82 @@
 [
   {
-    "id": "01a16dd3-3808-7073-b8e9-7310d23c57e5",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
-    "seq": 61,
-    "time": 1792843921416,
+    "id": "01a16e74-e41e-7554-84ca-5f291b06f604",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 72,
+    "time": 1792854516766,
+    "op": "push",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "bytes_received": 0,
+      "bytes_sent": 6028,
+      "direction": "push",
+      "overlays": [
+        "secrets"
+      ],
+      "records_received": 0,
+      "records_sent": 71,
+      "remote": "store",
+      "result": "success",
+      "state_ids_received": [],
+      "state_ids_sent": [
+        "01a16e74-cff3-7561-8dc7-b249781d7bed",
+        "01a16e74-d04d-77bc-aae3-ad86a604d396",
+        "01a16e74-d0fd-765a-91e4-7b25d09dcd1a",
+        "01a16e74-d14b-70f5-b304-015d60d9db64",
+        "01a16e74-d189-74ce-8301-86f483596256",
+        "01a16e74-d24e-7344-95b4-c6253fdc32bc",
+        "01a16e74-d28d-75a7-855f-16fe07fa24dd",
+        "01a16e74-d2fa-741a-b742-0a1e4a9c64fe",
+        "01a16e74-d342-76ae-a8cc-79d8a3320192",
+        "01a16e74-d394-767d-b73a-73d5da6602e4",
+        "01a16e74-d3be-76de-ab2e-9d4a5321c24c",
+        "01a16e74-d41d-70f8-936c-4170a4ca5269",
+        "01a16e74-d483-74eb-9aa4-6697c40fe915",
+        "01a16e74-d594-76b9-9396-876abef20ffd",
+        "01a16e74-d612-777e-ac14-e062f3ddfd67",
+        "01a16e74-d63d-75b0-9a0d-83116dec2c5f",
+        "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+        "01a16e74-d69e-75af-aced-784496159970",
+        "01a16e74-d6cd-7004-a0cb-699913058561",
+        "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
+        "01a16e74-d802-70f6-a817-77f90941446d",
+        "01a16e74-d838-77a6-aa6d-36d37a895b8e",
+        "01a16e74-d860-7289-a2b1-627901a4ba6c",
+        "01a16e74-da2f-7198-b2c3-c6f49f7591e9"
+      ],
+      "states_received": 0,
+      "states_sent": 24,
+      "url": "file:///var/tmp/layr-test.f1wlHp/archive"
+    }
+  },
+  {
+    "id": "01a16e74-df4a-775b-bf14-2715464087fa",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 71,
+    "time": 1792854515530,
     "op": "config",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "data": {
       "config": {
-        "cloud.remote.store.url": "file:///var/tmp/layr-test.mcWEju/archive"
+        "cloud.remote.store.url": "file:///var/tmp/layr-test.f1wlHp/archive"
       }
     }
   },
   {
-    "id": "01a16dd3-37f9-758c-9b16-c92813a5d4c7",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
-    "seq": 60,
-    "time": 1792843921401,
+    "id": "01a16e74-df3f-7063-85ca-023c90fbce8a",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 70,
+    "time": 1792854515519,
     "op": "config",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
@@ -30,37 +84,309 @@
     "data": {
       "config": {
         "cloud.remote.store.store": {
-          "paper_recipient": "age1hj8y8nxajxye26m2adwsf5px0q66ukzgnju0zv08ep4e95gwqc3q8rue8m",
-          "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
-          "recipient": "age10a4gvc5ymma2yu8swqgw83angtl66psgyct9u87wx20cccqttpvsadxe5m"
+          "paper_recipient": "age1ggn8cemhjya4ywuvueht8raxrqenl6yt2gwpm7c03ddu2ssw6qrs5wdu67",
+          "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
+          "recipient": "age1ns70mfuzdtgyne5cvukeuh2cvvc4zw8c9hfx25s8dk79r7cacveqc6wxe3"
         }
       }
     }
   },
   {
-    "id": "01a16dd3-379c-7628-83a4-7217932f1d7c",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
-    "seq": 59,
-    "time": 1792843921308,
+    "id": "01a16e74-df1d-761d-a07e-3f2fa601d73f",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 69,
+    "time": 1792854515485,
+    "op": "sync",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "bytes_received": 0,
+      "bytes_sent": 91875,
+      "direction": "sync",
+      "overlays": [],
+      "records_received": 0,
+      "records_sent": 68,
+      "remote": "peer",
+      "result": "success",
+      "state_ids_received": [],
+      "state_ids_sent": [
+        "01a16e74-cff3-7561-8dc7-b249781d7bed",
+        "01a16e74-d04d-77bc-aae3-ad86a604d396",
+        "01a16e74-d0fd-765a-91e4-7b25d09dcd1a",
+        "01a16e74-d14b-70f5-b304-015d60d9db64",
+        "01a16e74-d189-74ce-8301-86f483596256",
+        "01a16e74-d24e-7344-95b4-c6253fdc32bc",
+        "01a16e74-d28d-75a7-855f-16fe07fa24dd",
+        "01a16e74-d2fa-741a-b742-0a1e4a9c64fe",
+        "01a16e74-d342-76ae-a8cc-79d8a3320192",
+        "01a16e74-d394-767d-b73a-73d5da6602e4",
+        "01a16e74-d3be-76de-ab2e-9d4a5321c24c",
+        "01a16e74-d41d-70f8-936c-4170a4ca5269",
+        "01a16e74-d483-74eb-9aa4-6697c40fe915",
+        "01a16e74-d594-76b9-9396-876abef20ffd",
+        "01a16e74-d612-777e-ac14-e062f3ddfd67",
+        "01a16e74-d63d-75b0-9a0d-83116dec2c5f",
+        "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+        "01a16e74-d69e-75af-aced-784496159970",
+        "01a16e74-d6cd-7004-a0cb-699913058561",
+        "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
+        "01a16e74-d802-70f6-a817-77f90941446d",
+        "01a16e74-d838-77a6-aa6d-36d37a895b8e",
+        "01a16e74-d860-7289-a2b1-627901a4ba6c",
+        "01a16e74-da2f-7198-b2c3-c6f49f7591e9"
+      ],
+      "states_received": 0,
+      "states_sent": 24,
+      "url": "ssh://fixture/model-golden"
+    }
+  },
+  {
+    "id": "01a16e74-db6e-7689-9ac6-77f24029b155",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 68,
+    "time": 1792854514542,
+    "op": "config",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "config": {
+        "cloud.remote.peer.url": "ssh://fixture/model-golden"
+      }
+    }
+  },
+  {
+    "id": "01a16e74-dabf-705c-b60e-d7c635ddfbc9",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 67,
+    "time": 1792854514367,
+    "op": "bisect.run",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "argv": [
+        "sh",
+        "-c",
+        "test ! -f feature.txt"
+      ],
+      "bad": "01a16e74-d189-74ce-8301-86f483596256",
+      "first_bad": "01a16e74-d189-74ce-8301-86f483596256",
+      "good": "01a16e74-cff3-7561-8dc7-b249781d7bed",
+      "kind": "commit",
+      "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+      "message": "feature-v2",
+      "origin": [
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      ],
+      "state": "01a16e74-d189-74ce-8301-86f483596256",
+      "steps": [
+        {
+          "exit": 0,
+          "reused": true,
+          "state": "01a16e74-cff3-7561-8dc7-b249781d7bed"
+        },
+        {
+          "exit": 1,
+          "reused": true,
+          "state": "01a16e74-d189-74ce-8301-86f483596256"
+        },
+        {
+          "exit": 0,
+          "reused": true,
+          "state": "01a16e74-d14b-70f5-b304-015d60d9db64"
+        }
+      ]
+    }
+  },
+  {
+    "id": "01a16e74-dab1-75b8-9f16-1df9371e17d8",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 66,
+    "time": 1792854514353,
+    "op": "bisect.run",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "argv": [
+        "sh",
+        "-c",
+        "test ! -f feature.txt"
+      ],
+      "bad": "01a16e74-d189-74ce-8301-86f483596256",
+      "first_bad": "01a16e74-d189-74ce-8301-86f483596256",
+      "good": "01a16e74-cff3-7561-8dc7-b249781d7bed",
+      "kind": "commit",
+      "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+      "message": "feature-v2",
+      "origin": [
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      ],
+      "state": "01a16e74-d189-74ce-8301-86f483596256",
+      "steps": [
+        {
+          "exit": 0,
+          "reused": false,
+          "state": "01a16e74-cff3-7561-8dc7-b249781d7bed"
+        },
+        {
+          "exit": 1,
+          "reused": false,
+          "state": "01a16e74-d189-74ce-8301-86f483596256"
+        },
+        {
+          "exit": 0,
+          "reused": false,
+          "state": "01a16e74-d14b-70f5-b304-015d60d9db64"
+        }
+      ]
+    }
+  },
+  {
+    "id": "01a16e74-daac-766f-aaa6-1339fd45263d",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 65,
+    "time": 1792854514348,
     "op": "attest",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "data": {
       "attestation": {
-        "attestation_id": "01a16dd3-379c-7628-83a4-7217932f1d7c",
-        "change_id": "01a16dd3-3776-7418-9ba3-53b39c6e29b4",
+        "attestation_id": "01a16e74-daac-766f-aaa6-1339fd45263d",
+        "change_id": "01a16e74-d150-76bb-b299-294fb0aca65a",
         "format": 1,
         "kind": "check",
-        "payload_digest": "6b47fd784f1a0ccb2774e265c309bd9e768aa2989de65c631b44fee7829ded12",
-        "signer": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+        "payload_digest": "5bb8f21108ed4af4f1f4df2d6a407ae852ff300202d6e8b1d1e331e25493aa7f",
+        "signer": "01a16e74-cfbd-7799-b375-f621165de230",
         "subject": {
-          "id": "01a16dd3-3771-76a0-9c90-68e54719a62d",
+          "id": "01a16e74-d14b-70f5-b304-015d60d9db64",
           "kind": "state"
         },
-        "time": 1792843921308
+        "time": 1792854514348
+      },
+      "check": {
+        "argv": [
+          "sh",
+          "-c",
+          "test ! -f feature.txt"
+        ],
+        "command": "sh -c test ! -f feature.txt",
+        "exit": 0,
+        "seconds": 0.000846756
+      }
+    }
+  },
+  {
+    "id": "01a16e74-daa0-7188-8393-a7b9f0e2eb5e",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 64,
+    "time": 1792854514336,
+    "op": "attest",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "attestation": {
+        "attestation_id": "01a16e74-daa0-7188-8393-a7b9f0e2eb5e",
+        "change_id": "01a16e74-d053-7560-9fe6-27929a020d51",
+        "format": 1,
+        "kind": "check",
+        "payload_digest": "217e3817aa315433e9c83c7494ede96db9fde49a6f843a26ee1c355bd9918990",
+        "signer": "01a16e74-cfbd-7799-b375-f621165de230",
+        "subject": {
+          "id": "01a16e74-d189-74ce-8301-86f483596256",
+          "kind": "state"
+        },
+        "time": 1792854514336
+      },
+      "check": {
+        "argv": [
+          "sh",
+          "-c",
+          "test ! -f feature.txt"
+        ],
+        "command": "sh -c test ! -f feature.txt",
+        "exit": 1,
+        "seconds": 0.000837923
+      }
+    }
+  },
+  {
+    "id": "01a16e74-da8e-77aa-8043-2d57b6073b18",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 63,
+    "time": 1792854514318,
+    "op": "attest",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "attestation": {
+        "attestation_id": "01a16e74-da8e-77aa-8043-2d57b6073b18",
+        "change_id": "01a16e74-cff8-70ed-ae4d-50f92db0f295",
+        "format": 1,
+        "kind": "check",
+        "payload_digest": "b48215b2e4ee03d04985dc90d0c63da9753aac113e177b936ed82e4a470c9b93",
+        "signer": "01a16e74-cfbd-7799-b375-f621165de230",
+        "subject": {
+          "id": "01a16e74-cff3-7561-8dc7-b249781d7bed",
+          "kind": "state"
+        },
+        "time": 1792854514318
+      },
+      "check": {
+        "argv": [
+          "sh",
+          "-c",
+          "test ! -f feature.txt"
+        ],
+        "command": "sh -c test ! -f feature.txt",
+        "exit": 0,
+        "seconds": 0.00097709
+      }
+    }
+  },
+  {
+    "id": "01a16e74-da54-72f5-be23-0ee2e06e226d",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 62,
+    "time": 1792854514260,
+    "op": "attest",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "attestation": {
+        "attestation_id": "01a16e74-da54-72f5-be23-0ee2e06e226d",
+        "change_id": "01a16e74-da33-7099-b992-be82b9a044cc",
+        "format": 1,
+        "kind": "check",
+        "payload_digest": "8ee08fe9fe71584f6bf639124fd0f4ebe097dc4e0ea2e27b1872e032ebca3143",
+        "signer": "01a16e74-cfbd-7799-b375-f621165de230",
+        "subject": {
+          "id": "01a16e74-da2f-7198-b2c3-c6f49f7591e9",
+          "kind": "state"
+        },
+        "time": 1792854514260
       },
       "check": {
         "argv": [
@@ -70,53 +396,53 @@
         ],
         "command": "\"false\"",
         "exit": 1,
-        "seconds": 0.001819553
+        "seconds": 0.000889423
       }
     }
   },
   {
-    "id": "01a16dd3-3783-73b2-b633-01b8c6999cb4",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
-    "seq": 58,
-    "time": 1792843921283,
+    "id": "01a16e74-da41-77a5-8e99-201b2426e66c",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 61,
+    "time": 1792854514241,
     "op": "merge.candidate",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "states": [
       {
-        "id": "01a16dd3-3771-76a0-9c90-68e54719a62d",
+        "id": "01a16e74-da2f-7198-b2c3-c6f49f7591e9",
         "kind": "commit",
-        "change_id": "01a16dd3-3776-7418-9ba3-53b39c6e29b4",
+        "change_id": "01a16e74-da33-7099-b992-be82b9a044cc",
         "parents": [
-          "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
-          "01a16dd3-3434-75a9-ad00-8ccb7315f6ff"
+          "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+          "01a16e74-d7aa-73e1-8d1d-eaa41837a41f"
         ],
-        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
-        "subvol": "3b4e921e-2d1d-a548-8557-860370566f97",
+        "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+        "subvol": "b20f79a3-fb71-8347-8de4-6076575fc01f",
         "author": {
           "name": "Tester",
           "email": "tester@example.com",
           "uid": 0
         },
         "message": "Merge line 'feature'",
-        "time": 1792843921270
+        "time": 1792854514227
       }
     ],
     "data": {
-      "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
-      "theirs": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff"
+      "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+      "theirs": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f"
     }
   },
   {
-    "id": "01a16dd3-3701-7284-a460-68ddf50ad947",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
-    "seq": 57,
-    "time": 1792843921153,
+    "id": "01a16e74-d9df-7104-876a-b1ed3799aa10",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 60,
+    "time": 1792854514143,
     "op": "config",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
@@ -143,12 +469,12 @@
     }
   },
   {
-    "id": "01a16dd3-36e6-7108-b753-64b19c33e6a7",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
-    "seq": 56,
-    "time": 1792843921126,
+    "id": "01a16e74-d9cd-7728-ab5a-d4b914d9c4f7",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 59,
+    "time": 1792854514125,
     "op": "config",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
@@ -160,12 +486,12 @@
     }
   },
   {
-    "id": "01a16dd3-36bb-71ac-b2bb-c7d0277e0aa2",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
-    "seq": 55,
-    "time": 1792843921083,
+    "id": "01a16e74-d9b5-7674-89f6-e295a6679a27",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 58,
+    "time": 1792854514101,
     "op": "config",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
@@ -177,34 +503,34 @@
     }
   },
   {
-    "id": "01a16dd3-368b-7643-811e-9ace1acc76bb",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
-    "seq": 54,
-    "time": 1792843921035,
+    "id": "01a16e74-d990-70d8-9eb3-325f0a00d77a",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 57,
+    "time": 1792854514064,
     "op": "commit",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "lines": {
-      "01a16dd3-2d54-704b-8fcf-d8028e578f12": {
+      "01a16e74-cffc-72cf-8a1d-5c7b03d45827": {
         "before": {
           "name": "main",
-          "head": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+          "head": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         },
         "after": {
           "name": "main",
-          "head": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+          "head": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         }
       }
     },
     "data": {
-      "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+      "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
       "overlays": [
         "secrets"
       ],
@@ -212,44 +538,44 @@
         "layers": [
           {
             "overlay": "secrets",
-            "state": "01a16dd3-3671-71ec-ac74-0bb792783810"
+            "state": "01a16e74-d97e-7311-ab27-00afdf805f89"
           }
         ],
-        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12"
+        "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827"
       }
     }
   },
   {
-    "id": "01a16dd3-361f-73a4-8c31-ca12abcad74a",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
-    "seq": 53,
-    "time": 1792843920927,
+    "id": "01a16e74-d944-7684-9bb0-bac4db0ed1a9",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 56,
+    "time": 1792854513988,
     "op": "overlay.use",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "data": {
-      "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+      "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
       "stack": {
         "layers": [
           {
             "overlay": "secrets",
-            "state": "01a16dd3-35b2-74cf-aafb-dc63f62834ea"
+            "state": "01a16e74-d8f5-7745-a063-d41333382960"
           }
         ],
-        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12"
+        "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827"
       }
     }
   },
   {
-    "id": "01a16dd3-35c3-74fe-85ec-fca2d11020ad",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
-    "seq": 52,
-    "time": 1792843920835,
+    "id": "01a16e74-d8ff-75f5-91a8-2bd1d2562f8c",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 55,
+    "time": 1792854513919,
     "op": "overlay.create",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
@@ -257,22 +583,24 @@
     "data": {
       "config": {
         "overlay.secrets": {
-          "id": "01a16dd3-358a-7531-a15f-5eb3472c07e9",
+          "hidden": false,
+          "id": "01a16e74-d8d0-7258-b5f5-d2c891dd17ce",
           "mode": "shared",
           "owner": 0,
-          "root": "01a16dd3-35b2-74cf-aafb-dc63f62834ea"
+          "root": "01a16e74-d8f5-7745-a063-d41333382960"
         }
       },
-      "name": "secrets"
+      "name": "secrets",
+      "parent": "01a16e74-cfd0-7615-a8d9-3e7995798224"
     }
   },
   {
-    "id": "01a16dd3-3568-738d-a00e-f53d19dd4bb3",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
-    "seq": 51,
-    "time": 1792843920744,
+    "id": "01a16e74-d8bf-7496-8a55-4b408218f318",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 54,
+    "time": 1792854513855,
     "op": "config",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
@@ -296,12 +624,12 @@
     }
   },
   {
-    "id": "01a16dd3-3551-747c-814f-a208bcfb4c9f",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
-    "seq": 50,
-    "time": 1792843920721,
+    "id": "01a16e74-d8ac-732c-bed0-6ed9711eeecc",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 53,
+    "time": 1792854513836,
     "op": "config",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
@@ -316,12 +644,12 @@
     }
   },
   {
-    "id": "01a16dd3-3506-7285-82e6-957bc9a7b70d",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
-    "seq": 49,
-    "time": 1792843920646,
+    "id": "01a16e74-d870-76d7-9b63-33b5fe43617f",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 52,
+    "time": 1792854513776,
     "op": "queue.result",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
@@ -331,14 +659,14 @@
         "after": {
           "added_by": 0,
           "attempts": 1,
-          "change_id": "01a16dd3-343b-7155-8a7d-6c5391b2dba8",
-          "id": "01a16dd3-345f-77e4-aa27-85e07682ba4a",
+          "change_id": "01a16e74-d7af-745e-afd6-8f98b4abdcc2",
+          "id": "01a16e74-d7d4-741d-9dae-b93866a9d7d7",
           "into": "main",
           "probes": {
             "behavior": {
-              "base": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+              "base": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
               "base_source": "available",
-              "head": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+              "head": "01a16e74-d802-70f6-a817-77f90941446d",
               "head_source": "available",
               "probes": [
                 {
@@ -348,11 +676,11 @@
                       "probe.py"
                     ],
                     "exit": 0,
-                    "output_state": "01a16dd3-339c-72fa-a25a-35de7a1483fd",
+                    "output_state": "01a16e74-d69e-75af-aced-784496159970",
                     "probe": "metric",
                     "reused": true,
                     "subject": {
-                      "id": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+                      "id": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
                       "kind": "state"
                     }
                   },
@@ -377,15 +705,200 @@
                       "probe.py"
                     ],
                     "exit": 0,
-                    "output_state": "01a16dd3-34f7-74cf-b03d-87c016cac88f",
+                    "output_state": "01a16e74-d838-77a6-aa6d-36d37a895b8e",
                     "probe": "metric",
                     "reused": true,
                     "subject": {
-                      "id": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+                      "id": "01a16e74-d802-70f6-a817-77f90941446d",
                       "kind": "state"
                     }
                   },
                   "probe": "metric",
+                  "status": "changed"
+                },
+                {
+                  "base": {
+                    "argv": [
+                      "python3",
+                      "screens.py"
+                    ],
+                    "exit": 0,
+                    "output_state": "01a16e74-d6cd-7004-a0cb-699913058561",
+                    "probe": "screens",
+                    "reused": true,
+                    "subject": {
+                      "id": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+                      "kind": "state"
+                    }
+                  },
+                  "changes": [
+                    {
+                      "after": {
+                        "height": 2,
+                        "width": 2
+                      },
+                      "base_png": "out/screens/Home@Phone.png",
+                      "base_structure": "out/screens/Home@Phone.html",
+                      "before": {
+                        "height": 2,
+                        "width": 2
+                      },
+                      "changed_percent": 25.0,
+                      "changed_pixels": 1,
+                      "changed_share": 0.25,
+                      "elements_added": 0,
+                      "elements_removed": 0,
+                      "head_png": "out/screens/Home@Phone.png",
+                      "head_structure": "out/screens/Home@Phone.html",
+                      "kind": "screenshots",
+                      "path": "out/screens/Home@Phone",
+                      "regions": [
+                        {
+                          "height": 1,
+                          "width": 1,
+                          "x": 0,
+                          "y": 0
+                        }
+                      ],
+                      "screen": "Home@Phone",
+                      "size_changed": false,
+                      "status": "compared",
+                      "structure_available": true,
+                      "structure_diff": "--- out/screens/Home@Phone.html\n+++ out/screens/Home@Phone.html\n@@ -1,5 +1,5 @@\n <main>\n <p>\n-110\n+150\n </p>\n </main>\n",
+                      "structure_regions": [],
+                      "text_changes": 1,
+                      "total_pixels": 4
+                    },
+                    {
+                      "after": null,
+                      "base_png": null,
+                      "base_structure": "out/screens/Native@Phone.xml",
+                      "before": null,
+                      "changed_percent": null,
+                      "changed_pixels": null,
+                      "changed_share": null,
+                      "elements_added": 0,
+                      "elements_removed": 0,
+                      "head_png": null,
+                      "head_structure": "out/screens/Native@Phone.xml",
+                      "kind": "screenshots",
+                      "path": "out/screens/Native@Phone",
+                      "regions": [],
+                      "screen": "Native@Phone",
+                      "size_changed": false,
+                      "status": "compared",
+                      "structure_available": true,
+                      "structure_diff": "--- out/screens/Native@Phone.xml\n+++ out/screens/Native@Phone.xml\n@@ -1,2 +1,2 @@\n-<node text=\"110\">\n+<node text=\"150\">\n </node>\n",
+                      "structure_regions": [
+                        {
+                          "change": "text",
+                          "height": 4.0,
+                          "width": 3.0,
+                          "x": 1.0,
+                          "y": 2.0
+                        }
+                      ],
+                      "text_changes": 1,
+                      "total_pixels": null
+                    },
+                    {
+                      "after": null,
+                      "base_png": null,
+                      "base_structure": "out/screens/Stable@Phone.txt",
+                      "before": null,
+                      "changed_percent": null,
+                      "changed_pixels": null,
+                      "changed_share": null,
+                      "elements_added": 0,
+                      "elements_removed": 0,
+                      "head_png": null,
+                      "head_structure": "out/screens/Stable@Phone.txt",
+                      "kind": "screenshots",
+                      "path": "out/screens/Stable@Phone",
+                      "regions": [],
+                      "screen": "Stable@Phone",
+                      "size_changed": false,
+                      "status": "compared",
+                      "structure_available": true,
+                      "structure_diff": "",
+                      "structure_regions": [],
+                      "text_changes": 0,
+                      "total_pixels": null
+                    },
+                    {
+                      "after": null,
+                      "base_png": null,
+                      "base_structure": "out/screens/Text@Phone.txt",
+                      "before": null,
+                      "changed_percent": null,
+                      "changed_pixels": null,
+                      "changed_share": null,
+                      "elements_added": 0,
+                      "elements_removed": 0,
+                      "head_png": null,
+                      "head_structure": "out/screens/Text@Phone.txt",
+                      "kind": "screenshots",
+                      "path": "out/screens/Text@Phone",
+                      "regions": [],
+                      "screen": "Text@Phone",
+                      "size_changed": false,
+                      "status": "compared",
+                      "structure_available": true,
+                      "structure_diff": "--- out/screens/Text@Phone.txt\n+++ out/screens/Text@Phone.txt\n@@ -1 +1 @@\n-110\n+150\n",
+                      "structure_regions": [],
+                      "text_changes": 1,
+                      "total_pixels": null
+                    },
+                    {
+                      "after": null,
+                      "base_png": null,
+                      "base_structure": "out/screens/Tree@Phone.json",
+                      "before": null,
+                      "changed_percent": null,
+                      "changed_pixels": null,
+                      "changed_share": null,
+                      "elements_added": 0,
+                      "elements_removed": 0,
+                      "head_png": null,
+                      "head_structure": "out/screens/Tree@Phone.json",
+                      "kind": "screenshots",
+                      "path": "out/screens/Tree@Phone",
+                      "regions": [],
+                      "screen": "Tree@Phone",
+                      "size_changed": false,
+                      "status": "compared",
+                      "structure_available": true,
+                      "structure_diff": "--- out/screens/Tree@Phone.json\n+++ out/screens/Tree@Phone.json\n@@ -1,3 +1,3 @@\n {\n-  \"label\": \"110\"\n+  \"label\": \"150\"\n }\n",
+                      "structure_regions": [
+                        {
+                          "change": "text",
+                          "height": 4.0,
+                          "width": 3.0,
+                          "x": 1.0,
+                          "y": 2.0
+                        }
+                      ],
+                      "text_changes": 1,
+                      "total_pixels": null
+                    }
+                  ],
+                  "exit_changed": false,
+                  "head": {
+                    "argv": [
+                      "python3",
+                      "screens.py"
+                    ],
+                    "exit": 0,
+                    "output_state": "01a16e74-d860-7289-a2b1-627901a4ba6c",
+                    "probe": "screens",
+                    "reused": true,
+                    "subject": {
+                      "id": "01a16e74-d802-70f6-a817-77f90941446d",
+                      "kind": "state"
+                    }
+                  },
+                  "limit_reasons": [],
+                  "probe": "screens",
                   "status": "changed"
                 }
               ]
@@ -398,72 +911,183 @@
                   "probe metric: value 110 → 150 (+36 %) is over the limit +20 %"
                 ],
                 "status": "failed"
+              },
+              {
+                "errors": [],
+                "probe": "screens",
+                "reasons": [],
+                "status": "passed"
               }
             ],
             "status": "failed"
           },
           "reason": "probe metric: value 110 → 150 (+36 %) is over the limit +20 %",
-          "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+          "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
           "status": "failed",
-          "target_line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
-          "time": 1792843920479
+          "target_line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+          "time": 1792854513620
         },
         "before": {
           "added_by": 0,
           "attempts": 0,
-          "change_id": "01a16dd3-343b-7155-8a7d-6c5391b2dba8",
-          "id": "01a16dd3-345f-77e4-aa27-85e07682ba4a",
+          "change_id": "01a16e74-d7af-745e-afd6-8f98b4abdcc2",
+          "id": "01a16e74-d7d4-741d-9dae-b93866a9d7d7",
           "into": "main",
-          "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+          "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
           "status": "pending",
-          "target_line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
-          "time": 1792843920479
+          "target_line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+          "time": 1792854513620
         },
-        "id": "01a16dd3-345f-77e4-aa27-85e07682ba4a"
+        "id": "01a16e74-d7d4-741d-9dae-b93866a9d7d7"
       }
     }
   },
   {
-    "id": "01a16dd3-34fc-738d-b544-7c0bda52ef38",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
-    "seq": 48,
-    "time": 1792843920636,
+    "id": "01a16e74-d866-70ef-aeda-413a3ecf5e20",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 51,
+    "time": 1792854513766,
     "op": "attest",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "states": [
       {
-        "id": "01a16dd3-34f7-74cf-b03d-87c016cac88f",
+        "id": "01a16e74-d860-7289-a2b1-627901a4ba6c",
         "kind": "derived",
-        "derived_from": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+        "derived_from": "01a16e74-d802-70f6-a817-77f90941446d",
+        "context": "probe-v1/screens",
+        "parents": [],
+        "subvol": "1fabd203-2df9-b249-a766-345d07d16720",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "probe screens",
+        "time": 1792854513766
+      }
+    ],
+    "data": {
+      "attestation": {
+        "attestation_id": "01a16e74-d866-70ef-aeda-413a3ecf5e20",
+        "change_id": "01a16e74-d806-7401-b7f4-2553661ba195",
+        "format": 1,
+        "kind": "check",
+        "payload_digest": "673f4d8d1e16f7dded53b1a876976238366368e1810bd04dad84cde250ffb4ef",
+        "signer": "01a16e74-cfbd-7799-b375-f621165de230",
+        "subject": {
+          "id": "01a16e74-d802-70f6-a817-77f90941446d",
+          "kind": "state"
+        },
+        "time": 1792854513766
+      },
+      "check": {
+        "argv": [
+          "python3",
+          "screens.py"
+        ],
+        "command": "python3 screens.py",
+        "definition": {
+          "fail_over": 0.5,
+          "kind": "screenshots",
+          "noise": 0.05,
+          "outputs": [
+            "out/screens"
+          ],
+          "run": [
+            "python3",
+            "screens.py"
+          ]
+        },
+        "exit": 0,
+        "output_state": "01a16e74-d860-7289-a2b1-627901a4ba6c",
+        "probe": "screens",
+        "probes": {
+          "metric": {
+            "fail_over": 0.2,
+            "kind": "number",
+            "noise": 0.01,
+            "outputs": [
+              "out/metric.json"
+            ],
+            "run": [
+              "python3",
+              "probe.py"
+            ]
+          },
+          "screens": {
+            "fail_over": 0.5,
+            "kind": "screenshots",
+            "noise": 0.05,
+            "outputs": [
+              "out/screens"
+            ],
+            "run": [
+              "python3",
+              "screens.py"
+            ]
+          }
+        },
+        "reused": false,
+        "subject": {
+          "id": "01a16e74-d802-70f6-a817-77f90941446d",
+          "kind": "state"
+        }
+      },
+      "ref_change": {
+        "after": {
+          "name": "derived/probe-v1/screens/01a16e74-d802-70f6-a817-77f90941446d",
+          "target": "01a16e74-d860-7289-a2b1-627901a4ba6c"
+        },
+        "before": null,
+        "name": "derived/probe-v1/screens/01a16e74-d802-70f6-a817-77f90941446d"
+      }
+    }
+  },
+  {
+    "id": "01a16e74-d83c-70d2-bece-fd397bed25fb",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 50,
+    "time": 1792854513724,
+    "op": "attest",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "states": [
+      {
+        "id": "01a16e74-d838-77a6-aa6d-36d37a895b8e",
+        "kind": "derived",
+        "derived_from": "01a16e74-d802-70f6-a817-77f90941446d",
         "context": "probe-v1/metric",
         "parents": [],
-        "subvol": "6b886b6b-158e-0a42-9669-194e54ecb674",
+        "subvol": "fd155677-8ca9-9740-b940-084cc26748c1",
         "author": {
           "name": "Tester",
           "email": "tester@example.com",
           "uid": 0
         },
         "message": "probe metric",
-        "time": 1792843920636
+        "time": 1792854513723
       }
     ],
     "data": {
       "attestation": {
-        "attestation_id": "01a16dd3-34fc-738d-b544-7c0bda52ef38",
-        "change_id": "01a16dd3-34ac-7447-9efc-f3f0cbb68c84",
+        "attestation_id": "01a16e74-d83c-70d2-bece-fd397bed25fb",
+        "change_id": "01a16e74-d806-7401-b7f4-2553661ba195",
         "format": 1,
         "kind": "check",
-        "payload_digest": "baf2732a8fa2dcdc63aac4245f5e5acf3e3f9d62dc036249264ea684b30b3713",
-        "signer": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+        "payload_digest": "97429f7abb683fb0ef2fd2e51b66f1b59c7fcd6e2a1e50e9e45a1badeb6d59c8",
+        "signer": "01a16e74-cfbd-7799-b375-f621165de230",
         "subject": {
-          "id": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+          "id": "01a16e74-d802-70f6-a817-77f90941446d",
           "kind": "state"
         },
-        "time": 1792843920636
+        "time": 1792854513724
       },
       "check": {
         "argv": [
@@ -484,7 +1108,7 @@
           ]
         },
         "exit": 0,
-        "output_state": "01a16dd3-34f7-74cf-b03d-87c016cac88f",
+        "output_state": "01a16e74-d838-77a6-aa6d-36d37a895b8e",
         "probe": "metric",
         "probes": {
           "metric": {
@@ -498,67 +1122,79 @@
               "python3",
               "probe.py"
             ]
+          },
+          "screens": {
+            "fail_over": 0.5,
+            "kind": "screenshots",
+            "noise": 0.05,
+            "outputs": [
+              "out/screens"
+            ],
+            "run": [
+              "python3",
+              "screens.py"
+            ]
           }
         },
         "reused": false,
         "subject": {
-          "id": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+          "id": "01a16e74-d802-70f6-a817-77f90941446d",
           "kind": "state"
         }
       },
       "ref_change": {
         "after": {
-          "name": "derived/probe-v1/metric/01a16dd3-34a7-73f2-8a64-b052d21b6c60",
-          "target": "01a16dd3-34f7-74cf-b03d-87c016cac88f"
+          "name": "derived/probe-v1/metric/01a16e74-d802-70f6-a817-77f90941446d",
+          "target": "01a16e74-d838-77a6-aa6d-36d37a895b8e"
         },
         "before": null,
-        "name": "derived/probe-v1/metric/01a16dd3-34a7-73f2-8a64-b052d21b6c60"
+        "name": "derived/probe-v1/metric/01a16e74-d802-70f6-a817-77f90941446d"
       }
     }
   },
   {
-    "id": "01a16dd3-34b5-76f3-afcd-d07b7b8feb32",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
-    "seq": 47,
-    "time": 1792843920565,
+    "id": "01a16e74-d80e-71c9-9a1d-520715fabf63",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 49,
+    "time": 1792854513678,
     "op": "merge.candidate",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "states": [
       {
-        "id": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+        "id": "01a16e74-d802-70f6-a817-77f90941446d",
         "kind": "commit",
-        "change_id": "01a16dd3-34ac-7447-9efc-f3f0cbb68c84",
+        "change_id": "01a16e74-d806-7401-b7f4-2553661ba195",
         "parents": [
-          "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
-          "01a16dd3-3434-75a9-ad00-8ccb7315f6ff"
+          "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+          "01a16e74-d7aa-73e1-8d1d-eaa41837a41f"
         ],
-        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
-        "subvol": "f7094484-5f32-804d-bd04-58cb850cc913",
+        "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+        "subvol": "ddfda42c-2b75-ca41-883e-75cb66a89c6f",
         "author": {
           "name": "Tester",
           "email": "tester@example.com",
           "uid": 0
         },
-        "message": "Merge 01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
-        "time": 1792843920556
+        "message": "Merge 01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
+        "time": 1792854513670
       }
     ],
     "data": {
-      "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
-      "theirs": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff"
+      "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+      "theirs": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f"
     }
   },
   {
-    "id": "01a16dd3-345f-77e4-aa27-85e1f851dfde",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
-    "seq": 46,
-    "time": 1792843920479,
+    "id": "01a16e74-d7d4-741d-9dae-b93939222d27",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 48,
+    "time": 1792854513620,
     "op": "queue.add",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
@@ -568,139 +1204,139 @@
         "after": {
           "added_by": 0,
           "attempts": 0,
-          "change_id": "01a16dd3-343b-7155-8a7d-6c5391b2dba8",
-          "id": "01a16dd3-345f-77e4-aa27-85e07682ba4a",
+          "change_id": "01a16e74-d7af-745e-afd6-8f98b4abdcc2",
+          "id": "01a16e74-d7d4-741d-9dae-b93866a9d7d7",
           "into": "main",
-          "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+          "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
           "status": "pending",
-          "target_line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
-          "time": 1792843920479
+          "target_line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+          "time": 1792854513620
         },
         "before": null,
-        "id": "01a16dd3-345f-77e4-aa27-85e07682ba4a"
+        "id": "01a16e74-d7d4-741d-9dae-b93866a9d7d7"
       },
       "ref_change": {
         "after": {
-          "name": "holds/queue/01a16dd3-345f-77e4-aa27-85e07682ba4a",
-          "target": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff"
+          "name": "holds/queue/01a16e74-d7d4-741d-9dae-b93866a9d7d7",
+          "target": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f"
         },
         "before": null,
-        "name": "holds/queue/01a16dd3-345f-77e4-aa27-85e07682ba4a"
+        "name": "holds/queue/01a16e74-d7d4-741d-9dae-b93866a9d7d7"
       }
     }
   },
   {
-    "id": "01a16dd3-3445-75f6-a39b-0f7dfe680a20",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
-    "seq": 45,
-    "time": 1792843920453,
+    "id": "01a16e74-d7b7-7570-b1aa-4694cf1d5f85",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 47,
+    "time": 1792854513591,
     "op": "commit",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "states": [
       {
-        "id": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+        "id": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
         "kind": "commit",
-        "change_id": "01a16dd3-343b-7155-8a7d-6c5391b2dba8",
+        "change_id": "01a16e74-d7af-745e-afd6-8f98b4abdcc2",
         "parents": [
-          "01a16dd3-3294-7559-80e2-5abc69a01943"
+          "01a16e74-d594-76b9-9396-876abef20ffd"
         ],
-        "line": "01a16dd3-2d73-774e-9e40-cd73d2601980",
-        "subvol": "335fb815-5d18-0b42-ad4d-99a19a43cfc6",
+        "line": "01a16e74-d01e-7126-8780-7d2e115f6fc6",
+        "subvol": "8536b2a7-a83e-0342-aa12-2cc83ea78963",
         "author": {
           "name": "Tester",
           "email": "tester@example.com",
           "uid": 0
         },
         "message": "queue-over-limit",
-        "time": 1792843920443
+        "time": 1792854513583
       }
     ],
     "lines": {
-      "01a16dd3-2d73-774e-9e40-cd73d2601980": {
+      "01a16e74-d01e-7126-8780-7d2e115f6fc6": {
         "before": {
           "name": "feature",
-          "head": "01a16dd3-3294-7559-80e2-5abc69a01943",
+          "head": "01a16e74-d594-76b9-9396-876abef20ffd",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         },
         "after": {
           "name": "feature",
-          "head": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+          "head": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         }
       }
     },
     "data": {
-      "line": "01a16dd3-2d73-774e-9e40-cd73d2601980"
+      "line": "01a16e74-d01e-7126-8780-7d2e115f6fc6"
     }
   },
   {
-    "id": "01a16dd3-33b5-7186-8025-0f303c0fb30a",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
-    "seq": 44,
-    "time": 1792843920309,
+    "id": "01a16e74-d737-7007-bb95-bad9e1c60594",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 46,
+    "time": 1792854513463,
     "op": "queue.result",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "states": [
       {
-        "id": "01a16dd3-33b0-74b0-89d7-46faf6e49555",
+        "id": "01a16e74-d729-71f9-90cf-536ca18ba4a9",
         "kind": "auto",
         "parents": [
-          "01a16dd3-316b-75b9-ab00-c6435657f6fc"
+          "01a16e74-d483-74eb-9aa4-6697c40fe915"
         ],
-        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
-        "subvol": "af8d9f1e-fd59-bb46-8e25-cd808d7ca619",
+        "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+        "subvol": "2d62b219-02e9-7146-a2bc-2c7613092103",
         "author": {
           "name": "Tester",
           "email": "tester@example.com",
           "uid": 0
         },
         "message": "after queue.result",
-        "time": 1792843920309
+        "time": 1792854513463
       }
     ],
     "lines": {
-      "01a16dd3-2d54-704b-8fcf-d8028e578f12": {
+      "01a16e74-cffc-72cf-8a1d-5c7b03d45827": {
         "before": {
           "name": "main",
-          "head": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+          "head": "01a16e74-d483-74eb-9aa4-6697c40fe915",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         },
         "after": {
           "name": "main",
-          "head": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+          "head": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         },
-        "working_before": "01a16dd3-312f-7200-8572-f858d907bb4b",
-        "working_after": "01a16dd3-33b0-74b0-89d7-46faf6e49555"
+        "working_before": "01a16e74-d44e-71a5-ac45-8dcf8e99c17d",
+        "working_after": "01a16e74-d729-71f9-90cf-536ca18ba4a9"
       }
     },
     "data": {
-      "base": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+      "base": "01a16e74-d189-74ce-8301-86f483596256",
       "conflicts": 0,
       "queue_change": {
         "after": {
           "added_by": 0,
           "attempts": 1,
-          "change_id": "01a16dd3-3299-75dd-aa77-706a2ef705ea",
-          "id": "01a16dd3-32dc-76bd-a28e-37ea3ab069cb",
+          "change_id": "01a16e74-d59d-764f-805f-4ee7d579c13e",
+          "id": "01a16e74-d5cf-75fb-8baa-0b28688da940",
           "into": "main",
           "probes": {
             "behavior": {
-              "base": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+              "base": "01a16e74-d483-74eb-9aa4-6697c40fe915",
               "base_source": "available",
-              "head": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+              "head": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
               "head_source": "available",
               "probes": [
                 {
@@ -710,11 +1346,11 @@
                       "probe.py"
                     ],
                     "exit": 0,
-                    "output_state": "01a16dd3-332d-713e-9cbf-8103c3cd6af6",
+                    "output_state": "01a16e74-d612-777e-ac14-e062f3ddfd67",
                     "probe": "metric",
                     "reused": true,
                     "subject": {
-                      "id": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+                      "id": "01a16e74-d483-74eb-9aa4-6697c40fe915",
                       "kind": "state"
                     }
                   },
@@ -739,15 +1375,200 @@
                       "probe.py"
                     ],
                     "exit": 0,
-                    "output_state": "01a16dd3-339c-72fa-a25a-35de7a1483fd",
+                    "output_state": "01a16e74-d69e-75af-aced-784496159970",
                     "probe": "metric",
                     "reused": true,
                     "subject": {
-                      "id": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+                      "id": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
                       "kind": "state"
                     }
                   },
                   "probe": "metric",
+                  "status": "changed"
+                },
+                {
+                  "base": {
+                    "argv": [
+                      "python3",
+                      "screens.py"
+                    ],
+                    "exit": 0,
+                    "output_state": "01a16e74-d63d-75b0-9a0d-83116dec2c5f",
+                    "probe": "screens",
+                    "reused": true,
+                    "subject": {
+                      "id": "01a16e74-d483-74eb-9aa4-6697c40fe915",
+                      "kind": "state"
+                    }
+                  },
+                  "changes": [
+                    {
+                      "after": {
+                        "height": 2,
+                        "width": 2
+                      },
+                      "base_png": "out/screens/Home@Phone.png",
+                      "base_structure": "out/screens/Home@Phone.html",
+                      "before": {
+                        "height": 2,
+                        "width": 2
+                      },
+                      "changed_percent": 25.0,
+                      "changed_pixels": 1,
+                      "changed_share": 0.25,
+                      "elements_added": 0,
+                      "elements_removed": 0,
+                      "head_png": "out/screens/Home@Phone.png",
+                      "head_structure": "out/screens/Home@Phone.html",
+                      "kind": "screenshots",
+                      "path": "out/screens/Home@Phone",
+                      "regions": [
+                        {
+                          "height": 1,
+                          "width": 1,
+                          "x": 0,
+                          "y": 0
+                        }
+                      ],
+                      "screen": "Home@Phone",
+                      "size_changed": false,
+                      "status": "compared",
+                      "structure_available": true,
+                      "structure_diff": "--- out/screens/Home@Phone.html\n+++ out/screens/Home@Phone.html\n@@ -1,5 +1,5 @@\n <main>\n <p>\n-100\n+110\n </p>\n </main>\n",
+                      "structure_regions": [],
+                      "text_changes": 1,
+                      "total_pixels": 4
+                    },
+                    {
+                      "after": null,
+                      "base_png": null,
+                      "base_structure": "out/screens/Native@Phone.xml",
+                      "before": null,
+                      "changed_percent": null,
+                      "changed_pixels": null,
+                      "changed_share": null,
+                      "elements_added": 0,
+                      "elements_removed": 0,
+                      "head_png": null,
+                      "head_structure": "out/screens/Native@Phone.xml",
+                      "kind": "screenshots",
+                      "path": "out/screens/Native@Phone",
+                      "regions": [],
+                      "screen": "Native@Phone",
+                      "size_changed": false,
+                      "status": "compared",
+                      "structure_available": true,
+                      "structure_diff": "--- out/screens/Native@Phone.xml\n+++ out/screens/Native@Phone.xml\n@@ -1,2 +1,2 @@\n-<node text=\"100\">\n+<node text=\"110\">\n </node>\n",
+                      "structure_regions": [
+                        {
+                          "change": "text",
+                          "height": 4.0,
+                          "width": 3.0,
+                          "x": 1.0,
+                          "y": 2.0
+                        }
+                      ],
+                      "text_changes": 1,
+                      "total_pixels": null
+                    },
+                    {
+                      "after": null,
+                      "base_png": null,
+                      "base_structure": "out/screens/Stable@Phone.txt",
+                      "before": null,
+                      "changed_percent": null,
+                      "changed_pixels": null,
+                      "changed_share": null,
+                      "elements_added": 0,
+                      "elements_removed": 0,
+                      "head_png": null,
+                      "head_structure": "out/screens/Stable@Phone.txt",
+                      "kind": "screenshots",
+                      "path": "out/screens/Stable@Phone",
+                      "regions": [],
+                      "screen": "Stable@Phone",
+                      "size_changed": false,
+                      "status": "compared",
+                      "structure_available": true,
+                      "structure_diff": "",
+                      "structure_regions": [],
+                      "text_changes": 0,
+                      "total_pixels": null
+                    },
+                    {
+                      "after": null,
+                      "base_png": null,
+                      "base_structure": "out/screens/Text@Phone.txt",
+                      "before": null,
+                      "changed_percent": null,
+                      "changed_pixels": null,
+                      "changed_share": null,
+                      "elements_added": 0,
+                      "elements_removed": 0,
+                      "head_png": null,
+                      "head_structure": "out/screens/Text@Phone.txt",
+                      "kind": "screenshots",
+                      "path": "out/screens/Text@Phone",
+                      "regions": [],
+                      "screen": "Text@Phone",
+                      "size_changed": false,
+                      "status": "compared",
+                      "structure_available": true,
+                      "structure_diff": "--- out/screens/Text@Phone.txt\n+++ out/screens/Text@Phone.txt\n@@ -1 +1 @@\n-100\n+110\n",
+                      "structure_regions": [],
+                      "text_changes": 1,
+                      "total_pixels": null
+                    },
+                    {
+                      "after": null,
+                      "base_png": null,
+                      "base_structure": "out/screens/Tree@Phone.json",
+                      "before": null,
+                      "changed_percent": null,
+                      "changed_pixels": null,
+                      "changed_share": null,
+                      "elements_added": 0,
+                      "elements_removed": 0,
+                      "head_png": null,
+                      "head_structure": "out/screens/Tree@Phone.json",
+                      "kind": "screenshots",
+                      "path": "out/screens/Tree@Phone",
+                      "regions": [],
+                      "screen": "Tree@Phone",
+                      "size_changed": false,
+                      "status": "compared",
+                      "structure_available": true,
+                      "structure_diff": "--- out/screens/Tree@Phone.json\n+++ out/screens/Tree@Phone.json\n@@ -1,3 +1,3 @@\n {\n-  \"label\": \"100\"\n+  \"label\": \"110\"\n }\n",
+                      "structure_regions": [
+                        {
+                          "change": "text",
+                          "height": 4.0,
+                          "width": 3.0,
+                          "x": 1.0,
+                          "y": 2.0
+                        }
+                      ],
+                      "text_changes": 1,
+                      "total_pixels": null
+                    }
+                  ],
+                  "exit_changed": false,
+                  "head": {
+                    "argv": [
+                      "python3",
+                      "screens.py"
+                    ],
+                    "exit": 0,
+                    "output_state": "01a16e74-d6cd-7004-a0cb-699913058561",
+                    "probe": "screens",
+                    "reused": true,
+                    "subject": {
+                      "id": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+                      "kind": "state"
+                    }
+                  },
+                  "limit_reasons": [],
+                  "probe": "screens",
                   "status": "changed"
                 }
               ]
@@ -758,211 +1579,439 @@
                 "probe": "metric",
                 "reasons": [],
                 "status": "passed"
+              },
+              {
+                "errors": [],
+                "probe": "screens",
+                "reasons": [],
+                "status": "passed"
               }
             ],
             "status": "passed"
           },
-          "result": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
-          "state": "01a16dd3-3294-7559-80e2-5abc69a01943",
+          "result": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+          "state": "01a16e74-d594-76b9-9396-876abef20ffd",
           "status": "done",
-          "target_line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
-          "time": 1792843920092
+          "target_line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+          "time": 1792854513103
         },
         "before": {
           "added_by": 0,
           "attempts": 0,
-          "change_id": "01a16dd3-3299-75dd-aa77-706a2ef705ea",
-          "id": "01a16dd3-32dc-76bd-a28e-37ea3ab069cb",
+          "change_id": "01a16e74-d59d-764f-805f-4ee7d579c13e",
+          "id": "01a16e74-d5cf-75fb-8baa-0b28688da940",
           "into": "main",
-          "state": "01a16dd3-3294-7559-80e2-5abc69a01943",
+          "state": "01a16e74-d594-76b9-9396-876abef20ffd",
           "status": "pending",
-          "target_line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
-          "time": 1792843920092
+          "target_line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+          "time": 1792854513103
         },
-        "id": "01a16dd3-32dc-76bd-a28e-37ea3ab069cb"
+        "id": "01a16e74-d5cf-75fb-8baa-0b28688da940"
       },
       "ref_change": {
         "after": null,
         "before": {
-          "name": "holds/queue/01a16dd3-32dc-76bd-a28e-37ea3ab069cb",
-          "target": "01a16dd3-3294-7559-80e2-5abc69a01943"
+          "name": "holds/queue/01a16e74-d5cf-75fb-8baa-0b28688da940",
+          "target": "01a16e74-d594-76b9-9396-876abef20ffd"
         },
-        "name": "holds/queue/01a16dd3-32dc-76bd-a28e-37ea3ab069cb"
+        "name": "holds/queue/01a16e74-d5cf-75fb-8baa-0b28688da940"
       },
       "squash": false,
-      "theirs": "01a16dd3-3294-7559-80e2-5abc69a01943"
+      "theirs": "01a16e74-d594-76b9-9396-876abef20ffd"
     }
   },
   {
-    "id": "01a16dd3-33a0-7085-936d-da403e2bd87b",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d6d7-776a-83fb-e1ca2c6de773",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 45,
+    "time": 1792854513367,
+    "op": "attest",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "states": [
+      {
+        "id": "01a16e74-d6cd-7004-a0cb-699913058561",
+        "kind": "derived",
+        "derived_from": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+        "context": "probe-v1/screens",
+        "parents": [],
+        "subvol": "804863c1-bfd8-ba4d-8d34-f0b92e72bfef",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "probe screens",
+        "time": 1792854513367
+      }
+    ],
+    "data": {
+      "attestation": {
+        "attestation_id": "01a16e74-d6d7-776a-83fb-e1ca2c6de773",
+        "change_id": "01a16e74-d66a-7660-9a0f-7f09ebbd2ded",
+        "format": 1,
+        "kind": "check",
+        "payload_digest": "3d25661081077f6d53b7cd90506e54116507f3f8061942ba9fb6799d76696b30",
+        "signer": "01a16e74-cfbd-7799-b375-f621165de230",
+        "subject": {
+          "id": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+          "kind": "state"
+        },
+        "time": 1792854513367
+      },
+      "check": {
+        "argv": [
+          "python3",
+          "screens.py"
+        ],
+        "command": "python3 screens.py",
+        "definition": {
+          "fail_over": 0.5,
+          "kind": "screenshots",
+          "noise": 0.05,
+          "outputs": [
+            "out/screens"
+          ],
+          "run": [
+            "python3",
+            "screens.py"
+          ]
+        },
+        "exit": 0,
+        "output_state": "01a16e74-d6cd-7004-a0cb-699913058561",
+        "probe": "screens",
+        "probes": {
+          "metric": {
+            "fail_over": 0.2,
+            "kind": "number",
+            "noise": 0.01,
+            "outputs": [
+              "out/metric.json"
+            ],
+            "run": [
+              "python3",
+              "probe.py"
+            ]
+          },
+          "screens": {
+            "fail_over": 0.5,
+            "kind": "screenshots",
+            "noise": 0.05,
+            "outputs": [
+              "out/screens"
+            ],
+            "run": [
+              "python3",
+              "screens.py"
+            ]
+          }
+        },
+        "reused": false,
+        "subject": {
+          "id": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+          "kind": "state"
+        }
+      },
+      "ref_change": {
+        "after": {
+          "name": "derived/probe-v1/screens/01a16e74-d667-766e-8b35-cb48f8e5ebec",
+          "target": "01a16e74-d6cd-7004-a0cb-699913058561"
+        },
+        "before": null,
+        "name": "derived/probe-v1/screens/01a16e74-d667-766e-8b35-cb48f8e5ebec"
+      }
+    }
+  },
+  {
+    "id": "01a16e74-d6a4-7327-a65d-f601bc15b04a",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 44,
+    "time": 1792854513316,
+    "op": "attest",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "states": [
+      {
+        "id": "01a16e74-d69e-75af-aced-784496159970",
+        "kind": "derived",
+        "derived_from": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+        "context": "probe-v1/metric",
+        "parents": [],
+        "subvol": "f5638c73-1825-3647-b032-64262b888be6",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "probe metric",
+        "time": 1792854513316
+      }
+    ],
+    "data": {
+      "attestation": {
+        "attestation_id": "01a16e74-d6a4-7327-a65d-f601bc15b04a",
+        "change_id": "01a16e74-d66a-7660-9a0f-7f09ebbd2ded",
+        "format": 1,
+        "kind": "check",
+        "payload_digest": "ec77339093f02e74a0a17fe14dec7a4a9f33b49ea891104920930473053776dd",
+        "signer": "01a16e74-cfbd-7799-b375-f621165de230",
+        "subject": {
+          "id": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+          "kind": "state"
+        },
+        "time": 1792854513316
+      },
+      "check": {
+        "argv": [
+          "python3",
+          "probe.py"
+        ],
+        "command": "python3 probe.py",
+        "definition": {
+          "fail_over": 0.2,
+          "kind": "number",
+          "noise": 0.01,
+          "outputs": [
+            "out/metric.json"
+          ],
+          "run": [
+            "python3",
+            "probe.py"
+          ]
+        },
+        "exit": 0,
+        "output_state": "01a16e74-d69e-75af-aced-784496159970",
+        "probe": "metric",
+        "probes": {
+          "metric": {
+            "fail_over": 0.2,
+            "kind": "number",
+            "noise": 0.01,
+            "outputs": [
+              "out/metric.json"
+            ],
+            "run": [
+              "python3",
+              "probe.py"
+            ]
+          },
+          "screens": {
+            "fail_over": 0.5,
+            "kind": "screenshots",
+            "noise": 0.05,
+            "outputs": [
+              "out/screens"
+            ],
+            "run": [
+              "python3",
+              "screens.py"
+            ]
+          }
+        },
+        "reused": false,
+        "subject": {
+          "id": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+          "kind": "state"
+        }
+      },
+      "ref_change": {
+        "after": {
+          "name": "derived/probe-v1/metric/01a16e74-d667-766e-8b35-cb48f8e5ebec",
+          "target": "01a16e74-d69e-75af-aced-784496159970"
+        },
+        "before": null,
+        "name": "derived/probe-v1/metric/01a16e74-d667-766e-8b35-cb48f8e5ebec"
+      }
+    }
+  },
+  {
+    "id": "01a16e74-d674-7173-a317-5b754caf955e",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 43,
-    "time": 1792843920288,
-    "op": "attest",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
-    "actor": {
-      "uid": 0,
-      "name": "root"
-    },
-    "states": [
-      {
-        "id": "01a16dd3-339c-72fa-a25a-35de7a1483fd",
-        "kind": "derived",
-        "derived_from": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
-        "context": "probe-v1/metric",
-        "parents": [],
-        "subvol": "2ed6348c-5c56-5944-bfc5-d0dae6fca25a",
-        "author": {
-          "name": "Tester",
-          "email": "tester@example.com",
-          "uid": 0
-        },
-        "message": "probe metric",
-        "time": 1792843920287
-      }
-    ],
-    "data": {
-      "attestation": {
-        "attestation_id": "01a16dd3-33a0-7085-936d-da403e2bd87b",
-        "change_id": "01a16dd3-3368-761d-9330-bedfe5253e19",
-        "format": 1,
-        "kind": "check",
-        "payload_digest": "b7a597c16441eee56e0612d62e77398410daba9d26f6d80d2cf5a170851bb548",
-        "signer": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
-        "subject": {
-          "id": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
-          "kind": "state"
-        },
-        "time": 1792843920288
-      },
-      "check": {
-        "argv": [
-          "python3",
-          "probe.py"
-        ],
-        "command": "python3 probe.py",
-        "definition": {
-          "fail_over": 0.2,
-          "kind": "number",
-          "noise": 0.01,
-          "outputs": [
-            "out/metric.json"
-          ],
-          "run": [
-            "python3",
-            "probe.py"
-          ]
-        },
-        "exit": 0,
-        "output_state": "01a16dd3-339c-72fa-a25a-35de7a1483fd",
-        "probe": "metric",
-        "probes": {
-          "metric": {
-            "fail_over": 0.2,
-            "kind": "number",
-            "noise": 0.01,
-            "outputs": [
-              "out/metric.json"
-            ],
-            "run": [
-              "python3",
-              "probe.py"
-            ]
-          }
-        },
-        "reused": false,
-        "subject": {
-          "id": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
-          "kind": "state"
-        }
-      },
-      "ref_change": {
-        "after": {
-          "name": "derived/probe-v1/metric/01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
-          "target": "01a16dd3-339c-72fa-a25a-35de7a1483fd"
-        },
-        "before": null,
-        "name": "derived/probe-v1/metric/01a16dd3-3365-737a-a2b6-f2f778b8b8a4"
-      }
-    }
-  },
-  {
-    "id": "01a16dd3-3371-7620-af68-ab93f8516310",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
-    "seq": 42,
-    "time": 1792843920241,
+    "time": 1792854513268,
     "op": "merge.candidate",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "states": [
       {
-        "id": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+        "id": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
         "kind": "commit",
-        "change_id": "01a16dd3-3368-761d-9330-bedfe5253e19",
+        "change_id": "01a16e74-d66a-7660-9a0f-7f09ebbd2ded",
         "parents": [
-          "01a16dd3-316b-75b9-ab00-c6435657f6fc",
-          "01a16dd3-3294-7559-80e2-5abc69a01943"
+          "01a16e74-d483-74eb-9aa4-6697c40fe915",
+          "01a16e74-d594-76b9-9396-876abef20ffd"
         ],
-        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
-        "subvol": "54cc91d8-c138-4c47-9e63-3aa8d9cb24cb",
+        "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+        "subvol": "b0ea9fc8-204a-2b4d-b7c5-72e942d2d46b",
         "author": {
           "name": "Tester",
           "email": "tester@example.com",
           "uid": 0
         },
-        "message": "Merge 01a16dd3-3294-7559-80e2-5abc69a01943",
-        "time": 1792843920232
+        "message": "Merge 01a16e74-d594-76b9-9396-876abef20ffd",
+        "time": 1792854513258
       }
     ],
     "data": {
-      "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
-      "theirs": "01a16dd3-3294-7559-80e2-5abc69a01943"
+      "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+      "theirs": "01a16e74-d594-76b9-9396-876abef20ffd"
     }
   },
   {
-    "id": "01a16dd3-3332-7667-b4f2-d3a005618814",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
-    "seq": 41,
-    "time": 1792843920178,
+    "id": "01a16e74-d642-76d5-a35b-de191659a2cb",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 42,
+    "time": 1792854513218,
     "op": "attest",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "states": [
       {
-        "id": "01a16dd3-332d-713e-9cbf-8103c3cd6af6",
+        "id": "01a16e74-d63d-75b0-9a0d-83116dec2c5f",
         "kind": "derived",
-        "derived_from": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+        "derived_from": "01a16e74-d483-74eb-9aa4-6697c40fe915",
+        "context": "probe-v1/screens",
+        "parents": [],
+        "subvol": "8004990a-555c-574c-8a64-c729bd9fbbed",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "probe screens",
+        "time": 1792854513217
+      }
+    ],
+    "data": {
+      "attestation": {
+        "attestation_id": "01a16e74-d642-76d5-a35b-de191659a2cb",
+        "change_id": "01a16e74-d489-774e-9cc3-56494a04f60e",
+        "format": 1,
+        "kind": "check",
+        "payload_digest": "90db20a9c7247ebd91f81353e17a742b14423ff097efbf03dc8ea23ff8d6952a",
+        "signer": "01a16e74-cfbd-7799-b375-f621165de230",
+        "subject": {
+          "id": "01a16e74-d483-74eb-9aa4-6697c40fe915",
+          "kind": "state"
+        },
+        "time": 1792854513218
+      },
+      "check": {
+        "argv": [
+          "python3",
+          "screens.py"
+        ],
+        "command": "python3 screens.py",
+        "definition": {
+          "fail_over": 0.5,
+          "kind": "screenshots",
+          "noise": 0.05,
+          "outputs": [
+            "out/screens"
+          ],
+          "run": [
+            "python3",
+            "screens.py"
+          ]
+        },
+        "exit": 0,
+        "output_state": "01a16e74-d63d-75b0-9a0d-83116dec2c5f",
+        "probe": "screens",
+        "probes": {
+          "metric": {
+            "fail_over": 0.2,
+            "kind": "number",
+            "noise": 0.01,
+            "outputs": [
+              "out/metric.json"
+            ],
+            "run": [
+              "python3",
+              "probe.py"
+            ]
+          },
+          "screens": {
+            "fail_over": 0.5,
+            "kind": "screenshots",
+            "noise": 0.05,
+            "outputs": [
+              "out/screens"
+            ],
+            "run": [
+              "python3",
+              "screens.py"
+            ]
+          }
+        },
+        "reused": false,
+        "subject": {
+          "id": "01a16e74-d483-74eb-9aa4-6697c40fe915",
+          "kind": "state"
+        }
+      },
+      "ref_change": {
+        "after": {
+          "name": "derived/probe-v1/screens/01a16e74-d483-74eb-9aa4-6697c40fe915",
+          "target": "01a16e74-d63d-75b0-9a0d-83116dec2c5f"
+        },
+        "before": null,
+        "name": "derived/probe-v1/screens/01a16e74-d483-74eb-9aa4-6697c40fe915"
+      }
+    }
+  },
+  {
+    "id": "01a16e74-d616-7046-aae6-bbca0d45db17",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 41,
+    "time": 1792854513174,
+    "op": "attest",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "states": [
+      {
+        "id": "01a16e74-d612-777e-ac14-e062f3ddfd67",
+        "kind": "derived",
+        "derived_from": "01a16e74-d483-74eb-9aa4-6697c40fe915",
         "context": "probe-v1/metric",
         "parents": [],
-        "subvol": "95303c95-a379-6440-a555-2a620619c2fe",
+        "subvol": "c13f3b37-3f23-b446-af77-7887e7818500",
         "author": {
           "name": "Tester",
           "email": "tester@example.com",
           "uid": 0
         },
         "message": "probe metric",
-        "time": 1792843920177
+        "time": 1792854513173
       }
     ],
     "data": {
       "attestation": {
-        "attestation_id": "01a16dd3-3332-7667-b4f2-d3a005618814",
-        "change_id": "01a16dd3-3170-7622-9553-0c96e39907d4",
+        "attestation_id": "01a16e74-d616-7046-aae6-bbca0d45db17",
+        "change_id": "01a16e74-d489-774e-9cc3-56494a04f60e",
         "format": 1,
         "kind": "check",
-        "payload_digest": "0287b53652182044cbae7301190fc79dbfb94b57041a8e3dd46cdfb427df8a70",
-        "signer": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+        "payload_digest": "c831177693648ef4b6aef468eafd36974cd82fc1778747f291dd012a27f26b5e",
+        "signer": "01a16e74-cfbd-7799-b375-f621165de230",
         "subject": {
-          "id": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+          "id": "01a16e74-d483-74eb-9aa4-6697c40fe915",
           "kind": "state"
         },
-        "time": 1792843920178
+        "time": 1792854513174
       },
       "check": {
         "argv": [
@@ -983,7 +2032,7 @@
           ]
         },
         "exit": 0,
-        "output_state": "01a16dd3-332d-713e-9cbf-8103c3cd6af6",
+        "output_state": "01a16e74-d612-777e-ac14-e062f3ddfd67",
         "probe": "metric",
         "probes": {
           "metric": {
@@ -997,31 +2046,43 @@
               "python3",
               "probe.py"
             ]
+          },
+          "screens": {
+            "fail_over": 0.5,
+            "kind": "screenshots",
+            "noise": 0.05,
+            "outputs": [
+              "out/screens"
+            ],
+            "run": [
+              "python3",
+              "screens.py"
+            ]
           }
         },
         "reused": false,
         "subject": {
-          "id": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+          "id": "01a16e74-d483-74eb-9aa4-6697c40fe915",
           "kind": "state"
         }
       },
       "ref_change": {
         "after": {
-          "name": "derived/probe-v1/metric/01a16dd3-316b-75b9-ab00-c6435657f6fc",
-          "target": "01a16dd3-332d-713e-9cbf-8103c3cd6af6"
+          "name": "derived/probe-v1/metric/01a16e74-d483-74eb-9aa4-6697c40fe915",
+          "target": "01a16e74-d612-777e-ac14-e062f3ddfd67"
         },
         "before": null,
-        "name": "derived/probe-v1/metric/01a16dd3-316b-75b9-ab00-c6435657f6fc"
+        "name": "derived/probe-v1/metric/01a16e74-d483-74eb-9aa4-6697c40fe915"
       }
     }
   },
   {
-    "id": "01a16dd3-32dc-76bd-a28e-37ebd15061d6",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d5cf-75fb-8baa-0b2930bdf183",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 40,
-    "time": 1792843920092,
+    "time": 1792854513103,
     "op": "queue.add",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
@@ -1031,34 +2092,34 @@
         "after": {
           "added_by": 0,
           "attempts": 0,
-          "change_id": "01a16dd3-3299-75dd-aa77-706a2ef705ea",
-          "id": "01a16dd3-32dc-76bd-a28e-37ea3ab069cb",
+          "change_id": "01a16e74-d59d-764f-805f-4ee7d579c13e",
+          "id": "01a16e74-d5cf-75fb-8baa-0b28688da940",
           "into": "main",
-          "state": "01a16dd3-3294-7559-80e2-5abc69a01943",
+          "state": "01a16e74-d594-76b9-9396-876abef20ffd",
           "status": "pending",
-          "target_line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
-          "time": 1792843920092
+          "target_line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+          "time": 1792854513103
         },
         "before": null,
-        "id": "01a16dd3-32dc-76bd-a28e-37ea3ab069cb"
+        "id": "01a16e74-d5cf-75fb-8baa-0b28688da940"
       },
       "ref_change": {
         "after": {
-          "name": "holds/queue/01a16dd3-32dc-76bd-a28e-37ea3ab069cb",
-          "target": "01a16dd3-3294-7559-80e2-5abc69a01943"
+          "name": "holds/queue/01a16e74-d5cf-75fb-8baa-0b28688da940",
+          "target": "01a16e74-d594-76b9-9396-876abef20ffd"
         },
         "before": null,
-        "name": "holds/queue/01a16dd3-32dc-76bd-a28e-37ea3ab069cb"
+        "name": "holds/queue/01a16e74-d5cf-75fb-8baa-0b28688da940"
       }
     }
   },
   {
-    "id": "01a16dd3-32b5-76fe-a6f8-408c18e9bfcd",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d5ba-7239-913a-b6ea40ca37d3",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 39,
-    "time": 1792843920053,
+    "time": 1792854513082,
     "op": "config",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
@@ -1070,106 +2131,106 @@
     }
   },
   {
-    "id": "01a16dd3-32a2-76ca-a091-608f46aac840",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d5a6-71f1-aa84-db9e29426342",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 38,
-    "time": 1792843920034,
+    "time": 1792854513062,
     "op": "commit",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "states": [
       {
-        "id": "01a16dd3-3294-7559-80e2-5abc69a01943",
+        "id": "01a16e74-d594-76b9-9396-876abef20ffd",
         "kind": "commit",
-        "change_id": "01a16dd3-3299-75dd-aa77-706a2ef705ea",
+        "change_id": "01a16e74-d59d-764f-805f-4ee7d579c13e",
         "parents": [
-          "01a16dd3-2fed-7663-8e59-220b60b8bf15"
+          "01a16e74-d2fa-741a-b742-0a1e4a9c64fe"
         ],
-        "line": "01a16dd3-2d73-774e-9e40-cd73d2601980",
-        "subvol": "5ab05451-b873-1140-9672-0de2d59125d2",
+        "line": "01a16e74-d01e-7126-8780-7d2e115f6fc6",
+        "subvol": "02278a01-fedb-df42-913f-75d92268401e",
         "author": {
           "name": "Tester",
           "email": "tester@example.com",
           "uid": 0
         },
         "message": "queue-source",
-        "time": 1792843920025
+        "time": 1792854513053
       }
     ],
     "lines": {
-      "01a16dd3-2d73-774e-9e40-cd73d2601980": {
+      "01a16e74-d01e-7126-8780-7d2e115f6fc6": {
         "before": {
           "name": "feature",
-          "head": "01a16dd3-2fed-7663-8e59-220b60b8bf15",
+          "head": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         },
         "after": {
           "name": "feature",
-          "head": "01a16dd3-3294-7559-80e2-5abc69a01943",
+          "head": "01a16e74-d594-76b9-9396-876abef20ffd",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         }
       }
     },
     "data": {
-      "line": "01a16dd3-2d73-774e-9e40-cd73d2601980"
+      "line": "01a16e74-d01e-7126-8780-7d2e115f6fc6"
     }
   },
   {
-    "id": "01a16dd3-3265-735e-a442-14206d18c56f",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d569-7049-8272-8af8bba072b9",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 37,
-    "time": 1792843919973,
+    "time": 1792854513001,
     "op": "attest",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "data": {
       "attestation": {
-        "attestation_id": "01a16dd3-3265-735e-a442-14206d18c56f",
-        "change_id": "01a16dd3-2d9d-7657-9e00-698aa2c4ff23",
+        "attestation_id": "01a16e74-d569-7049-8272-8af8bba072b9",
+        "change_id": "01a16e74-d053-7560-9fe6-27929a020d51",
         "format": 1,
         "kind": "approval",
         "payload_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "signer": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+        "signer": "01a16e74-cfbd-7799-b375-f621165de230",
         "subject": {
-          "id": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+          "id": "01a16e74-d189-74ce-8301-86f483596256",
           "kind": "state"
         },
-        "time": 1792843919973
+        "time": 1792854513001
       }
     }
   },
   {
-    "id": "01a16dd3-324f-71a7-8ecb-14a4b5cb0f3b",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d552-7653-8484-cdd9c5de8a75",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 36,
-    "time": 1792843919951,
+    "time": 1792854512978,
     "op": "attest",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "data": {
       "attestation": {
-        "attestation_id": "01a16dd3-324f-71a7-8ecb-14a4b5cb0f3b",
-        "change_id": "01a16dd3-2d9d-7657-9e00-698aa2c4ff23",
+        "attestation_id": "01a16e74-d552-7653-8484-cdd9c5de8a75",
+        "change_id": "01a16e74-d053-7560-9fe6-27929a020d51",
         "format": 1,
         "kind": "check",
-        "payload_digest": "39808010ab005e13e2e4d7a32e5b030c06863f04de79c03967ed797b051a0056",
-        "signer": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+        "payload_digest": "fb2be75d6e940599b5da3e97123d006c0163c83d85e99d2949129dfcc6eeb124",
+        "signer": "01a16e74-cfbd-7799-b375-f621165de230",
         "subject": {
-          "id": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+          "id": "01a16e74-d189-74ce-8301-86f483596256",
           "kind": "state"
         },
-        "time": 1792843919951
+        "time": 1792854512978
       },
       "check": {
         "argv": [
@@ -1179,132 +2240,132 @@
         ],
         "command": "sh -c test -f metric.txt",
         "exit": 0,
-        "seconds": 0.001252716
+        "seconds": 0.00082763
       }
     }
   },
   {
-    "id": "01a16dd3-322c-73e0-85ed-ff965e5bff03",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d532-7428-8e3f-b4463ddce27f",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 35,
-    "time": 1792843919916,
+    "time": 1792854512946,
     "op": "attest",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "data": {
       "attestation": {
-        "attestation_id": "01a16dd3-322c-73e0-85ed-ff965e5bff03",
-        "change_id": "01a16dd3-2d9d-7657-9e00-698aa2c4ff23",
+        "attestation_id": "01a16e74-d532-7428-8e3f-b4463ddce27f",
+        "change_id": "01a16e74-d053-7560-9fe6-27929a020d51",
         "format": 1,
         "kind": "revoke",
         "payload_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "signer": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+        "signer": "01a16e74-cfbd-7799-b375-f621165de230",
         "subject": {
-          "id": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+          "id": "01a16e74-d189-74ce-8301-86f483596256",
           "kind": "state"
         },
-        "time": 1792843919916
+        "time": 1792854512946
       },
       "revokes": [
-        "01a16dd3-2eee-77b7-a1f8-2806269fabf7",
-        "01a16dd3-2eda-7051-a930-a1dc508d2cc8",
-        "01a16dd3-31f5-7665-9a4c-e0ab5cb9898f",
-        "01a16dd3-31e0-74e3-8749-929526a2dc20",
-        "01a16dd3-3210-727d-bd2b-bf9fe59dc1c8"
+        "01a16e74-d1f3-7269-a9ca-62c8140e997f",
+        "01a16e74-d1dd-70dc-b248-88bd83b60220",
+        "01a16e74-d50b-7184-aaa5-dcc0d13ddb44",
+        "01a16e74-d4f6-729a-945a-6d02ea9bf6b7",
+        "01a16e74-d51e-77db-b570-66b92cbfdce9"
       ]
     }
   },
   {
-    "id": "01a16dd3-3210-727d-bd2b-bf9fe59dc1c8",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d51e-77db-b570-66b92cbfdce9",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 34,
-    "time": 1792843919888,
+    "time": 1792854512926,
     "op": "attest",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "data": {
       "attestation": {
-        "attestation_id": "01a16dd3-3210-727d-bd2b-bf9fe59dc1c8",
-        "change_id": "01a16dd3-2d9d-7657-9e00-698aa2c4ff23",
+        "attestation_id": "01a16e74-d51e-77db-b570-66b92cbfdce9",
+        "change_id": "01a16e74-d053-7560-9fe6-27929a020d51",
         "format": 1,
         "kind": "quarantine",
         "payload_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "signer": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+        "signer": "01a16e74-cfbd-7799-b375-f621165de230",
         "subject": {
-          "id": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+          "id": "01a16e74-d189-74ce-8301-86f483596256",
           "kind": "state"
         },
-        "time": 1792843919888
+        "time": 1792854512926
       }
     }
   },
   {
-    "id": "01a16dd3-31f5-7665-9a4c-e0ab5cb9898f",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d50b-7184-aaa5-dcc0d13ddb44",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 33,
-    "time": 1792843919861,
+    "time": 1792854512907,
     "op": "attest",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "data": {
       "attestation": {
-        "attestation_id": "01a16dd3-31f5-7665-9a4c-e0ab5cb9898f",
-        "change_id": "01a16dd3-2d9d-7657-9e00-698aa2c4ff23",
+        "attestation_id": "01a16e74-d50b-7184-aaa5-dcc0d13ddb44",
+        "change_id": "01a16e74-d053-7560-9fe6-27929a020d51",
         "format": 1,
         "kind": "import",
         "payload_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "signer": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+        "signer": "01a16e74-cfbd-7799-b375-f621165de230",
         "subject": {
-          "id": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+          "id": "01a16e74-d189-74ce-8301-86f483596256",
           "kind": "state"
         },
-        "time": 1792843919861
+        "time": 1792854512907
       }
     }
   },
   {
-    "id": "01a16dd3-31e0-74e3-8749-929526a2dc20",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d4f6-729a-945a-6d02ea9bf6b7",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 32,
-    "time": 1792843919840,
+    "time": 1792854512886,
     "op": "attest",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "data": {
       "attestation": {
-        "attestation_id": "01a16dd3-31e0-74e3-8749-929526a2dc20",
-        "change_id": "01a16dd3-2d9d-7657-9e00-698aa2c4ff23",
+        "attestation_id": "01a16e74-d4f6-729a-945a-6d02ea9bf6b7",
+        "change_id": "01a16e74-d053-7560-9fe6-27929a020d51",
         "format": 1,
         "kind": "origin",
         "payload_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "signer": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+        "signer": "01a16e74-cfbd-7799-b375-f621165de230",
         "subject": {
-          "id": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+          "id": "01a16e74-d189-74ce-8301-86f483596256",
           "kind": "state"
         },
-        "time": 1792843919840
+        "time": 1792854512886
       }
     }
   },
   {
-    "id": "01a16dd3-31b8-75e7-8e8a-93bbdd2509b0",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d4ce-718c-870d-d974ff4fc840",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 31,
-    "time": 1792843919800,
+    "time": 1792854512846,
     "op": "ref.set",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
@@ -1313,23 +2374,23 @@
       "ref_change": {
         "after": {
           "name": "env/prod",
-          "target": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20"
+          "target": "01a16e74-d189-74ce-8301-86f483596256"
         },
         "before": {
           "name": "env/prod",
-          "target": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5"
+          "target": "01a16e74-cff3-7561-8dc7-b249781d7bed"
         },
         "name": "env/prod"
       }
     }
   },
   {
-    "id": "01a16dd3-31a3-74d1-bab3-f6a9900252af",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d4bb-732a-9e09-130d69b7a5fe",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 30,
-    "time": 1792843919779,
+    "time": 1792854512827,
     "op": "config",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
@@ -1349,12 +2410,12 @@
     }
   },
   {
-    "id": "01a16dd3-318f-7016-9d14-3888db2afcf8",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d4a7-730f-b0de-e74c6bf5bb50",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 29,
-    "time": 1792843919759,
+    "time": 1792854512807,
     "op": "ref.set",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
@@ -1363,7 +2424,7 @@
       "ref_change": {
         "after": {
           "name": "env/prod",
-          "target": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5"
+          "target": "01a16e74-cff3-7561-8dc7-b249781d7bed"
         },
         "before": null,
         "name": "env/prod"
@@ -1371,190 +2432,190 @@
     }
   },
   {
-    "id": "01a16dd3-317c-7734-9ad9-fc890374fb3c",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d491-740f-b91e-d81e76cff8db",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 28,
-    "time": 1792843919740,
+    "time": 1792854512786,
     "op": "commit",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "states": [
       {
-        "id": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+        "id": "01a16e74-d483-74eb-9aa4-6697c40fe915",
         "kind": "commit",
-        "change_id": "01a16dd3-3170-7622-9553-0c96e39907d4",
+        "change_id": "01a16e74-d489-774e-9cc3-56494a04f60e",
         "parents": [
-          "01a16dd3-3067-7313-8371-a067af275ca6"
+          "01a16e74-d394-767d-b73a-73d5da6602e4"
         ],
-        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
-        "subvol": "f58c35c7-4d1b-474f-aeab-b3768f56f4e6",
+        "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+        "subvol": "3a0b4be3-c152-5341-9d1d-fe4246e49912",
         "author": {
           "name": "Tester",
           "email": "tester@example.com",
           "uid": 0
         },
         "message": "after-park",
-        "time": 1792843919728
+        "time": 1792854512777
       }
     ],
     "lines": {
-      "01a16dd3-2d54-704b-8fcf-d8028e578f12": {
+      "01a16e74-cffc-72cf-8a1d-5c7b03d45827": {
         "before": {
           "name": "main",
-          "head": "01a16dd3-3067-7313-8371-a067af275ca6",
+          "head": "01a16e74-d394-767d-b73a-73d5da6602e4",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         },
         "after": {
           "name": "main",
-          "head": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+          "head": "01a16e74-d483-74eb-9aa4-6697c40fe915",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         }
       }
     },
     "data": {
-      "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12"
+      "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827"
     }
   },
   {
-    "id": "01a16dd3-313f-726d-9e9d-08a3fc3d3cf5",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d45d-7333-9991-7d1b766458c2",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 27,
-    "time": 1792843919679,
+    "time": 1792854512733,
     "op": "stash.drop",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "data": {
-      "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
-      "state": "01a16dd3-30fd-7314-9197-f39af00da84c"
+      "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+      "state": "01a16e74-d41d-70f8-936c-4170a4ca5269"
     }
   },
   {
-    "id": "01a16dd3-3133-7065-8215-9f49f05bf9d9",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d453-75c8-8f15-b40cdce48510",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 26,
-    "time": 1792843919667,
+    "time": 1792854512723,
     "op": "stash.pop",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "states": [
       {
-        "id": "01a16dd3-312f-7200-8572-f858d907bb4b",
+        "id": "01a16e74-d44e-71a5-ac45-8dcf8e99c17d",
         "kind": "auto",
         "parents": [
-          "01a16dd3-3067-7313-8371-a067af275ca6"
+          "01a16e74-d394-767d-b73a-73d5da6602e4"
         ],
-        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
-        "subvol": "cdd197c8-3f1c-314c-92f5-8229c341c7b0",
+        "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+        "subvol": "56c8fdeb-0529-5f40-9ae3-8038f0f19e87",
         "author": {
           "name": "Tester",
           "email": "tester@example.com",
           "uid": 0
         },
         "message": "after stash.pop",
-        "time": 1792843919667
+        "time": 1792854512723
       }
     ],
     "lines": {
-      "01a16dd3-2d54-704b-8fcf-d8028e578f12": {
+      "01a16e74-cffc-72cf-8a1d-5c7b03d45827": {
         "before": {
           "name": "main",
-          "head": "01a16dd3-3067-7313-8371-a067af275ca6",
+          "head": "01a16e74-d394-767d-b73a-73d5da6602e4",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         },
         "after": {
           "name": "main",
-          "head": "01a16dd3-3067-7313-8371-a067af275ca6",
+          "head": "01a16e74-d394-767d-b73a-73d5da6602e4",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         },
-        "working_before": "01a16dd3-3101-72f4-ab47-54f69a4aa5db",
-        "working_after": "01a16dd3-312f-7200-8572-f858d907bb4b"
+        "working_before": "01a16e74-d421-738c-8f26-2c30de6dacbb",
+        "working_after": "01a16e74-d44e-71a5-ac45-8dcf8e99c17d"
       }
     }
   },
   {
-    "id": "01a16dd3-3104-769d-8082-013cb38d2d42",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d425-7680-b3bd-09550f1f4a97",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 25,
-    "time": 1792843919620,
+    "time": 1792854512677,
     "op": "stash",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "states": [
       {
-        "id": "01a16dd3-30fd-7314-9197-f39af00da84c",
+        "id": "01a16e74-d41d-70f8-936c-4170a4ca5269",
         "kind": "stash",
         "parents": [
-          "01a16dd3-3067-7313-8371-a067af275ca6"
+          "01a16e74-d394-767d-b73a-73d5da6602e4"
         ],
-        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
-        "subvol": "0dd2383c-0b1e-1345-a998-1b27a6355464",
+        "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+        "subvol": "1f6da257-7ac1-7448-87a5-dd49405e7718",
         "author": {
           "name": "Tester",
           "email": "tester@example.com",
           "uid": 0
         },
-        "message": "WIP on main: a067af2 Invert \"pick-source\"",
-        "time": 1792843919617
+        "message": "WIP on main: 73d5da6 Invert \"pick-source\"",
+        "time": 1792854512673
       },
       {
-        "id": "01a16dd3-3101-72f4-ab47-54f69a4aa5db",
+        "id": "01a16e74-d421-738c-8f26-2c30de6dacbb",
         "kind": "auto",
         "parents": [
-          "01a16dd3-3067-7313-8371-a067af275ca6"
+          "01a16e74-d394-767d-b73a-73d5da6602e4"
         ],
-        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
-        "subvol": "927a845f-12ac-8e46-94f0-bec7f5207c35",
+        "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+        "subvol": "5d854b64-e1fb-e841-b0a3-34a3fed42b4b",
         "author": {
           "name": "Tester",
           "email": "tester@example.com",
           "uid": 0
         },
         "message": "after stash",
-        "time": 1792843919620
+        "time": 1792854512677
       }
     ],
     "lines": {
-      "01a16dd3-2d54-704b-8fcf-d8028e578f12": {
+      "01a16e74-cffc-72cf-8a1d-5c7b03d45827": {
         "before": {
           "name": "main",
-          "head": "01a16dd3-3067-7313-8371-a067af275ca6",
+          "head": "01a16e74-d394-767d-b73a-73d5da6602e4",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         },
         "after": {
           "name": "main",
-          "head": "01a16dd3-3067-7313-8371-a067af275ca6",
+          "head": "01a16e74-d394-767d-b73a-73d5da6602e4",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         },
-        "working_before": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a",
-        "working_after": "01a16dd3-3101-72f4-ab47-54f69a4aa5db"
+        "working_before": "01a16e74-d3be-76de-ab2e-9d4a5321c24c",
+        "working_after": "01a16e74-d421-738c-8f26-2c30de6dacbb"
       }
     }
   },
   {
-    "id": "01a16dd3-30d3-7359-84af-a538723a9af7",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d3f8-71ab-b195-0d5eac3564aa",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 24,
-    "time": 1792843919571,
+    "time": 1792854512632,
     "op": "ref.set",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
@@ -1563,7 +2624,7 @@
       "ref_change": {
         "after": {
           "name": "pins/auto",
-          "target": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a"
+          "target": "01a16e74-d3be-76de-ab2e-9d4a5321c24c"
         },
         "before": null,
         "name": "pins/auto"
@@ -1571,430 +2632,437 @@
     }
   },
   {
-    "id": "01a16dd3-309e-7203-91dc-026719c67b8c",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d3c5-7077-82c7-d14ac7ff4a17",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 23,
-    "time": 1792843919518,
+    "time": 1792854512581,
     "op": "save",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "states": [
       {
-        "id": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a",
+        "id": "01a16e74-d3be-76de-ab2e-9d4a5321c24c",
         "kind": "auto",
         "parents": [
-          "01a16dd3-3067-7313-8371-a067af275ca6"
+          "01a16e74-d394-767d-b73a-73d5da6602e4"
         ],
-        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
-        "subvol": "e87be5a1-c882-aa4b-842f-6f59cd8f90ab",
+        "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+        "subvol": "25fa99cf-092e-3747-a115-1be6323401aa",
         "author": {
           "name": "Tester",
           "email": "tester@example.com",
           "uid": 0
         },
         "message": "auto note",
-        "time": 1792843919517
+        "time": 1792854512580
       }
     ],
     "data": {
-      "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12"
+      "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827"
     }
   },
   {
-    "id": "01a16dd3-3070-718a-ad21-613e1d9022ae",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d3a0-72b2-bd42-3e6ac7677177",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 22,
-    "time": 1792843919472,
+    "time": 1792854512544,
     "op": "revert",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "states": [
       {
-        "id": "01a16dd3-3067-7313-8371-a067af275ca6",
+        "id": "01a16e74-d394-767d-b73a-73d5da6602e4",
         "kind": "commit",
-        "change_id": "01a16dd3-306c-7766-81a3-d763efe60f76",
+        "change_id": "01a16e74-d39a-7295-908a-06d8670039d2",
         "parents": [
-          "01a16dd3-3037-70ac-9a57-3e9e075e6f5a"
+          "01a16e74-d342-76ae-a8cc-79d8a3320192"
         ],
-        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
-        "subvol": "16dc3fe2-f203-a549-b48d-b5db064c3440",
+        "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+        "subvol": "a37b16dd-31a0-0745-88fa-40f27e36f3a5",
         "author": {
           "name": "Tester",
           "email": "tester@example.com",
           "uid": 0
         },
-        "message": "Invert \"pick-source\"\n\nThis inverts state 3e9e075e6f5a70ac9a5701a16dd33037.",
-        "time": 1792843919468
+        "message": "Invert \"pick-source\"\n\nThis inverts state 79d8a332019276aea8cc01a16e74d342.",
+        "time": 1792854512538
       },
       {
-        "id": "01a16dd3-306d-71a4-8a43-9639e4146410",
+        "id": "01a16e74-d39c-7038-bc1e-8067793cfbc0",
         "kind": "auto",
         "parents": [
-          "01a16dd3-3037-70ac-9a57-3e9e075e6f5a"
+          "01a16e74-d342-76ae-a8cc-79d8a3320192"
         ],
-        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
-        "subvol": "8e80840b-d56f-944d-a97a-7eaaf4db4d9b",
+        "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+        "subvol": "950e21ff-7c91-b04d-86e7-e3927f9742a9",
         "author": {
           "name": "Tester",
           "email": "tester@example.com",
           "uid": 0
         },
         "message": "after revert",
-        "time": 1792843919472
+        "time": 1792854512544
       }
     ],
     "lines": {
-      "01a16dd3-2d54-704b-8fcf-d8028e578f12": {
+      "01a16e74-cffc-72cf-8a1d-5c7b03d45827": {
         "before": {
           "name": "main",
-          "head": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a",
+          "head": "01a16e74-d342-76ae-a8cc-79d8a3320192",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         },
         "after": {
           "name": "main",
-          "head": "01a16dd3-3067-7313-8371-a067af275ca6",
+          "head": "01a16e74-d394-767d-b73a-73d5da6602e4",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         },
-        "working_before": "01a16dd3-303b-7028-b1a2-3245795d90e7",
-        "working_after": "01a16dd3-306d-71a4-8a43-9639e4146410"
+        "working_before": "01a16e74-d347-70b9-977e-cf4ccd1c7d0e",
+        "working_after": "01a16e74-d39c-7038-bc1e-8067793cfbc0"
       }
     },
     "data": {
-      "source": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a"
+      "source": "01a16e74-d342-76ae-a8cc-79d8a3320192"
     }
   },
   {
-    "id": "01a16dd3-303f-7198-84c7-e37271cd7a7f",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d34c-707b-a972-5a788c085afe",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 21,
-    "time": 1792843919423,
+    "time": 1792854512460,
     "op": "cherry-pick",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "states": [
       {
-        "id": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a",
+        "id": "01a16e74-d342-76ae-a8cc-79d8a3320192",
         "kind": "commit",
-        "change_id": "01a16dd3-2ff3-75e4-8ef3-bda80491b201",
+        "change_id": "01a16e74-d2ff-7036-87b8-64eb71b1c73f",
         "parents": [
-          "01a16dd3-2f85-7359-bf6c-0777a1f57144"
+          "01a16e74-d28d-75a7-855f-16fe07fa24dd"
         ],
-        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
-        "subvol": "3e392e4f-1c6b-4447-9828-75dd9ed96372",
+        "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+        "subvol": "44fbf536-2166-5a4b-9c5f-bd1db3bc9de9",
         "author": {
           "name": "Tester",
           "email": "tester@example.com",
           "uid": 0
         },
         "message": "pick-source",
-        "time": 1792843919418
+        "time": 1792854512454
       },
       {
-        "id": "01a16dd3-303b-7028-b1a2-3245795d90e7",
+        "id": "01a16e74-d347-70b9-977e-cf4ccd1c7d0e",
         "kind": "auto",
         "parents": [
-          "01a16dd3-2f85-7359-bf6c-0777a1f57144"
+          "01a16e74-d28d-75a7-855f-16fe07fa24dd"
         ],
-        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
-        "subvol": "49211ccb-5ef2-1447-93b2-4d73bb044668",
+        "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+        "subvol": "dd247751-9fe8-864f-b583-572d9cc68005",
         "author": {
           "name": "Tester",
           "email": "tester@example.com",
           "uid": 0
         },
         "message": "after cherry-pick",
-        "time": 1792843919423
+        "time": 1792854512460
       }
     ],
     "lines": {
-      "01a16dd3-2d54-704b-8fcf-d8028e578f12": {
+      "01a16e74-cffc-72cf-8a1d-5c7b03d45827": {
         "before": {
           "name": "main",
-          "head": "01a16dd3-2f85-7359-bf6c-0777a1f57144",
+          "head": "01a16e74-d28d-75a7-855f-16fe07fa24dd",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         },
         "after": {
           "name": "main",
-          "head": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a",
+          "head": "01a16e74-d342-76ae-a8cc-79d8a3320192",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         },
-        "working_before": "01a16dd3-2f97-717e-8608-430c60878ecd",
-        "working_after": "01a16dd3-303b-7028-b1a2-3245795d90e7"
+        "working_before": "01a16e74-d2a3-70c8-aa51-17008f2bdc87",
+        "working_after": "01a16e74-d347-70b9-977e-cf4ccd1c7d0e"
       }
     },
     "data": {
-      "source": "01a16dd3-2fed-7663-8e59-220b60b8bf15"
+      "source": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe",
+      "version": {
+        "kind": "pick",
+        "source": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe",
+        "state": "01a16e74-d342-76ae-a8cc-79d8a3320192",
+        "target_head": "01a16e74-d28d-75a7-855f-16fe07fa24dd",
+        "target_line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827"
+      }
     }
   },
   {
-    "id": "01a16dd3-2ffd-7768-8b9d-062ab46a87a5",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d307-748e-b18f-4d5eff6db3ff",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 20,
-    "time": 1792843919357,
+    "time": 1792854512391,
     "op": "commit",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "states": [
       {
-        "id": "01a16dd3-2fed-7663-8e59-220b60b8bf15",
+        "id": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe",
         "kind": "commit",
-        "change_id": "01a16dd3-2ff3-75e4-8ef3-bda80491b201",
+        "change_id": "01a16e74-d2ff-7036-87b8-64eb71b1c73f",
         "parents": [
-          "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20"
+          "01a16e74-d189-74ce-8301-86f483596256"
         ],
-        "line": "01a16dd3-2d73-774e-9e40-cd73d2601980",
-        "subvol": "384597ff-e446-db47-a96a-f2ec4b7012b9",
+        "line": "01a16e74-d01e-7126-8780-7d2e115f6fc6",
+        "subvol": "45dbc8ec-7674-5b4f-9745-2dd3d07028ac",
         "author": {
           "name": "Tester",
           "email": "tester@example.com",
           "uid": 0
         },
         "message": "pick-source",
-        "time": 1792843919347
+        "time": 1792854512383
       }
     ],
     "lines": {
-      "01a16dd3-2d73-774e-9e40-cd73d2601980": {
+      "01a16e74-d01e-7126-8780-7d2e115f6fc6": {
         "before": {
           "name": "feature",
-          "head": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+          "head": "01a16e74-d189-74ce-8301-86f483596256",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         },
         "after": {
           "name": "feature",
-          "head": "01a16dd3-2fed-7663-8e59-220b60b8bf15",
+          "head": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         }
       }
     },
     "data": {
-      "line": "01a16dd3-2d73-774e-9e40-cd73d2601980"
+      "line": "01a16e74-d01e-7126-8780-7d2e115f6fc6"
     }
   },
   {
-    "id": "01a16dd3-2f9c-755d-b8bc-b108d6f7ec70",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d2a7-728b-840b-f59d4ef7526b",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 19,
-    "time": 1792843919260,
+    "time": 1792854512295,
     "op": "merge",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "states": [
       {
-        "id": "01a16dd3-2f85-7359-bf6c-0777a1f57144",
+        "id": "01a16e74-d28d-75a7-855f-16fe07fa24dd",
         "kind": "commit",
-        "change_id": "01a16dd3-2f88-7496-a8c0-4ee38c77c8bb",
+        "change_id": "01a16e74-d290-7144-a172-1972a1298135",
         "parents": [
-          "01a16dd3-2f48-712e-8922-17abb3617a6f",
-          "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20"
+          "01a16e74-d24e-7344-95b4-c6253fdc32bc",
+          "01a16e74-d189-74ce-8301-86f483596256"
         ],
-        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
-        "subvol": "ea4acbde-941e-6040-8d0f-11de2774a07a",
+        "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+        "subvol": "22633924-7827-9446-8753-d2df0c6ff380",
         "author": {
           "name": "Tester",
           "email": "tester@example.com",
           "uid": 0
         },
         "message": "Merge line 'feature'",
-        "time": 1792843919240
+        "time": 1792854512272
       },
       {
-        "id": "01a16dd3-2f97-717e-8608-430c60878ecd",
+        "id": "01a16e74-d2a3-70c8-aa51-17008f2bdc87",
         "kind": "auto",
         "parents": [
-          "01a16dd3-2f48-712e-8922-17abb3617a6f"
+          "01a16e74-d24e-7344-95b4-c6253fdc32bc"
         ],
-        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
-        "subvol": "c9e6a096-fd96-1041-8f5c-f230855ae96f",
+        "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+        "subvol": "098eb150-4d87-274e-9ff3-8251dfd5ca32",
         "author": {
           "name": "Tester",
           "email": "tester@example.com",
           "uid": 0
         },
         "message": "after merge",
-        "time": 1792843919259
+        "time": 1792854512295
       }
     ],
     "lines": {
-      "01a16dd3-2d54-704b-8fcf-d8028e578f12": {
+      "01a16e74-cffc-72cf-8a1d-5c7b03d45827": {
         "before": {
           "name": "main",
-          "head": "01a16dd3-2f48-712e-8922-17abb3617a6f",
+          "head": "01a16e74-d24e-7344-95b4-c6253fdc32bc",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         },
         "after": {
           "name": "main",
-          "head": "01a16dd3-2f85-7359-bf6c-0777a1f57144",
+          "head": "01a16e74-d28d-75a7-855f-16fe07fa24dd",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         },
-        "working_before": "01a16dd3-2f68-7245-bfa4-e40e2ce31e1f",
-        "working_after": "01a16dd3-2f97-717e-8608-430c60878ecd"
+        "working_before": "01a16e74-d26c-744d-8517-b3e4814b47a4",
+        "working_after": "01a16e74-d2a3-70c8-aa51-17008f2bdc87"
       }
     },
     "data": {
-      "base": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3",
+      "base": "01a16e74-d14b-70f5-b304-015d60d9db64",
       "conflicts": 0,
       "squash": false,
-      "theirs": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20"
+      "theirs": "01a16e74-d189-74ce-8301-86f483596256"
     }
   },
   {
-    "id": "01a16dd3-2f70-7730-9c27-e4e5c804ea6b",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d275-7755-bdae-526ed97fe3d8",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 18,
-    "time": 1792843919216,
+    "time": 1792854512245,
     "op": "save",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "states": [
       {
-        "id": "01a16dd3-2f68-7245-bfa4-e40e2ce31e1f",
+        "id": "01a16e74-d26c-744d-8517-b3e4814b47a4",
         "kind": "auto",
         "parents": [
-          "01a16dd3-2f48-712e-8922-17abb3617a6f"
+          "01a16e74-d24e-7344-95b4-c6253fdc32bc"
         ],
-        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
-        "subvol": "62c6f882-d78a-f74d-b5d4-1effc4c37bdd",
+        "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+        "subvol": "d4aeb2f5-559b-9640-8b40-9bc89866589d",
         "author": {
           "name": "Tester",
           "email": "tester@example.com",
           "uid": 0
         },
         "message": "before a layr command",
-        "time": 1792843919215
+        "time": 1792854512244
       }
     ],
     "data": {
-      "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12"
+      "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827"
     }
   },
   {
-    "id": "01a16dd3-2f56-7212-a4b8-491be905b4c3",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d25b-7544-ad2c-70911ab6a2ab",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 17,
-    "time": 1792843919190,
+    "time": 1792854512219,
     "op": "commit",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "states": [
       {
-        "id": "01a16dd3-2f48-712e-8922-17abb3617a6f",
+        "id": "01a16e74-d24e-7344-95b4-c6253fdc32bc",
         "kind": "commit",
-        "change_id": "01a16dd3-2f4c-7787-893b-81efedeeeaab",
+        "change_id": "01a16e74-d254-705a-a31e-08c69f2015f0",
         "parents": [
-          "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3"
+          "01a16e74-d14b-70f5-b304-015d60d9db64"
         ],
-        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
-        "subvol": "30f0b682-cc79-be43-bbcb-746b0125a768",
+        "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+        "subvol": "867e4250-5f9e-4e4d-8f6b-1a92d883aa20",
         "author": {
           "name": "Tester",
           "email": "tester@example.com",
           "uid": 0
         },
         "message": "main-divergence",
-        "time": 1792843919180
+        "time": 1792854512212
       }
     ],
     "lines": {
-      "01a16dd3-2d54-704b-8fcf-d8028e578f12": {
+      "01a16e74-cffc-72cf-8a1d-5c7b03d45827": {
         "before": {
           "name": "main",
-          "head": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3",
+          "head": "01a16e74-d14b-70f5-b304-015d60d9db64",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         },
         "after": {
           "name": "main",
-          "head": "01a16dd3-2f48-712e-8922-17abb3617a6f",
+          "head": "01a16e74-d24e-7344-95b4-c6253fdc32bc",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         }
       }
     },
     "data": {
-      "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12"
+      "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827"
     }
   },
   {
-    "id": "01a16dd3-2eee-77b7-a1f8-2806269fabf7",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d1f3-7269-a9ca-62c8140e997f",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 16,
-    "time": 1792843919086,
+    "time": 1792854512115,
     "op": "attest",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "data": {
       "attestation": {
-        "attestation_id": "01a16dd3-2eee-77b7-a1f8-2806269fabf7",
-        "change_id": "01a16dd3-2d9d-7657-9e00-698aa2c4ff23",
+        "attestation_id": "01a16e74-d1f3-7269-a9ca-62c8140e997f",
+        "change_id": "01a16e74-d053-7560-9fe6-27929a020d51",
         "format": 1,
         "kind": "approval",
         "payload_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "signer": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+        "signer": "01a16e74-cfbd-7799-b375-f621165de230",
         "subject": {
-          "id": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+          "id": "01a16e74-d189-74ce-8301-86f483596256",
           "kind": "state"
         },
-        "time": 1792843919086
+        "time": 1792854512115
       }
     }
   },
   {
-    "id": "01a16dd3-2eda-7051-a930-a1dc508d2cc8",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d1dd-70dc-b248-88bd83b60220",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 15,
-    "time": 1792843919066,
+    "time": 1792854512093,
     "op": "attest",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "data": {
       "attestation": {
-        "attestation_id": "01a16dd3-2eda-7051-a930-a1dc508d2cc8",
-        "change_id": "01a16dd3-2d9d-7657-9e00-698aa2c4ff23",
+        "attestation_id": "01a16e74-d1dd-70dc-b248-88bd83b60220",
+        "change_id": "01a16e74-d053-7560-9fe6-27929a020d51",
         "format": 1,
         "kind": "check",
-        "payload_digest": "4c2d5225454a4015c09bc71b31adf70bcba6673f7ccc5ddb21b954444f8d38e2",
-        "signer": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+        "payload_digest": "8921a7b78d2bc21ab8c08d19dd42593d195bf577a203d650892d2c210a35951f",
+        "signer": "01a16e74-cfbd-7799-b375-f621165de230",
         "subject": {
-          "id": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+          "id": "01a16e74-d189-74ce-8301-86f483596256",
           "kind": "state"
         },
-        "time": 1792843919066
+        "time": 1792854512093
       },
       "check": {
         "argv": [
@@ -2004,278 +3072,295 @@
         ],
         "command": "sh -c test -f metric.txt",
         "exit": 0,
-        "seconds": 0.001014173
+        "seconds": 0.0012858
       }
     }
   },
   {
-    "id": "01a16dd3-2e98-7064-ad1e-ccfc7c716122",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d199-75b1-ba34-e8613346d914",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 14,
-    "time": 1792843919000,
+    "time": 1792854512025,
     "op": "rebase",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "states": [
       {
-        "id": "01a16dd3-2e93-7016-92b1-0249c292cc47",
+        "id": "01a16e74-d193-7403-893e-41522d35aefa",
         "kind": "auto",
         "parents": [
-          "01a16dd3-2e24-7234-8b50-f996f5c822a0"
+          "01a16e74-d0fd-765a-91e4-7b25d09dcd1a"
         ],
-        "line": "01a16dd3-2d73-774e-9e40-cd73d2601980",
-        "subvol": "b03c0464-d63f-1e46-8a98-ed05927fbe54",
+        "line": "01a16e74-d01e-7126-8780-7d2e115f6fc6",
+        "subvol": "f5665a11-41b4-ff4c-9bbb-260dfe8fa537",
         "author": {
           "name": "Tester",
           "email": "tester@example.com",
           "uid": 0
         },
         "message": "after rebase",
-        "time": 1792843919000
+        "time": 1792854512025
       }
     ],
     "lines": {
-      "01a16dd3-2d73-774e-9e40-cd73d2601980": {
+      "01a16e74-d01e-7126-8780-7d2e115f6fc6": {
         "before": {
           "name": "feature",
-          "head": "01a16dd3-2e24-7234-8b50-f996f5c822a0",
+          "head": "01a16e74-d0fd-765a-91e4-7b25d09dcd1a",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         },
         "after": {
           "name": "feature",
-          "head": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+          "head": "01a16e74-d189-74ce-8301-86f483596256",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         },
-        "working_before": "01a16dd3-2e6f-72f9-92c2-121eca2fe48f",
-        "working_after": "01a16dd3-2e93-7016-92b1-0249c292cc47"
+        "working_before": "01a16e74-d16b-72a4-8964-842448e976f8",
+        "working_after": "01a16e74-d193-7403-893e-41522d35aefa"
       }
     },
     "data": {
       "count": 1,
-      "onto": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3",
-      "upstream": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3"
+      "onto": "01a16e74-d14b-70f5-b304-015d60d9db64",
+      "upstream": "01a16e74-d14b-70f5-b304-015d60d9db64"
     }
   },
   {
-    "id": "01a16dd3-2e8e-732e-b396-e30503de2dbb",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d18d-72d9-a7c9-d1c6b482dbcb",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 13,
-    "time": 1792843918990,
+    "time": 1792854512013,
     "op": "rebase.step",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "states": [
       {
-        "id": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+        "id": "01a16e74-d189-74ce-8301-86f483596256",
         "kind": "commit",
-        "change_id": "01a16dd3-2d9d-7657-9e00-698aa2c4ff23",
+        "change_id": "01a16e74-d053-7560-9fe6-27929a020d51",
         "parents": [
-          "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3"
+          "01a16e74-d14b-70f5-b304-015d60d9db64"
         ],
-        "line": "01a16dd3-2d73-774e-9e40-cd73d2601980",
-        "subvol": "c8fa1531-f246-a94b-bbaf-7b291d041c46",
+        "line": "01a16e74-d01e-7126-8780-7d2e115f6fc6",
+        "subvol": "dff38681-3198-be4f-bcec-20a3e1e90adc",
         "author": {
           "name": "Tester",
           "email": "tester@example.com",
           "uid": 0
         },
         "message": "feature-v2",
-        "time": 1792843918990
+        "time": 1792854512013
       }
-    ]
+    ],
+    "data": {
+      "line": "01a16e74-d01e-7126-8780-7d2e115f6fc6",
+      "version": {
+        "kind": "replay",
+        "source": "01a16e74-d0fd-765a-91e4-7b25d09dcd1a",
+        "state": "01a16e74-d189-74ce-8301-86f483596256",
+        "target_head": "01a16e74-d14b-70f5-b304-015d60d9db64",
+        "target_line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827"
+      }
+    }
   },
   {
-    "id": "01a16dd3-2e76-7789-8467-edc103f068a3",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d174-70da-a152-69857fb0cf63",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 12,
-    "time": 1792843918966,
+    "time": 1792854511988,
     "op": "save",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "states": [
       {
-        "id": "01a16dd3-2e6f-72f9-92c2-121eca2fe48f",
+        "id": "01a16e74-d16b-72a4-8964-842448e976f8",
         "kind": "auto",
         "parents": [
-          "01a16dd3-2e24-7234-8b50-f996f5c822a0"
+          "01a16e74-d0fd-765a-91e4-7b25d09dcd1a"
         ],
-        "line": "01a16dd3-2d73-774e-9e40-cd73d2601980",
-        "subvol": "55c642fd-9d62-db4c-8fda-4a31580978f8",
+        "line": "01a16e74-d01e-7126-8780-7d2e115f6fc6",
+        "subvol": "9086df60-1055-fa40-8e37-af26e41a8006",
         "author": {
           "name": "Tester",
           "email": "tester@example.com",
           "uid": 0
         },
         "message": "before a layr command",
-        "time": 1792843918965
+        "time": 1792854511987
       }
     ],
     "data": {
-      "line": "01a16dd3-2d73-774e-9e40-cd73d2601980"
+      "line": "01a16e74-d01e-7126-8780-7d2e115f6fc6"
     }
   },
   {
-    "id": "01a16dd3-2e60-76fc-aaa9-44ee2324ddec",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d159-7039-b898-403cb7f6c3a8",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 11,
-    "time": 1792843918944,
+    "time": 1792854511961,
     "op": "commit",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "states": [
       {
-        "id": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3",
+        "id": "01a16e74-d14b-70f5-b304-015d60d9db64",
         "kind": "commit",
-        "change_id": "01a16dd3-2e58-7607-930a-a6b6aa4e1868",
+        "change_id": "01a16e74-d150-76bb-b299-294fb0aca65a",
         "parents": [
-          "01a16dd3-2d4b-74df-a7e9-1926c5b166a5"
+          "01a16e74-cff3-7561-8dc7-b249781d7bed"
         ],
-        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
-        "subvol": "d892ecea-3206-0b49-b3b2-4bbeea470861",
+        "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+        "subvol": "685ca818-f453-1743-9de2-285c33c8f418",
         "author": {
           "name": "Tester",
           "email": "tester@example.com",
           "uid": 0
         },
         "message": "main-base",
-        "time": 1792843918936
+        "time": 1792854511952
       }
     ],
     "lines": {
-      "01a16dd3-2d54-704b-8fcf-d8028e578f12": {
+      "01a16e74-cffc-72cf-8a1d-5c7b03d45827": {
         "before": {
           "name": "main",
-          "head": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5",
+          "head": "01a16e74-cff3-7561-8dc7-b249781d7bed",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         },
         "after": {
           "name": "main",
-          "head": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3",
+          "head": "01a16e74-d14b-70f5-b304-015d60d9db64",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         }
       }
     },
     "data": {
-      "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12"
+      "line": "01a16e74-cffc-72cf-8a1d-5c7b03d45827"
     }
   },
   {
-    "id": "01a16dd3-2e2f-7278-9e81-37d5d04d2da1",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d10c-7061-9a27-1e45abd30881",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 10,
-    "time": 1792843918895,
+    "time": 1792854511884,
     "op": "commit",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "states": [
       {
-        "id": "01a16dd3-2e24-7234-8b50-f996f5c822a0",
+        "id": "01a16e74-d0fd-765a-91e4-7b25d09dcd1a",
         "kind": "commit",
-        "change_id": "01a16dd3-2d9d-7657-9e00-698aa2c4ff23",
+        "change_id": "01a16e74-d053-7560-9fe6-27929a020d51",
         "parents": [
-          "01a16dd3-2d4b-74df-a7e9-1926c5b166a5"
+          "01a16e74-cff3-7561-8dc7-b249781d7bed"
         ],
-        "line": "01a16dd3-2d73-774e-9e40-cd73d2601980",
-        "subvol": "55174811-7e8c-024f-bd68-01fb82292e6b",
+        "line": "01a16e74-d01e-7126-8780-7d2e115f6fc6",
+        "subvol": "070160bc-0479-e740-bc81-f6ee7dfe74d8",
         "author": {
           "name": "Tester",
           "email": "tester@example.com",
           "uid": 0
         },
         "message": "feature-v2",
-        "time": 1792843918888
+        "time": 1792854511874
       }
     ],
     "lines": {
-      "01a16dd3-2d73-774e-9e40-cd73d2601980": {
+      "01a16e74-d01e-7126-8780-7d2e115f6fc6": {
         "before": {
           "name": "feature",
-          "head": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35",
+          "head": "01a16e74-d04d-77bc-aae3-ad86a604d396",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         },
         "after": {
           "name": "feature",
-          "head": "01a16dd3-2e24-7234-8b50-f996f5c822a0",
+          "head": "01a16e74-d0fd-765a-91e4-7b25d09dcd1a",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         }
       }
     },
     "data": {
-      "line": "01a16dd3-2d73-774e-9e40-cd73d2601980"
-    }
-  },
-  {
-    "id": "01a16dd3-2dff-77e5-826b-88272179bc3f",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
-    "seq": 9,
-    "time": 1792843918847,
-    "op": "attest",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
-    "actor": {
-      "uid": 0,
-      "name": "root"
-    },
-    "data": {
-      "attestation": {
-        "attestation_id": "01a16dd3-2dff-77e5-826b-88272179bc3f",
-        "change_id": "01a16dd3-2d9d-7657-9e00-698aa2c4ff23",
-        "format": 1,
-        "kind": "approval",
-        "payload_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "signer": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
-        "subject": {
-          "id": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35",
-          "kind": "state"
-        },
-        "time": 1792843918847
+      "line": "01a16e74-d01e-7126-8780-7d2e115f6fc6",
+      "version": {
+        "kind": "amend",
+        "source": "01a16e74-d04d-77bc-aae3-ad86a604d396",
+        "state": "01a16e74-d0fd-765a-91e4-7b25d09dcd1a",
+        "target_head": "01a16e74-d04d-77bc-aae3-ad86a604d396",
+        "target_line": "01a16e74-d01e-7126-8780-7d2e115f6fc6"
       }
     }
   },
   {
-    "id": "01a16dd3-2df0-751b-b76e-af71853a9f11",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
-    "seq": 8,
-    "time": 1792843918832,
+    "id": "01a16e74-d0cd-747b-b2ca-5a4f173196ab",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 9,
+    "time": 1792854511821,
     "op": "attest",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "data": {
       "attestation": {
-        "attestation_id": "01a16dd3-2df0-751b-b76e-af71853a9f11",
-        "change_id": "01a16dd3-2d9d-7657-9e00-698aa2c4ff23",
+        "attestation_id": "01a16e74-d0cd-747b-b2ca-5a4f173196ab",
+        "change_id": "01a16e74-d053-7560-9fe6-27929a020d51",
         "format": 1,
-        "kind": "check",
-        "payload_digest": "89a5288045da1d6102306ce6f32de59185534f0eed943a4c746a5478d0d90092",
-        "signer": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+        "kind": "approval",
+        "payload_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "signer": "01a16e74-cfbd-7799-b375-f621165de230",
         "subject": {
-          "id": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35",
+          "id": "01a16e74-d04d-77bc-aae3-ad86a604d396",
           "kind": "state"
         },
-        "time": 1792843918832
+        "time": 1792854511821
+      }
+    }
+  },
+  {
+    "id": "01a16e74-d0b8-71be-8b98-d3f3c9398444",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "seq": 8,
+    "time": 1792854511800,
+    "op": "attest",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "attestation": {
+        "attestation_id": "01a16e74-d0b8-71be-8b98-d3f3c9398444",
+        "change_id": "01a16e74-d053-7560-9fe6-27929a020d51",
+        "format": 1,
+        "kind": "check",
+        "payload_digest": "0f87b5d287c1bb6413cf95bc4a0d0b108598ab644076628c939f4aee0962767e",
+        "signer": "01a16e74-cfbd-7799-b375-f621165de230",
+        "subject": {
+          "id": "01a16e74-d04d-77bc-aae3-ad86a604d396",
+          "kind": "state"
+        },
+        "time": 1792854511800
       },
       "check": {
         "argv": [
@@ -2285,17 +3370,17 @@
         ],
         "command": "sh -c test -f metric.txt",
         "exit": 0,
-        "seconds": 0.001353717
+        "seconds": 0.001465968
       }
     }
   },
   {
-    "id": "01a16dd3-2dd5-7067-9c71-7e4132b01cf4",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d096-76fe-b007-b5269a3f9baf",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 7,
-    "time": 1792843918805,
+    "time": 1792854511766,
     "op": "config",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
@@ -2307,144 +3392,144 @@
     }
   },
   {
-    "id": "01a16dd3-2daa-7210-9932-2b77366e69a3",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d063-760c-838e-eef72ebde880",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 6,
-    "time": 1792843918762,
+    "time": 1792854511715,
     "op": "commit",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "states": [
       {
-        "id": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35",
+        "id": "01a16e74-d04d-77bc-aae3-ad86a604d396",
         "kind": "commit",
-        "change_id": "01a16dd3-2d9d-7657-9e00-698aa2c4ff23",
+        "change_id": "01a16e74-d053-7560-9fe6-27929a020d51",
         "parents": [
-          "01a16dd3-2d4b-74df-a7e9-1926c5b166a5"
+          "01a16e74-cff3-7561-8dc7-b249781d7bed"
         ],
-        "line": "01a16dd3-2d73-774e-9e40-cd73d2601980",
-        "subvol": "76c81ed3-68a5-6940-9d40-8d7f3255b64d",
+        "line": "01a16e74-d01e-7126-8780-7d2e115f6fc6",
+        "subvol": "fc608302-816c-1a4e-812e-fff1a80877c6",
         "author": {
           "name": "Tester",
           "email": "tester@example.com",
           "uid": 0
         },
         "message": "feature-v1",
-        "time": 1792843918749
+        "time": 1792854511699
       }
     ],
     "lines": {
-      "01a16dd3-2d73-774e-9e40-cd73d2601980": {
+      "01a16e74-d01e-7126-8780-7d2e115f6fc6": {
         "before": {
           "name": "feature",
-          "head": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5",
+          "head": "01a16e74-cff3-7561-8dc7-b249781d7bed",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         },
         "after": {
           "name": "feature",
-          "head": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35",
+          "head": "01a16e74-d04d-77bc-aae3-ad86a604d396",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         }
       }
     },
     "data": {
-      "line": "01a16dd3-2d73-774e-9e40-cd73d2601980"
+      "line": "01a16e74-d01e-7126-8780-7d2e115f6fc6"
     }
   },
   {
-    "id": "01a16dd3-2d77-7078-9e88-6e3594b994f4",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d024-7752-bdf7-936e989468e8",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 5,
-    "time": 1792843918711,
+    "time": 1792854511652,
     "op": "line.create",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "lines": {
-      "01a16dd3-2d73-774e-9e40-cd73d2601980": {
+      "01a16e74-d01e-7126-8780-7d2e115f6fc6": {
         "before": null,
         "after": {
           "name": "feature",
-          "head": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5",
+          "head": "01a16e74-cff3-7561-8dc7-b249781d7bed",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         }
       }
     },
     "data": {
       "name": "feature",
-      "start": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5"
+      "start": "01a16e74-cff3-7561-8dc7-b249781d7bed"
     }
   },
   {
-    "id": "01a16dd3-2d58-70a9-a21b-954152ee8cbf",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-d000-74d3-8540-0601ac00f320",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 4,
-    "time": 1792843918680,
+    "time": 1792854511616,
     "op": "line.create",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "lines": {
-      "01a16dd3-2d54-704b-8fcf-d8028e578f12": {
+      "01a16e74-cffc-72cf-8a1d-5c7b03d45827": {
         "before": null,
         "after": {
           "name": "main",
-          "head": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5",
+          "head": "01a16e74-cff3-7561-8dc7-b249781d7bed",
           "owner": 0,
-          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+          "machine": "01a16e74-cfbd-7799-b375-f621165de230"
         }
       }
     },
     "data": {
       "name": "main",
-      "start": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5"
+      "start": "01a16e74-cff3-7561-8dc7-b249781d7bed"
     }
   },
   {
-    "id": "01a16dd3-2d50-709a-9f5f-49a28abee9d4",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-cff8-70ed-ae4d-50fafd7487c7",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 3,
-    "time": 1792843918672,
+    "time": 1792854511608,
     "op": "commit",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "states": [
       {
-        "id": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5",
+        "id": "01a16e74-cff3-7561-8dc7-b249781d7bed",
         "kind": "commit",
-        "change_id": "01a16dd3-2d4f-773d-8f69-473fa5b7a84b",
+        "change_id": "01a16e74-cff8-70ed-ae4d-50f92db0f295",
         "parents": [],
-        "subvol": "d937ec48-27c1-084c-b568-8ac71f09a5fb",
+        "subvol": "1da1f28d-1872-0c45-8100-91a2399ebe7e",
         "author": {
           "name": "Tester",
           "email": "tester@example.com",
           "uid": 0
         },
         "message": "initial state",
-        "time": 1792843918671
+        "time": 1792854511608
       }
     ]
   },
   {
-    "id": "01a16dd3-2d47-7588-bfdf-1fe777deafae",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-cfee-70da-8481-d8e22bf5e257",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 2,
-    "time": 1792843918663,
+    "time": 1792854511598,
     "op": "project",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
@@ -2458,24 +3543,24 @@
           "main": {}
         }
       },
-      "id": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+      "id": "01a16e74-cfd0-7615-a8d9-3e7995798224",
       "name": "model-golden"
     }
   },
   {
-    "id": "01a16dd3-2d46-761b-a299-ce0de55c1c5d",
-    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "id": "01a16e74-cfed-7034-8420-44fa9a1d7c5b",
+    "machine": "01a16e74-cfbd-7799-b375-f621165de230",
     "seq": 1,
-    "time": 1792843918662,
+    "time": 1792854511597,
     "op": "machine",
-    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
     "actor": {
       "uid": 0,
       "name": "root"
     },
     "data": {
       "name": "layr-dev",
-      "public_key": "f45963d1436be4de668d123fe9d291dbdfe04ec4bb9f712409219b3211675ef4"
+      "public_key": "e7afabc8aa437e7d61269b10e3cdc12ba661feda883e0e598d869ea60b9b7ea7"
     }
   }
 ]

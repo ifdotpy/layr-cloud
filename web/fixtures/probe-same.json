@@ -1,0 +1,204 @@
+{
+  "base": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+  "head": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+  "base_source": "available",
+  "head_source": "available",
+  "probes": [
+    {
+      "base": {
+        "argv": [
+          "python3",
+          "probe.py"
+        ],
+        "exit": 0,
+        "output_state": "01a16e74-d69e-75af-aced-784496159970",
+        "probe": "metric",
+        "reused": true,
+        "subject": {
+          "id": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+          "kind": "state"
+        }
+      },
+      "changes": [],
+      "exit_changed": false,
+      "head": {
+        "argv": [
+          "python3",
+          "probe.py"
+        ],
+        "exit": 0,
+        "output_state": "01a16e74-d69e-75af-aced-784496159970",
+        "probe": "metric",
+        "reused": true,
+        "subject": {
+          "id": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+          "kind": "state"
+        }
+      },
+      "probe": "metric",
+      "status": "unchanged"
+    },
+    {
+      "base": {
+        "argv": [
+          "python3",
+          "screens.py"
+        ],
+        "exit": 0,
+        "output_state": "01a16e74-d6cd-7004-a0cb-699913058561",
+        "probe": "screens",
+        "reused": true,
+        "subject": {
+          "id": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+          "kind": "state"
+        }
+      },
+      "changes": [
+        {
+          "after": {
+            "height": 2,
+            "width": 2
+          },
+          "base_png": "out/screens/Home@Phone.png",
+          "base_structure": "out/screens/Home@Phone.html",
+          "before": {
+            "height": 2,
+            "width": 2
+          },
+          "changed_percent": 0.0,
+          "changed_pixels": 0,
+          "changed_share": 0.0,
+          "elements_added": 0,
+          "elements_removed": 0,
+          "head_png": "out/screens/Home@Phone.png",
+          "head_structure": "out/screens/Home@Phone.html",
+          "kind": "screenshots",
+          "path": "out/screens/Home@Phone",
+          "regions": [],
+          "screen": "Home@Phone",
+          "size_changed": false,
+          "status": "compared",
+          "structure_available": true,
+          "structure_diff": "",
+          "structure_regions": [],
+          "text_changes": 0,
+          "total_pixels": 4
+        },
+        {
+          "after": null,
+          "base_png": null,
+          "base_structure": "out/screens/Native@Phone.xml",
+          "before": null,
+          "changed_percent": null,
+          "changed_pixels": null,
+          "changed_share": null,
+          "elements_added": 0,
+          "elements_removed": 0,
+          "head_png": null,
+          "head_structure": "out/screens/Native@Phone.xml",
+          "kind": "screenshots",
+          "path": "out/screens/Native@Phone",
+          "regions": [],
+          "screen": "Native@Phone",
+          "size_changed": false,
+          "status": "compared",
+          "structure_available": true,
+          "structure_diff": "",
+          "structure_regions": [],
+          "text_changes": 0,
+          "total_pixels": null
+        },
+        {
+          "after": null,
+          "base_png": null,
+          "base_structure": "out/screens/Stable@Phone.txt",
+          "before": null,
+          "changed_percent": null,
+          "changed_pixels": null,
+          "changed_share": null,
+          "elements_added": 0,
+          "elements_removed": 0,
+          "head_png": null,
+          "head_structure": "out/screens/Stable@Phone.txt",
+          "kind": "screenshots",
+          "path": "out/screens/Stable@Phone",
+          "regions": [],
+          "screen": "Stable@Phone",
+          "size_changed": false,
+          "status": "compared",
+          "structure_available": true,
+          "structure_diff": "",
+          "structure_regions": [],
+          "text_changes": 0,
+          "total_pixels": null
+        },
+        {
+          "after": null,
+          "base_png": null,
+          "base_structure": "out/screens/Text@Phone.txt",
+          "before": null,
+          "changed_percent": null,
+          "changed_pixels": null,
+          "changed_share": null,
+          "elements_added": 0,
+          "elements_removed": 0,
+          "head_png": null,
+          "head_structure": "out/screens/Text@Phone.txt",
+          "kind": "screenshots",
+          "path": "out/screens/Text@Phone",
+          "regions": [],
+          "screen": "Text@Phone",
+          "size_changed": false,
+          "status": "compared",
+          "structure_available": true,
+          "structure_diff": "",
+          "structure_regions": [],
+          "text_changes": 0,
+          "total_pixels": null
+        },
+        {
+          "after": null,
+          "base_png": null,
+          "base_structure": "out/screens/Tree@Phone.json",
+          "before": null,
+          "changed_percent": null,
+          "changed_pixels": null,
+          "changed_share": null,
+          "elements_added": 0,
+          "elements_removed": 0,
+          "head_png": null,
+          "head_structure": "out/screens/Tree@Phone.json",
+          "kind": "screenshots",
+          "path": "out/screens/Tree@Phone",
+          "regions": [],
+          "screen": "Tree@Phone",
+          "size_changed": false,
+          "status": "compared",
+          "structure_available": true,
+          "structure_diff": "",
+          "structure_regions": [],
+          "text_changes": 0,
+          "total_pixels": null
+        }
+      ],
+      "exit_changed": false,
+      "head": {
+        "argv": [
+          "python3",
+          "screens.py"
+        ],
+        "exit": 0,
+        "output_state": "01a16e74-d6cd-7004-a0cb-699913058561",
+        "probe": "screens",
+        "reused": true,
+        "subject": {
+          "id": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+          "kind": "state"
+        }
+      },
+      "limit_reasons": [],
+      "probe": "screens",
+      "status": "unchanged"
+    }
+  ]
+}
