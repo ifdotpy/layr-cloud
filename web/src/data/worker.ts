@@ -154,7 +154,7 @@ async function call(method: string, args: unknown[], base = ''): Promise<unknown
     await tree(name, input.state);
     if (input.base) await tree(name, input.base);
   }
-  if (['probeDiff', 'changes', 'changeShow'].includes(method)) {
+  if (['probeDiff', 'screens', 'changes', 'changeShow'].includes(method)) {
     const name = alias(args[0] as string);
     const inputs: {sources: string[]; outputs: string[]} = JSON.parse(session.query(name, 'probeInputs', JSON.stringify([method, ...args.slice(1)]), Date.now()));
     for (const state of inputs.outputs) {

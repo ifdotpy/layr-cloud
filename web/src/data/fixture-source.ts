@@ -74,6 +74,7 @@ export class FixtureSource implements DataSource {
       overlays: p.overlays ?? overlays,
       checks: p.checks ?? this.checks(config),
       probes: p.probes ?? this.probes(config),
+      bisect_results: p.bisect_results ?? this.read("bisect", []),
     }));
   }
   private checks(config: Record<string, Json>) {

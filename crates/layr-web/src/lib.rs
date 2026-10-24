@@ -11,6 +11,7 @@ use wasm_bindgen::prelude::*;
 use zeroize::Zeroizing;
 mod changes;
 mod metadata;
+mod screens;
 mod overlays;
 
 fn js(error: anyhow::Error) -> JsValue {
@@ -745,7 +746,7 @@ impl Session {
             }
             "probeInputs" => {
                 let mut subjects = BTreeSet::new();
-                if arg(0) == "probeDiff" {
+                if matches!(arg(0), "probeDiff" | "screens") {
                     subjects.insert(arg(1).to_string());
                     subjects.insert(arg(2).to_string());
                 } else {
@@ -856,38 +857,8 @@ impl Session {
                 },
                 &context
             )?),
-            "copies" => {
-                let mut rows = vec![json!({"id":name,"name":name,"kind":"store"})];
-                for (key, url) in &p.config {
-                    let Some(url) = url.as_str() else { continue };
-                    let (key, scope) = key.rsplit_once('@').unwrap_or((key, &p.machine));
-                    let remote = key
-                        .strip_prefix("cloud.remote.")
-                        .and_then(|v| v.strip_suffix(".url"))
-                        .map(|name| {
-                            (
-                                name,
-                                if url.starts_with("ssh://") {
-                                    "peer"
-                                } else {
-                                    "store"
-                                },
-                            )
-                        })
-                        .or_else(|| {
-                            key.strip_prefix("remote.")
-                                .and_then(|v| v.strip_suffix(".url"))
-                                .map(|name| (name, "git"))
-                        });
-                    if let Some((name, kind)) = remote {
-                        rows.push(json!({"id":format!("{scope}:{name}"),"name":name,"kind":kind,"address":url}));
-                    }
-                }
-                json!(rows)
-            }
-            "screens" => {
-                bail!("stored screenshot outputs are not available in this model revision");
-            }
+            "copies" => json!(p.copies()),
+            "screens" => screens::read(p, &context, arg(0), arg(1))?,
             _ => bail!("unknown model query {method}"),
         })
     }
@@ -1097,13 +1068,54 @@ mod tests {
             row.as_object_mut().unwrap().remove("path");
         }
         assert_eq!(lines, expected);
+        if let Ok(fixtures) = env::var("LAYR_WEB_TEST_FIXTURES") {
+            let fixtures = PathBuf::from(fixtures);
+            fn install_all(session: &mut Session, root: &std::path::Path, object: &str) {
+                if session.stores["test"].trees.contains_key(object) { return; }
+                let bytes = fs::read(root.join(object)).unwrap();
+                if let Some(base) = session.base("test", object, &bytes).unwrap() {
+                    install_all(session, root, &base);
+                }
+                session.install("test", object, &bytes).unwrap();
+            }
+            for state in fs::read_dir(root.join("states")).unwrap() {
+                for entry in fs::read_dir(state.unwrap().path()).unwrap() {
+                    let path = entry.unwrap().path();
+                    let object = path.strip_prefix(&root).unwrap().to_str().unwrap();
+                    if object.ends_with(".tree.age") {
+                        install_all(&mut session, &root, object);
+                    } else if object.ends_with(".data.age") {
+                        session.stores.get_mut("test").unwrap().parts.insert(object.into(), fs::read(&path).unwrap());
+                    }
+                }
+            }
+            let request: Value = serde_json::from_str(&fs::read_to_string(fixtures.join("request.json")).unwrap()).unwrap();
+            let args = json!([request["probe_base"], request["probe_head"]]);
+            let behavior = session.answer("test", "probeDiff", &args, i64::MAX / 2).unwrap();
+            let expected: Value = serde_json::from_str(&fs::read_to_string(fixtures.join("probe-diff.json")).unwrap()).unwrap();
+            assert_eq!(behavior, expected);
+            let rows = session.answer("test", "screens", &args, i64::MAX / 2).unwrap();
+            assert_eq!(rows.as_array().unwrap().len(), 5);
+            let home = rows.as_array().unwrap().iter().find(|r| r["screen"] == "Home@Phone").unwrap();
+            assert_eq!(home["changed_share"], 0.25);
+            assert_eq!(home["text_changes"], 1);
+            assert!(home["base_url"].as_str().unwrap().starts_with("data:image/png;base64,"));
+            assert!(rows.as_array().unwrap().iter().any(|r| r["changed_share"].is_null()));
+            assert_eq!(session.answer("test", "copies", &json!([]), 0).unwrap(), serde_json::from_str::<Value>(&fs::read_to_string(fixtures.join("copies.json")).unwrap()).unwrap());
+            assert_eq!(session.project("test").unwrap().bisect_results().len(), 2);
+            if let Ok(output) = env::var("LAYR_WEB_TEST_SCREENS_OUT") {
+                fs::write(output, serde_json::to_vec_pretty(&json!({"base":request["probe_base"],"head":request["probe_head"],"screens":rows})).unwrap()).unwrap();
+            }
+        }
         if let Ok(interdiff) = env::var("LAYR_WEB_TEST_INTERDIFF") {
             let expected: Value =
                 serde_json::from_str(&fs::read_to_string(interdiff).unwrap()).unwrap();
             let id = expected["change_id"].as_str().unwrap();
             let from = expected["from"].as_str().unwrap();
             let to = expected["to"].as_str().unwrap();
-            assert!(session.change_diff("test", id, from, to, "").is_err());
+            if env::var("LAYR_WEB_TEST_FIXTURES").is_err() {
+                assert!(session.change_diff("test", id, from, to, "").is_err());
+            }
             fn load(
                 session: &mut Session,
                 root: &std::path::Path,

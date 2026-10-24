@@ -122,7 +122,7 @@ export interface Operation {
 /** `layr change show --json`. Version order is authoritative. */
 export interface Change {
   change_id: Id;
-  versions: { version: string; state: State; attestations: Attestation[] }[];
+  versions: { version: string; state: State; attestations: Attestation[]; operation?: VersionOperation }[];
   behavior: Behavior;
 }
 /** `layr probe diff --json`. Probe-specific fields remain lossless JSON. */
@@ -171,7 +171,7 @@ export interface Project {
   probes?: ProbeDefinition[];
   images?: Image[];
   disk?: DiskUse[];
-  bisect?: BisectResult;
+  bisect_results?: BisectResult[];
 }
 export interface Overlay {
   id: Id;
@@ -240,16 +240,48 @@ export interface Diff {
   files: FileDiff[];
 }
 /** Signed sync/push records. Unknown completeness stays absent. */
+export interface Transfer {
+  id: Id;
+  remote: string;
+  url: string;
+  result: "success";
+  direction: string;
+  machine: Id;
+  time: number;
+  actor: { uid: number; name: string; session?: string };
+  records_sent: number;
+  records_received: number;
+  states_sent: number;
+  states_received: number;
+  bytes_sent: number;
+  bytes_received: number;
+  state_ids_sent: Id[];
+  state_ids_received: Id[];
+  overlays: string[];
+}
+export interface VersionOperation {
+  id: Id;
+  state: Id;
+  kind: "amend" | "replay" | "pick";
+  source: Id;
+  target_line: Id | null;
+  target_head: Id;
+  actor: { uid: number; name: string; session?: string };
+  machine: Id;
+  time: number;
+}
 export interface Copy {
   id: string;
   name: string;
-  kind: "store" | "peer" | "git";
+  kind: "store" | "peer" | "git" | "registry";
   address?: string;
   present?: number;
   expected?: number;
   bytes?: number;
   time?: number;
   machines?: string[];
+  machine?: Id;
+  last?: Transfer;
 }
 export interface Person {
   login: string;
@@ -323,25 +355,52 @@ export interface DiskUse {
   cache_bytes: number;
 }
 export interface BisectResult {
+  kind?: State["kind"];
+  line?: Id;
+  message?: string;
+  origin?: string[];
+  state?: Id;
+  id: Id;
   good: Id;
   bad: Id;
-  command: string[];
+  argv: string[];
   first_bad?: Id;
-  steps: { state: Id; result: string; reused: boolean }[];
+  time: number;
+  machine: Id;
+  actor: { uid: number; name: string; session?: string };
+  steps: { state: Id; exit: number; reused: boolean }[];
 }
-/** Stored screenshot probe output. URLs must refer to local verified bytes.
- * Structure is escaped text, never an iframe or executable HTML.
+/** Canonical screenshot row, with PNG URLs made only from verified stored bytes.
+ * Structure is an escaped unified diff; it is never executed or rendered as HTML.
  */
 export interface ScreenDiff {
+  kind: "screenshots";
+  size_changed: boolean;
+  changed_percent: number | null;
   name: string;
-  route: string;
-  width: number;
-  height: number;
-  base_url: string;
-  head_url: string;
-  changed_share: number;
+  probe: string;
+  screen: string;
+  path: string;
+  status: string;
+  before: { width: number; height: number } | null;
+  after: { width: number; height: number } | null;
+  base_png: string | null;
+  head_png: string | null;
+  base_url?: string;
+  head_url?: string;
+  changed: boolean;
+  changed_share: number | null;
+  changed_pixels: number | null;
+  total_pixels: number | null;
   regions: { x: number; y: number; width: number; height: number }[];
-  structure?: { summary: string; before: string; after: string };
+  base_structure: string | null;
+  head_structure: string | null;
+  structure_available: boolean;
+  structure_diff: string;
+  elements_added: number;
+  elements_removed: number;
+  text_changes: number;
+  structure_regions: { x: number; y: number; width: number; height: number; change: string }[];
 }
 export interface LogOptions {
   auto?: boolean;

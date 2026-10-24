@@ -73,6 +73,7 @@ impl Session {
                 view["default_line"] = json!(line.name);
             }
         }
+        view["bisect_results"] = json!(p.bisect_results());
         if !p.machine.is_empty() {
             view["policy"] = json!(p.access_policy(now, false));
         }
