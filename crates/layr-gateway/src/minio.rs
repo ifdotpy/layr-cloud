@@ -942,6 +942,243 @@ fn cli_store_round_trip(
         }
     }
     person_gateway_round_trip(binary, &store, &line, &url, home, ca);
+    fs::write(home.join("caller-login"), "owner@example.com").unwrap();
+    fs::set_permissions(&write_file, fs::Permissions::from_mode(0o600)).unwrap();
+    {
+        // A reader and a machine with only the write token use the same published layer key.
+        let owner: serde_json::Value =
+            serde_json::from_str(&run(&store, &line, &["remote", "self", "--json"], None)).unwrap();
+        let reader_root = store.join("overlay-reader");
+        let reader: serde_json::Value = serde_json::from_str(&run(
+            &reader_root,
+            home,
+            &["remote", "self", "--json"],
+            None,
+        ))
+        .unwrap();
+        let writer_root = PathBuf::from(
+            std::env::var_os("LAYR_GATEWAY_TEST_WRITER_ROOT")
+                .expect("run tests/t27-gateway.sh for a separate writer filesystem"),
+        );
+        let other_root = store.join("overlay-nonreader");
+        let writer: serde_json::Value = serde_json::from_str(&run(
+            &writer_root,
+            home,
+            &["remote", "self", "--json"],
+            None,
+        ))
+        .unwrap();
+        let other: serde_json::Value =
+            serde_json::from_str(&run(&other_root, home, &["remote", "self", "--json"], None))
+                .unwrap();
+        for machine in [&reader, &writer, &other] {
+            run(
+                &store,
+                &line,
+                &[
+                    "remote",
+                    "trust",
+                    "gateway",
+                    machine["id"].as_str().unwrap(),
+                    "--public-key",
+                    machine["public_key"].as_str().unwrap(),
+                ],
+                None,
+            );
+        }
+        let readers = format!(
+            "machine:{},machine:{}",
+            owner["id"].as_str().unwrap(),
+            reader["id"].as_str().unwrap()
+        );
+        run(
+            &store,
+            &line,
+            &["overlay", "create", "secrets", "--readers", &readers, "-q"],
+            None,
+        );
+        fs::write(line.join(".env"), b"PRIVATE_TEST_VALUE=gateway-owner\n").unwrap();
+        run(
+            &store,
+            &line,
+            &["overlay", "move", "secrets", ".env", "--purge", "-q"],
+            None,
+        );
+        run(&store, &line, &["save", "-am", "Owner overlay", "-q"], None);
+        run(&store, &line, &["push", "gateway", "-q"], Some(&write_file));
+        let objects = s3.list("cli/overlays/").unwrap();
+        let key = objects
+            .iter()
+            .find(|object| object.key.contains("/keys/"))
+            .expect("owner did not publish an overlay key");
+        let published: serde_json::Value =
+            serde_json::from_slice(&s3.get(&key.key).unwrap().unwrap()).unwrap();
+        let data = &published["r"]["data"];
+        let epoch_prefix = format!(
+            "cli/overlays/{}/epochs/{}/",
+            data["overlay"].as_str().unwrap(),
+            data["epoch"].as_str().unwrap()
+        );
+        let states_before = s3.list(&format!("{epoch_prefix}states/")).unwrap().len();
+        assert!(states_before >= 2);
+        assert!(s3
+            .get(&format!(
+                "{epoch_prefix}slots/machine-{}.age",
+                reader["id"].as_str().unwrap()
+            ))
+            .unwrap()
+            .is_some());
+        assert!(s3
+            .get(&format!(
+                "{epoch_prefix}slots/machine-{}.age",
+                writer["id"].as_str().unwrap()
+            ))
+            .unwrap()
+            .is_none());
+        run(
+            &store,
+            &line,
+            &[
+                "remote",
+                "add",
+                "overlay-writer",
+                "ssh://test/gateway-project",
+            ],
+            None,
+        );
+        let peers = json!([reader["id"], writer["id"]]).to_string();
+        run(
+            &store,
+            &line,
+            &["config", "overlay.secrets.peers", &peers],
+            None,
+        );
+        run(
+            &reader_root,
+            home,
+            &["clone", &url, "overlay-copy", "-q"],
+            None,
+        );
+        let reader_line = reader_root.join("projects/overlay-copy/lines/main");
+        assert_eq!(
+            fs::read(reader_line.join(".env")).unwrap(),
+            b"PRIVATE_TEST_VALUE=gateway-owner\n"
+        );
+        let writer_env = format!("LAYR_ROOT={}", writer_root.display());
+        run(
+            &store,
+            &line,
+            &[
+                "sync",
+                "overlay-writer",
+                "--command",
+                "--",
+                "env",
+                &writer_env,
+                binary.to_str().unwrap(),
+                "serve-peer",
+                "gateway-project",
+            ],
+            None,
+        );
+        run(
+            &writer_root,
+            home,
+            &["--project", "gateway-project", "adopt", "main"],
+            None,
+        );
+        let writer_line = writer_root.join("projects/gateway-project/lines/main");
+        run(
+            &writer_root,
+            &writer_line,
+            &["overlay", "use", "secrets", "-q"],
+            None,
+        );
+        fs::write(
+            writer_line.join(".env"),
+            b"PRIVATE_TEST_VALUE=gateway-write-only\n",
+        )
+        .unwrap();
+        run(
+            &writer_root,
+            &writer_line,
+            &["save", "-am", "Write-only overlay", "-q"],
+            None,
+        );
+        run(
+            &writer_root,
+            &writer_line,
+            &["remote", "add", "gateway", &url],
+            Some(&write_file),
+        );
+        s3.delete(&format!(
+            "cli/slots/machine-{}.age",
+            writer["id"].as_str().unwrap()
+        ))
+        .unwrap();
+        run(
+            &writer_root,
+            &writer_line,
+            &["push", "gateway", "-q"],
+            Some(&write_file),
+        );
+        assert!(s3.list(&format!("{epoch_prefix}states/")).unwrap().len() > states_before);
+        assert!(s3
+            .get(&format!(
+                "{epoch_prefix}slots/machine-{}.age",
+                writer["id"].as_str().unwrap()
+            ))
+            .unwrap()
+            .is_none());
+        run(&reader_root, &reader_line, &["fetch", "origin", "-q"], None);
+        run(
+            &reader_root,
+            &reader_line,
+            &["overlay", "use", "secrets", "-q"],
+            None,
+        );
+        assert_eq!(
+            fs::read(reader_line.join(".env")).unwrap(),
+            b"PRIVATE_TEST_VALUE=gateway-write-only\n"
+        );
+        let report: serde_json::Value = serde_json::from_str(&run(
+            &other_root,
+            home,
+            &["clone", &url, "shared-only", "--json"],
+            None,
+        ))
+        .unwrap();
+        assert!(report["omitted"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|value| value.as_str() == Some("overlay secrets: no key on this machine")));
+        let other_line = other_root.join("projects/shared-only/lines/main");
+        assert!(other_line.join("notes.txt").exists());
+        assert!(!other_line.join(".env").exists());
+        assert!(s3
+            .get(&format!(
+                "{epoch_prefix}slots/machine-{}.age",
+                other["id"].as_str().unwrap()
+            ))
+            .unwrap()
+            .is_none());
+        println!("PASS gateway overlay owner, write-only machine, reader fetch, and non-reader boundaries");
+        // A non-reader can save shared files without a local overlay project.
+        fs::write(other_line.join("notes.txt"), b"non-reader shared edit\n").unwrap();
+        run(
+            &other_root,
+            &other_line,
+            &["save", "-am", "Non-reader shared files", "-q"],
+            None,
+        );
+        assert_eq!(
+            fs::read(other_line.join("notes.txt")).unwrap(),
+            b"non-reader shared edit\n"
+        );
+        assert!(!other_line.join(".env").exists());
+        println!("PASS a non-reader clone can save shared files");
+    }
 }
 
 fn person_gateway_round_trip(

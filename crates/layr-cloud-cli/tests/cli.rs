@@ -119,9 +119,19 @@ impl Fake {
                     }
                 };
                 let headers = String::from_utf8(bytes[..header_end].to_vec()).unwrap();
-                assert!(headers
-                    .to_lowercase()
-                    .contains("authorization: aws4-hmac-sha256"));
+                let sso = headers.starts_with("GET /federation/credentials?");
+                let refresh = headers.starts_with("POST /token ");
+                if sso {
+                    assert!(headers
+                        .to_lowercase()
+                        .contains("x-amz-sso_bearer_token: fresh-access"));
+                    assert!(headers.contains("account_id=123456789012"));
+                    assert!(headers.contains("role_name=Deploy"));
+                } else if !refresh {
+                    assert!(headers
+                        .to_lowercase()
+                        .contains("authorization: aws4-hmac-sha256"));
+                }
                 let length: usize = headers
                     .lines()
                     .find_map(|s| {
@@ -129,7 +139,7 @@ impl Fake {
                             .strip_prefix("content-length: ")
                             .map(str::to_owned)
                     })
-                    .unwrap()
+                    .unwrap_or_else(|| "0".into())
                     .parse()
                     .unwrap();
                 while bytes.len() < header_end + length {
@@ -148,12 +158,23 @@ impl Fake {
                 .query_pairs()
                 .map(|(k, v)| (k.into_owned(), v.into_owned()))
                 .collect();
+                if refresh {
+                    let value: Value = serde_json::from_slice(&body).unwrap();
+                    assert_eq!(value["grantType"], "refresh_token");
+                    assert_eq!(value["refreshToken"], "expired-refresh");
+                }
                 seen.lock().unwrap().push((first, form, body));
-                let (code, reply) = queue
-                    .lock()
-                    .unwrap()
-                    .pop_front()
-                    .expect("unexpected AWS call");
+                let (code, reply) = if sso {
+                    (200, json!({"roleCredentials":{"accessKeyId":"fake-id","secretAccessKey":"fake-secret","sessionToken":"fake-session","expiration":4102444800000u64}}).to_string())
+                } else if refresh {
+                    (200, json!({"accessToken":"fresh-access","refreshToken":"new-refresh","expiresIn":3600}).to_string())
+                } else {
+                    queue
+                        .lock()
+                        .unwrap()
+                        .pop_front()
+                        .expect("unexpected AWS call")
+                };
                 write!(socket, "HTTP/1.1 {code} Reply\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{reply}", reply.len()).unwrap();
             }
         });
@@ -370,11 +391,11 @@ fn deploy_config_refuses_unknown_fields_before_http_calls() {
 }
 
 #[test]
-fn sso_profile_exits_two_and_environment_credentials_take_precedence() {
+fn expired_sso_profile_needs_sign_in_and_environment_credentials_take_precedence() {
     let release = Release::new();
     std::fs::write(
         release.0.join("config"),
-        "[profile work]\nsso_session = work\n",
+        "[profile work]\nsso_session=work\nsso_account_id=123456789012\nsso_role_name=Deploy\n[sso-session work]\nsso_start_url=https://example.awsapps.com/start\nsso_region=eu-central-1\n",
     )
     .unwrap();
     let output = release
@@ -383,8 +404,9 @@ fn sso_profile_exits_two_and_environment_credentials_take_precedence() {
         .output()
         .unwrap();
     assert_eq!(output.status.code(), Some(2));
-    assert!(String::from_utf8_lossy(&output.stderr)
-        .contains("SSO profiles need layr remote login first"));
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("the AWS profile work needs a sign-in")
+    );
     // AWS_PROFILE is used when --profile is absent.
     let output = release
         .command()
@@ -394,6 +416,89 @@ fn sso_profile_exits_two_and_environment_credentials_take_precedence() {
     assert_eq!(output.status.code(), Some(2));
     let fake = Fake::new(replies(false, false));
     fake.run(&release);
+}
+
+#[test]
+fn deploy_refreshes_sso_token_and_uses_role_credentials_for_cloudformation() {
+    use std::os::unix::fs::PermissionsExt;
+    for refresh in [false, true] {
+        let release = Release::new();
+        std::fs::write(release.0.join("config"), "[profile work]\nsso_session=work\nsso_account_id=123456789012\nsso_role_name=Deploy\n[sso-session work]\nsso_start_url=https://example.awsapps.com/start\nsso_region=eu-central-1\n").unwrap();
+        let cache = release.0.join(".aws/sso/cache");
+        std::fs::create_dir_all(&cache).unwrap();
+        // AWS names this file with the SHA-1 of the session name, work.
+        let cache = cache.join("e274eeff768c6396088ec6eb091f4bf4d47ab1e0.json");
+        std::fs::write(&cache, json!({"accessToken":if refresh {"expired-access"} else {"fresh-access"},"expiresAt":if refresh {"2000-01-01T00:00:00Z"} else {"2099-01-01T00:00:00Z"},"refreshToken":"expired-refresh","clientId":"test-client","clientSecret":"test-client-secret","registrationExpiresAt":"2099-01-01T00:00:00Z"}).to_string()).unwrap();
+        let fake = Fake::new(replies(false, false));
+        let mut command = release.command();
+        command.env("AWS_PROFILE", "work");
+        for service in ["CLOUDFORMATION", "S3", "STS", "EC2", "SSO", "SSO_OIDC"] {
+            command.env(format!("AWS_ENDPOINT_URL_{service}"), &fake.url);
+        }
+        success(command.output().unwrap());
+        let calls = fake.requests.lock().unwrap();
+        let role_calls = calls
+            .iter()
+            .filter(|call| call.0.starts_with("GET /federation/"))
+            .count();
+        assert!(role_calls > 4);
+        assert_eq!(
+            calls
+                .iter()
+                .filter(|call| call.0.starts_with("POST /token "))
+                .count(),
+            usize::from(refresh)
+        );
+        assert!(calls.iter().any(|call| call
+            .1
+            .get("Action")
+            .is_some_and(|action| action == "CreateStack")));
+        assert!(fake.replies.lock().unwrap().is_empty());
+        if refresh {
+            let value: Value = serde_json::from_slice(&std::fs::read(&cache).unwrap()).unwrap();
+            assert_eq!(value["accessToken"], "fresh-access");
+            assert_eq!(value["refreshToken"], "new-refresh");
+            assert_eq!(
+                std::fs::metadata(&cache).unwrap().permissions().mode() & 0o777,
+                0o600
+            );
+        }
+    }
+}
+
+#[test]
+fn credential_process_is_refused_without_execution() {
+    let release = Release::new();
+    let marker = release.0.join("must-not-exist");
+    std::fs::write(
+        release.0.join("config"),
+        format!("[default]\ncredential_process=touch {}\n", marker.display()),
+    )
+    .unwrap();
+    let output = release.command().output().unwrap();
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("credential_process is not supported"));
+    assert!(!marker.exists());
+}
+
+#[test]
+fn role_profiles_are_refused_even_with_direct_keys() {
+    for key in [
+        "role_arn",
+        "source_profile",
+        "credential_source",
+        "web_identity_token_file",
+    ] {
+        let release = Release::new();
+        std::fs::write(release.0.join("config"), format!("[default]\n{key}=test\naws_access_key_id=fake-id\naws_secret_access_key=fake-secret\n")).unwrap();
+        let output = release.command().output().unwrap();
+        assert!(!output.status.success());
+        assert!(
+            String::from_utf8_lossy(&output.stderr)
+                .contains("assumes a role, which Layr does not support"),
+            "{key}"
+        );
+    }
 }
 
 #[test]

@@ -1,9 +1,6 @@
 //! CloudFormation Query API, ported from Desk setup.rs at 31610ce.
 use anyhow::{anyhow, bail, Context, Result};
-use layr_store::{
-    aws::{self, Credentials},
-    s3::S3,
-};
+use layr_store::{aws, s3::S3};
 use reqwest::{blocking::Client, Method};
 use std::{
     collections::BTreeMap,
@@ -20,21 +17,21 @@ pub struct Stack {
 
 pub struct Account {
     http: Client,
-    credentials: Credentials,
+    credentials: crate::credentials::Source,
     region: String,
     pub wait: Duration,
     pub poll: Duration,
 }
 
 impl Account {
-    pub fn new(credentials: Credentials, region: &str) -> Result<Self> {
+    pub fn new(credentials: impl Into<crate::credentials::Source>, region: &str) -> Result<Self> {
         Ok(Self {
             http: Client::builder()
                 .user_agent("layr-cloud")
                 .redirect(reqwest::redirect::Policy::none())
                 .connect_timeout(Duration::from_secs(30))
                 .build()?,
-            credentials,
+            credentials: credentials.into(),
             region: region.into(),
             wait: Duration::from_secs(3600),
             poll: Duration::from_secs(5),
@@ -50,7 +47,7 @@ impl Account {
     ) -> Result<(u16, String)> {
         crate::query::send(
             &self.http,
-            &self.credentials,
+            &self.credentials.credentials(&self.http)?,
             &self.region,
             service,
             version,
@@ -257,7 +254,7 @@ impl Account {
         let s3 = S3::new_with_client(
             bucket,
             &self.region,
-            self.credentials.clone(),
+            self.credentials.credentials(&self.http)?,
             endpoint.as_deref(),
             self.http.clone(),
         )?;

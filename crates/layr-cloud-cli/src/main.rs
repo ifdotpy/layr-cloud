@@ -90,7 +90,10 @@ fn main() {
     if let Err(error) = run() {
         eprintln!("layr-cloud: {error:#}");
         std::process::exit(
-            if error.downcast_ref::<credentials::SsoProfile>().is_some() {
+            if error
+                .downcast_ref::<layr_store::aws::profile::SignInNeeded>()
+                .is_some()
+            {
                 2
             } else {
                 1

@@ -25,9 +25,11 @@ Identity and Access Management (IAM) separates the project grants.
 The garbage collection (GC) role handles remote data deletion.
 The writer can create records, states, and slots, and abort multipart uploads.
 Only the owner creates `store.json` with their own credentials.
-The writer can list object names only under `records/` and `states/`.
-The writer cannot read object bodies or initialize a store.
-It cannot read or delete objects.
+The writer can list object names under `records/`, `states/`, and `overlays/<id>/keys/`.
+It can read public signed overlay keys.
+It can create overlay keys and epoch records, states, and slots.
+It cannot read other object bodies or initialize a store.
+It cannot delete objects.
 The bucket requires `If-None-Match: *` for each object commit, including multipart completion.
 Multipart setup and part uploads do not require that header.
 The reader can read objects and list the project prefix.
@@ -146,9 +148,16 @@ Environment credentials take priority over profiles.
 The profile order is `--profile`, `AWS_PROFILE`, then `default`.
 Static keys come from `~/.aws/credentials` or `AWS_SHARED_CREDENTIALS_FILE`.
 Profile settings come from `~/.aws/config` or `AWS_CONFIG_FILE`.
-The command writes no credentials.
-SSO profiles exit with code 2 and `SSO profiles need layr remote login first`.
+SSO means IAM Identity Center single sign-on.
+The command uses static keys or the AWS SSO token cache through `layr-store`.
+It refreshes SSO tokens when needed and reads role credentials before each AWS call.
+An SSO profile without a valid token exits with code 2 and asks for a sign-in.
 The command refuses `credential_process` and assume-role profiles.
+
+Overlay key records are public to machines with a write token.
+Overlay records, states, and slots require the vault read proof for reads.
+Write tokens can create these objects under an overlay epoch.
+The gateway never replaces an object.
 
 Complete the remaining manual steps in this runbook:
 

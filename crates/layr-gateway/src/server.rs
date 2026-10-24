@@ -114,13 +114,50 @@ fn safe_part(part: &str) -> bool {
             .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.'))
 }
 
-pub fn object_name(name: &str) -> bool {
-    name.len() <= 1024
-        && matches!(name.split('/').next(), Some("records" | "states" | "slots"))
+fn store_object(name: &str) -> bool {
+    matches!(name.split('/').next(), Some("records" | "states" | "slots"))
         && name.contains('/')
         && name
             .split('/')
             .all(|part| safe_part(part) || person_slot_part(part))
+}
+
+fn overlay_key(name: &str) -> bool {
+    let parts: Vec<_> = name.split('/').collect();
+    parts.len() == 4
+        && parts[0] == "overlays"
+        && layr_store::format::is_uuid(parts[1])
+        && parts[2] == "keys"
+        && safe_part(parts[3])
+        && parts[3].ends_with(".json")
+}
+
+fn overlay_keys_prefix(prefix: &str) -> bool {
+    let parts: Vec<_> = prefix.split('/').collect();
+    parts.len() == 4
+        && parts[0] == "overlays"
+        && layr_store::format::is_uuid(parts[1])
+        && parts[2] == "keys"
+        && parts[3].is_empty()
+}
+
+fn overlay_epoch(name: &str) -> Option<&str> {
+    let mut parts = name.splitn(5, '/');
+    if parts.next()? != "overlays"
+        || !layr_store::format::is_uuid(parts.next()?)
+        || parts.next()? != "epochs"
+        || !layr_store::format::is_uuid(parts.next()?)
+    {
+        return None;
+    }
+    parts.next()
+}
+
+pub fn object_name(name: &str) -> bool {
+    name.len() <= 1024
+        && (store_object(name)
+            || overlay_key(name)
+            || overlay_epoch(name).is_some_and(store_object))
 }
 
 pub fn gc_name(name: &str) -> bool {
@@ -130,17 +167,42 @@ pub fn gc_name(name: &str) -> bool {
         && name.ends_with(".data.age")
 }
 
+fn store_prefix(prefix: &str) -> bool {
+    matches!(
+        prefix.split('/').next(),
+        Some("records" | "states" | "slots")
+    ) && prefix
+        .strip_suffix('/')
+        .unwrap_or(prefix)
+        .split('/')
+        .all(|part| safe_part(part) || person_slot_part(part))
+}
+
 fn list_prefix(prefix: &str) -> bool {
-    prefix.is_empty()
-        || (prefix.len() <= 1024
-            && matches!(
-                prefix.split('/').next(),
-                Some("records" | "states" | "slots")
-            )
-            && prefix
-                .trim_end_matches('/')
-                .split('/')
-                .all(|part| safe_part(part) || person_slot_part(part)))
+    if prefix.len() > 1024 {
+        return false;
+    }
+    if prefix.is_empty() || store_prefix(prefix) {
+        return true;
+    }
+    let parts: Vec<_> = prefix
+        .strip_suffix('/')
+        .unwrap_or(prefix)
+        .split('/')
+        .collect();
+    if parts.first() != Some(&"overlays") {
+        return false;
+    }
+    match parts.as_slice() {
+        ["overlays"] => true,
+        ["overlays", id] => layr_store::format::is_uuid(id),
+        ["overlays", id, "keys" | "epochs"] => layr_store::format::is_uuid(id),
+        ["overlays", id, "keys", file] => layr_store::format::is_uuid(id) && safe_part(file),
+        ["overlays", id, "epochs", epoch] => {
+            layr_store::format::is_uuid(id) && layr_store::format::is_uuid(epoch)
+        }
+        _ => overlay_epoch(prefix).is_some_and(store_prefix),
+    }
 }
 
 impl Gateway {
@@ -341,7 +403,10 @@ impl Gateway {
                 };
                 let role = if read {
                     Role::Reader
-                } else if write && (prefix.starts_with("records/") || prefix.starts_with("states/"))
+                } else if write
+                    && (prefix.starts_with("records/")
+                        || prefix.starts_with("states/")
+                        || overlay_keys_prefix(&prefix))
                 {
                     Role::Writer
                 } else {
@@ -372,7 +437,7 @@ impl Gateway {
         }
         match request.method.as_str() {
             "GET" => {
-                if !read {
+                if !read && !(write && overlay_key(&key)) {
                     return Ok(Reply::error(401, "a read challenge token is required"));
                 }
                 let range = request
@@ -410,6 +475,11 @@ impl Gateway {
                     }
                 } else if !write {
                     return Ok(Reply::error(403, "a write token is required"));
+                }
+                if overlay_epoch(&key).is_some_and(|key| key.starts_with("slots/"))
+                    && request.body.len() > SLOT_LIMIT
+                {
+                    return Ok(Reply::error(413, "slot is too large"));
                 }
                 if request.header("content-type") != Some("application/octet-stream") {
                     return Ok(Reply::error(415, "send application/octet-stream"));
@@ -809,6 +879,128 @@ mod tests {
         }
     }
 
+    const OVERLAY: &str = "01a12290-0000-7000-8000-000000000001";
+    const EPOCH: &str = "01a12290-0000-7000-8000-000000000002";
+
+    #[test]
+    fn overlay_write_grant_reads_only_public_keys_and_creates_immutable_objects() {
+        let mut f = Fixture::new();
+        let write = f.token(false);
+        let gc = f.token(true);
+        let read = f.read_token();
+        let key = format!("overlays/{OVERLAY}/keys/{EPOCH}-{OVERLAY}.json");
+        let epoch = format!("overlays/{OVERLAY}/epochs/{EPOCH}");
+        for object in [
+            key.clone(),
+            format!("{epoch}/records/machine/1-1.age"),
+            format!("{epoch}/states/state/12345678.tree.age"),
+            format!("{epoch}/states/state/12345678.0000.data.age"),
+            format!("{epoch}/slots/machine-{OVERLAY}.age"),
+            format!("{epoch}/slots/person-ann%40example.com-0123456789abcdef.age"),
+            format!("{epoch}/slots/paper.age"),
+        ] {
+            let path = format!("/v1/p/example/objects/{object}");
+            for token in ["", &read, &gc] {
+                assert_eq!(
+                    f.request("PUT", &path, token, b"first", None).status,
+                    403,
+                    "{object}"
+                );
+            }
+            assert_eq!(
+                f.request("PUT", &path, &write, b"first", None).status,
+                201,
+                "{object}"
+            );
+            assert_eq!(f.request("PUT", &path, &write, b"second", None).status, 412);
+            assert_eq!(f.request("GET", &path, &read, b"", None).body, b"first");
+            assert_eq!(
+                f.request("GET", &path, &write, b"", None).status,
+                if object == key { 200 } else { 401 }
+            );
+            for token in ["", &gc] {
+                assert_eq!(f.request("GET", &path, token, b"", None).status, 401);
+            }
+            assert_eq!(f.request("DELETE", &path, &gc, b"", None).status, 403);
+        }
+        let prefix = format!("overlays/{OVERLAY}/keys/");
+        let path = format!("/v1/p/example/objects?prefix={prefix}");
+        let listed = value(f.request("GET", &path, &write, b"", None));
+        assert_eq!(listed["objects"].as_array().unwrap().len(), 1);
+        assert_eq!(listed["objects"][0]["key"], key);
+        for prefix in [
+            "overlays/".into(),
+            format!("overlays/{OVERLAY}/"),
+            format!("overlays/{OVERLAY}/keys"),
+            format!("{epoch}/"),
+            format!("{epoch}/records/"),
+            format!("{epoch}/states/"),
+            format!("{epoch}/slots/"),
+        ] {
+            let path = format!("/v1/p/example/objects?prefix={prefix}");
+            assert_eq!(
+                f.request("GET", &path, &write, b"", None).status,
+                401,
+                "{prefix}"
+            );
+            assert_eq!(
+                f.request("GET", &path, &read, b"", None).status,
+                200,
+                "{prefix}"
+            );
+        }
+    }
+
+    #[test]
+    fn overlay_paths_require_canonical_ids_and_single_separators() {
+        let mut f = Fixture::new();
+        let write = f.token(false);
+        for name in [
+            "overlays/../keys/x.json".into(),
+            "overlays/not-a-uuid/keys/x.json".into(),
+            format!("overlays/{}/keys/x.json", OVERLAY.to_uppercase()),
+            format!("overlays/{OVERLAY}//keys/x.json"),
+            format!("overlays/{OVERLAY}/keys//x.json"),
+            format!("overlays/{OVERLAY}/keys/nested/x.json"),
+            format!("overlays/{OVERLAY}/keys/x.age"),
+            format!("overlays/{OVERLAY}/epochs/../states/x/a.age"),
+            format!("overlays/{OVERLAY}/epochs/not-a-uuid/states/x/a.age"),
+            format!("overlays/{OVERLAY}/epochs/{EPOCH}//states/x/a.age"),
+            format!("overlays/{OVERLAY}/epochs/{EPOCH}/other/x.age"),
+            format!("overlays/{OVERLAY}/epochs/{EPOCH}/states/../a.age"),
+            format!("overlays/{OVERLAY}/epochs/{EPOCH}/states/x/a.age/"),
+            format!("overlays/{OVERLAY}/epochs/{EPOCH}/states/x%2fy/a.age"),
+        ] {
+            assert!(!object_name(&name), "{name}");
+            let path = format!("/v1/p/example/objects/{name}");
+            assert_eq!(
+                f.request("PUT", &path, &write, b"x", None).status,
+                400,
+                "{name}"
+            );
+        }
+        for prefix in [
+            format!("overlays/{OVERLAY}/keys//"),
+            format!("overlays/{OVERLAY}/epochs/{EPOCH}//states/"),
+            format!("overlays/{OVERLAY}/epochs/%2e%2e/states/"),
+            "overlays/not-a-uuid/keys/".into(),
+            format!("overlays/{OVERLAY}/keys/%2f"),
+        ] {
+            assert_eq!(
+                f.request(
+                    "GET",
+                    &format!("/v1/p/example/objects?prefix={prefix}"),
+                    &write,
+                    b"",
+                    None
+                )
+                .status,
+                400,
+                "{prefix}"
+            );
+        }
+    }
+
     #[test]
     fn grants_are_separate_and_put_is_immutable() {
         let mut f = Fixture::new();
@@ -1205,6 +1397,9 @@ mod tests {
             "token",
             "objects",
             "objects/states/nope",
+            "objects/overlays/01a12290-0000-7000-8000-000000000001/keys/x.json",
+            "objects/overlays/01a12290-0000-7000-8000-000000000001/epochs/01a12290-0000-7000-8000-000000000002/slots/paper.age",
+            "objects?prefix=overlays/01a12290-0000-7000-8000-000000000001/keys/",
             "unknown",
             "unknown/a/b",
             "slots?foo=x",
@@ -1285,6 +1480,8 @@ mod tests {
             for path in [
                 "/api/person",
                 "/v1/p/example/objects/states/x",
+                "/v1/p/example/objects/overlays/01a12290-0000-7000-8000-000000000001/keys/x.json",
+                "/v1/p/example/objects/overlays/01a12290-0000-7000-8000-000000000001/epochs/01a12290-0000-7000-8000-000000000002/states/x/a.age",
                 "/v1/p/example/token",
             ] {
                 for (name, value) in [

@@ -65,12 +65,19 @@ Resources:
                   - !Sub '${Bucket.Arn}/${Prefix}/records/*'
                   - !Sub '${Bucket.Arn}/${Prefix}/states/*'
                   - !Sub '${Bucket.Arn}/${Prefix}/slots/*'
+                  - !Sub '${Bucket.Arn}/${Prefix}/overlays/*/keys/*'
+                  - !Sub '${Bucket.Arn}/${Prefix}/overlays/*/epochs/*/records/*'
+                  - !Sub '${Bucket.Arn}/${Prefix}/overlays/*/epochs/*/states/*'
+                  - !Sub '${Bucket.Arn}/${Prefix}/overlays/*/epochs/*/slots/*'
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub '${Bucket.Arn}/${Prefix}/overlays/*/keys/*'
               - Effect: Allow
                 Action: s3:ListBucket
                 Resource: !GetAtt Bucket.Arn
                 Condition:
                   StringLike:
-                    s3:prefix: [!Sub '${Prefix}/records/*', !Sub '${Prefix}/states/*']
+                    s3:prefix: [!Sub '${Prefix}/records/*', !Sub '${Prefix}/states/*', !Sub '${Prefix}/overlays/*/keys/']
   Reader:
     Type: AWS::IAM::Role
     Properties:

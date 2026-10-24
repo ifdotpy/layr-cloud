@@ -1270,7 +1270,7 @@ dependencies = [
 [[package]]
 name = "layr-store"
 version = "0.1.0"
-source = "git+https://github.com/ifdotpy/layr?rev=82314b72b7d3175310c9fdd1114948b606556790#82314b72b7d3175310c9fdd1114948b606556790"
+source = "git+https://github.com/ifdotpy/layr?rev=6c2386e6e9ec5fdc3a2676c1529b66b9c0c5edbd#6c2386e6e9ec5fdc3a2676c1529b66b9c0c5edbd"
 dependencies = [
  "age",
  "anyhow",
@@ -1285,6 +1285,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "sha1",
  "sha2 0.10.9",
  "ssh-key",
  "uuid",
@@ -2169,6 +2170,17 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "sha1"
+version = "0.10.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a978451301f4db1d02937a4ab3ccce137717b81826e79b7d49ffe3244a13c3b8"
+dependencies = [
+ "cfg-if",
+ "cpufeatures 0.2.17",
+ "digest 0.10.7",
 ]
 
 [[package]]

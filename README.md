@@ -21,7 +21,7 @@ python3 -m unittest discover -s infra/aws -p 'test_*.py'
 ```
 
 The binaries are `target/debug/layr-gateway` and `target/debug/layr-cloud`.
-The shared `layr-store` crate comes from Layr revision `82314b72b7d3175310c9fdd1114948b606556790`.
+The shared `layr-store` crate comes from Layr revision `6c2386e6e9ec5fdc3a2676c1529b66b9c0c5edbd`.
 The `web/` folder contains groundwork for the future UI and is excluded from CI.
 CI means continuous integration.
 The [AWS runbook](infra/aws/README.md) describes host setup and release archives.
@@ -65,14 +65,19 @@ CloudFormation completion does not prove that the host services are ready.
 `--dry-run` prints the stack names, parameters, and uploads without AWS calls or credential access.
 Values that need AWS use explicit placeholders, such as `<example-bootstrap.ArtifactsBucket>`.
 The command uses environment credentials first.
-Otherwise, it reads static keys from the profile named by `--profile`, `AWS_PROFILE`, or `default`.
+Otherwise, it reads static keys or IAM Identity Center (SSO) credentials from the profile named by `--profile`, `AWS_PROFILE`, or `default`.
 It supports `AWS_SHARED_CREDENTIALS_FILE` and `AWS_CONFIG_FILE`.
-It never writes credentials.
-SSO profiles return exit code 2 with `SSO profiles need layr remote login first`.
+It uses the AWS SSO token cache and refreshes tokens when needed.
+An SSO profile without a valid token returns exit code 2 and asks for a sign-in.
 Profiles with `credential_process` are refused.
 SSO means IAM Identity Center single sign-on.
 
 ## Store gateway
+
+Private overlay files travel encrypted to their readers through the gateway.
+A write token can read public signed overlay keys and create overlay objects.
+Other overlay reads require the vault read proof.
+Every object write preserves an existing object.
 
 `layr-gateway serve` serves encrypted store objects over HTTPS without a local project or snapshot filesystem.
 The server refuses to run as root.
@@ -109,9 +114,11 @@ Token updates and the host script use the same file lock.
 The default token duration is 24 hours.
 Duration units are `s`, `m`, `h`, and `d`.
 Read requests use a slot challenge and a bearer token that lasts at most ten minutes.
-Write tokens can list names under `records/` and `states/`.
-Write tokens cannot read object bodies or add slots.
-A slot write requires proof of the store identity.
+Write tokens can list names under `records/`, `states/`, and `overlays/<id>/keys/`.
+They can read public signed objects under `overlays/<id>/keys/`.
+They can create overlay keys and epoch records, states, and slots.
+Other overlay reads require proof of the store identity.
+A write to a top-level vault slot also requires this proof.
 GC tokens can delete only `states/<state>/<part>.data.age` objects.
 The gateway requires conditional creation in S3 and returns HTTP 412 when an object already exists.
 
@@ -143,6 +150,9 @@ Enroll an executor with its public key as the AWS runbook describes.
 
 The MinIO integration test uses a separate temporary bucket and a server that runs as `nobody`.
 It verifies conditional writes, pagination, ranges, grants, malformed requests, config revocation, and real CLI push, clone, fetch, and GC.
+It also checks overlay uploads from an owner and a machine with only a write token.
+An overlay reader fetches the files.
+A project reader without the overlay key sees shared files only and can save them.
 It does not create AWS resources.
 Use test credentials for a local MinIO server:
 

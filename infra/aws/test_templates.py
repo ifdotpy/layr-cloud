@@ -49,19 +49,27 @@ def actions(resource):
 class TemplateTests(unittest.TestCase):
     def test_project_iam(self):
         resources = template("template.yaml")["Resources"]
-        self.assertEqual(actions(resources["Writer"]), {"s3:PutObject", "s3:AbortMultipartUpload", "s3:ListBucket"})
+        self.assertEqual(actions(resources["Writer"]), {"s3:PutObject", "s3:AbortMultipartUpload", "s3:GetObject", "s3:ListBucket"})
         writer_resources = statements(resources["Writer"])[0]["Resource"]
         self.assertEqual(writer_resources, [
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/records/*"},
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/states/*"},
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/slots/*"},
+            {"Fn::Sub": "${Bucket.Arn}/${Prefix}/overlays/*/keys/*"},
+            {"Fn::Sub": "${Bucket.Arn}/${Prefix}/overlays/*/epochs/*/records/*"},
+            {"Fn::Sub": "${Bucket.Arn}/${Prefix}/overlays/*/epochs/*/states/*"},
+            {"Fn::Sub": "${Bucket.Arn}/${Prefix}/overlays/*/epochs/*/slots/*"},
         ])
         self.assertNotIn({"Fn::Sub": "${Bucket.Arn}/${Prefix}/store.json"}, writer_resources)
-        writer_list = statements(resources["Writer"])[1]
+        writer_get = statements(resources["Writer"])[1]
+        self.assertEqual(writer_get["Action"], "s3:GetObject")
+        self.assertEqual(writer_get["Resource"], {"Fn::Sub": "${Bucket.Arn}/${Prefix}/overlays/*/keys/*"})
+        writer_list = statements(resources["Writer"])[2]
         self.assertEqual(writer_list["Action"], "s3:ListBucket")
         self.assertEqual(writer_list["Resource"], {"Fn::GetAtt": "Bucket.Arn"})
         self.assertEqual(writer_list["Condition"], {"StringLike": {"s3:prefix": [
             {"Fn::Sub": "${Prefix}/records/*"}, {"Fn::Sub": "${Prefix}/states/*"},
+            {"Fn::Sub": "${Prefix}/overlays/*/keys/"},
         ]}})
         self.assertEqual(actions(resources["Reader"]), {"s3:GetObject", "s3:ListBucket"})
         self.assertEqual(actions(resources["Gc"]), {"s3:DeleteObject"})

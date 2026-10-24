@@ -12,11 +12,14 @@ fi
 export LAYR_GATEWAY_BINARY="${LAYR_GATEWAY_BINARY:-$(cd "$(dirname "$0")/.." && pwd)/target/debug/layr-gateway}"
 export LAYR_BIN
 export LAYR_GATEWAY_TEST_STORE="$LAYR_ROOT"
+# Peer receive needs a separate filesystem to resolve parent subvolume identities.
+export LAYR_GATEWAY_TEST_WRITER_ROOT="$T/overlay-writer"
+new_fs "$LAYR_GATEWAY_TEST_WRITER_ROOT" 2G
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 LOG="$T/gateway-minio.log"
 if (cd "$REPO" && cargo test --locked minio::actual_cli_minio_round_trip -- --exact --ignored --nocapture) > "$LOG" 2>&1; then
     PASS=$((PASS + 1))
-    echo 'PASS actual gateway CLI and MinIO boundary checks'
+    echo 'PASS actual gateway CLI, MinIO, and overlay reader and writer checks'
 else
     FAIL=$((FAIL + 1))
     echo 'FAIL actual gateway CLI and MinIO boundary checks'
