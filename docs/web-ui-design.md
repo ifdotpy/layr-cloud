@@ -89,6 +89,11 @@ A store with more than 100 000 records shows lines and refs first and loads hist
   Pixels show what a person sees; structure explains why it changed and is exact. The UI shows
   both per screen: Visual (the four views) and Structure (an HTML diff with a one-line summary).
   A DOM snapshot can be rendered again later at another width without running the probe again.
+- Native apps work the same way. Screens are named `<screen>@<device>` (`Checkout@iPhone-15`).
+  The structure file is the app's view or accessibility tree: `.xml` (Android uiautomator),
+  `.json` (an iOS accessibility dump from XCUITest), or `.txt` (any text dump). Layr normalizes
+  each format and reports the same fields. iOS probes need a macOS runner with Xcode: an
+  executor on macOS (an AWS EC2 Mac host or the team's own Mac registered as a machine).
 
 ## 8. Order of work
 
