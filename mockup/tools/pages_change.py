@@ -135,9 +135,14 @@ Good. Log the Stripe error code here too.</div><div class="c"><div class="who">{
            ("", "12", "12", "  return ("),
            ("a", "", "13", "    <SavedCards cards={cards} />"),
            ("", "13", "14", "    <CardForm />")]
-    main = f'''<div class="card"><div class="bd row">
-<span class="muted">Compare</span>{sel(["v2"])}<span>→</span>{sel(["v3"])}
-<label class="toggle"><input type="checkbox" checked> Hide base moves</label><span class="spacer"></span>{diff_toggle()}</div>
+    vfrom = ["base of main (all changes)", "v1 · Oct 22, 10:14 · first version · +212 −18",
+             "v2 · Oct 22, 16:40 · token moved to overlay · you approved", "v3 · Oct 23, 18:55 · handle expired cards · latest"]
+    main = f'''<div class="card"><div class="bd stack-s">
+<div class="seg"><button type="button" aria-pressed="true">Since your review</button><button type="button" aria-pressed="false">All changes</button><button type="button" aria-pressed="false">Latest version only</button></div>
+<div class="row"><span class="muted">From</span><select class="input">{"".join(f'<option{" selected" if i == 2 else ""}>{e(v)}</option>' for i, v in enumerate(vfrom))}</select>
+<span>→</span><select class="input"><option selected>v3 · Oct 23, 18:55 · latest</option><option>v2 · Oct 22, 16:40</option></select></div>
+<p class="note">Showing what changed since you approved v2: 2 files, +24 −6. The replay onto main between v2 and v3 is hidden, because it changed no content.</p>
+<div class="row"><label class="toggle"><input type="checkbox" checked> Hide base moves</label><span class="spacer"></span>{diff_toggle()}</div></div>
 <div class="ft">{cmd("layr change diff 4f2a91 --from v2 --to v3")}</div></div>
 <div style="display:grid;grid-template-columns:240px minmax(0,1fr);gap:16px" class="files-grid">
 <aside class="side"><section><h3>4 files</h3><ul>{tree}</ul></section></aside>
@@ -279,7 +284,7 @@ def cside(c):
     else:
         secret = check_line("ok", "No secret values in shared files")
     items = "".join([
-        check_line("warn", "1 of 2 approvals from maintainers: alice approved v3"),
+        check_line("warn", "0 of 2 approvals on v3. alice approved v2; an approval binds to one exact state"),
         check_line("ok", f"{sid('migrations/')} changed by bob, a maintainer"),
         check_line("ok", "unit, lint passed on this exact state"),
         check_line("warn", "e2e is running, 3 of 5 min"),

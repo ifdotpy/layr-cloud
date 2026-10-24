@@ -545,3 +545,12 @@ and hidden (only readers know it exists: no row, no count, no file badge for any
 hidden overlay shows a "hidden" badge to its readers. New overlay has a "Hidden" switch; a
 visible overlay cannot become hidden later. Layr rules: layr `docs/overlay-sync-design.md`,
 section "Hidden overlays".
+
+## 17. Version compare (2026-10-24, lead)
+
+Versions keep Layr's numbers (v1, v2, v3: `changes/<id>/v2`, `layr change diff --from v2 --to v3`),
+but every option names its time, a short summary and the viewer's mark ("you approved"). The
+default compare is "Since your review": from the version the viewer last approved or commented on
+to the latest. Quick choices: Since your review, All changes (against the base), Latest version
+only. A line explains what is shown and which base moves are hidden. Approvals are per exact
+state, so the Merge checklist counts approvals on the latest version only.
