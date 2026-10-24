@@ -94,6 +94,11 @@ A store with more than 100 000 records shows lines and refs first and loads hist
   `.json` (an iOS accessibility dump from XCUITest), or `.txt` (any text dump). Layr normalizes
   each format and reports the same fields. iOS probes need a macOS runner with Xcode: an
   executor on macOS (an AWS EC2 Mac host or the team's own Mac registered as a machine).
+- A view or accessibility tree cannot be rendered again (it has no styles, colors or images), so
+  a native probe must capture a PNG per device when it runs. Node frames are not part of the text
+  diff, but Layr keeps them and reports the box of each changed node, so the UI outlines on the
+  screenshot exactly the element whose text, role or presence changed, and can draw a wireframe
+  from the frames. Only web screens can be rendered again later, from their HTML.
 
 ## 8. Order of work
 
