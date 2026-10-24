@@ -191,8 +191,8 @@ export function VisualDiff({ screens }: { screens: ScreenDiff[] }) {
               {s.structure_diff ? <pre class="code structure-diff" tabIndex={0} role="region" aria-label={`Structure diff of ${s.name}`}>{s.structure_diff.split("\n").map((line, i) => <div key={i} class={line.startsWith("+") ? "add" : line.startsWith("-") ? "del" : ""}>{line || " "}</div>)}</pre>
                 : <p class="note">No structure changes.</p>}
               {s.structure_regions.length > 0 && <p class="note">{plural(s.structure_regions.length, "changed node")} outlined in Difference.</p>}
-            </div> : <Empty>No structure captured for this screen.</Empty>
-          ) : !s.base_url && !s.head_url ? <Empty>No PNG captured. Open Structure to review this screen.</Empty>
+            </div> : <p class="note">No structure captured for this screen.</p>
+          ) : !s.base_url && !s.head_url ? <p class="note">No PNG captured. Open Structure to review this screen.</p>
             : mode === "Side by side" || !both ? <div class="vd-side">
               <figure><figcaption>base</figcaption>{image("base")}</figure>
               <figure><figcaption>head</figcaption>{image("head")}</figure>

@@ -19,5 +19,5 @@ export function BisectResults({ results = [], project }: { results?: BisectResul
         <Cmd text={run.argv.join(" ")} />
       </div>
     </details>)}
-  </div> : <Empty>No bisect results recorded. Use the CLI to search exact states.</Empty>;
+  </div> : <p class="note">No bisect results recorded. Use the CLI to search exact states.</p>;
 }

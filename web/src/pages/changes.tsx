@@ -37,7 +37,7 @@ function EvidenceTable({
   rows: EvidenceRow[];
 }) {
   const [expanded, setExpanded] = useState(false);
-  if (!rows.length) return <Empty>No attestations recorded for this state.</Empty>;
+  if (!rows.length) return <p class="note">No attestations recorded for this state.</p>;
   const active = rows.filter((row) => !row.revoked);
   const revoked = rows.filter((row) => row.revoked);
   const headers = ["Kind", "Result", "Version", "By", "Time"];

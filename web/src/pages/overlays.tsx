@@ -9,7 +9,6 @@ import type {
 import {
   Badge,
   Cmd,
-  Empty,
   LoadError,
   Mono,
   PageHead,
@@ -77,7 +76,7 @@ function Principal({
     identities.machines.some((item) => item.id === id)
   ) {
     return (
-      <span title={name}>
+      <span class="muted" title={name}>
         {shortText(machineLabel(id, identities.machines))}
       </span>
     );
@@ -117,24 +116,11 @@ function ManagerRisk({ overlay }: { overlay: Overlay }) {
 }
 
 function Epoch({ overlay, id }: { overlay: Overlay; id: string }) {
-  // Missing dates cannot establish a chronological epoch number.
-  const recorded = overlay.epochs ?? [];
-  const epochs = recorded.every((epoch) => epoch.time !== undefined)
-    ? [...recorded].sort((a, b) => a.time! - b.time!)
-    : [];
-  const index = epochs.findIndex((epoch) => epoch.id === id);
-  const epoch = epochs[index];
+  const epoch = overlay.epochs?.find((epoch) => epoch.id === id);
   return (
     <span title={id}>
-      {index < 0 ? (
-        <>
-          epoch <Mono>{short(id)}</Mono>
-        </>
-      ) : (
-        <>
-          epoch {index + 1} · {when(epoch.time)}
-        </>
-      )}
+      {epoch?.number === undefined ? "Epoch number not recorded" : `epoch ${epoch.number}`}
+      {epoch?.time !== undefined && <> · {when(epoch.time)}</>}
     </span>
   );
 }
@@ -162,9 +148,9 @@ export function OverlaysPage({ source, project }: PageProps) {
         }
       />
       {overlays === undefined ? (
-        <Empty>No overlay records are available.</Empty>
+        <p class="note">No overlay records are available.</p>
       ) : !overlays.length ? (
-        <Empty>No overlays are recorded.</Empty>
+        <p class="note">No overlays are recorded.</p>
       ) : (
         <>
           <Table
@@ -263,14 +249,19 @@ export function OverlayPage({
     return (
       <>
         <PageHead title="Overlay" />
-        <Empty>
+        <p class="note">
           {project.overlays === undefined
             ? "No overlay records are available."
             : "Overlay not found."}
-        </Empty>
+        </p>
       </>
     );
   if (!identities) return <LoadError error={error} />;
+  const ownHistory = overlay.history ?? [];
+  const creation = ownHistory.findIndex((record) => record.op === "overlay.create");
+  // The overlay lifecycle starts at its signed creation, after project initialization.
+  const history = (creation < 0 ? ownHistory : ownHistory.slice(0, creation + 1))
+    .filter((record) => record.op !== "project" && record.op !== "machine");
   const paths = names(overlay);
   const target = quote(overlay.name);
   const showReaderKey = overlay.readers.some((principal) =>
@@ -329,11 +320,11 @@ export function OverlayPage({
           <section class="sect">
             <h2 style={{ marginBottom: 12 }}>Files</h2>
             {!overlay.readable ? (
-              <Empty>Files are hidden. You cannot read this overlay.</Empty>
+              <p class="note">Files are hidden. You cannot read this overlay.</p>
             ) : !paths ? (
-              <Empty>No file list is recorded.</Empty>
+              <p class="note">No file list is recorded.</p>
             ) : !paths.length ? (
-              <Empty>No files are recorded.</Empty>
+              <p class="note">No files are recorded.</p>
             ) : (
               <>
                 <Table
@@ -370,14 +361,14 @@ export function OverlayPage({
             {overlay.readable && (
               <p class="note" style={{ marginTop: 8 }}>
                 Routed here:{" "}
-                {overlay.patterns.length
-                  ? overlay.patterns.map((pattern) => (
+                {(overlay.patterns ?? []).length
+                  ? (overlay.patterns ?? []).map((pattern) => (
                       <span style={{ marginRight: 8 }} key={pattern}>
                         <Mono>{shortText(pattern)}</Mono>
                       </span>
                     ))
                   : "No patterns recorded."}{" "}
-                {overlay.patterns.length > 0 &&
+                {(overlay.patterns ?? []).length > 0 &&
                   "New files that match go to this overlay."}
               </p>
             )}
@@ -394,7 +385,7 @@ export function OverlayPage({
               )}
             </div>
             {!overlay.readers.length ? (
-              <Empty>No readers are recorded.</Empty>
+              <p class="note">No readers are recorded.</p>
             ) : (
               <>
                 <Table
@@ -455,7 +446,7 @@ export function OverlayPage({
               <section class="sect">
                 <h2 style={{ marginBottom: 12 }}>Key epochs</h2>
                 {!overlay.epochs?.length ? (
-                  <Empty>No key epoch history is recorded.</Empty>
+                  <p class="note">No key epoch history is recorded.</p>
                 ) : (
                   <ul class="tl">
                     {overlay.epochs.map((epoch) => (
@@ -486,13 +477,13 @@ export function OverlayPage({
               </section>
               <section class="sect">
                 <h2 style={{ marginBottom: 12 }}>History</h2>
-                {!overlay.history?.length ? (
-                  <Empty>No signed overlay operations are recorded.</Empty>
+                {!history.length ? (
+                  <p class="note">No signed overlay operations are recorded.</p>
                 ) : (
                   <Table
                     label="Signed overlay operations"
                     headers={["When", "Who", "What", "Signature"]}
-                    rows={overlay.history.map((operation) => [
+                    rows={history.map((operation) => [
                       when(operation.time),
                       <Principal
                         name={`user:${operation.actor.uid}`}

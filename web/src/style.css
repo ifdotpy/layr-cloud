@@ -591,3 +591,6 @@ html:not(.cli) .cmd { display: inline-flex; margin-right: 10px; }
 .vd-side img { height: auto; }
 .structure-diff { max-width: 100%; overflow: auto; white-space: pre; }
 .diff-regions .structure-region { fill: transparent; stroke: var(--blue-900); stroke-dasharray: 2 2; }
+.vd-main > .row { flex-wrap: wrap; }
+.vd-main > .row > .seg { max-width: 100%; overflow-x: auto; flex: none; }
+.vd-main > .row > .seg button { flex-shrink: 0; white-space: nowrap; }

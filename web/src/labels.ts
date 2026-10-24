@@ -18,7 +18,7 @@ export function personLabel(
   people: Person[] = [],
 ) {
   const login = principal.startsWith("person:")
-    ? principal.slice(7)
+    ? principal.slice(7).split("=", 1)[0]
     : undefined;
   if (login) return login;
   const uid = principal.match(/^(?:user:|uid:)?(\d+)$/)?.[1];

@@ -240,7 +240,7 @@ export function App({
                     aria-current={tab === t ? "page" : undefined}
                   >
                     {t}
-                    {t === "Changes" && (
+                    {t === "Changes" && changeIndex?.open !== 0 && (
                       <span
                         class="count"
                         aria-label="Open changes"
