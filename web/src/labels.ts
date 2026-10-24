@@ -81,6 +81,8 @@ export function operationLabel(operation: Operation | string): string {
     machine: "added machine",
     push: "pushed",
     sync: "synced",
+    "bisect.run": "recorded bisect results",
+    "overlay.show-to-project": "made overlay visible to project",
   };
   return shortText(labels[name] || name.replaceAll(".", " "));
 }

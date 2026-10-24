@@ -470,6 +470,10 @@ export function DeployPage({
   );
 }
 function operationTarget(op: Operation, lines: Line[]) {
+  if ((op.op === "push" || op.op === "sync") && object(op.data).result === "success") {
+    const transfer = object(op.data);
+    return `${transfer.remote} · ${transfer.direction} · ${plural(Number(transfer.states_sent), "state")} sent, ${plural(Number(transfer.states_received), "state")} received · ${plural(Number(transfer.records_sent), "record")} sent, ${plural(Number(transfer.records_received), "record")} received · ${bytes(Number(transfer.bytes_sent))} sent, ${bytes(Number(transfer.bytes_received))} received`;
+  }
   if (op.op === "config") return "";
   const recorded =
     Object.values(op.lines ?? {})

@@ -1,4 +1,4 @@
-import { machineLabel, personLabel } from "../labels";
+import { machineLabel, personLabel, plural } from "../labels";
 import type { DataSource, Project } from "../data/source";
 import {
   CopyRing,
@@ -261,7 +261,7 @@ function Copies({ source, project }: { source: DataSource; project: Project }) {
   const machineIds = [
     ...new Set([
       ...(lines.data?.map((line) => line.machine) ?? []),
-      ...(copies.data?.flatMap((copy) => copy.machines ?? []) ?? []),
+      ...(copies.data?.flatMap((copy) => copy.machine ? [copy.machine] : copy.machines ?? []) ?? []),
     ]),
   ].sort();
   const completeCopies = copies.data?.filter(
@@ -293,13 +293,19 @@ function Copies({ source, project }: { source: DataSource; project: Project }) {
             )}
             <Table
               label="Project copies"
-              headers={["Copy", "Kind", "Where", "Last update", "By"]}
+              headers={["Copy", "Kind", "Where", "Last transfer", "Machine", "Transferred"]}
               rows={copies.data.map((copy) => [
                 copy.name,
                 copy.kind === "git" ? "Git mirror" : copy.kind,
                 <Mono>{copy.address ?? "Not recorded"}</Mono>,
                 when(copy.time),
-                "Not recorded",
+                copy.machine ? machineLabel(copy.machine, machines.data ?? []) : "Not recorded",
+                copy.last ? <div>
+                  <span>{copy.last.direction} · {copy.last.result}</span>
+                  <div>{plural(copy.last.states_sent, "state")} sent · {plural(copy.last.states_received, "state")} received</div>
+                  <div>{plural(copy.last.records_sent, "record")} sent · {plural(copy.last.records_received, "record")} received</div>
+                  <div>{bytes(copy.last.bytes_sent)} sent · {bytes(copy.last.bytes_received)} received</div>
+                </div> : "No completed transfer recorded",
               ])}
             />
             {copies.data.some(
@@ -327,7 +333,7 @@ function Copies({ source, project }: { source: DataSource; project: Project }) {
         ) : (
           <Table
             label="Machines with this project"
-            headers={["Machine", "Holds", "Last sync"]}
+            headers={["Machine", "Recorded lines and transfers", "Last transfer"]}
             rows={machineIds.map((id) => {
               const machine = machines.data?.find((item) => item.id === id);
               const heldLines =
@@ -335,15 +341,15 @@ function Copies({ source, project }: { source: DataSource; project: Project }) {
                   ?.filter((line) => line.machine === id)
                   .map((line) => line.name) ?? [];
               const heldCopies =
-                copies.data?.filter((copy) => copy.machines?.includes(id)) ??
+                copies.data?.filter((copy) => copy.machine === id || copy.machines?.includes(id)) ??
                 [];
               const times = heldCopies.flatMap((copy) =>
                 copy.time === undefined ? [] : [copy.time],
               );
               return [
-                <Mono>{machine?.name ?? id}</Mono>,
+                <span>{machineLabel(id, machines.data ?? [])}</span>,
                 <Mono>
-                  {[...heldLines, ...heldCopies.map((copy) => copy.name)].join(
+                  {[...heldLines, ...heldCopies.map((copy) => `${copy.name} (reported)`)].join(
                     ", ",
                   ) || "Not recorded"}
                 </Mono>,
