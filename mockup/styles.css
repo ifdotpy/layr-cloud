@@ -429,7 +429,7 @@ html, body { background: var(--page); }
 .tabs a[aria-current="page"] .count { background: color-mix(in oklch, var(--accent) 18%, transparent); color: var(--text); }
 .card, .list, .tbl-frame, .frame, .thread, .summary, dialog { background: var(--surface); }
 .card > .hd, .list > .lhd, th, .headrow, .frame > .fh, .callout { background: var(--surface-2); }
-tbody tr:hover td, .list > .item:hover { background: color-mix(in oklch, var(--accent) 6%, var(--surface)); }
+tbody tr:hover td, .list > .item:hover { background: color-mix(in srgb, var(--accent) 7%, var(--surface)); }
 tr.group td { background: var(--surface-2); }
 pre.code, .md pre { background: var(--surface-2); }
 .snav a[aria-current="page"] { background: color-mix(in oklch, var(--accent) 14%, transparent); box-shadow: inset 2px 0 0 var(--accent); }
