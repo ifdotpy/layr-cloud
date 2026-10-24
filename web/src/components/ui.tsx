@@ -1,5 +1,5 @@
 import type { ComponentChildren } from "preact";
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import { operationLabel, plural } from "../labels";
 
 export const operationName = operationLabel;
@@ -482,7 +482,7 @@ export function Dropdown({
 }) {
   const [open, setOpen] = useState(false),
     ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return;
     ref.current
       ?.querySelector<HTMLElement>(
