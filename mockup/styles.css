@@ -441,7 +441,7 @@ pre.code, .md pre { background: var(--surface-2); }
 
 /* Primary action is the accent color. */
 .btn.primary { background: var(--accent); border-color: var(--accent); color: oklch(1 0 0); }
-.btn.primary:hover { background: var(--blue-900); border-color: var(--blue-900); color: oklch(1 0 0); }
+.btn.primary:hover { background: light-dark(var(--blue-900), color-mix(in srgb, var(--blue-700) 82%, black)); border-color: light-dark(var(--blue-900), color-mix(in srgb, var(--blue-700) 82%, black)); color: oklch(1 0 0); }
 
 /* Filled status badges. */
 .badge { background: var(--surface-2); }
@@ -538,3 +538,5 @@ html:not(.cli) .cmd { display: inline-flex; margin-right: 10px; }
 /* Contrast fixes measured by the web tests (WCAG AA). */
 .badge.ok { color: color-mix(in srgb, var(--green-900) 94%, var(--text)); }
 .stamp { color: var(--blue-900); }
+.badge.warn { color: color-mix(in srgb, var(--amber-900) 90%, var(--text)); }
+.badge.bad { color: color-mix(in srgb, var(--red-900) 90%, var(--text)); }
