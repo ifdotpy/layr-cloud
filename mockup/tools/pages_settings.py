@@ -179,3 +179,29 @@ def files_page():
 PAGES = {"settings-access.html": access_page, "settings-protection.html": protection_page,
          "settings-overlays.html": overlays_page, "settings-files.html": files_page,
          "settings-remotes.html": remotes_page}
+
+
+def copies_page():
+    H = [("Copy", ""), ("Kind", ""), ("Where", ""), ("Last update", "num"), ("By", "")]
+    rows = [["<b>This store</b>", "store, main", sid("layr+https://cloud.acme.dev/shop"), "4 min", sid("laptop-alice")],
+            ["Encrypted copy", "store", sid("s3://acme-layr/shop"), "1 h", sid("laptop-alice")],
+            ["Git mirror", "export of main", sid("git@github.com:acme/shop.git"), "2 h", sid("executor-eu1")]]
+    MH = [("Machine", ""), ("Holds", ""), ("Last sync", "num")]
+    machines = [[sid("laptop-alice"), "all lines, overlays secrets and local-tools", "4 min"],
+                [sid("laptop-bob"), "main, topic-checkout, fix-tax-rounding, overlay secrets", "20 min"],
+                [sid("executor-eu1"), "main and lines in the queue, overlay secrets", "3 min"]]
+    c = sect("Copies", "Where this project is kept. Built from signed records that machines write when they push or sync.",
+             '<div class="callout" style="margin-bottom:16px"><span class="muted">Remotes are set on each machine with</span> <code>layr remote</code><span class="muted">. Each machine has its own list; this page shows the copies they reported.</span></div>'
+             + table(H, rows)) + \
+        sect("Machines with this project", "Each machine keeps a full copy of the lines it uses. Private overlays only where the machine is a reader.",
+             table(MH, machines) + '<p class="note" style="margin-top:8px"><a href="infrastructure.html">All machines</a></p>')
+    return spage("Copies", c)
+
+
+SNAV = [
+    ("Project", [("Access", "settings-access.html"), ("Protection", "settings-protection.html"),
+                 ("Private files", "settings-overlays.html"), ("Files", "settings-files.html"), ("Copies", "settings-copies.html")]),
+]
+PAGES = {"settings-access.html": access_page, "settings-protection.html": protection_page,
+         "settings-overlays.html": overlays_page, "settings-files.html": files_page,
+         "settings-copies.html": copies_page}

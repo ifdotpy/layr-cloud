@@ -85,12 +85,11 @@ def code_page():
 <section><h3>Environments <a href="environments.html">All</a></h3><ul>
 <li>{sid("env/prod")}<span class="r">→ release/1.4.2 <span class="ok">✓</span></span></li>
 <li>{sid("env/staging")}<span class="r">→ a91c4e07 <span class="ok">✓</span></span></li></ul></section>
-<section><h3>Remotes <a href="settings-remotes.html">Manage</a></h3><ul>
-<li>{sid("cloud")}<span class="r">store · pushed 4 min ago</span></li>
-<li>{sid("vault")}<span class="r">store · S3</span></li>
-<li>{sid("laptop-bob")}<span class="r">peer</span></li>
-<li>{sid("github")}<span class="r">Git mirror</span></li></ul></section>
-<section><h3>Runnables <a href="registry.html">Registry</a></h3><ul>
+<section><h3>Copies <a href="settings-copies.html">All</a></h3><ul>
+<li>this store<span class="r">updated 4 min ago</span></li>
+<li>1 more encrypted copy<span class="r">S3</span></li>
+<li>Git mirror<span class="r">GitHub</span></li></ul></section>
+<section><h3>Runnables <a href="registry.html">Images</a></h3><ul>
 <li>{sid("app")}<span class="r">image</span></li><li>{sid("worker")}<span class="r">image</span></li>
 <li>{sid("chart")}<span class="r">Helm chart</span></li></ul></section>
 </aside>'''
