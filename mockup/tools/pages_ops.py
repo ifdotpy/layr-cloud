@@ -47,6 +47,7 @@ def checks_page():
 def behavior_page():
     H = [("Probe", ""), ("Kind", ""), ("Command", ""), ("Last run", "num"), ("Last 10 states", "")]
     rows = [
+        [sid("storefront-screens"), "screenshots", sid("playwright screenshot --routes probes/routes.txt"), "2 h ago", '<span class="muted">4 screens, 2 changed in v3</span>'],
         [sid("api-catalog"), "HTTP answers", sid("curl -s localhost:8080/api/products?page=2"), "2 h ago", '<span class="muted">10 same, 1 changed</span>'],
         [sid("bench-checkout"), "metric", sid("cargo bench -p checkout -- --json"), "2 h ago", '<span class="spark">▃▃▄▃▃▄▃▃▃▆</span> <span class="muted">p95 ms</span>'],
         [sid("bundle-size"), "file", sid("npm --prefix web run build"), "2 h ago", '<span class="spark">▂▂▂▃▃▃▃▃▄▄</span> <span class="muted">KiB</span>'],

@@ -115,4 +115,15 @@
     }
     if (e.key === "Escape") closeMenus();
   });
+
+  // UI diffs: swipe clips the v3 screen, onion skin fades it.
+  $$("input[data-swipe]").forEach((r) => {
+    const top = r.closest("[id]").querySelector("[data-swipe-top]");
+    const set = () => (top.style.clipPath = "inset(0 0 0 " + r.value + "%)");
+    r.addEventListener("input", set); set();
+  });
+  $$("input[data-onion]").forEach((r) => {
+    const top = r.closest("[id]").querySelector("[data-onion-top]");
+    r.addEventListener("input", () => (top.style.opacity = r.value / 100));
+  });
 })();

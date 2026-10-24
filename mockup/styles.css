@@ -471,3 +471,23 @@ td a.muted, a.muted { color: var(--text-2); }
 td a.muted:hover { color: var(--link); }
 .tabs a[aria-current="page"] { border-bottom: 2px solid var(--accent); }
 .chead + .tabs-wrap { background: none; }
+
+/* UI diffs */
+.vd { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 16px; }
+.vd-list ul li { cursor: pointer; }
+.vd-side { display: flex; gap: 16px; flex-wrap: wrap; }
+.vd figure { margin: 0; }
+.vd figcaption { font-size: 12px; color: var(--text-2); margin-bottom: 6px; }
+.vd svg { display: block; border: 1px solid var(--border); border-radius: var(--r); max-width: 100%; height: auto; }
+.vd-stack { position: relative; width: 360px; max-width: 100%; }
+.vd-top { position: absolute; inset: 0; }
+.vd-top svg { border-color: transparent; }
+.vd-range { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 12px; color: var(--text-2); width: 360px; max-width: 100%; }
+.vd-range input { flex: 1; }
+.vd-modes { border-bottom: 0; }
+@media (max-width: 767px) { .vd { grid-template-columns: minmax(0, 1fr); } }
+.vd-side { flex-wrap: nowrap; }
+.vd-side figure { flex: 1 1 0; min-width: 0; }
+.vd-side svg { width: 100%; height: auto; }
+.vd-list li { flex-wrap: wrap; }
+.vd-list li .r { margin-left: 0; width: 100%; }

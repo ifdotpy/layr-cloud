@@ -40,6 +40,10 @@ def people_page():
                           '<button class="btn" type="button" data-close>Cancel</button><button class="btn primary" type="button" data-close>Grant</button>')
     body = f'''{pagehead("People", '<button class="btn" type="button" data-dialog="dlg-grant">Grant access</button><button class="btn primary" type="button" data-dialog="dlg-invite">Invite person</button>')}
 {table(H, rows, stacked=True)}
+<section class="sect" style="margin-top:40px"><h2>Your invites</h2><p class="lede">An invite gives you a slot in a store. Accept it to pin the store to your person key.</p>
+<div class="list" style="margin-top:16px"><div class="item"><div class="main"><span class="title">payments</span><div class="meta"><span>from bob</span><span>{sid("layr+https://cloud.acme.dev/payments")}</span><span>2 h ago</span></div></div>
+<div class="side"><button class="btn primary sm" type="button">Accept</button><button class="btn sm" type="button">Decline</button></div></div></div>
+{cmd("layr person accept --site https://cloud.acme.dev --invite 7f3a91c2")}{cmd("layr person accept --invite-file invite.age --remote s3://acme-layr/shop")}</section>
 <section class="sect" id="key" style="margin-top:40px"><h2>Your person key</h2><p class="lede">One key opens every project you may read. Layr Cloud never holds it.</p>
 <div class="card" style="margin-top:16px"><div class="bd"><dl class="kv"><dt>Recipient</dt><dd>{sidc("age1alc7w3q0…f5e09t2q")}</dd><dt>Opens</dt><dd>4 projects, 6 stores</dd>
 <dt>Recovery</dt><dd>24 recovery words, made on Oct 2, 2026</dd></dl>
@@ -53,7 +57,21 @@ def stores_page():
             [sid("payments"), sid("layr+https://cloud.acme.dev/payments"), "eu-central-1", "age, end to end", "640 MiB", "12,904", "1 h", okb("ok")],
             [sid("infra"), sid("layr+https://cloud.acme.dev/infra"), "eu-central-1", "age, end to end", "88 MiB", "2,310", "2 h", warnb("runs tonight")],
             [sid("docs-site"), sid("layr+https://cloud.acme.dev/docs-site"), "eu-central-1", "age, end to end", "41 MiB", "1,022", "1 day", okb("ok")]]
-    body = f'''{pagehead("Stores", "", "Storage and Layr Cloud see ciphertext only.")}{table(H, rows)}'''
+    LH = [("Store", ""), ("On this Mac", ""), ("Opened by", ""), ("", "")]
+    lock = [[sid("shop"), okb("unlocked"), "Keychain (machine slot)", '<button class="btn sm" type="button">Lock</button>'],
+            [sid("payments"), okb("unlocked"), "Keychain (person key)", '<button class="btn sm" type="button">Lock</button>'],
+            [sid("infra"), grayb("locked"), "·", '<button class="btn sm" type="button">Unlock</button>'],
+            [sid("docs-site-3f2a"), warnb("no address"), "pin from an invite", '<span class="muted small">run layr person accept again with --remote &lt;url&gt;</span>']]
+    body = f'''{pagehead("Stores", "", "Storage and Layr Cloud see ciphertext only.")}{table(H, rows)}
+<section class="sect" style="margin-top:40px"><h2>Your disk</h2><p class="lede">One Finder disk shows every store you may read. It is read only and served on 127.0.0.1.</p>
+<div class="card" style="margin:16px 0"><div class="bd"><dl class="kv"><dt>Mode</dt><dd>all stores</dd><dt>Folder</dt><dd class="mono">~/Layr</dd>
+<dt>Service</dt><dd><span class="mono">ws.layr.mount</span> · starts at login · opens stores only from the Keychain</dd><dt>Address</dt><dd class="mono">http://127.0.0.1:8095</dd></dl></div></div>
+{table(LH, lock)}
+<p class="note" style="margin-top:8px">A locked store shows one file, LOCKED.txt, until you unlock it. A lock stays after a restart.</p>
+{cmd("layr mount --status")}{cmd("layr mount --unlock infra --paper-key-file ~/private/infra-words")}{cmd("layr mount --lock shop")}{cmd("layr mount --install --all")}</section>
+<section class="sect"><h2>AWS access</h2><p class="lede">For s3:// remotes Layr reads your AWS profile: static keys or IAM Identity Center (SSO). It refuses credential_process and profiles that assume a role.</p>
+<div class="card" style="margin-top:16px"><div class="bd"><dl class="kv"><dt>Profile</dt><dd class="mono">acme-dev (SSO)</dd><dt>Token</dt><dd>valid for 6 h 20 min, renewed automatically</dd></dl></div></div>
+{cmd("layr remote login vault")}{cmd("layr config remote.vault.aws-profile acme-dev")}</section>'''
     return org("Stores", body, "Stores")
 
 
@@ -82,6 +100,14 @@ def org_settings_page():
 <dl class="kv"><dt>AWS account</dt><dd class="mono">4127 0915 3381</dd><dt>Region</dt><dd class="mono">eu-central-1</dd>
 <dt>Installed with</dt><dd>CloudFormation stack <span class="mono">layr-cloud-acme</span></dd></dl>
 {field("Default role for new members", sel(["reader", "writer"]))}<div class="row"><button class="btn primary" type="button">Save settings</button></div></div></div>
+<section class="sect" style="margin-top:40px"><h2>Deployment</h2><p class="lede">Layr Cloud runs in your AWS account. One command creates or updates its stacks.</p>
+<div style="margin-top:16px">{table([("Stack", ""), ("Template", ""), ("Status", ""), ("Updated", "num")], [
+ [sid("acme-bootstrap"), sid("bootstrap.yaml"), okb("UPDATE_COMPLETE"), "Oct 20"],
+ [sid("acme-store"), sid("template.yaml"), okb("UPDATE_COMPLETE"), "Oct 20"],
+ [sid("acme-gateway"), sid("gateway.yaml"), okb("UPDATE_COMPLETE"), "Oct 24"],
+ [sid("acme-executor"), sid("executor.yaml"), okb("CREATE_COMPLETE"), "Oct 24"]])}</div>
+<p class="note" style="margin-top:8px">Release 1.4 · gateway.tgz and executor.tgz · deploy.json sets the image and the tailnet name.</p>
+{cmd("layr-cloud deploy --region eu-central-1 --stack-prefix acme --release ./release --dry-run")}{cmd("layr-cloud deploy --region eu-central-1 --stack-prefix acme --release ./release --profile acme-admin")}</section>
 <div class="card danger-zone" style="margin-top:32px"><div class="hd"><b class="bad">Danger zone</b></div><div class="bd row">
 <div><b>Delete organization</b><p class="note">Removes the gateway and executors. Stores in your AWS account stay.</p></div><span class="spacer"></span>
 <button class="btn danger" type="button">Delete organization</button></div></div>'''

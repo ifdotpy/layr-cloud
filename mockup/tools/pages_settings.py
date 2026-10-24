@@ -51,18 +51,23 @@ def protection_page():
 
 
 def overlays_page():
-    def ov(name, patterns, readers, peers, epoch, note):
+    def ov(name, patterns, readers, peers, epoch, note, managers):
         rl = "".join(f'<li>{r}<span class="r"><button class="btn sm danger" type="button" data-dialog="dlg-rm">Remove</button></span></li>' for r in readers)
         return f'''<div class="card" style="margin-bottom:16px"><div class="hd"><b class="mono">{name}</b><span class="badge">{epoch}</span><span class="spacer"></span><button class="btn sm" type="button">Add reader</button></div>
 <div class="bd"><dl class="kv"><dt>Files</dt><dd>{" ".join(sid(p) for p in patterns)}</dd>
 <dt>Peers that may hold it</dt><dd>{peers}</dd><dt>Key</dt><dd class="muted">{note}</dd></dl>
-<div class="side" style="margin-top:16px"><h3>Readers</h3><ul>{rl}</ul></div></div></div>'''
+<div class="side" style="margin-top:16px"><h3>Readers</h3><ul>{rl}</ul></div>
+<div class="side" style="margin-top:8px"><h3>Key managers <a href="#">Add manager</a></h3><ul>{"".join(f'<li>{m}</li>' for m in managers)}</ul>
+<p class="note">Only key managers change the key and the readers. Other machines can still push data encrypted to the published key.</p></div></div></div>'''
     c = sect("Overlays", "Private files with their own history, readers and encryption key. They travel with every push. Only readers can open them.",
-             ov("secrets", [".env", ".env.prod", "config/stripe.key"], [who("alice"), who("bob"), sid("executor-eu1")],
+             ov("secrets", [".env", ".env.prod", "config/stripe.key"], [who("alice") + ' <span class="muted small">person:alice@acme.dev</span>', who("bob") + ' <span class="muted small">person:bob@acme.dev</span>', sid("machine:executor-eu1")],
                 f'{sid("laptop-bob")} {sid("executor-eu1")}', "epoch 3",
-                "epoch 3, started when dan was removed. Slots for 3 readers in each store.") +
-             ov("local-tools", [".tools/"], [who("alice")], '<span class="muted">none: stays on your machines</span>', "epoch 1", "epoch 1. One slot.") +
-             cmd("layr overlay readers secrets alice bob executor-eu1"))
+                "epoch 3, started when dan was removed. Slots for 3 readers in each store. The signed key record is public; only readers can open it.",
+                [sid("laptop-alice") + ' <span class="muted small">creator</span>', sid("laptop-bob")]) +
+             ov("local-tools", [".tools/"], [who("alice")], '<span class="muted">none: stays on your machines</span>', "epoch 1", "epoch 1. One slot.", [sid("laptop-alice") + ' <span class="muted small">creator</span>']) +
+             '<div class="callout warn" style="margin-bottom:12px"><b class="warn">●</b> <span class="muted">local-tools has one key manager. If laptop-alice is lost, the key cannot change. Add a second manager.</span></div>' +
+             cmd("layr overlay readers secrets person:alice@acme.dev=age1alc… person:bob@acme.dev=age1b0b… machine:executor-eu1") +
+             cmd("layr overlay managers secrets machine:laptop-bob"))
     dlg = dialog("dlg-rm", "Remove reader", '''<p>The next push starts a new key epoch. The removed reader cannot open new data.</p>
 <div class="callout warn"><b class="warn">●</b> Files dan already copied stay readable to dan.</div>''' + cmd("layr overlay readers secrets alice bob executor-eu1"),
                  '<button class="btn" type="button" data-close>Cancel</button><button class="btn danger" type="button" data-close>Remove reader</button>')

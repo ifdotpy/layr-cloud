@@ -1,9 +1,10 @@
 from lib import *
 from pages_code import diff_frame, derived_frame, diff_toggle, DIFF_TAX
+from pages_visual import visual_card
 
 CHANGES = [
     ("open", "Checkout: support saved cards", "4f2a91", "v3", "bob", None, "topic-checkout",
-     "✓ 3/4", "1 of 2", "2 behavior changes", 7, "40 min ago", "change.html"),
+     "✓ 3/4", "1 of 2", "3 behavior changes", 7, "40 min ago", "change.html"),
     ("queue", "Fix tax rounding for EUR", "8c03d7", "v2", "bob", None, "fix-tax-rounding",
      "⟳ e2e", "2 of 2", "no behavior change", 3, "12 min ago", "queue.html"),
     ("open", "Coupons: percent and fixed", "b71e40", "v1", "alice", "agent-7", "feature-coupons",
@@ -40,7 +41,7 @@ def changes_page():
 C812 = dict(n="4f2a91", title="Checkout: support saved cards", author="bob", line="topic-checkout", v="v3", agent=None)
 C820 = dict(n="b71e40", title="Coupons: percent and fixed", author="alice", line="feature-coupons", v="v1", agent="agent-7")
 
-CTABS = [("Overview", "change.html", None), ("Files", "change-files.html", "4"), ("Behavior", "change-behavior.html", "2"),
+CTABS = [("Overview", "change.html", None), ("Files", "change-files.html", "4"), ("Behavior", "change-behavior.html", "3"),
          ("Checks", "change-checks.html", "4"), ("Steps", "change-steps.html", "38")]
 
 
@@ -158,6 +159,7 @@ def behavior_cards():
     from pages_code import diff_rows
     H = [("Metric", ""), ("Base", "num"), ("v3", "num"), ("Change", "num")]
     return "".join([
+        visual_card(),
         probe_card("api-catalog", "HTTP answers", "layr probe run 7d3e --probe api-catalog",
                    f'<p><span class="mono">GET /api/products?page=2</span>: 200 → 200, <span class="warn">● body changed</span> (2 fields)</p>'
                    f'<div class="frame"><table class="diff">{diff_rows(json_diff)}</table></div>', warnb("changed")),
@@ -173,7 +175,7 @@ def behavior_cards():
 def behavior_page():
     main = f'''<div class="row"><h2>Behavior diff: base {sid("9a0c13d7")} → v3 {sid("7d3e9a1c")}</h2><span class="spacer"></span>
 <div><button class="btn" type="button">Rerun probes</button>{cmd("layr probe diff 9a0c 7d3e")}</div></div>
-<p class="note">Probes compare what the program does, not only the code: API answers, metrics and output files.</p>
+<p class="note">Probes compare what the program does, not only the code: rendered screens, API answers, metrics and output files.</p>
 {behavior_cards()}'''
     return cpage(C812, "Behavior", main, "change-behavior.html")
 

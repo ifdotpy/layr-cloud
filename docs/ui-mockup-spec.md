@@ -464,3 +464,16 @@ every page still reads correctly.
 Ask the lead before any of these: adding or removing a page, a tab, a feature or a name;
 changing a token, a size or the layout; using a pattern not in this file. Do not ask about
 fake text that only fills space; write it in the same tone as the examples.
+
+## 11. Additions (2026-10-24)
+
+- Behavior shows UI diffs: a probe of kind `screenshots` renders routes of each exact state in its
+  try copy and compares them. Views: Side by side, Swipe, Onion skin, Difference (changed regions
+  outlined in amber, unchanged pixels dimmed). Each screen lists its route, viewport and the share
+  of changed pixels.
+- Overlay settings show reader kinds (`person:<login>`, `machine:<id>`) and key managers, with a
+  warning when an overlay has only one manager.
+- Org Stores shows "Your disk" (`layr mount --all`, lock state per store, stores with no address)
+  and "AWS access" (profile, SSO token).
+- Org People shows "Your invites" with Accept.
+- Org Settings shows "Deployment" (the four stacks and `layr-cloud deploy`).
