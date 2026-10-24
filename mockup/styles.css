@@ -409,3 +409,65 @@ dialog .df { display: flex; justify-content: flex-end; gap: 8px; padding: 16px 2
 }
 @media (max-width: 767px) { table.stacked td[data-l] > .row { display: inline-flex; vertical-align: middle; } }
 p a, .callout a, .note a, .lede a, dd a { text-decoration: underline; text-decoration-color: var(--gray-alpha-700); text-underline-offset: 2px; }
+
+/* Surfaces and accents (review 2026-10-24: "few accents, everything black and merged"). */
+:root {
+  --purple-900: light-dark(oklch(52% 0.22 300), oklch(72% 0.17 300));
+  --page: light-dark(oklch(0.985 0 0), oklch(0.13 0 0));
+  --surface: light-dark(oklch(1 0 0), oklch(0.185 0 0));
+  --surface-2: light-dark(oklch(0.965 0 0), oklch(0.225 0 0));
+  --border: light-dark(oklch(0 0 0 / 0.12), oklch(1 0 0 / 0.14));
+  --border-subtle: light-dark(oklch(0 0 0 / 0.08), oklch(1 0 0 / 0.09));
+  --link: var(--blue-900);
+  --accent: var(--blue-700);
+}
+html, body { background: var(--page); }
+.topbar { background: var(--surface); }
+.tabs-wrap { background: var(--surface); }
+.projhead { max-width: none; background: var(--surface); padding-left: max(24px, calc((100% - 1280px) / 2 + 24px)); padding-right: max(24px, calc((100% - 1280px) / 2 + 24px)); padding-bottom: 4px; margin: 0; }
+.tabs a[aria-current="page"] { border-bottom-color: var(--accent); }
+.tabs a[aria-current="page"] .count { background: color-mix(in oklch, var(--accent) 18%, transparent); color: var(--text); }
+.card, .list, .tbl-frame, .frame, .thread, .summary, dialog { background: var(--surface); }
+.card > .hd, .list > .lhd, th, .headrow, .frame > .fh, .callout { background: var(--surface-2); }
+tbody tr:hover td, .list > .item:hover { background: color-mix(in oklch, var(--accent) 6%, var(--surface)); }
+tr.group td { background: var(--surface-2); }
+pre.code, .md pre { background: var(--surface-2); }
+.snav a[aria-current="page"] { background: color-mix(in oklch, var(--accent) 14%, transparent); box-shadow: inset 2px 0 0 var(--accent); }
+
+/* Links in content are blue, like GitHub. */
+.item .title, td.first a, td a.first, .side h3 a, p a, .note a, .callout a, .lede a, dd a, .meta a, .tl a, td a:not(.btn) { color: var(--link); }
+.item .title:hover, td a:not(.btn):hover, p a:hover { text-decoration: underline; }
+.crumbs a:hover, .wordmark:hover { color: var(--text); }
+
+/* Primary action is the accent color. */
+.btn.primary { background: var(--accent); border-color: var(--accent); color: oklch(1 0 0); }
+.btn.primary:hover { background: var(--blue-900); border-color: var(--blue-900); color: oklch(1 0 0); }
+
+/* Filled status badges. */
+.badge { background: var(--surface-2); }
+.badge.ok { background: color-mix(in oklch, var(--green-900) 14%, transparent); border-color: transparent; }
+.badge.warn { background: color-mix(in oklch, var(--amber-900) 16%, transparent); border-color: transparent; }
+.badge.bad { background: color-mix(in oklch, var(--red-900) 14%, transparent); border-color: transparent; }
+.badge.purple { color: var(--purple-900); background: color-mix(in oklch, var(--purple-900) 14%, transparent); border-color: transparent; }
+.badge.blue { color: var(--blue-900); background: color-mix(in oklch, var(--blue-900) 14%, transparent); border-color: transparent; }
+.ref { background: color-mix(in oklch, var(--blue-900) 12%, transparent); color: var(--blue-900); }
+.mark.open { color: var(--green-900); }
+
+/* People have colors. */
+.avatar { border: 0; color: oklch(1 0 0); font-weight: 600; }
+.avatar.c0 { background: oklch(58% 0.17 255); }
+.avatar.c1 { background: oklch(56% 0.19 300); }
+.avatar.c2 { background: oklch(58% 0.13 185); }
+.avatar.c3 { background: oklch(62% 0.15 60); }
+.avatar.c4 { background: oklch(55% 0.04 270); }
+
+/* Timelines and summaries. */
+.tl::before { background: var(--border); }
+.tl > li.major::before { background: var(--accent); border-color: var(--accent); }
+.summary .v { color: var(--text); }
+.pagehead h1 { font-size: 24px; }
+.cols > .side, aside.side { background: none; }
+td a.muted, a.muted { color: var(--text-2); }
+td a.muted:hover { color: var(--link); }
+.tabs a[aria-current="page"] { border-bottom: 2px solid var(--accent); }
+.chead + .tabs-wrap { background: none; }

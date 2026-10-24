@@ -46,8 +46,8 @@ def ref(x):
 
 B = {
     "passed": ("ok", "✓ passed"), "failed": ("bad", "✕ failed"), "pending": ("warn", "● pending"),
-    "running": ("warn", "⟳ running"), "skipped": ("", "○ skipped"), "merged": ("ok", "merged"),
-    "open": ("", "open"), "closed": ("", "closed"), "queue": ("warn", "in queue"),
+    "running": ("warn", "⟳ running"), "skipped": ("", "○ skipped"), "merged": ("purple", "merged"),
+    "open": ("ok", "open"), "closed": ("", "closed"), "queue": ("blue", "in queue"),
     "protected": ("", "protected"),
 }
 
@@ -73,8 +73,12 @@ def grayb(text):
     return f'<span class="badge">{e(text)}</span>'
 
 
+AV = {"alice": 0, "bob": 1, "carol": 2, "dan": 3}
+
+
 def av(login, sm=True):
-    return f'<span class="avatar{" sm" if sm else ""}" aria-hidden="true">{e(login[0].upper())}</span>'
+    c = AV.get(login.split()[0].lower(), 4)
+    return f'<span class="avatar c{c}{" sm" if sm else ""}" aria-hidden="true">{e(login[0].upper())}</span>'
 
 
 def who(login):

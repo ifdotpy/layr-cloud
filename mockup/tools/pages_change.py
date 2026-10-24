@@ -15,7 +15,7 @@ MERGED = [("Bump tokio to 1.48", "2d9e5c", "bob", "2 hours ago"), ("Add the tabl
 def changes_page():
     items = []
     for st, title, n, v, a, agent, line, att, appr, beh, com, upd, href in CHANGES:
-        mark = '<span class="mark" aria-hidden="true">○</span>' if st == "open" else '<span class="mark warn" aria-hidden="true">●</span>'
+        mark = '<span class="mark open" aria-hidden="true">○</span>' if st == "open" else '<span class="mark" style="color:var(--blue-900)" aria-hidden="true">●</span>'
         author = f"{e(agent)} for {e(a)}" if agent else e(a)
         items.append(f'''<div class="item">{mark}<div class="main"><a class="title" href="{href}">{e(title)}</a>
 <div class="meta"><span class="mono">{n}</span><span>{v}</span>{badge(st)}<span>by {author}</span><span>{sid(line)} → {sid("main")}</span><span>updated {upd}</span></div></div>
@@ -27,7 +27,7 @@ def changes_page():
 {sel(["Author"])}{sel(["Line"])}{sel(["Attestation"])}{sel(["Queue"])}</div>
 <div class="list"><div class="lhd"><b>3 open</b><a class="muted" href="#">41 merged</a><a class="muted" href="#">6 closed</a></div>{"".join(items)}</div>
 <h2 style="margin:32px 0 12px">Recently merged</h2>
-<div class="list">{"".join(f'<div class="item"><span class="mark ok" aria-hidden="true">✓</span><div class="main"><a class="title" href="state.html">{e(t)}</a><div class="meta"><span class="mono">{n}</span>{badge("merged")}<span>by {a}</span><span>{w}</span></div></div></div>' for t, n, a, w in MERGED)}</div>'''
+<div class="list">{"".join(f'<div class="item"><span class="mark" style="color:var(--purple-900)" aria-hidden="true">✓</span><div class="main"><a class="title" href="state.html">{e(t)}</a><div class="meta"><span class="mono">{n}</span>{badge("merged")}<span>by {a}</span><span>{w}</span></div></div></div>' for t, n, a, w in MERGED)}</div>'''
     dlg = dialog("dlg-change", "New change", f'''<p class="muted">Every save on a line already belongs to a change. Pick the line to ask for review and merge.</p>
 {field("Line", sel(["topic-checkout", "feature-coupons", "fix-tax-rounding"], mono=True))}
 {field("Into", sel(["main"], mono=True))}{field("Title", inp("Checkout: support saved cards"))}
