@@ -535,3 +535,6 @@ html:not(.cli) .cmd { display: inline-flex; margin-right: 10px; }
 @media (max-width: 767px) { .bar-row { grid-template-columns: 110px 1fr 90px; } .feed-row { grid-template-columns: 48px 1fr; } .feed-row > :nth-child(3), .feed-row > :nth-child(4) { display: none; } }
 @media (prefers-reduced-motion: reduce) { .pulse .dot { display: none; } .bar-row .bar i, .ring-fg { transition: none; } }
 .bar-row .bar { width: auto; display: block; }
+/* Contrast fixes measured by the web tests (WCAG AA). */
+.badge.ok { color: color-mix(in srgb, var(--green-900) 94%, var(--text)); }
+.stamp { color: var(--blue-900); }
