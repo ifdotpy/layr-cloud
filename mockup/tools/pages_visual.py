@@ -56,6 +56,22 @@ def diff_overlay():
     return f'<svg class="overlay" viewBox="0 0 {W} {H}" width="{W}" height="{H}" aria-hidden="true">{"".join(out)}</svg>'
 
 
+def dom_rows():
+    from pages_code import diff_rows
+    rows = [("h", "", "", "@@ main.checkout @@"),
+            ("", "14", "14", '<section class="items">…</section>'),
+            ("a", "", "15", '<section class="saved-cards" aria-label="Saved cards">'),
+            ("a", "", "16", '  <h2>Saved cards</h2>'),
+            ("a", "", "17", '  <label><input type="radio" name="card" checked> Visa ending 4242</label>'),
+            ("a", "", "18", '  <label><input type="radio" name="card"> Mastercard ending 5100</label>'),
+            ("a", "", "19", '</section>'),
+            ("d", "15", "", '<h2>Card</h2>'),
+            ("a", "", "20", '<h2>Or a new card</h2>'),
+            ("", "16", "21", '<input name="number" placeholder="Card number">'),
+            ("", "17", "22", '<button type="submit">Pay €113.00</button>')]
+    return diff_rows(rows)
+
+
 def visual_card(uid="vd"):
     routes = [("/checkout", "desktop 1280", "3.4 % of pixels", True), ("/checkout", "mobile 390", "5.1 % of pixels", True),
               ("/cart", "desktop 1280", "same", False), ("/", "desktop 1280", "same", False)]
@@ -63,7 +79,7 @@ def visual_card(uid="vd"):
         f'<li><a href="#{uid}" class="mono">{e(r)}</a> <span class="muted small">{e(v)}</span>'
         f'<span class="r">{warnb(c, "●") if ch else okb("same")}</span></li>' for r, v, c, ch in routes)
     base, head = screen(False), screen(True)
-    modes = [("side", "Side by side"), ("swipe", "Swipe"), ("onion", "Onion skin"), ("diff", "Difference")]
+    modes = [("side", "Side by side"), ("swipe", "Swipe"), ("onion", "Onion skin"), ("diff", "Difference"), ("dom", "Structure")]
     tabs = "".join(f'<button type="button" role="tab" aria-selected="{"true" if i == 0 else "false"}" aria-controls="{uid}-{k}">{n}</button>'
                    for i, (k, n) in enumerate(modes))
     panels = f'''
@@ -74,8 +90,10 @@ def visual_card(uid="vd"):
 <div id="{uid}-onion" hidden><div class="vd-stack">{base}<div class="vd-top" data-onion-top style="opacity:.5">{head}</div></div>
 <label class="vd-range">base <input type="range" min="0" max="100" value="50" data-onion> v3</label></div>
 <div id="{uid}-diff" hidden><div class="vd-stack"><div style="opacity:.35">{head}</div><div class="vd-top">{diff_overlay()}</div></div>
-<p class="note">2 changed regions. Unchanged pixels are dimmed.</p></div>'''
-    content = f'''<p><span class="warn">●</span> 2 of 4 screens changed. Rendered by <code>playwright screenshot</code> in the try copy of each exact state.</p>
+<p class="note">2 changed regions. Unchanged pixels are dimmed.</p></div>
+<div id="{uid}-dom" hidden><p style="margin-bottom:8px"><b>1 section added, 2 text changes</b> <span class="muted small">HTML snapshot, normalized</span></p>
+<div class="frame"><table class="diff">{dom_rows()}</table></div></div>'''
+    content = f'''<p><span class="warn">●</span> 2 of 4 screens changed. Each screen is a PNG and an HTML snapshot, made by <code>playwright</code> in the try copy of each exact state.</p>
 <div class="vd" id="{uid}"><aside class="side vd-list"><section><h3>Screens</h3><ul>{rows}</ul></section></aside>
 <div class="vd-main"><div class="row" style="margin-bottom:12px"><b class="mono">/checkout</b><span class="muted small">desktop 1280</span><span class="spacer"></span>
 <div class="dtabs vd-modes" role="tablist">{tabs}</div></div>{panels}</div></div>'''
