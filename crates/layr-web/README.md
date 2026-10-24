@@ -129,3 +129,27 @@ The patch adds only the page field `number`, from signed key-record sequence and
 It does not change the CLI comparison outputs or the store records.
 Copy the resulting `overlays.json` and `projects.json` to the web fixtures.
 The browser displays this Rust number directly.
+
+The native overlay detail oracles come from `tests/make-overlay-details-oracle.sh`.
+Run it in the VM for both the visible golden overlay and the hidden reader fixture.
+Each oracle contains CLI state history and file paths, plus the overlay's signed operation records.
+The test verifies those signatures against the store's trusted machine keys.
+It compares current state, paths, patterns, operation history, and epoch numbers for both overlay kinds.
+
+`TODO(cli-overlay-json)` tracks replacement of the signed database oracle with CLI operation/show JSON when Layr provides it.
+The pinned CLI already supplies state-history JSON and file paths.
+
+Run all native reader checks, including their optional fixtures, with absolute paths:
+
+```sh
+LAYR_WEB_TEST_STORE=/path/golden/store \
+LAYR_WEB_TEST_PERSON=/path/golden/person \
+LAYR_WEB_TEST_FIXTURES=/path/golden/fixtures \
+LAYR_WEB_TEST_INTERDIFF=/path/golden/fixtures/interdiff.json \
+LAYR_WEB_VISIBLE_STORE=/path/golden/store \
+LAYR_WEB_VISIBLE_PAPER=/path/golden/paper \
+LAYR_WEB_VISIBLE_ORACLE=/path/oracles/visible \
+LAYR_WEB_HIDDEN_FIXTURE=/path/hidden-fixture \
+LAYR_WEB_HIDDEN_ORACLE=/path/oracles/hidden \
+cargo test -p layr-web --lib --test hidden-cli-store -- --include-ignored
+```
