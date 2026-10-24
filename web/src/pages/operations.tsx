@@ -35,6 +35,7 @@ import {
   useData,
   when,
 } from "../components/ui";
+import { BisectResults } from "../components/bisect";
 import { BehaviorCards } from "../components/behavior";
 
 export function ChecksPage({
@@ -52,7 +53,7 @@ export function ChecksPage({
     [head, setHead] = useState(""),
     [pair, setPair] = useState<[string, string]>();
   const { data, error } = useData(async () => {
-    const states = await source.log(project.id, project.default_line ?? "main");
+    const [states, machines] = await Promise.all([source.log(project.id, project.default_line ?? "main"), source.machines()]);
     const b = pair?.[0] ?? states.at(-1)?.id ?? "",
       h = pair?.[1] ?? states[0]?.id ?? "";
     let comparison: Behavior | undefined,
@@ -73,7 +74,7 @@ export function ChecksPage({
       } catch (error) {
         screensError = error instanceof Error ? error.message : String(error);
       }
-    return { states, b, h, comparison, comparisonError, screens, screensError };
+    return { states, machines, b, h, comparison, comparisonError, screens, screensError };
   }, [source, project.id, behavior, pair?.join()]);
   if (!data) return <LoadError error={error} />;
   const definitions = Object.entries(project.config ?? {})
@@ -245,12 +246,13 @@ export function ChecksPage({
                 c.duration_ms === undefined
                   ? "Not recorded"
                   : `${c.duration_ms} ms`,
-                <Mono>{short(c.machine)}</Mono>,
+                c.machine ? machineLabel(c.machine, data.machines) : "Not recorded",
                 <Mono>{c.argv.join(" ")}</Mono>,
                 c.reused ? <Badge>reused</Badge> : "",
               ])}
             />
             {!checks.length && <Empty>No check results recorded.</Empty>}
+            <Section title="Bisect results"><BisectResults results={project.bisect_results} project={project.id} /></Section>
             {checks
               .filter((c) => c.log)
               .map((c) => (

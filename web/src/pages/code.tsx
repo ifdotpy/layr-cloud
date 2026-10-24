@@ -32,6 +32,7 @@ import {
   useData,
   when,
 } from "../components/ui";
+import { BisectResults } from "../components/bisect";
 import { DiffBrowser, DiffFiles } from "../components/diff";
 import { plural, shortText } from "../labels";
 
@@ -611,40 +612,7 @@ export function StatesPage({
         open={bisect}
         onClose={() => setBisect(false)}
       >
-        {project.bisect ? (
-          <div class="stack-s">
-            <p>
-              Good <Mono>{short(project.bisect.good)}</Mono> → bad{" "}
-              <Mono>{short(project.bisect.bad)}</Mono>
-            </p>
-            {project.bisect.first_bad && (
-              <div class="callout bad">
-                First bad:{" "}
-                <a
-                  href={projectUrl(
-                    project.id,
-                    "state/" + project.bisect.first_bad,
-                  )}
-                >
-                  {short(project.bisect.first_bad)}
-                </a>
-              </div>
-            )}
-            <Table
-              headers={["State", "Result", "Reused"]}
-              rows={project.bisect.steps.map((s) => [
-                <Mono>{short(s.state)}</Mono>,
-                <Status value={s.result} />,
-                s.reused ? "yes" : "no",
-              ])}
-            />
-            <Cmd text={project.bisect.command.join(" ")} />
-          </div>
-        ) : (
-          <Empty>
-            No bisect results recorded. Use the CLI to search exact states.
-          </Empty>
-        )}
+        <BisectResults results={project.bisect_results} project={project.id} />
         <Cmd text="layr bisect run --auto -- cargo test" />
       </Dialog>
     </>
