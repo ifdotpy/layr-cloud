@@ -11,7 +11,7 @@ rustup target add wasm32-unknown-unknown
 cargo install wasm-pack --version 0.15.0 --locked
 ```
 
-The Rust model and store dependencies use Layr revision `153a239c9963fd1b0aa140cef51d11037a557ab8`.
+The Rust model and store dependencies use Layr revision `b1a23c100aa1e0b941afc424c14eb155295cbf50`.
 
 ```sh
 cd web
@@ -45,18 +45,39 @@ The old passkey code is preserved at `src/data/legacy-passkey.js` as a reference
 
 ## Fixture source
 
-The committed capture comes from layr revision `7b0a165`, generated in the `layr-dev` Linux virtual machine. `tests/t37-model.sh` passes 32 checks. The earlier runs at `3f407a7` and `882f0a2` passed 25 and 26 checks. Each run used a new folder under `/root/work/`.
+The committed capture comes from Layr revision `b1a23c100aa1e0b941afc424c14eb155295cbf50`.
+It was generated as root in the `layr-dev` Linux VM, from a fresh Git archive in `/root/work/web2-b1a23c1`.
+`tests/t37-model.sh` passed 46 checks, including 18 CLI/model comparisons.
 
-The recipe creates a disposable btrfs project with the real CLI. It pushes an encrypted store. `store_golden` verifies that store and exports the page JSON. The test compares 13 CLI outputs with the model outputs.
+The recipe creates a disposable btrfs project with the real CLI and pushes an encrypted store.
+`crates/layr-model/examples/store_golden.rs` verifies the store and exports the page JSON.
+Use `LAYR_MODEL_FIXTURE_OUT` and `LAYR_MODEL_STORE_OUT` to retain the JSON and encrypted store.
+Start the VM run with `setsid nohup bash -c '...' </dev/null >run.log 2>&1 & disown`.
+A plain `nohup` process can stop when the OrbStack session closes.
 
-The 33 JSON files contain two lines, named and automatic states, change versions, exact-state attestations, queue outcomes, numeric probes, ref history, access rules, and one readable overlay with history. The capture contains public test keys and test contents. It contains no recovery words or private keys.
+The 37 JSON files contain two lines, 33 states, 13 changes, attestations, queue outcomes, probes, refs and access rules.
+They include two recorded bisect runs, push and sync transfers, explicit amend/replay/pick provenance, and two readable overlays.
+One overlay is hidden. The parent-only capture contains no hidden overlay name or descriptor.
+The capture contains public test keys and test content. It contains no recovery words or private keys.
 
-The `interdiff*.json` files are native comparison fixtures from the real local version folders. They do not prove that the store has older version trees. The separate availability test checks `trees.json`. All three versions have authenticated trees in this capture. The recipe's only push follows v3 (`t37-model.sh:201`). Push sends every present state (`writer.rs:190`, `db.rs:595`). Amend keeps v1 and v2. No version pins are used.
+The screenshot probe compares five screens with PNG, HTML, XML, JSON and text output.
+The PNG is a 2 × 2 test image. Other screens test structure-only output and unchanged structure.
+`screens.json` adds verified PNG data URLs to the canonical model comparison rows.
+The native real-store test generates it through the same adapter that serves `ModelSource.screens()`.
+The optional epoch `number` field comes from a supplemental Rust page export of the same store.
+It follows signed key-record sequence, independent of clock dates.
+See `crates/layr-web/README.md` for the capture commands.
 
-The recipe has no README, agent sessions, stored bisect result, screenshot probes, image data, live jobs, or disk sharing measurements. Organization and personal gateway facts have no JSON capture. Copy configuration proves an address. It does not prove a completed push or copy completeness.
+The `interdiff*.json` files come from real native version folders.
+The store also contains authenticated trees for all three versions, which the availability test checks separately.
+Amend retains the earlier states. The recipe uses no version pins.
+
+The recipe has no README, agent sessions, image registry data, live jobs or disk sharing measurements.
+Organization and personal gateway facts have no JSON capture.
+Transfer records prove the recorded counts and successful operation. They do not prove current copy completeness.
 
 ## Limits
 
 Unlock verifies all record metadata before the first page. The lines and refs first load for stores above 100,000 records (design section 4) is not built and not benchmarked. The lead accepted this limit for phase 1. A follow-up task will add this load path and a store index.
 
-Passkey tests check the salt and PRF bytes. A live authenticator has not been tested. UI diffs need the screenshot model API, which is not available to `ModelSource` yet.
+Passkey tests check the salt and PRF bytes. A live authenticator has not been tested.

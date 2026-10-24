@@ -2,12 +2,14 @@
 import assert from 'node:assert/strict';
 import { spawn, execFileSync } from 'node:child_process';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { mkdtemp, cp, readFile, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, cp, readFile, writeFile, rm } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+import { views } from './views.ts';
 import { createServer as createVite } from 'vite';
 import { observePersistence, expectNoPersistence } from './storage.ts';
 
@@ -15,6 +17,11 @@ const root = fileURLToPath(new URL('../../', import.meta.url));
 const storeInput = process.env.LAYR_WEB_TEST_STORE;
 const paperInput = process.env.LAYR_WEB_TEST_PAPER;
 const linesInput = process.env.LAYR_WEB_TEST_LINES;
+const goldenInput = process.env.LAYR_WEB_TEST_GOLDEN;
+const hiddenFixture = process.env.LAYR_WEB_TEST_HIDDEN_FIXTURE;
+const readerView = hiddenFixture ? JSON.parse(await readFile(path.join(hiddenFixture, "reader-view.json"), "utf8")) : undefined;
+const personLogin = readerView?.login ?? "owner@example.com";
+const golden = goldenInput ? Object.fromEntries(await Promise.all(['request', 'probe-diff', 'screens', 'copies', 'bisect', 'change'].map(async name => [name, JSON.parse(await readFile(path.join(goldenInput, name + '.json'), 'utf8'))]))) : undefined;
 assert(storeInput && paperInput && linesInput, 'Set LAYR_WEB_TEST_STORE, LAYR_WEB_TEST_PAPER, and LAYR_WEB_TEST_LINES from the real t37 export.');
 const home = await mkdtemp(path.join(tmpdir(), 'layr-web-gateway-'));
 const runId = randomUUID();
@@ -45,7 +52,14 @@ async function waitFor(url, child) {
 try {
   const store = path.join(home, 'store'); const person = path.join(home, 'person');
   await cp(storeInput, store, { recursive: true });
-  execFileSync(path.join(root, 'target/debug/examples/prepare_gateway'), [store, paperInput, person], { stdio: 'pipe' });
+  if (readerView) {
+    const personRoot = path.join(person, 'people', personLogin);
+    await mkdir(path.join(personRoot, 'slots'), {recursive:true});
+    await writeFile(path.join(personRoot, 'person.json'), JSON.stringify({format:1,recipient:readerView.recipient,created:0}));
+    for (const slot of readerView.slots) await writeFile(path.join(personRoot, 'slots', slot.name + '.age'), Buffer.from(slot.data, 'base64'));
+    await writeFile(path.join(personRoot, 'index.age'), Buffer.from(readerView.index, 'base64'));
+    await cp(path.join(hiddenFixture, 'reader-paper'), path.join(person, 'recovery.txt'));
+  } else execFileSync(path.join(root, 'target/debug/examples/prepare_gateway'), [store, paperInput, person], { stdio: 'pipe' });
   await cp(linesInput, path.join(person, 'lines.json'));
   const descriptor = JSON.parse(await readFile(path.join(store, 'store.json'), 'utf8'));
   const words = (await readFile(path.join(person, 'recovery.txt'), 'utf8')).trim();
@@ -69,7 +83,7 @@ try {
       request += bytes;
       if (!request.includes('\r\n\r\n')) return;
       assert(request.startsWith('GET /localapi/v0/whois?addr='));
-      const body = JSON.stringify({ Node: {}, UserProfile: { LoginName: 'owner@example.com' } });
+      const body = JSON.stringify({ Node: {}, UserProfile: { LoginName: personLogin } });
       socket.end(`HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: ${Buffer.byteLength(body)}\r\nConnection: close\r\n\r\n${body}`);
     });
   });
@@ -81,21 +95,116 @@ try {
   const configPath = path.join(home, 'gateway.json'); await writeFile(configPath, JSON.stringify(config), { mode: 0o600 });
   gateway = start(path.join(root, 'target/debug/layr-gateway'), ['serve', '--config', configPath, '--tls', 'none', '--test-static-credentials', '--tailscale-socket', socketPath], { env });
   await waitFor(`http://localhost:${port}/api/person`, gateway);
-  vite = await createVite({ configFile: false, root: path.join(root, 'web'), server: { host: '127.0.0.1', port: 0, proxy: { '/api': { target: `http://localhost:${port}`, changeOrigin: true, headers: { origin: `http://localhost:${port}` } }, '/v1': { target: `http://localhost:${port}`, changeOrigin: true, headers: { origin: `http://localhost:${port}` } } } }, worker: { format: 'es' } });
+  vite = await createVite({ configFile: false, root: path.join(root, 'web'), server: { host: '127.0.0.1', port: 0, watch: null, hmr: false, proxy: { '/api': { target: `http://localhost:${port}`, changeOrigin: true, headers: { origin: `http://localhost:${port}` } }, '/v1': { target: `http://localhost:${port}`, changeOrigin: true, headers: { origin: `http://localhost:${port}` } } } }, worker: { format: 'es' } });
   await vite.listen(); const site = vite.resolvedUrls.local[0];
   browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage(); const errors = []; const writes = []; const dataRequests = [];
+  const context = await browser.newContext();
+  const page = await context.newPage(); const errors = []; const writes = []; const dataRequests = [];
   page.on('pageerror', error => errors.push(error.message));
   page.on('request', request => { if (request.postData()) writes.push(request.postData()); if (request.url().includes('.data.age')) dataRequests.push(request.url()); });
   await observePersistence(page);
   await page.goto(site);
   await page.getByLabel('24 recovery words').fill(words);
   await page.getByRole('button', { name: 'Unlock with recovery words', exact: true }).click();
-  await page.locator('#main-content').getByRole('heading', { name: 'Projects', exact: true }).waitFor({ timeout: 30000 });
+  try { await page.locator('#main-content').getByRole('heading', { name: 'Projects', exact: true }).waitFor({ timeout: 30000 }); } catch { throw new Error('Browser unlock failed: ' + JSON.stringify({alerts:await page.getByRole('alert').allTextContents(), headings:await page.getByRole('heading').allTextContents(), url:page.url()})); }
   await page.goto(`${site}#/project/${descriptor.project}/lines`);
   await page.getByRole('heading', { name: 'Lines', exact: true }).waitFor();
   for (const line of lines) await page.getByRole('link', { name: line.name, exact: true }).first().waitFor();
   assert.equal(dataRequests.length, 0, 'The lines page loads no file data parts.');
+  if (readerView) {
+    const actual = await page.evaluate(async words => {
+      const { ModelSource } = await import('/src/data/model-source.ts');
+      const source = new ModelSource();
+      try {
+        await source.unlockRecovery(words);
+        const [project] = await source.projects();
+        const [main] = await source.lines(project.id);
+        const file = await source.file(project.id, main.head, 'hidden.txt');
+        return {overlays:project.overlays, file};
+      } finally { await source.lock(); }
+    }, words);
+    assert.equal(actual.overlays.length, 1);
+    assert.equal(actual.overlays[0].name, 'hidden-browser-secret');
+    assert.equal(actual.overlays[0].hidden, true);
+    assert.equal(actual.overlays[0].readable, true);
+    assert(actual.overlays[0].paths.includes('hidden.txt'));
+    assert(actual.overlays[0].files.some(file => file.path === 'hidden.txt' && file.size > 0 && file.state));
+    assert(actual.overlays[0].history.some(record => record.op === 'overlay.create'));
+    assert(actual.overlays[0].history.some(record => record.op === 'commit' || record.op === 'save'));
+    assert(actual.overlays[0].epochs.some(epoch => epoch.number === 1 && epoch.time > 0));
+    assert.equal(actual.file.text, 'hidden browser bytes\n');
+    const screenshotRoot = process.env.LAYR_WEB_TEST_SCREENSHOT_DIR ?? path.join(root, 'web/test-results/live-hidden-reader');
+    await mkdir(screenshotRoot, {recursive:true});
+    const screenshots = [];
+    for (const detail of [false, true]) {
+      await page.goto(`${site}#/project/${descriptor.project}/overlays`);
+      const link = page.getByRole('link', {name:'hidden-browser-secret',exact:true});
+      await link.waitFor();
+      assert(!(await page.locator('main').textContent()).includes('=age1'), 'Readers display their login rather than their recipient key');
+      await page.getByLabel('Open changes', {exact:true}).waitFor({state:'detached'});
+      if (detail) {
+        await link.click();
+        await page.getByRole('heading', {name:'hidden-browser-secret',exact:true}).waitFor();
+        assert((await page.getByRole('table', {name:'Overlay files',exact:true}).textContent()).includes('hidden.txt'));
+        const history = await page.getByRole('table', {name:'Signed overlay operations',exact:true}).textContent();
+        assert(history.includes('created overlay') && history.includes('saved'));
+        assert(!history.includes('created project') && !history.includes('added machine'));
+        assert.equal(await page.getByRole('table', {name:'Signed overlay operations',exact:true}).locator('tbody tr').last().getByRole('cell').nth(2).textContent(), 'created overlay');
+        assert((await page.locator('main .tl').textContent()).includes('epoch 1'));
+      }
+      assert((await page.locator('main').textContent()).includes('epoch 1 ·'));
+      assert.equal(await page.locator('main .empty').count(), 0, 'Unavailable overlay facts use muted lines');
+      const badge = page.locator('main .badge').filter({hasText:/^hidden$/});
+      assert.equal(await badge.count(), 1);
+      assert.equal((await badge.getAttribute('class')).trim(), 'badge', 'Hidden is a neutral badge');
+      for (const view of views) {
+        await page.setViewportSize({width:view.width,height:view.height});
+        await page.emulateMedia({colorScheme:view.colorScheme,reducedMotion:'reduce'});
+        await page.mouse.move(0,0);
+        const accessibility = await new AxeBuilder({page}).analyze();
+        assert.deepEqual(accessibility.violations.map(({id,impact})=>({id,impact})), []);
+        const name = `hidden-reader-${detail ? 'overlay' : 'overlays'}-${view.name}.png`;
+        const screenshot = path.join(screenshotRoot, name);
+        await page.screenshot({path:screenshot,fullPage:true,animations:'disabled'});
+        screenshots.push(screenshot);
+      }
+    }
+    await writeFile(path.join(screenshotRoot, 'screenshots.json'), JSON.stringify(screenshots,null,2));
+    await page.goto(`${site}#/project/${descriptor.project}/lines`);
+    await page.getByRole('heading', {name:'Lines',exact:true}).waitFor();
+    console.log('PASS live hidden reader: real CLI person, encrypted manifest, model layers, exact hidden file bytes, list and detail each show one neutral hidden badge, 6 screenshots and 6 axe passes');
+  } else if (golden) {
+    const actual = await page.evaluate(async ({words, request}) => {
+      const { ModelSource } = await import('/src/data/model-source.ts');
+      const source = new ModelSource();
+      try {
+        await source.unlockRecovery(words);
+        const [project] = await source.projects();
+        const screens = await source.screens(project.id, request.probe_base, request.probe_head);
+        const behavior = await source.probeDiff(project.id, request.probe_base, request.probe_head);
+        const copies = await source.copies(project.id);
+        const change = await source.changeShow(project.id, request.change);
+        return {screens, behavior, copies, bisect:project.bisect_results, versions:change.versions, overlays:project.overlays};
+      } finally { await source.lock(); }
+    }, {words, request:golden.request});
+    assert.deepEqual(actual.screens, golden.screens.screens);
+    assert.deepEqual(actual.behavior, golden['probe-diff']);
+    assert.deepEqual(actual.copies, golden.copies);
+    assert.deepEqual(actual.bisect, golden.bisect);
+    assert.deepEqual(actual.versions, golden.change.versions);
+    assert(!actual.overlays.some(overlay => overlay.hidden || overlay.name === 'hidden-golden'), 'A parent-only reader must not discover a hidden overlay');
+    await page.goto(`${site}#/project/${descriptor.project}/checks/behavior`);
+    await page.getByRole('heading', {name:'Behavior',exact:true}).waitFor();
+    await page.getByRole('combobox', {name:'Base',exact:true}).selectOption(golden.request.probe_base);
+    await page.getByRole('combobox', {name:'Head',exact:true}).selectOption(golden.request.probe_head);
+    await page.getByRole('button', {name:'Compare',exact:true}).click();
+    await page.getByRole('img', {name:'Base screen of Home@Phone',exact:true}).waitFor();
+    await page.getByRole('group', {name:'UI diff view'}).getByRole('button', {name:'Structure',exact:true}).click();
+    assert((await page.getByRole('region', {name:'Structure diff of Home@Phone'}).textContent()).includes('+110'));
+    await page.goto(`${site}#/project/${descriptor.project}/lines`);
+    await page.getByRole('heading', {name:'Lines',exact:true}).waitFor();
+    console.log(`PASS wave2 ModelSource: ${actual.screens.length} canonical screens and verified PNGs, structure page, ${actual.copies.length} copy records, ${actual.bisect.length} bisect runs, ${actual.versions.length} versions with provenance, hidden overlay isolation`);
+  } else {
   const content = await page.evaluate(async words => {
     const { ModelSource } = await import('/src/data/model-source.ts');
     const { loadChangeIndex } = await import('/src/data/change-index.ts');
@@ -123,6 +232,7 @@ try {
   assert.equal(content.changes, 3, 'The CLI fixture has three recorded changes.');
   assert.equal(content.open, 1, 'Only the feature change is open; two states are already in main.');
   console.log(`PASS header Changes: ${content.open} open of ${content.changes} recorded changes`);
+  }
   const gap = await page.getByRole('button', {name:'New line',exact:true}).evaluate(button => button.nextElementSibling.getBoundingClientRect().left - button.getBoundingClientRect().right);
   assert.equal(gap, 8, 'The disabled action and CLI chip use the normal 8px gap.');
   if (process.env.LAYR_WEB_TEST_SCREENSHOT) await page.screenshot({path: process.env.LAYR_WEB_TEST_SCREENSHOT, fullPage: true});

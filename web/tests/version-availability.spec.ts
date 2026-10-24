@@ -3,14 +3,12 @@ import { FixtureSource } from '../src/data/fixture-source';
 import type { Change, Project, Tree } from '../src/data/source';
 import { fixture, fixtures } from './fixture-data';
 
-test('the single t37 push after v3 retains every earlier change version tree', async () => {
+test('the t37 store retains every earlier change version tree', async () => {
   const project = fixture<Project[]>('projects')[0];
   const change = fixture<Change>('change');
   const earlier = change.versions.slice(0, -1);
-  // Fixture revision 7b0a165: tests/t37-model.sh:201 pushes once after v3.
-  // Native src/store_remote/writer.rs:190 selects src/db.rs:595 present states without version pins.
-  // The records task must make push send every change version, including its tree and file bytes.
-  test.info().annotations.push({ type: 'provenance', description: 'Native fixture 7b0a165, tests/t37-model.sh:201, src/store_remote/writer.rs:190, src/db.rs:595.' });
+  // The b1a23c1 recipe checks all version trees before and after remote GC.
+  test.info().annotations.push({ type: 'provenance', description: 'Native fixture b1a23c100aa1e0b941afc424c14eb155295cbf50, tests/t37-model.sh, all version trees checked before and after remote GC.' });
   expect(earlier.length).toBeGreaterThan(0);
   const source = new FixtureSource(fixtures);
   for (const version of earlier) {

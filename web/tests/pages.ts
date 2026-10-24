@@ -380,6 +380,8 @@ pages.push(
       await table(page, 'Check results', project.checks?.length ?? checkDefinitions.length + storedChecks.length);
       if (project.checks) for (const check of project.checks) await text(page, check.name);
       else for (const definition of checkDefinitions) await text(page, definition.slice('check.'.length));
+      const bisects = fixture<import('../src/data/source').BisectResult[]>('bisect', []);
+      for (const run of bisects) await text(page, short(run.first_bad ?? run.bad));
     },
   },
   {
@@ -393,8 +395,7 @@ pages.push(
       await main(page).getByRole('button', { name: 'Compare', exact: true }).click();
       const behavior = fixture<{ probes?: { probe: string; status: string }[] }>('probe-diff');
       for (const probe of behavior.probes ?? []) {
-        await text(page, probe.probe);
-        await text(page, probe.status);
+        if (probe.probe !== 'screens') { await text(page, probe.probe); await text(page, probe.status); }
       }
     },
   },
@@ -491,7 +492,7 @@ for (const [name, path, heading, empty] of [
           for (const copy of copies) await text(page, copy.name);
         }
         else await text(page, 'No copies are recorded.');
-        const ids = new Set([...lines.map(line => line.machine), ...copies.flatMap(copy => copy.machines ?? [])]);
+        const ids = new Set([...lines.map(line => line.machine), ...copies.flatMap(copy => copy.machine ? [copy.machine] : copy.machines ?? [])]);
         await table(page, 'Machines with this project', ids.size);
       }
     },
@@ -555,7 +556,36 @@ if (overlay) pages.push({
       }
       await text(page, `${overlay.readers.length} reader${overlay.readers.length === 1 ? '' : 's'}`);
       await text(page, `${overlay.managers.length} key manager${overlay.managers.length === 1 ? '' : 's'}`);
-      if (overlay.history?.length) await table(page, 'Signed overlay operations', overlay.history.length);
+      if (overlay.history?.length) {
+        const history = main(page).getByRole('table', {name:'Signed overlay operations',exact:true});
+        await expect(history).toBeVisible();
+        await expect(history).not.toContainText('created project');
+        await expect(history).not.toContainText('added machine');
+        if (overlay.history.some(record => record.op === 'overlay.create')) await expect(history.locator('tbody tr').last().getByRole('cell').nth(2)).toHaveText('created overlay');
+      }
     } else await text(page, 'Files are hidden. You cannot read this overlay.');
   },
 });
+
+const visualChange = changes.find(change => change.behavior.base === request.probe_base && change.behavior.head === request.probe_head);
+if (!visualChange) throw new Error('The golden recipe must retain a change with the captured screen comparison.');
+for (const structure of [false, true]) {
+  pages.push({
+    name: structure ? 'Change behavior structure' : 'Change behavior screens',
+    path: route(`change/${visualChange.change_id}/behavior`),
+    check: async page => {
+      await text(page, 'UI diffs');
+      await expect(main(page).getByRole('button', {name: 'Home@Phone', exact: true})).toBeVisible();
+      await text(page, '25.0% of pixels');
+      const buttons = main(page).getByRole('group', { name: 'UI diff view' });
+      if (structure) {
+        await buttons.getByRole('button', {name: 'Structure', exact: true}).click();
+        await text(page, '1 text change');
+        await expect(main(page).getByRole('region', {name: 'Structure diff of Home@Phone'})).toContainText('+110');
+      } else {
+        await expect(main(page).getByRole('img', {name: 'Base screen of Home@Phone', exact: true})).toBeVisible();
+        await expect(main(page).getByRole('img', {name: 'Head screen of Home@Phone', exact: true})).toBeVisible();
+      }
+    },
+  });
+}

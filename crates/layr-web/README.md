@@ -15,7 +15,7 @@ wasm-pack build crates/layr-web --target web --out-dir ../../web/wasm --release 
 
 The web build can run the same command through `node scripts/build-model-wasm.mjs`.
 Do not commit the generated `web/wasm` package.
-`Cargo.toml` pins the model and store to Layr revision `153a239c9963fd1b0aa140cef51d11037a557ab8`.
+`Cargo.toml` pins the model and store to Layr revision `b1a23c100aa1e0b941afc424c14eb155295cbf50`.
 
 Run the native checks:
 
@@ -69,6 +69,63 @@ The test requires the MinIO binary at `/root/work/remote-store-tools/minio` in `
 All test keys are disposable.
 The test stops only its own processes and deletes only its own folders.
 
-Screenshot probe comparison remains unavailable until `layr-model` supplies the shared implementation.
-`ModelSource.screens()` returns an error with that reason.
-Other probe kinds remain available.
+Screenshot comparisons use `layr_model::probes::diff` and its shared screenshot implementation.
+The adapter adds PNG data URLs from verified output bytes and retains the canonical structure diff and node regions.
+The worker loads outputs through the same authenticated tree and part path as other probes.
+
+To capture `screens.json`, use the t37 store and its `store_golden` JSON directory.
+Prepare the disposable person, then run from the repository root with absolute paths:
+
+```sh
+cargo run -p layr-web --example prepare_gateway -- /path/store /path/paper /path/person
+cp /path/fixtures/lines.json /path/person/lines.json
+LAYR_WEB_TEST_STORE=/path/store \
+LAYR_WEB_TEST_PERSON=/path/person \
+LAYR_WEB_TEST_FIXTURES=/path/fixtures \
+LAYR_WEB_TEST_INTERDIFF=/path/fixtures/interdiff.json \
+LAYR_WEB_TEST_SCREENS_OUT=/path/fixtures/screens.json \
+cargo test -p layr-web cli_store_unlocks -- --ignored
+```
+
+The test compares probe JSON, copy records and file comparisons with the golden capture.
+It also checks five screen rows, verified PNGs, structure changes and stored bisect runs.
+
+To run the new model paths through MinIO, use the t37 store and add `LAYR_WEB_TEST_GOLDEN`:
+
+```sh
+cd web
+LAYR_WEB_TEST_STORE=/path/store \
+LAYR_WEB_TEST_PAPER=/path/paper \
+LAYR_WEB_TEST_LINES=/path/fixtures/lines.json \
+LAYR_WEB_TEST_GOLDEN=/path/fixtures \
+node --experimental-strip-types tests/model-gateway.e2e.mjs
+```
+
+This run compares screenshots, probes, transfers, bisects and version provenance through the real worker.
+It also opens the structure diff page and checks that a parent-only reader cannot discover a hidden overlay.
+
+The hidden reader browser case uses two people created by the real CLI.
+Run `tests/make-hidden-cli-fixture.sh` as root in `layr-dev`, with `LAYR_BIN` set to the pinned CLI binary.
+Copy its `archive`, `reader-view.json`, `reader-paper`, and `lines.json` into a private local test folder.
+Then run:
+
+```sh
+cd web
+LAYR_WEB_TEST_HIDDEN_FIXTURE=/path/hidden-fixture \
+LAYR_WEB_TEST_STORE=/path/hidden-fixture/archive \
+LAYR_WEB_TEST_PAPER=/path/hidden-fixture/reader-paper \
+LAYR_WEB_TEST_LINES=/path/hidden-fixture/lines.json \
+node --experimental-strip-types tests/model-gateway.e2e.mjs
+```
+
+The reader opens the real encrypted hidden manifest through its person slot.
+The test reads the hidden file and checks its metadata, signed create/save history, and first key epoch.
+It opens the list and detail pages and checks one neutral hidden badge on each.
+It writes six screenshots and runs axe for all three display modes.
+`LAYR_WEB_TEST_SCREENSHOT_DIR` selects the screenshot folder.
+
+For fixture epoch ordinals, apply `tests/golden-epoch-numbers.patch` in the disposable Layr archive before the Rust export.
+The patch adds only the page field `number`, from signed key-record sequence and distinct epoch IDs.
+It does not change the CLI comparison outputs or the store records.
+Copy the resulting `overlays.json` and `projects.json` to the web fixtures.
+The browser displays this Rust number directly.

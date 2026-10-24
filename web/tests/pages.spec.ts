@@ -198,9 +198,35 @@ test('account, clone and state dialogs support their controls and Escape', async
   await page.getByRole('button', { name: 'Find the state that broke it', exact: true }).click();
   const bisect = page.getByRole('dialog', { name: 'Find the state that broke it', exact: true });
   await expect(bisect).toBeVisible();
-  if (project.bisect) {
-    await expect(bisect.locator('tbody tr')).toHaveCount(project.bisect.steps.length);
+  const runs = fixture<import("../src/data/source").BisectResult[]>("bisect", []);
+  if (runs.length) {
+    await expect(bisect.locator('tbody tr')).toHaveCount(runs.reduce((n, run) => n + run.steps.length, 0));
   } else await expect(bisect).toContainText('No bisect results recorded. Use the CLI to search exact states.');
   await page.keyboard.press('Escape');
   await expect(bisect).not.toBeVisible();
+});
+
+test('stored screen controls preserve pixels, regions and escaped structure', async ({ page }) => {
+  const route = pages.find(route => route.name === 'Change behavior screens')!;
+  await page.goto(`/?source=fixture#${route.path}`);
+  await route.check(page);
+  const modes = page.getByRole('group', {name:'UI diff view'});
+  await modes.getByRole('button', {name:'Swipe',exact:true}).click();
+  const swipe = page.getByRole('slider', {name:'Swipe position'});
+  await swipe.fill('25');
+  await expect(page.locator('.vd-stack img.vd-top')).toHaveAttribute('style', /25%/);
+  await modes.getByRole('button', {name:'Onion skin',exact:true}).click();
+  await page.getByRole('slider', {name:'Head opacity'}).fill('75');
+  await expect(page.locator('.vd-stack img.vd-top')).toHaveAttribute('style', /0.75/);
+  await modes.getByRole('button', {name:'Difference',exact:true}).click();
+  await expect(page.getByRole('img', {name:'1 changed pixel region, 0 changed nodes',exact:true})).toBeVisible();
+  await expect(page.locator('.diff-regions rect')).toHaveCount(1);
+  await page.getByRole('button', {name:'Native@Phone',exact:true}).click();
+  await expect(page.locator('main')).toContainText('No PNG captured. Open Structure to review this screen.');
+  await modes.getByRole('button', {name:'Structure',exact:true}).click();
+  await expect(page.getByRole('region', {name:'Structure diff of Native@Phone',exact:true})).toContainText('+<node text="110">');
+  await expect(page.locator('main iframe, main .structure-diff node')).toHaveCount(0);
+  await page.getByRole('button', {name:'Stable@Phone',exact:true}).click();
+  await expect(page.locator('main')).toContainText('No structure changes.');
+  await expect(page.locator('main .structure-diff')).toHaveCount(0);
 });
