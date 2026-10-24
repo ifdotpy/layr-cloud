@@ -83,6 +83,12 @@ A store with more than 100 000 records shows lines and refs first and loads hist
   screen: changed pixel share, and changed regions as boxes. A probe may set `fail_over` on the
   changed share, like other probes.
 - The UI shows Side by side, Swipe, Onion skin and Difference from the stored PNGs and boxes.
+- Structure too: next to each PNG the probe may write `<route>@<width>.html`, a DOM snapshot with
+  inlined CSS. Layr compares it as text after normalization (pretty-print, sorted attributes,
+  generated ids and nonces removed) and reports text changes and added or removed elements.
+  Pixels show what a person sees; structure explains why it changed and is exact. The UI shows
+  both per screen: Visual (the four views) and Structure (an HTML diff with a one-line summary).
+  A DOM snapshot can be rendered again later at another width without running the probe again.
 
 ## 8. Order of work
 
