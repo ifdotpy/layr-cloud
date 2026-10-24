@@ -132,6 +132,16 @@ fn overlay_key(name: &str) -> bool {
         && parts[3].ends_with(".json")
 }
 
+fn hidden_overlay_key(name: &str) -> bool {
+    // layr b1a23c1: store_remote::overlays::Published::object. All three IDs
+    // are opaque UUIDs; the encrypted manifest never puts an overlay name here.
+    static PATTERN: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        let id = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+        regex::Regex::new(&format!(r"\Aoverlays/{id}/keys/{id}-{id}\.age\z")).unwrap()
+    });
+    PATTERN.is_match(name)
+}
+
 fn overlay_keys_prefix(prefix: &str) -> bool {
     let parts: Vec<_> = prefix.split('/').collect();
     parts.len() == 4
@@ -157,6 +167,7 @@ pub fn object_name(name: &str) -> bool {
     name.len() <= 1024
         && (store_object(name)
             || overlay_key(name)
+            || hidden_overlay_key(name)
             || overlay_epoch(name).is_some_and(store_object))
 }
 
@@ -881,6 +892,56 @@ mod tests {
 
     const OVERLAY: &str = "01a12290-0000-7000-8000-000000000001";
     const EPOCH: &str = "01a12290-0000-7000-8000-000000000002";
+
+    #[test]
+    fn hidden_manifest_requires_exact_opaque_path_and_bound_read_proof() {
+        let mut f = Fixture::new();
+        let write = f.token(false);
+        let read = f.read_token();
+        let gc = f.token(true);
+        let key = format!("overlays/{OVERLAY}/keys/{EPOCH}-{OVERLAY}.age");
+        let path = format!("/v1/p/example/objects/{key}");
+        assert!(object_name(&key));
+        assert!(
+            !overlay_key(&key),
+            "a hidden manifest is not a public key record"
+        );
+        assert_eq!(
+            f.request("PUT", &path, &write, b"encrypted manifest", None)
+                .status,
+            201
+        );
+        for token in ["", &write, &gc] {
+            assert_eq!(f.request("GET", &path, token, b"", None).status, 401);
+        }
+        let response = f.request("GET", &path, &read, b"", None);
+        assert_eq!(response.status, 200);
+        assert_eq!(response.body, b"encrypted manifest");
+        let foreign = Fixture::new().read_token();
+        assert_eq!(f.request("GET", &path, &foreign, b"", None).status, 401);
+        assert_eq!(f.request("DELETE", &path, &gc, b"", None).status, 403);
+        for invalid in [
+            key.replace("/keys/", "/../keys/"),
+            key.replace("/keys/", "/keyx/"),
+            key.replace(".age", ".agx"),
+            key.replace(".age", ".age/"),
+            key.replace(".age", ".age\n"),
+            key.replacen("01a12290", "g1a12290", 1),
+        ] {
+            assert!(!object_name(&invalid), "{invalid:?}");
+            assert_eq!(
+                f.request(
+                    "GET",
+                    &format!("/v1/p/example/objects/{invalid}"),
+                    &read,
+                    b"",
+                    None
+                )
+                .status,
+                400
+            );
+        }
+    }
 
     #[test]
     fn overlay_write_grant_reads_only_public_keys_and_creates_immutable_objects() {
