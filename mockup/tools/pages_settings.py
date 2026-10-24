@@ -40,9 +40,9 @@ def access_page():
 
 
 def protection_page():
-    H = [("Line or ref", ""), ("Required checks", ""), ("Approvals", ""), ("Paths", ""), ("Queue", ""), ("Who may move", ""), ("", "")]
+    H = [("Line or ref", ""), ("Required checks", ""), ("Approvals", ""), ("Path requirements", ""), ("Direct saves", ""), ("Who may move", ""), ("", "")]
     rows = [
-        [sid("main"), "unit, lint, e2e", "2 from maintainers", sid("migrations/") + " needs maintainer<br>" + sid(".layr/") + " needs admin", "required", "maintainers, through the queue", '<button class="btn sm" type="button">Edit</button>'],
+        [sid("main"), "unit, lint, e2e", "2 from maintainers", sid("migrations/") + " → maintainer<br>" + sid(".layr/") + " → admin", "not allowed", "maintainers", '<button class="btn sm" type="button">Edit</button>'],
         [sid("env/prod"), "unit, e2e", "1 from alice, bob", '<span class="muted">·</span>', "·", "maintainers", '<button class="btn sm" type="button">Edit</button>'],
         [sid("env/staging"), "unit", "0", '<span class="muted">·</span>', "·", "writers", '<button class="btn sm" type="button">Edit</button>'],
         [sid("release/*"), "build-image", "1 from alice", '<span class="muted">·</span>', "·", "maintainers", '<button class="btn sm" type="button">Edit</button>'],
