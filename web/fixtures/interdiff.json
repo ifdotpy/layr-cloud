@@ -1,0 +1,15 @@
+{
+  "change_id": "01a16dd3-2d9d-7657-9e00-698aa2c4ff23",
+  "from": "v1",
+  "to": "v2",
+  "diff": "--- v1\n+++ v2\n@@ -1,7 +1,8 @@\n diff --git a/feature.txt b/feature.txt\n new file mode 100644\n-index 0000000..9bc69cf\n+index 0000000..a0f5bad\n --- /dev/null\n +++ b/feature.txt\n-@@ -0,0 +1 @@\n+@@ -0,0 +1,2 @@\n +version one\n++version two\n",
+  "files": [
+    {
+      "path": "feature.txt",
+      "status": "modified",
+      "added": 3,
+      "removed": 2,
+      "interdiff": "--- v1\n+++ v2\n@@ -1,7 +1,8 @@\n diff --git a/feature.txt b/feature.txt\n new file mode 100644\n-index 0000000..9bc69cf\n+index 0000000..a0f5bad\n --- /dev/null\n +++ b/feature.txt\n-@@ -0,0 +1 @@\n+@@ -0,0 +1,2 @@\n +version one\n++version two\n"
+    }
+  ]
+}

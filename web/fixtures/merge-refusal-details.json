@@ -1,0 +1,63 @@
+{
+  "merge": {
+    "allowed": false,
+    "already_in_target": false,
+    "approvals": [],
+    "approvals_needed": 0,
+    "approvers": [],
+    "checks": [
+      {
+        "argv": [
+          "sh",
+          "-c",
+          "\"false\""
+        ],
+        "exit": 1,
+        "name": "denymerge",
+        "result": "failed"
+      }
+    ],
+    "path_requirements": [
+      {
+        "met": true,
+        "path": "metric.txt",
+        "role": "maintainer"
+      }
+    ],
+    "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+    "status": "decided",
+    "target": "main",
+    "target_machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "undecided_reasons": []
+  },
+  "ref": {
+    "allowed": false,
+    "already_in_target": false,
+    "approvals": [],
+    "approvals_needed": 0,
+    "approvers": [],
+    "checks": [
+      {
+        "argv": [
+          "sh",
+          "-c",
+          "\"false\""
+        ],
+        "name": "smoke",
+        "result": "missing"
+      }
+    ],
+    "path_requirements": [
+      {
+        "met": true,
+        "path": "metric.txt",
+        "role": "maintainer"
+      }
+    ],
+    "state": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+    "status": "decided",
+    "target": "env/prod",
+    "target_machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "undecided_reasons": []
+  }
+}

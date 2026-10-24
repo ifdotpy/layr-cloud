@@ -1,11 +1,6 @@
-import { defineConfig } from "vite";
-
+import { defineConfig } from 'vite';
 export default defineConfig({
-  base: "/",
-  build: {
-    target: "es2022",
-    outDir: "dist",
-    emptyOutDir: true,
-    assetsInlineLimit: 0,
-  },
+  server: { host: '127.0.0.1', fs: { strict: true } },
+  build: { target: 'es2022' },
+  worker: { format: 'es' },
 });

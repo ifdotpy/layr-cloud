@@ -1,0 +1,26 @@
+[
+  {
+    "name": "derived/probe-v1/metric/01a16dd3-316b-75b9-ab00-c6435657f6fc",
+    "target": "01a16dd3-332d-713e-9cbf-8103c3cd6af6"
+  },
+  {
+    "name": "derived/probe-v1/metric/01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+    "target": "01a16dd3-339c-72fa-a25a-35de7a1483fd"
+  },
+  {
+    "name": "derived/probe-v1/metric/01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+    "target": "01a16dd3-34f7-74cf-b03d-87c016cac88f"
+  },
+  {
+    "name": "env/prod",
+    "target": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20"
+  },
+  {
+    "name": "holds/queue/01a16dd3-345f-77e4-aa27-85e07682ba4a",
+    "target": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff"
+  },
+  {
+    "name": "pins/auto",
+    "target": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a"
+  }
+]

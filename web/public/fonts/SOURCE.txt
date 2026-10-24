@@ -1,0 +1,4 @@
+Geist and Geist Mono
+https://github.com/vercel/geist-font
+Revision: 75d647056bcbd9eaba3a14b1b58290d0692685d6
+License: SIL Open Font License 1.1 (OFL.txt)

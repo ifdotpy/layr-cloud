@@ -1,0 +1,24 @@
+{
+  "access": {
+    "user:0": "admin",
+    "user:65534": "reader"
+  },
+  "grants": {},
+  "deny": {},
+  "protect": {
+    "env/prod": {
+      "update": "maintainer",
+      "check": [
+        "smoke"
+      ]
+    },
+    "main": {
+      "check": [
+        "denymerge"
+      ],
+      "paths": {
+        "feature.txt": "maintainer"
+      }
+    }
+  }
+}

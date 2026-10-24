@@ -1,0 +1,31 @@
+{
+  "state": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+  "target": "main",
+  "approvals": [
+    {
+      "approver": 0,
+      "state": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+      "time": 1792843919973,
+      "met": true
+    }
+  ],
+  "approvals_needed": 0,
+  "approvers": [],
+  "checks": [
+    {
+      "name": "denymerge",
+      "argv": [
+        "sh",
+        "-c",
+        "\"false\""
+      ],
+      "result": "missing"
+    }
+  ],
+  "path_requirements": [],
+  "allowed": true,
+  "already_in_target": true,
+  "target_machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+  "status": "decided",
+  "undecided_reasons": []
+}

@@ -1,0 +1,55 @@
+{
+  "base": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+  "head": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+  "base_source": "available",
+  "head_source": "available",
+  "probes": [
+    {
+      "base": {
+        "argv": [
+          "python3",
+          "probe.py"
+        ],
+        "exit": 0,
+        "output_state": "01a16dd3-332d-713e-9cbf-8103c3cd6af6",
+        "probe": "metric",
+        "reused": true,
+        "subject": {
+          "id": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+          "kind": "state"
+        }
+      },
+      "changes": [
+        {
+          "changes": [
+            {
+              "after": 110.0,
+              "before": 100.0,
+              "metric": "value",
+              "noise": 0.01,
+              "relative_change": 0.1
+            }
+          ],
+          "path": "out/metric.json"
+        }
+      ],
+      "exit_changed": false,
+      "head": {
+        "argv": [
+          "python3",
+          "probe.py"
+        ],
+        "exit": 0,
+        "output_state": "01a16dd3-339c-72fa-a25a-35de7a1483fd",
+        "probe": "metric",
+        "reused": true,
+        "subject": {
+          "id": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+          "kind": "state"
+        }
+      },
+      "probe": "metric",
+      "status": "changed"
+    }
+  ]
+}

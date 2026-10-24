@@ -62,6 +62,7 @@ A store with more than 100 000 records shows lines and refs first and loads hist
 - Nothing secret goes to `localStorage`, `IndexedDB` or cookies. Cached ciphertext may go to the
   browser cache (it is ciphertext).
 - Content Security Policy: no inline scripts, no remote code, `connect-src` only the gateway.
+- Self-host Geist and Geist Mono with their OFL license. No third-party requests reveal who opens the site. Use `font-src` and `style-src` only from the site.
 
 ## 6. Phase 2: actions
 

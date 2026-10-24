@@ -1,0 +1,2306 @@
+[
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": ".gitignore",
+        "path": ".gitignore",
+        "size": 5,
+        "state": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5",
+        "text": "out/\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "data.bin",
+        "path": "data.bin",
+        "size": 8,
+        "state": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5"
+      },
+      {
+        "kind": "directory",
+        "name": "docs",
+        "path": "docs",
+        "state": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "large.txt",
+        "path": "large.txt",
+        "size": 65537,
+        "state": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "layr.toml",
+        "path": "layr.toml",
+        "size": 120,
+        "state": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5",
+        "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+      },
+      {
+        "kind": "symlink",
+        "mode": "120000",
+        "name": "metric-link",
+        "path": "metric-link",
+        "size": 10,
+        "state": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5",
+        "text": "metric.txt"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "metric.txt",
+        "path": "metric.txt",
+        "size": 4,
+        "state": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5",
+        "text": "100\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "probe.py",
+        "path": "probe.py",
+        "size": 165,
+        "state": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5",
+        "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100755",
+        "name": "tool.sh",
+        "path": "tool.sh",
+        "size": 17,
+        "state": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5",
+        "text": "#!/bin/sh\nexit 0\n"
+      }
+    ],
+    "path": "",
+    "state": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "guide.txt",
+        "path": "docs/guide.txt",
+        "size": 32,
+        "state": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5",
+        "text": "Guide from the encrypted store.\n"
+      }
+    ],
+    "path": "docs",
+    "state": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": ".gitignore",
+        "path": ".gitignore",
+        "size": 5,
+        "state": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35",
+        "text": "out/\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "data.bin",
+        "path": "data.bin",
+        "size": 8,
+        "state": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35"
+      },
+      {
+        "kind": "directory",
+        "name": "docs",
+        "path": "docs",
+        "state": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "feature.txt",
+        "path": "feature.txt",
+        "size": 12,
+        "state": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35",
+        "text": "version one\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "large.txt",
+        "path": "large.txt",
+        "size": 65537,
+        "state": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "layr.toml",
+        "path": "layr.toml",
+        "size": 120,
+        "state": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35",
+        "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+      },
+      {
+        "kind": "symlink",
+        "mode": "120000",
+        "name": "metric-link",
+        "path": "metric-link",
+        "size": 10,
+        "state": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35",
+        "text": "metric.txt"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "metric.txt",
+        "path": "metric.txt",
+        "size": 4,
+        "state": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35",
+        "text": "100\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "probe.py",
+        "path": "probe.py",
+        "size": 165,
+        "state": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35",
+        "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100755",
+        "name": "tool.sh",
+        "path": "tool.sh",
+        "size": 17,
+        "state": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35",
+        "text": "#!/bin/sh\nexit 0\n"
+      }
+    ],
+    "path": "",
+    "state": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "guide.txt",
+        "path": "docs/guide.txt",
+        "size": 32,
+        "state": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35",
+        "text": "Guide from the encrypted store.\n"
+      }
+    ],
+    "path": "docs",
+    "state": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": ".gitignore",
+        "path": ".gitignore",
+        "size": 5,
+        "state": "01a16dd3-2e24-7234-8b50-f996f5c822a0",
+        "text": "out/\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "data.bin",
+        "path": "data.bin",
+        "size": 8,
+        "state": "01a16dd3-2e24-7234-8b50-f996f5c822a0"
+      },
+      {
+        "kind": "directory",
+        "name": "docs",
+        "path": "docs",
+        "state": "01a16dd3-2e24-7234-8b50-f996f5c822a0"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "feature.txt",
+        "path": "feature.txt",
+        "size": 24,
+        "state": "01a16dd3-2e24-7234-8b50-f996f5c822a0",
+        "text": "version one\nversion two\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "large.txt",
+        "path": "large.txt",
+        "size": 65537,
+        "state": "01a16dd3-2e24-7234-8b50-f996f5c822a0"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "layr.toml",
+        "path": "layr.toml",
+        "size": 120,
+        "state": "01a16dd3-2e24-7234-8b50-f996f5c822a0",
+        "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+      },
+      {
+        "kind": "symlink",
+        "mode": "120000",
+        "name": "metric-link",
+        "path": "metric-link",
+        "size": 10,
+        "state": "01a16dd3-2e24-7234-8b50-f996f5c822a0",
+        "text": "metric.txt"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "metric.txt",
+        "path": "metric.txt",
+        "size": 4,
+        "state": "01a16dd3-2e24-7234-8b50-f996f5c822a0",
+        "text": "100\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "probe.py",
+        "path": "probe.py",
+        "size": 165,
+        "state": "01a16dd3-2e24-7234-8b50-f996f5c822a0",
+        "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100755",
+        "name": "tool.sh",
+        "path": "tool.sh",
+        "size": 17,
+        "state": "01a16dd3-2e24-7234-8b50-f996f5c822a0",
+        "text": "#!/bin/sh\nexit 0\n"
+      }
+    ],
+    "path": "",
+    "state": "01a16dd3-2e24-7234-8b50-f996f5c822a0"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "guide.txt",
+        "path": "docs/guide.txt",
+        "size": 32,
+        "state": "01a16dd3-2e24-7234-8b50-f996f5c822a0",
+        "text": "Guide from the encrypted store.\n"
+      }
+    ],
+    "path": "docs",
+    "state": "01a16dd3-2e24-7234-8b50-f996f5c822a0"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": ".gitignore",
+        "path": ".gitignore",
+        "size": 5,
+        "state": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3",
+        "text": "out/\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "data.bin",
+        "path": "data.bin",
+        "size": 8,
+        "state": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3"
+      },
+      {
+        "kind": "directory",
+        "name": "docs",
+        "path": "docs",
+        "state": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "large.txt",
+        "path": "large.txt",
+        "size": 65537,
+        "state": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "layr.toml",
+        "path": "layr.toml",
+        "size": 120,
+        "state": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3",
+        "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "main.txt",
+        "path": "main.txt",
+        "size": 10,
+        "state": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3",
+        "text": "main only\n"
+      },
+      {
+        "kind": "symlink",
+        "mode": "120000",
+        "name": "metric-link",
+        "path": "metric-link",
+        "size": 10,
+        "state": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3",
+        "text": "metric.txt"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "metric.txt",
+        "path": "metric.txt",
+        "size": 4,
+        "state": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3",
+        "text": "100\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "probe.py",
+        "path": "probe.py",
+        "size": 165,
+        "state": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3",
+        "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100755",
+        "name": "tool.sh",
+        "path": "tool.sh",
+        "size": 17,
+        "state": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3",
+        "text": "#!/bin/sh\nexit 0\n"
+      }
+    ],
+    "path": "",
+    "state": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "guide.txt",
+        "path": "docs/guide.txt",
+        "size": 32,
+        "state": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3",
+        "text": "Guide from the encrypted store.\n"
+      }
+    ],
+    "path": "docs",
+    "state": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": ".gitignore",
+        "path": ".gitignore",
+        "size": 5,
+        "state": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+        "text": "out/\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "data.bin",
+        "path": "data.bin",
+        "size": 8,
+        "state": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20"
+      },
+      {
+        "kind": "directory",
+        "name": "docs",
+        "path": "docs",
+        "state": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "feature.txt",
+        "path": "feature.txt",
+        "size": 24,
+        "state": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+        "text": "version one\nversion two\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "large.txt",
+        "path": "large.txt",
+        "size": 65537,
+        "state": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "layr.toml",
+        "path": "layr.toml",
+        "size": 120,
+        "state": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+        "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "main.txt",
+        "path": "main.txt",
+        "size": 10,
+        "state": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+        "text": "main only\n"
+      },
+      {
+        "kind": "symlink",
+        "mode": "120000",
+        "name": "metric-link",
+        "path": "metric-link",
+        "size": 10,
+        "state": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+        "text": "metric.txt"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "metric.txt",
+        "path": "metric.txt",
+        "size": 4,
+        "state": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+        "text": "100\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "probe.py",
+        "path": "probe.py",
+        "size": 165,
+        "state": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+        "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100755",
+        "name": "tool.sh",
+        "path": "tool.sh",
+        "size": 17,
+        "state": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+        "text": "#!/bin/sh\nexit 0\n"
+      }
+    ],
+    "path": "",
+    "state": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "guide.txt",
+        "path": "docs/guide.txt",
+        "size": 32,
+        "state": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+        "text": "Guide from the encrypted store.\n"
+      }
+    ],
+    "path": "docs",
+    "state": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": ".gitignore",
+        "path": ".gitignore",
+        "size": 5,
+        "state": "01a16dd3-2f48-712e-8922-17abb3617a6f",
+        "text": "out/\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "data.bin",
+        "path": "data.bin",
+        "size": 8,
+        "state": "01a16dd3-2f48-712e-8922-17abb3617a6f"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "divergence.txt",
+        "path": "divergence.txt",
+        "size": 18,
+        "state": "01a16dd3-2f48-712e-8922-17abb3617a6f",
+        "text": "main after replay\n"
+      },
+      {
+        "kind": "directory",
+        "name": "docs",
+        "path": "docs",
+        "state": "01a16dd3-2f48-712e-8922-17abb3617a6f"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "large.txt",
+        "path": "large.txt",
+        "size": 65537,
+        "state": "01a16dd3-2f48-712e-8922-17abb3617a6f"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "layr.toml",
+        "path": "layr.toml",
+        "size": 120,
+        "state": "01a16dd3-2f48-712e-8922-17abb3617a6f",
+        "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "main.txt",
+        "path": "main.txt",
+        "size": 10,
+        "state": "01a16dd3-2f48-712e-8922-17abb3617a6f",
+        "text": "main only\n"
+      },
+      {
+        "kind": "symlink",
+        "mode": "120000",
+        "name": "metric-link",
+        "path": "metric-link",
+        "size": 10,
+        "state": "01a16dd3-2f48-712e-8922-17abb3617a6f",
+        "text": "metric.txt"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "metric.txt",
+        "path": "metric.txt",
+        "size": 4,
+        "state": "01a16dd3-2f48-712e-8922-17abb3617a6f",
+        "text": "100\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "probe.py",
+        "path": "probe.py",
+        "size": 165,
+        "state": "01a16dd3-2f48-712e-8922-17abb3617a6f",
+        "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100755",
+        "name": "tool.sh",
+        "path": "tool.sh",
+        "size": 17,
+        "state": "01a16dd3-2f48-712e-8922-17abb3617a6f",
+        "text": "#!/bin/sh\nexit 0\n"
+      }
+    ],
+    "path": "",
+    "state": "01a16dd3-2f48-712e-8922-17abb3617a6f"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "guide.txt",
+        "path": "docs/guide.txt",
+        "size": 32,
+        "state": "01a16dd3-2f48-712e-8922-17abb3617a6f",
+        "text": "Guide from the encrypted store.\n"
+      }
+    ],
+    "path": "docs",
+    "state": "01a16dd3-2f48-712e-8922-17abb3617a6f"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": ".gitignore",
+        "path": ".gitignore",
+        "size": 5,
+        "state": "01a16dd3-2f85-7359-bf6c-0777a1f57144",
+        "text": "out/\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "data.bin",
+        "path": "data.bin",
+        "size": 8,
+        "state": "01a16dd3-2f85-7359-bf6c-0777a1f57144"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "divergence.txt",
+        "path": "divergence.txt",
+        "size": 18,
+        "state": "01a16dd3-2f85-7359-bf6c-0777a1f57144",
+        "text": "main after replay\n"
+      },
+      {
+        "kind": "directory",
+        "name": "docs",
+        "path": "docs",
+        "state": "01a16dd3-2f85-7359-bf6c-0777a1f57144"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "feature.txt",
+        "path": "feature.txt",
+        "size": 24,
+        "state": "01a16dd3-2f85-7359-bf6c-0777a1f57144",
+        "text": "version one\nversion two\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "large.txt",
+        "path": "large.txt",
+        "size": 65537,
+        "state": "01a16dd3-2f85-7359-bf6c-0777a1f57144"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "layr.toml",
+        "path": "layr.toml",
+        "size": 120,
+        "state": "01a16dd3-2f85-7359-bf6c-0777a1f57144",
+        "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "main.txt",
+        "path": "main.txt",
+        "size": 10,
+        "state": "01a16dd3-2f85-7359-bf6c-0777a1f57144",
+        "text": "main only\n"
+      },
+      {
+        "kind": "symlink",
+        "mode": "120000",
+        "name": "metric-link",
+        "path": "metric-link",
+        "size": 10,
+        "state": "01a16dd3-2f85-7359-bf6c-0777a1f57144",
+        "text": "metric.txt"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "metric.txt",
+        "path": "metric.txt",
+        "size": 4,
+        "state": "01a16dd3-2f85-7359-bf6c-0777a1f57144",
+        "text": "100\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "probe.py",
+        "path": "probe.py",
+        "size": 165,
+        "state": "01a16dd3-2f85-7359-bf6c-0777a1f57144",
+        "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100755",
+        "name": "tool.sh",
+        "path": "tool.sh",
+        "size": 17,
+        "state": "01a16dd3-2f85-7359-bf6c-0777a1f57144",
+        "text": "#!/bin/sh\nexit 0\n"
+      }
+    ],
+    "path": "",
+    "state": "01a16dd3-2f85-7359-bf6c-0777a1f57144"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "guide.txt",
+        "path": "docs/guide.txt",
+        "size": 32,
+        "state": "01a16dd3-2f85-7359-bf6c-0777a1f57144",
+        "text": "Guide from the encrypted store.\n"
+      }
+    ],
+    "path": "docs",
+    "state": "01a16dd3-2f85-7359-bf6c-0777a1f57144"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": ".gitignore",
+        "path": ".gitignore",
+        "size": 5,
+        "state": "01a16dd3-2fed-7663-8e59-220b60b8bf15",
+        "text": "out/\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "data.bin",
+        "path": "data.bin",
+        "size": 8,
+        "state": "01a16dd3-2fed-7663-8e59-220b60b8bf15"
+      },
+      {
+        "kind": "directory",
+        "name": "docs",
+        "path": "docs",
+        "state": "01a16dd3-2fed-7663-8e59-220b60b8bf15"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "feature.txt",
+        "path": "feature.txt",
+        "size": 24,
+        "state": "01a16dd3-2fed-7663-8e59-220b60b8bf15",
+        "text": "version one\nversion two\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "large.txt",
+        "path": "large.txt",
+        "size": 65537,
+        "state": "01a16dd3-2fed-7663-8e59-220b60b8bf15"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "layr.toml",
+        "path": "layr.toml",
+        "size": 120,
+        "state": "01a16dd3-2fed-7663-8e59-220b60b8bf15",
+        "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "main.txt",
+        "path": "main.txt",
+        "size": 10,
+        "state": "01a16dd3-2fed-7663-8e59-220b60b8bf15",
+        "text": "main only\n"
+      },
+      {
+        "kind": "symlink",
+        "mode": "120000",
+        "name": "metric-link",
+        "path": "metric-link",
+        "size": 10,
+        "state": "01a16dd3-2fed-7663-8e59-220b60b8bf15",
+        "text": "metric.txt"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "metric.txt",
+        "path": "metric.txt",
+        "size": 4,
+        "state": "01a16dd3-2fed-7663-8e59-220b60b8bf15",
+        "text": "100\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "picked.txt",
+        "path": "picked.txt",
+        "size": 7,
+        "state": "01a16dd3-2fed-7663-8e59-220b60b8bf15",
+        "text": "picked\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "probe.py",
+        "path": "probe.py",
+        "size": 165,
+        "state": "01a16dd3-2fed-7663-8e59-220b60b8bf15",
+        "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100755",
+        "name": "tool.sh",
+        "path": "tool.sh",
+        "size": 17,
+        "state": "01a16dd3-2fed-7663-8e59-220b60b8bf15",
+        "text": "#!/bin/sh\nexit 0\n"
+      }
+    ],
+    "path": "",
+    "state": "01a16dd3-2fed-7663-8e59-220b60b8bf15"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "guide.txt",
+        "path": "docs/guide.txt",
+        "size": 32,
+        "state": "01a16dd3-2fed-7663-8e59-220b60b8bf15",
+        "text": "Guide from the encrypted store.\n"
+      }
+    ],
+    "path": "docs",
+    "state": "01a16dd3-2fed-7663-8e59-220b60b8bf15"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": ".gitignore",
+        "path": ".gitignore",
+        "size": 5,
+        "state": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a",
+        "text": "out/\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "data.bin",
+        "path": "data.bin",
+        "size": 8,
+        "state": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "divergence.txt",
+        "path": "divergence.txt",
+        "size": 18,
+        "state": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a",
+        "text": "main after replay\n"
+      },
+      {
+        "kind": "directory",
+        "name": "docs",
+        "path": "docs",
+        "state": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "feature.txt",
+        "path": "feature.txt",
+        "size": 24,
+        "state": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a",
+        "text": "version one\nversion two\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "large.txt",
+        "path": "large.txt",
+        "size": 65537,
+        "state": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "layr.toml",
+        "path": "layr.toml",
+        "size": 120,
+        "state": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a",
+        "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "main.txt",
+        "path": "main.txt",
+        "size": 10,
+        "state": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a",
+        "text": "main only\n"
+      },
+      {
+        "kind": "symlink",
+        "mode": "120000",
+        "name": "metric-link",
+        "path": "metric-link",
+        "size": 10,
+        "state": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a",
+        "text": "metric.txt"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "metric.txt",
+        "path": "metric.txt",
+        "size": 4,
+        "state": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a",
+        "text": "100\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "picked.txt",
+        "path": "picked.txt",
+        "size": 7,
+        "state": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a",
+        "text": "picked\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "probe.py",
+        "path": "probe.py",
+        "size": 165,
+        "state": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a",
+        "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100755",
+        "name": "tool.sh",
+        "path": "tool.sh",
+        "size": 17,
+        "state": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a",
+        "text": "#!/bin/sh\nexit 0\n"
+      }
+    ],
+    "path": "",
+    "state": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "guide.txt",
+        "path": "docs/guide.txt",
+        "size": 32,
+        "state": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a",
+        "text": "Guide from the encrypted store.\n"
+      }
+    ],
+    "path": "docs",
+    "state": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": ".gitignore",
+        "path": ".gitignore",
+        "size": 5,
+        "state": "01a16dd3-3067-7313-8371-a067af275ca6",
+        "text": "out/\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "data.bin",
+        "path": "data.bin",
+        "size": 8,
+        "state": "01a16dd3-3067-7313-8371-a067af275ca6"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "divergence.txt",
+        "path": "divergence.txt",
+        "size": 18,
+        "state": "01a16dd3-3067-7313-8371-a067af275ca6",
+        "text": "main after replay\n"
+      },
+      {
+        "kind": "directory",
+        "name": "docs",
+        "path": "docs",
+        "state": "01a16dd3-3067-7313-8371-a067af275ca6"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "feature.txt",
+        "path": "feature.txt",
+        "size": 24,
+        "state": "01a16dd3-3067-7313-8371-a067af275ca6",
+        "text": "version one\nversion two\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "large.txt",
+        "path": "large.txt",
+        "size": 65537,
+        "state": "01a16dd3-3067-7313-8371-a067af275ca6"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "layr.toml",
+        "path": "layr.toml",
+        "size": 120,
+        "state": "01a16dd3-3067-7313-8371-a067af275ca6",
+        "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "main.txt",
+        "path": "main.txt",
+        "size": 10,
+        "state": "01a16dd3-3067-7313-8371-a067af275ca6",
+        "text": "main only\n"
+      },
+      {
+        "kind": "symlink",
+        "mode": "120000",
+        "name": "metric-link",
+        "path": "metric-link",
+        "size": 10,
+        "state": "01a16dd3-3067-7313-8371-a067af275ca6",
+        "text": "metric.txt"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "metric.txt",
+        "path": "metric.txt",
+        "size": 4,
+        "state": "01a16dd3-3067-7313-8371-a067af275ca6",
+        "text": "100\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "probe.py",
+        "path": "probe.py",
+        "size": 165,
+        "state": "01a16dd3-3067-7313-8371-a067af275ca6",
+        "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100755",
+        "name": "tool.sh",
+        "path": "tool.sh",
+        "size": 17,
+        "state": "01a16dd3-3067-7313-8371-a067af275ca6",
+        "text": "#!/bin/sh\nexit 0\n"
+      }
+    ],
+    "path": "",
+    "state": "01a16dd3-3067-7313-8371-a067af275ca6"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "guide.txt",
+        "path": "docs/guide.txt",
+        "size": 32,
+        "state": "01a16dd3-3067-7313-8371-a067af275ca6",
+        "text": "Guide from the encrypted store.\n"
+      }
+    ],
+    "path": "docs",
+    "state": "01a16dd3-3067-7313-8371-a067af275ca6"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": ".gitignore",
+        "path": ".gitignore",
+        "size": 5,
+        "state": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a",
+        "text": "out/\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "auto.txt",
+        "path": "auto.txt",
+        "size": 11,
+        "state": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a",
+        "text": "auto bytes\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "data.bin",
+        "path": "data.bin",
+        "size": 8,
+        "state": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "divergence.txt",
+        "path": "divergence.txt",
+        "size": 18,
+        "state": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a",
+        "text": "main after replay\n"
+      },
+      {
+        "kind": "directory",
+        "name": "docs",
+        "path": "docs",
+        "state": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "feature.txt",
+        "path": "feature.txt",
+        "size": 24,
+        "state": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a",
+        "text": "version one\nversion two\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "large.txt",
+        "path": "large.txt",
+        "size": 65537,
+        "state": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "layr.toml",
+        "path": "layr.toml",
+        "size": 120,
+        "state": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a",
+        "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "main.txt",
+        "path": "main.txt",
+        "size": 10,
+        "state": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a",
+        "text": "main only\n"
+      },
+      {
+        "kind": "symlink",
+        "mode": "120000",
+        "name": "metric-link",
+        "path": "metric-link",
+        "size": 10,
+        "state": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a",
+        "text": "metric.txt"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "metric.txt",
+        "path": "metric.txt",
+        "size": 4,
+        "state": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a",
+        "text": "100\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "probe.py",
+        "path": "probe.py",
+        "size": 165,
+        "state": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a",
+        "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100755",
+        "name": "tool.sh",
+        "path": "tool.sh",
+        "size": 17,
+        "state": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a",
+        "text": "#!/bin/sh\nexit 0\n"
+      }
+    ],
+    "path": "",
+    "state": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "guide.txt",
+        "path": "docs/guide.txt",
+        "size": 32,
+        "state": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a",
+        "text": "Guide from the encrypted store.\n"
+      }
+    ],
+    "path": "docs",
+    "state": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": ".gitignore",
+        "path": ".gitignore",
+        "size": 5,
+        "state": "01a16dd3-30fd-7314-9197-f39af00da84c",
+        "text": "out/\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "auto.txt",
+        "path": "auto.txt",
+        "size": 11,
+        "state": "01a16dd3-30fd-7314-9197-f39af00da84c",
+        "text": "auto bytes\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "data.bin",
+        "path": "data.bin",
+        "size": 8,
+        "state": "01a16dd3-30fd-7314-9197-f39af00da84c"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "divergence.txt",
+        "path": "divergence.txt",
+        "size": 18,
+        "state": "01a16dd3-30fd-7314-9197-f39af00da84c",
+        "text": "main after replay\n"
+      },
+      {
+        "kind": "directory",
+        "name": "docs",
+        "path": "docs",
+        "state": "01a16dd3-30fd-7314-9197-f39af00da84c"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "feature.txt",
+        "path": "feature.txt",
+        "size": 24,
+        "state": "01a16dd3-30fd-7314-9197-f39af00da84c",
+        "text": "version one\nversion two\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "large.txt",
+        "path": "large.txt",
+        "size": 65537,
+        "state": "01a16dd3-30fd-7314-9197-f39af00da84c"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "layr.toml",
+        "path": "layr.toml",
+        "size": 120,
+        "state": "01a16dd3-30fd-7314-9197-f39af00da84c",
+        "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "main.txt",
+        "path": "main.txt",
+        "size": 10,
+        "state": "01a16dd3-30fd-7314-9197-f39af00da84c",
+        "text": "main only\n"
+      },
+      {
+        "kind": "symlink",
+        "mode": "120000",
+        "name": "metric-link",
+        "path": "metric-link",
+        "size": 10,
+        "state": "01a16dd3-30fd-7314-9197-f39af00da84c",
+        "text": "metric.txt"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "metric.txt",
+        "path": "metric.txt",
+        "size": 4,
+        "state": "01a16dd3-30fd-7314-9197-f39af00da84c",
+        "text": "100\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "probe.py",
+        "path": "probe.py",
+        "size": 165,
+        "state": "01a16dd3-30fd-7314-9197-f39af00da84c",
+        "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100755",
+        "name": "tool.sh",
+        "path": "tool.sh",
+        "size": 17,
+        "state": "01a16dd3-30fd-7314-9197-f39af00da84c",
+        "text": "#!/bin/sh\nexit 0\n"
+      }
+    ],
+    "path": "",
+    "state": "01a16dd3-30fd-7314-9197-f39af00da84c"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "guide.txt",
+        "path": "docs/guide.txt",
+        "size": 32,
+        "state": "01a16dd3-30fd-7314-9197-f39af00da84c",
+        "text": "Guide from the encrypted store.\n"
+      }
+    ],
+    "path": "docs",
+    "state": "01a16dd3-30fd-7314-9197-f39af00da84c"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": ".gitignore",
+        "path": ".gitignore",
+        "size": 5,
+        "state": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+        "text": "out/\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "auto.txt",
+        "path": "auto.txt",
+        "size": 11,
+        "state": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+        "text": "auto bytes\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "data.bin",
+        "path": "data.bin",
+        "size": 8,
+        "state": "01a16dd3-316b-75b9-ab00-c6435657f6fc"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "divergence.txt",
+        "path": "divergence.txt",
+        "size": 18,
+        "state": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+        "text": "main after replay\n"
+      },
+      {
+        "kind": "directory",
+        "name": "docs",
+        "path": "docs",
+        "state": "01a16dd3-316b-75b9-ab00-c6435657f6fc"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "feature.txt",
+        "path": "feature.txt",
+        "size": 24,
+        "state": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+        "text": "version one\nversion two\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "large.txt",
+        "path": "large.txt",
+        "size": 65537,
+        "state": "01a16dd3-316b-75b9-ab00-c6435657f6fc"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "layr.toml",
+        "path": "layr.toml",
+        "size": 120,
+        "state": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+        "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "main.txt",
+        "path": "main.txt",
+        "size": 10,
+        "state": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+        "text": "main only\n"
+      },
+      {
+        "kind": "symlink",
+        "mode": "120000",
+        "name": "metric-link",
+        "path": "metric-link",
+        "size": 10,
+        "state": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+        "text": "metric.txt"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "metric.txt",
+        "path": "metric.txt",
+        "size": 4,
+        "state": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+        "text": "100\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "probe.py",
+        "path": "probe.py",
+        "size": 165,
+        "state": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+        "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100755",
+        "name": "tool.sh",
+        "path": "tool.sh",
+        "size": 17,
+        "state": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+        "text": "#!/bin/sh\nexit 0\n"
+      }
+    ],
+    "path": "",
+    "state": "01a16dd3-316b-75b9-ab00-c6435657f6fc"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "guide.txt",
+        "path": "docs/guide.txt",
+        "size": 32,
+        "state": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+        "text": "Guide from the encrypted store.\n"
+      }
+    ],
+    "path": "docs",
+    "state": "01a16dd3-316b-75b9-ab00-c6435657f6fc"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": ".gitignore",
+        "path": ".gitignore",
+        "size": 5,
+        "state": "01a16dd3-3294-7559-80e2-5abc69a01943",
+        "text": "out/\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "data.bin",
+        "path": "data.bin",
+        "size": 8,
+        "state": "01a16dd3-3294-7559-80e2-5abc69a01943"
+      },
+      {
+        "kind": "directory",
+        "name": "docs",
+        "path": "docs",
+        "state": "01a16dd3-3294-7559-80e2-5abc69a01943"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "feature.txt",
+        "path": "feature.txt",
+        "size": 24,
+        "state": "01a16dd3-3294-7559-80e2-5abc69a01943",
+        "text": "version one\nversion two\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "large.txt",
+        "path": "large.txt",
+        "size": 65537,
+        "state": "01a16dd3-3294-7559-80e2-5abc69a01943"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "layr.toml",
+        "path": "layr.toml",
+        "size": 120,
+        "state": "01a16dd3-3294-7559-80e2-5abc69a01943",
+        "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "main.txt",
+        "path": "main.txt",
+        "size": 10,
+        "state": "01a16dd3-3294-7559-80e2-5abc69a01943",
+        "text": "main only\n"
+      },
+      {
+        "kind": "symlink",
+        "mode": "120000",
+        "name": "metric-link",
+        "path": "metric-link",
+        "size": 10,
+        "state": "01a16dd3-3294-7559-80e2-5abc69a01943",
+        "text": "metric.txt"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "metric.txt",
+        "path": "metric.txt",
+        "size": 4,
+        "state": "01a16dd3-3294-7559-80e2-5abc69a01943",
+        "text": "110\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "picked.txt",
+        "path": "picked.txt",
+        "size": 7,
+        "state": "01a16dd3-3294-7559-80e2-5abc69a01943",
+        "text": "picked\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "probe.py",
+        "path": "probe.py",
+        "size": 165,
+        "state": "01a16dd3-3294-7559-80e2-5abc69a01943",
+        "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100755",
+        "name": "tool.sh",
+        "path": "tool.sh",
+        "size": 17,
+        "state": "01a16dd3-3294-7559-80e2-5abc69a01943",
+        "text": "#!/bin/sh\nexit 0\n"
+      }
+    ],
+    "path": "",
+    "state": "01a16dd3-3294-7559-80e2-5abc69a01943"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "guide.txt",
+        "path": "docs/guide.txt",
+        "size": 32,
+        "state": "01a16dd3-3294-7559-80e2-5abc69a01943",
+        "text": "Guide from the encrypted store.\n"
+      }
+    ],
+    "path": "docs",
+    "state": "01a16dd3-3294-7559-80e2-5abc69a01943"
+  },
+  {
+    "entries": [
+      {
+        "kind": "directory",
+        "name": "out",
+        "path": "out",
+        "state": "01a16dd3-332d-713e-9cbf-8103c3cd6af6"
+      }
+    ],
+    "path": "",
+    "state": "01a16dd3-332d-713e-9cbf-8103c3cd6af6"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "metric.json",
+        "path": "out/metric.json",
+        "size": 14,
+        "state": "01a16dd3-332d-713e-9cbf-8103c3cd6af6",
+        "text": "{\"value\": 100}"
+      }
+    ],
+    "path": "out",
+    "state": "01a16dd3-332d-713e-9cbf-8103c3cd6af6"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": ".gitignore",
+        "path": ".gitignore",
+        "size": 5,
+        "state": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+        "text": "out/\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "auto.txt",
+        "path": "auto.txt",
+        "size": 11,
+        "state": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+        "text": "auto bytes\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "data.bin",
+        "path": "data.bin",
+        "size": 8,
+        "state": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "divergence.txt",
+        "path": "divergence.txt",
+        "size": 18,
+        "state": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+        "text": "main after replay\n"
+      },
+      {
+        "kind": "directory",
+        "name": "docs",
+        "path": "docs",
+        "state": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "feature.txt",
+        "path": "feature.txt",
+        "size": 24,
+        "state": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+        "text": "version one\nversion two\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "large.txt",
+        "path": "large.txt",
+        "size": 65537,
+        "state": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "layr.toml",
+        "path": "layr.toml",
+        "size": 120,
+        "state": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+        "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "main.txt",
+        "path": "main.txt",
+        "size": 10,
+        "state": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+        "text": "main only\n"
+      },
+      {
+        "kind": "symlink",
+        "mode": "120000",
+        "name": "metric-link",
+        "path": "metric-link",
+        "size": 10,
+        "state": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+        "text": "metric.txt"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "metric.txt",
+        "path": "metric.txt",
+        "size": 4,
+        "state": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+        "text": "110\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "picked.txt",
+        "path": "picked.txt",
+        "size": 7,
+        "state": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+        "text": "picked\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "probe.py",
+        "path": "probe.py",
+        "size": 165,
+        "state": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+        "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100755",
+        "name": "tool.sh",
+        "path": "tool.sh",
+        "size": 17,
+        "state": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+        "text": "#!/bin/sh\nexit 0\n"
+      }
+    ],
+    "path": "",
+    "state": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "guide.txt",
+        "path": "docs/guide.txt",
+        "size": 32,
+        "state": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+        "text": "Guide from the encrypted store.\n"
+      }
+    ],
+    "path": "docs",
+    "state": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4"
+  },
+  {
+    "entries": [
+      {
+        "kind": "directory",
+        "name": "out",
+        "path": "out",
+        "state": "01a16dd3-339c-72fa-a25a-35de7a1483fd"
+      }
+    ],
+    "path": "",
+    "state": "01a16dd3-339c-72fa-a25a-35de7a1483fd"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "metric.json",
+        "path": "out/metric.json",
+        "size": 14,
+        "state": "01a16dd3-339c-72fa-a25a-35de7a1483fd",
+        "text": "{\"value\": 110}"
+      }
+    ],
+    "path": "out",
+    "state": "01a16dd3-339c-72fa-a25a-35de7a1483fd"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": ".gitignore",
+        "path": ".gitignore",
+        "size": 5,
+        "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+        "text": "out/\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "data.bin",
+        "path": "data.bin",
+        "size": 8,
+        "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff"
+      },
+      {
+        "kind": "directory",
+        "name": "docs",
+        "path": "docs",
+        "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "feature.txt",
+        "path": "feature.txt",
+        "size": 24,
+        "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+        "text": "version one\nversion two\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "large.txt",
+        "path": "large.txt",
+        "size": 65537,
+        "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "layr.toml",
+        "path": "layr.toml",
+        "size": 120,
+        "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+        "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "main.txt",
+        "path": "main.txt",
+        "size": 10,
+        "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+        "text": "main only\n"
+      },
+      {
+        "kind": "symlink",
+        "mode": "120000",
+        "name": "metric-link",
+        "path": "metric-link",
+        "size": 10,
+        "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+        "text": "metric.txt"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "metric.txt",
+        "path": "metric.txt",
+        "size": 4,
+        "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+        "text": "150\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "picked.txt",
+        "path": "picked.txt",
+        "size": 7,
+        "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+        "text": "picked\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "probe.py",
+        "path": "probe.py",
+        "size": 165,
+        "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+        "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100755",
+        "name": "tool.sh",
+        "path": "tool.sh",
+        "size": 17,
+        "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+        "text": "#!/bin/sh\nexit 0\n"
+      }
+    ],
+    "path": "",
+    "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "guide.txt",
+        "path": "docs/guide.txt",
+        "size": 32,
+        "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+        "text": "Guide from the encrypted store.\n"
+      }
+    ],
+    "path": "docs",
+    "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": ".gitignore",
+        "path": ".gitignore",
+        "size": 5,
+        "state": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+        "text": "out/\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "auto.txt",
+        "path": "auto.txt",
+        "size": 11,
+        "state": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+        "text": "auto bytes\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "data.bin",
+        "path": "data.bin",
+        "size": 8,
+        "state": "01a16dd3-34a7-73f2-8a64-b052d21b6c60"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "divergence.txt",
+        "path": "divergence.txt",
+        "size": 18,
+        "state": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+        "text": "main after replay\n"
+      },
+      {
+        "kind": "directory",
+        "name": "docs",
+        "path": "docs",
+        "state": "01a16dd3-34a7-73f2-8a64-b052d21b6c60"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "feature.txt",
+        "path": "feature.txt",
+        "size": 24,
+        "state": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+        "text": "version one\nversion two\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "large.txt",
+        "path": "large.txt",
+        "size": 65537,
+        "state": "01a16dd3-34a7-73f2-8a64-b052d21b6c60"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "layr.toml",
+        "path": "layr.toml",
+        "size": 120,
+        "state": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+        "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "main.txt",
+        "path": "main.txt",
+        "size": 10,
+        "state": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+        "text": "main only\n"
+      },
+      {
+        "kind": "symlink",
+        "mode": "120000",
+        "name": "metric-link",
+        "path": "metric-link",
+        "size": 10,
+        "state": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+        "text": "metric.txt"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "metric.txt",
+        "path": "metric.txt",
+        "size": 4,
+        "state": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+        "text": "150\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "picked.txt",
+        "path": "picked.txt",
+        "size": 7,
+        "state": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+        "text": "picked\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "probe.py",
+        "path": "probe.py",
+        "size": 165,
+        "state": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+        "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100755",
+        "name": "tool.sh",
+        "path": "tool.sh",
+        "size": 17,
+        "state": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+        "text": "#!/bin/sh\nexit 0\n"
+      }
+    ],
+    "path": "",
+    "state": "01a16dd3-34a7-73f2-8a64-b052d21b6c60"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "guide.txt",
+        "path": "docs/guide.txt",
+        "size": 32,
+        "state": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+        "text": "Guide from the encrypted store.\n"
+      }
+    ],
+    "path": "docs",
+    "state": "01a16dd3-34a7-73f2-8a64-b052d21b6c60"
+  },
+  {
+    "entries": [
+      {
+        "kind": "directory",
+        "name": "out",
+        "path": "out",
+        "state": "01a16dd3-34f7-74cf-b03d-87c016cac88f"
+      }
+    ],
+    "path": "",
+    "state": "01a16dd3-34f7-74cf-b03d-87c016cac88f"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "metric.json",
+        "path": "out/metric.json",
+        "size": 14,
+        "state": "01a16dd3-34f7-74cf-b03d-87c016cac88f",
+        "text": "{\"value\": 150}"
+      }
+    ],
+    "path": "out",
+    "state": "01a16dd3-34f7-74cf-b03d-87c016cac88f"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": ".gitignore",
+        "path": ".gitignore",
+        "size": 5,
+        "state": "01a16dd3-3771-76a0-9c90-68e54719a62d",
+        "text": "out/\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "auto.txt",
+        "path": "auto.txt",
+        "size": 11,
+        "state": "01a16dd3-3771-76a0-9c90-68e54719a62d",
+        "text": "auto bytes\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "data.bin",
+        "path": "data.bin",
+        "size": 8,
+        "state": "01a16dd3-3771-76a0-9c90-68e54719a62d"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "divergence.txt",
+        "path": "divergence.txt",
+        "size": 18,
+        "state": "01a16dd3-3771-76a0-9c90-68e54719a62d",
+        "text": "main after replay\n"
+      },
+      {
+        "kind": "directory",
+        "name": "docs",
+        "path": "docs",
+        "state": "01a16dd3-3771-76a0-9c90-68e54719a62d"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "feature.txt",
+        "path": "feature.txt",
+        "size": 24,
+        "state": "01a16dd3-3771-76a0-9c90-68e54719a62d",
+        "text": "version one\nversion two\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "large.txt",
+        "path": "large.txt",
+        "size": 65537,
+        "state": "01a16dd3-3771-76a0-9c90-68e54719a62d"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "layr.toml",
+        "path": "layr.toml",
+        "size": 120,
+        "state": "01a16dd3-3771-76a0-9c90-68e54719a62d",
+        "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "main.txt",
+        "path": "main.txt",
+        "size": 10,
+        "state": "01a16dd3-3771-76a0-9c90-68e54719a62d",
+        "text": "main only\n"
+      },
+      {
+        "kind": "symlink",
+        "mode": "120000",
+        "name": "metric-link",
+        "path": "metric-link",
+        "size": 10,
+        "state": "01a16dd3-3771-76a0-9c90-68e54719a62d",
+        "text": "metric.txt"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "metric.txt",
+        "path": "metric.txt",
+        "size": 4,
+        "state": "01a16dd3-3771-76a0-9c90-68e54719a62d",
+        "text": "150\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "picked.txt",
+        "path": "picked.txt",
+        "size": 7,
+        "state": "01a16dd3-3771-76a0-9c90-68e54719a62d",
+        "text": "picked\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "probe.py",
+        "path": "probe.py",
+        "size": 165,
+        "state": "01a16dd3-3771-76a0-9c90-68e54719a62d",
+        "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
+      },
+      {
+        "kind": "file",
+        "mode": "100755",
+        "name": "tool.sh",
+        "path": "tool.sh",
+        "size": 17,
+        "state": "01a16dd3-3771-76a0-9c90-68e54719a62d",
+        "text": "#!/bin/sh\nexit 0\n"
+      }
+    ],
+    "path": "",
+    "state": "01a16dd3-3771-76a0-9c90-68e54719a62d"
+  },
+  {
+    "entries": [
+      {
+        "kind": "file",
+        "mode": "100644",
+        "name": "guide.txt",
+        "path": "docs/guide.txt",
+        "size": 32,
+        "state": "01a16dd3-3771-76a0-9c90-68e54719a62d",
+        "text": "Guide from the encrypted store.\n"
+      }
+    ],
+    "path": "docs",
+    "state": "01a16dd3-3771-76a0-9c90-68e54719a62d"
+  }
+]

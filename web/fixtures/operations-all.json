@@ -1,0 +1,2481 @@
+[
+  {
+    "id": "01a16dd3-3808-7073-b8e9-7310d23c57e5",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 61,
+    "time": 1792843921416,
+    "op": "config",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "config": {
+        "cloud.remote.store.url": "file:///var/tmp/layr-test.mcWEju/archive"
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-37f9-758c-9b16-c92813a5d4c7",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 60,
+    "time": 1792843921401,
+    "op": "config",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "config": {
+        "cloud.remote.store.store": {
+          "paper_recipient": "age1hj8y8nxajxye26m2adwsf5px0q66ukzgnju0zv08ep4e95gwqc3q8rue8m",
+          "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+          "recipient": "age10a4gvc5ymma2yu8swqgw83angtl66psgyct9u87wx20cccqttpvsadxe5m"
+        }
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-379c-7628-83a4-7217932f1d7c",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 59,
+    "time": 1792843921308,
+    "op": "attest",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "attestation": {
+        "attestation_id": "01a16dd3-379c-7628-83a4-7217932f1d7c",
+        "change_id": "01a16dd3-3776-7418-9ba3-53b39c6e29b4",
+        "format": 1,
+        "kind": "check",
+        "payload_digest": "6b47fd784f1a0ccb2774e265c309bd9e768aa2989de65c631b44fee7829ded12",
+        "signer": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+        "subject": {
+          "id": "01a16dd3-3771-76a0-9c90-68e54719a62d",
+          "kind": "state"
+        },
+        "time": 1792843921308
+      },
+      "check": {
+        "argv": [
+          "sh",
+          "-c",
+          "\"false\""
+        ],
+        "command": "\"false\"",
+        "exit": 1,
+        "seconds": 0.001819553
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-3783-73b2-b633-01b8c6999cb4",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 58,
+    "time": 1792843921283,
+    "op": "merge.candidate",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "states": [
+      {
+        "id": "01a16dd3-3771-76a0-9c90-68e54719a62d",
+        "kind": "commit",
+        "change_id": "01a16dd3-3776-7418-9ba3-53b39c6e29b4",
+        "parents": [
+          "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+          "01a16dd3-3434-75a9-ad00-8ccb7315f6ff"
+        ],
+        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+        "subvol": "3b4e921e-2d1d-a548-8557-860370566f97",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "Merge line 'feature'",
+        "time": 1792843921270
+      }
+    ],
+    "data": {
+      "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+      "theirs": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff"
+    }
+  },
+  {
+    "id": "01a16dd3-3701-7284-a460-68ddf50ad947",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 57,
+    "time": 1792843921153,
+    "op": "config",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "config": {
+        "protect": {
+          "env/prod": {
+            "check": [
+              "smoke"
+            ],
+            "update": "maintainer"
+          },
+          "main": {
+            "check": [
+              "denymerge"
+            ],
+            "paths": {
+              "feature.txt": "maintainer"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-36e6-7108-b753-64b19c33e6a7",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 56,
+    "time": 1792843921126,
+    "op": "config",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "config": {
+        "check.denymerge": "\"false\""
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-36bb-71ac-b2bb-c7d0277e0aa2",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 55,
+    "time": 1792843921083,
+    "op": "config",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "config": {
+        "check.smoke": "\"false\""
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-368b-7643-811e-9ace1acc76bb",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 54,
+    "time": 1792843921035,
+    "op": "commit",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "lines": {
+      "01a16dd3-2d54-704b-8fcf-d8028e578f12": {
+        "before": {
+          "name": "main",
+          "head": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        },
+        "after": {
+          "name": "main",
+          "head": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        }
+      }
+    },
+    "data": {
+      "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+      "overlays": [
+        "secrets"
+      ],
+      "stack": {
+        "layers": [
+          {
+            "overlay": "secrets",
+            "state": "01a16dd3-3671-71ec-ac74-0bb792783810"
+          }
+        ],
+        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12"
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-361f-73a4-8c31-ca12abcad74a",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 53,
+    "time": 1792843920927,
+    "op": "overlay.use",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+      "stack": {
+        "layers": [
+          {
+            "overlay": "secrets",
+            "state": "01a16dd3-35b2-74cf-aafb-dc63f62834ea"
+          }
+        ],
+        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12"
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-35c3-74fe-85ec-fca2d11020ad",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 52,
+    "time": 1792843920835,
+    "op": "overlay.create",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "config": {
+        "overlay.secrets": {
+          "id": "01a16dd3-358a-7531-a15f-5eb3472c07e9",
+          "mode": "shared",
+          "owner": 0,
+          "root": "01a16dd3-35b2-74cf-aafb-dc63f62834ea"
+        }
+      },
+      "name": "secrets"
+    }
+  },
+  {
+    "id": "01a16dd3-3568-738d-a00e-f53d19dd4bb3",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 51,
+    "time": 1792843920744,
+    "op": "config",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "config": {
+        "protect": {
+          "env/prod": {
+            "check": [
+              "smoke"
+            ],
+            "update": "maintainer"
+          },
+          "main": {
+            "paths": {
+              "feature.txt": "maintainer"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-3551-747c-814f-a208bcfb4c9f",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 50,
+    "time": 1792843920721,
+    "op": "config",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "config": {
+        "access": {
+          "user:0": "admin",
+          "user:65534": "reader"
+        }
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-3506-7285-82e6-957bc9a7b70d",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 49,
+    "time": 1792843920646,
+    "op": "queue.result",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "queue_change": {
+        "after": {
+          "added_by": 0,
+          "attempts": 1,
+          "change_id": "01a16dd3-343b-7155-8a7d-6c5391b2dba8",
+          "id": "01a16dd3-345f-77e4-aa27-85e07682ba4a",
+          "into": "main",
+          "probes": {
+            "behavior": {
+              "base": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+              "base_source": "available",
+              "head": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+              "head_source": "available",
+              "probes": [
+                {
+                  "base": {
+                    "argv": [
+                      "python3",
+                      "probe.py"
+                    ],
+                    "exit": 0,
+                    "output_state": "01a16dd3-339c-72fa-a25a-35de7a1483fd",
+                    "probe": "metric",
+                    "reused": true,
+                    "subject": {
+                      "id": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+                      "kind": "state"
+                    }
+                  },
+                  "changes": [
+                    {
+                      "changes": [
+                        {
+                          "after": 150.0,
+                          "before": 110.0,
+                          "metric": "value",
+                          "noise": 0.01,
+                          "relative_change": 0.3636363636363637
+                        }
+                      ],
+                      "path": "out/metric.json"
+                    }
+                  ],
+                  "exit_changed": false,
+                  "head": {
+                    "argv": [
+                      "python3",
+                      "probe.py"
+                    ],
+                    "exit": 0,
+                    "output_state": "01a16dd3-34f7-74cf-b03d-87c016cac88f",
+                    "probe": "metric",
+                    "reused": true,
+                    "subject": {
+                      "id": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+                      "kind": "state"
+                    }
+                  },
+                  "probe": "metric",
+                  "status": "changed"
+                }
+              ]
+            },
+            "probes": [
+              {
+                "errors": [],
+                "probe": "metric",
+                "reasons": [
+                  "probe metric: value 110 → 150 (+36 %) is over the limit +20 %"
+                ],
+                "status": "failed"
+              }
+            ],
+            "status": "failed"
+          },
+          "reason": "probe metric: value 110 → 150 (+36 %) is over the limit +20 %",
+          "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+          "status": "failed",
+          "target_line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+          "time": 1792843920479
+        },
+        "before": {
+          "added_by": 0,
+          "attempts": 0,
+          "change_id": "01a16dd3-343b-7155-8a7d-6c5391b2dba8",
+          "id": "01a16dd3-345f-77e4-aa27-85e07682ba4a",
+          "into": "main",
+          "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+          "status": "pending",
+          "target_line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+          "time": 1792843920479
+        },
+        "id": "01a16dd3-345f-77e4-aa27-85e07682ba4a"
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-34fc-738d-b544-7c0bda52ef38",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 48,
+    "time": 1792843920636,
+    "op": "attest",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "states": [
+      {
+        "id": "01a16dd3-34f7-74cf-b03d-87c016cac88f",
+        "kind": "derived",
+        "derived_from": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+        "context": "probe-v1/metric",
+        "parents": [],
+        "subvol": "6b886b6b-158e-0a42-9669-194e54ecb674",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "probe metric",
+        "time": 1792843920636
+      }
+    ],
+    "data": {
+      "attestation": {
+        "attestation_id": "01a16dd3-34fc-738d-b544-7c0bda52ef38",
+        "change_id": "01a16dd3-34ac-7447-9efc-f3f0cbb68c84",
+        "format": 1,
+        "kind": "check",
+        "payload_digest": "baf2732a8fa2dcdc63aac4245f5e5acf3e3f9d62dc036249264ea684b30b3713",
+        "signer": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+        "subject": {
+          "id": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+          "kind": "state"
+        },
+        "time": 1792843920636
+      },
+      "check": {
+        "argv": [
+          "python3",
+          "probe.py"
+        ],
+        "command": "python3 probe.py",
+        "definition": {
+          "fail_over": 0.2,
+          "kind": "number",
+          "noise": 0.01,
+          "outputs": [
+            "out/metric.json"
+          ],
+          "run": [
+            "python3",
+            "probe.py"
+          ]
+        },
+        "exit": 0,
+        "output_state": "01a16dd3-34f7-74cf-b03d-87c016cac88f",
+        "probe": "metric",
+        "probes": {
+          "metric": {
+            "fail_over": 0.2,
+            "kind": "number",
+            "noise": 0.01,
+            "outputs": [
+              "out/metric.json"
+            ],
+            "run": [
+              "python3",
+              "probe.py"
+            ]
+          }
+        },
+        "reused": false,
+        "subject": {
+          "id": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+          "kind": "state"
+        }
+      },
+      "ref_change": {
+        "after": {
+          "name": "derived/probe-v1/metric/01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+          "target": "01a16dd3-34f7-74cf-b03d-87c016cac88f"
+        },
+        "before": null,
+        "name": "derived/probe-v1/metric/01a16dd3-34a7-73f2-8a64-b052d21b6c60"
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-34b5-76f3-afcd-d07b7b8feb32",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 47,
+    "time": 1792843920565,
+    "op": "merge.candidate",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "states": [
+      {
+        "id": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+        "kind": "commit",
+        "change_id": "01a16dd3-34ac-7447-9efc-f3f0cbb68c84",
+        "parents": [
+          "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+          "01a16dd3-3434-75a9-ad00-8ccb7315f6ff"
+        ],
+        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+        "subvol": "f7094484-5f32-804d-bd04-58cb850cc913",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "Merge 01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+        "time": 1792843920556
+      }
+    ],
+    "data": {
+      "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+      "theirs": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff"
+    }
+  },
+  {
+    "id": "01a16dd3-345f-77e4-aa27-85e1f851dfde",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 46,
+    "time": 1792843920479,
+    "op": "queue.add",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "queue_change": {
+        "after": {
+          "added_by": 0,
+          "attempts": 0,
+          "change_id": "01a16dd3-343b-7155-8a7d-6c5391b2dba8",
+          "id": "01a16dd3-345f-77e4-aa27-85e07682ba4a",
+          "into": "main",
+          "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+          "status": "pending",
+          "target_line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+          "time": 1792843920479
+        },
+        "before": null,
+        "id": "01a16dd3-345f-77e4-aa27-85e07682ba4a"
+      },
+      "ref_change": {
+        "after": {
+          "name": "holds/queue/01a16dd3-345f-77e4-aa27-85e07682ba4a",
+          "target": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff"
+        },
+        "before": null,
+        "name": "holds/queue/01a16dd3-345f-77e4-aa27-85e07682ba4a"
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-3445-75f6-a39b-0f7dfe680a20",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 45,
+    "time": 1792843920453,
+    "op": "commit",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "states": [
+      {
+        "id": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+        "kind": "commit",
+        "change_id": "01a16dd3-343b-7155-8a7d-6c5391b2dba8",
+        "parents": [
+          "01a16dd3-3294-7559-80e2-5abc69a01943"
+        ],
+        "line": "01a16dd3-2d73-774e-9e40-cd73d2601980",
+        "subvol": "335fb815-5d18-0b42-ad4d-99a19a43cfc6",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "queue-over-limit",
+        "time": 1792843920443
+      }
+    ],
+    "lines": {
+      "01a16dd3-2d73-774e-9e40-cd73d2601980": {
+        "before": {
+          "name": "feature",
+          "head": "01a16dd3-3294-7559-80e2-5abc69a01943",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        },
+        "after": {
+          "name": "feature",
+          "head": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        }
+      }
+    },
+    "data": {
+      "line": "01a16dd3-2d73-774e-9e40-cd73d2601980"
+    }
+  },
+  {
+    "id": "01a16dd3-33b5-7186-8025-0f303c0fb30a",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 44,
+    "time": 1792843920309,
+    "op": "queue.result",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "states": [
+      {
+        "id": "01a16dd3-33b0-74b0-89d7-46faf6e49555",
+        "kind": "auto",
+        "parents": [
+          "01a16dd3-316b-75b9-ab00-c6435657f6fc"
+        ],
+        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+        "subvol": "af8d9f1e-fd59-bb46-8e25-cd808d7ca619",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "after queue.result",
+        "time": 1792843920309
+      }
+    ],
+    "lines": {
+      "01a16dd3-2d54-704b-8fcf-d8028e578f12": {
+        "before": {
+          "name": "main",
+          "head": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        },
+        "after": {
+          "name": "main",
+          "head": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        },
+        "working_before": "01a16dd3-312f-7200-8572-f858d907bb4b",
+        "working_after": "01a16dd3-33b0-74b0-89d7-46faf6e49555"
+      }
+    },
+    "data": {
+      "base": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+      "conflicts": 0,
+      "queue_change": {
+        "after": {
+          "added_by": 0,
+          "attempts": 1,
+          "change_id": "01a16dd3-3299-75dd-aa77-706a2ef705ea",
+          "id": "01a16dd3-32dc-76bd-a28e-37ea3ab069cb",
+          "into": "main",
+          "probes": {
+            "behavior": {
+              "base": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+              "base_source": "available",
+              "head": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+              "head_source": "available",
+              "probes": [
+                {
+                  "base": {
+                    "argv": [
+                      "python3",
+                      "probe.py"
+                    ],
+                    "exit": 0,
+                    "output_state": "01a16dd3-332d-713e-9cbf-8103c3cd6af6",
+                    "probe": "metric",
+                    "reused": true,
+                    "subject": {
+                      "id": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+                      "kind": "state"
+                    }
+                  },
+                  "changes": [
+                    {
+                      "changes": [
+                        {
+                          "after": 110.0,
+                          "before": 100.0,
+                          "metric": "value",
+                          "noise": 0.01,
+                          "relative_change": 0.1
+                        }
+                      ],
+                      "path": "out/metric.json"
+                    }
+                  ],
+                  "exit_changed": false,
+                  "head": {
+                    "argv": [
+                      "python3",
+                      "probe.py"
+                    ],
+                    "exit": 0,
+                    "output_state": "01a16dd3-339c-72fa-a25a-35de7a1483fd",
+                    "probe": "metric",
+                    "reused": true,
+                    "subject": {
+                      "id": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+                      "kind": "state"
+                    }
+                  },
+                  "probe": "metric",
+                  "status": "changed"
+                }
+              ]
+            },
+            "probes": [
+              {
+                "errors": [],
+                "probe": "metric",
+                "reasons": [],
+                "status": "passed"
+              }
+            ],
+            "status": "passed"
+          },
+          "result": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+          "state": "01a16dd3-3294-7559-80e2-5abc69a01943",
+          "status": "done",
+          "target_line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+          "time": 1792843920092
+        },
+        "before": {
+          "added_by": 0,
+          "attempts": 0,
+          "change_id": "01a16dd3-3299-75dd-aa77-706a2ef705ea",
+          "id": "01a16dd3-32dc-76bd-a28e-37ea3ab069cb",
+          "into": "main",
+          "state": "01a16dd3-3294-7559-80e2-5abc69a01943",
+          "status": "pending",
+          "target_line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+          "time": 1792843920092
+        },
+        "id": "01a16dd3-32dc-76bd-a28e-37ea3ab069cb"
+      },
+      "ref_change": {
+        "after": null,
+        "before": {
+          "name": "holds/queue/01a16dd3-32dc-76bd-a28e-37ea3ab069cb",
+          "target": "01a16dd3-3294-7559-80e2-5abc69a01943"
+        },
+        "name": "holds/queue/01a16dd3-32dc-76bd-a28e-37ea3ab069cb"
+      },
+      "squash": false,
+      "theirs": "01a16dd3-3294-7559-80e2-5abc69a01943"
+    }
+  },
+  {
+    "id": "01a16dd3-33a0-7085-936d-da403e2bd87b",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 43,
+    "time": 1792843920288,
+    "op": "attest",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "states": [
+      {
+        "id": "01a16dd3-339c-72fa-a25a-35de7a1483fd",
+        "kind": "derived",
+        "derived_from": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+        "context": "probe-v1/metric",
+        "parents": [],
+        "subvol": "2ed6348c-5c56-5944-bfc5-d0dae6fca25a",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "probe metric",
+        "time": 1792843920287
+      }
+    ],
+    "data": {
+      "attestation": {
+        "attestation_id": "01a16dd3-33a0-7085-936d-da403e2bd87b",
+        "change_id": "01a16dd3-3368-761d-9330-bedfe5253e19",
+        "format": 1,
+        "kind": "check",
+        "payload_digest": "b7a597c16441eee56e0612d62e77398410daba9d26f6d80d2cf5a170851bb548",
+        "signer": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+        "subject": {
+          "id": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+          "kind": "state"
+        },
+        "time": 1792843920288
+      },
+      "check": {
+        "argv": [
+          "python3",
+          "probe.py"
+        ],
+        "command": "python3 probe.py",
+        "definition": {
+          "fail_over": 0.2,
+          "kind": "number",
+          "noise": 0.01,
+          "outputs": [
+            "out/metric.json"
+          ],
+          "run": [
+            "python3",
+            "probe.py"
+          ]
+        },
+        "exit": 0,
+        "output_state": "01a16dd3-339c-72fa-a25a-35de7a1483fd",
+        "probe": "metric",
+        "probes": {
+          "metric": {
+            "fail_over": 0.2,
+            "kind": "number",
+            "noise": 0.01,
+            "outputs": [
+              "out/metric.json"
+            ],
+            "run": [
+              "python3",
+              "probe.py"
+            ]
+          }
+        },
+        "reused": false,
+        "subject": {
+          "id": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+          "kind": "state"
+        }
+      },
+      "ref_change": {
+        "after": {
+          "name": "derived/probe-v1/metric/01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+          "target": "01a16dd3-339c-72fa-a25a-35de7a1483fd"
+        },
+        "before": null,
+        "name": "derived/probe-v1/metric/01a16dd3-3365-737a-a2b6-f2f778b8b8a4"
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-3371-7620-af68-ab93f8516310",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 42,
+    "time": 1792843920241,
+    "op": "merge.candidate",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "states": [
+      {
+        "id": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+        "kind": "commit",
+        "change_id": "01a16dd3-3368-761d-9330-bedfe5253e19",
+        "parents": [
+          "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+          "01a16dd3-3294-7559-80e2-5abc69a01943"
+        ],
+        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+        "subvol": "54cc91d8-c138-4c47-9e63-3aa8d9cb24cb",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "Merge 01a16dd3-3294-7559-80e2-5abc69a01943",
+        "time": 1792843920232
+      }
+    ],
+    "data": {
+      "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+      "theirs": "01a16dd3-3294-7559-80e2-5abc69a01943"
+    }
+  },
+  {
+    "id": "01a16dd3-3332-7667-b4f2-d3a005618814",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 41,
+    "time": 1792843920178,
+    "op": "attest",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "states": [
+      {
+        "id": "01a16dd3-332d-713e-9cbf-8103c3cd6af6",
+        "kind": "derived",
+        "derived_from": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+        "context": "probe-v1/metric",
+        "parents": [],
+        "subvol": "95303c95-a379-6440-a555-2a620619c2fe",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "probe metric",
+        "time": 1792843920177
+      }
+    ],
+    "data": {
+      "attestation": {
+        "attestation_id": "01a16dd3-3332-7667-b4f2-d3a005618814",
+        "change_id": "01a16dd3-3170-7622-9553-0c96e39907d4",
+        "format": 1,
+        "kind": "check",
+        "payload_digest": "0287b53652182044cbae7301190fc79dbfb94b57041a8e3dd46cdfb427df8a70",
+        "signer": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+        "subject": {
+          "id": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+          "kind": "state"
+        },
+        "time": 1792843920178
+      },
+      "check": {
+        "argv": [
+          "python3",
+          "probe.py"
+        ],
+        "command": "python3 probe.py",
+        "definition": {
+          "fail_over": 0.2,
+          "kind": "number",
+          "noise": 0.01,
+          "outputs": [
+            "out/metric.json"
+          ],
+          "run": [
+            "python3",
+            "probe.py"
+          ]
+        },
+        "exit": 0,
+        "output_state": "01a16dd3-332d-713e-9cbf-8103c3cd6af6",
+        "probe": "metric",
+        "probes": {
+          "metric": {
+            "fail_over": 0.2,
+            "kind": "number",
+            "noise": 0.01,
+            "outputs": [
+              "out/metric.json"
+            ],
+            "run": [
+              "python3",
+              "probe.py"
+            ]
+          }
+        },
+        "reused": false,
+        "subject": {
+          "id": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+          "kind": "state"
+        }
+      },
+      "ref_change": {
+        "after": {
+          "name": "derived/probe-v1/metric/01a16dd3-316b-75b9-ab00-c6435657f6fc",
+          "target": "01a16dd3-332d-713e-9cbf-8103c3cd6af6"
+        },
+        "before": null,
+        "name": "derived/probe-v1/metric/01a16dd3-316b-75b9-ab00-c6435657f6fc"
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-32dc-76bd-a28e-37ebd15061d6",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 40,
+    "time": 1792843920092,
+    "op": "queue.add",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "queue_change": {
+        "after": {
+          "added_by": 0,
+          "attempts": 0,
+          "change_id": "01a16dd3-3299-75dd-aa77-706a2ef705ea",
+          "id": "01a16dd3-32dc-76bd-a28e-37ea3ab069cb",
+          "into": "main",
+          "state": "01a16dd3-3294-7559-80e2-5abc69a01943",
+          "status": "pending",
+          "target_line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+          "time": 1792843920092
+        },
+        "before": null,
+        "id": "01a16dd3-32dc-76bd-a28e-37ea3ab069cb"
+      },
+      "ref_change": {
+        "after": {
+          "name": "holds/queue/01a16dd3-32dc-76bd-a28e-37ea3ab069cb",
+          "target": "01a16dd3-3294-7559-80e2-5abc69a01943"
+        },
+        "before": null,
+        "name": "holds/queue/01a16dd3-32dc-76bd-a28e-37ea3ab069cb"
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-32b5-76fe-a6f8-408c18e9bfcd",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 39,
+    "time": 1792843920053,
+    "op": "config",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "config": {
+        "queue.probes": true
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-32a2-76ca-a091-608f46aac840",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 38,
+    "time": 1792843920034,
+    "op": "commit",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "states": [
+      {
+        "id": "01a16dd3-3294-7559-80e2-5abc69a01943",
+        "kind": "commit",
+        "change_id": "01a16dd3-3299-75dd-aa77-706a2ef705ea",
+        "parents": [
+          "01a16dd3-2fed-7663-8e59-220b60b8bf15"
+        ],
+        "line": "01a16dd3-2d73-774e-9e40-cd73d2601980",
+        "subvol": "5ab05451-b873-1140-9672-0de2d59125d2",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "queue-source",
+        "time": 1792843920025
+      }
+    ],
+    "lines": {
+      "01a16dd3-2d73-774e-9e40-cd73d2601980": {
+        "before": {
+          "name": "feature",
+          "head": "01a16dd3-2fed-7663-8e59-220b60b8bf15",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        },
+        "after": {
+          "name": "feature",
+          "head": "01a16dd3-3294-7559-80e2-5abc69a01943",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        }
+      }
+    },
+    "data": {
+      "line": "01a16dd3-2d73-774e-9e40-cd73d2601980"
+    }
+  },
+  {
+    "id": "01a16dd3-3265-735e-a442-14206d18c56f",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 37,
+    "time": 1792843919973,
+    "op": "attest",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "attestation": {
+        "attestation_id": "01a16dd3-3265-735e-a442-14206d18c56f",
+        "change_id": "01a16dd3-2d9d-7657-9e00-698aa2c4ff23",
+        "format": 1,
+        "kind": "approval",
+        "payload_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "signer": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+        "subject": {
+          "id": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+          "kind": "state"
+        },
+        "time": 1792843919973
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-324f-71a7-8ecb-14a4b5cb0f3b",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 36,
+    "time": 1792843919951,
+    "op": "attest",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "attestation": {
+        "attestation_id": "01a16dd3-324f-71a7-8ecb-14a4b5cb0f3b",
+        "change_id": "01a16dd3-2d9d-7657-9e00-698aa2c4ff23",
+        "format": 1,
+        "kind": "check",
+        "payload_digest": "39808010ab005e13e2e4d7a32e5b030c06863f04de79c03967ed797b051a0056",
+        "signer": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+        "subject": {
+          "id": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+          "kind": "state"
+        },
+        "time": 1792843919951
+      },
+      "check": {
+        "argv": [
+          "sh",
+          "-c",
+          "test -f metric.txt"
+        ],
+        "command": "sh -c test -f metric.txt",
+        "exit": 0,
+        "seconds": 0.001252716
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-322c-73e0-85ed-ff965e5bff03",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 35,
+    "time": 1792843919916,
+    "op": "attest",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "attestation": {
+        "attestation_id": "01a16dd3-322c-73e0-85ed-ff965e5bff03",
+        "change_id": "01a16dd3-2d9d-7657-9e00-698aa2c4ff23",
+        "format": 1,
+        "kind": "revoke",
+        "payload_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "signer": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+        "subject": {
+          "id": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+          "kind": "state"
+        },
+        "time": 1792843919916
+      },
+      "revokes": [
+        "01a16dd3-2eee-77b7-a1f8-2806269fabf7",
+        "01a16dd3-2eda-7051-a930-a1dc508d2cc8",
+        "01a16dd3-31f5-7665-9a4c-e0ab5cb9898f",
+        "01a16dd3-31e0-74e3-8749-929526a2dc20",
+        "01a16dd3-3210-727d-bd2b-bf9fe59dc1c8"
+      ]
+    }
+  },
+  {
+    "id": "01a16dd3-3210-727d-bd2b-bf9fe59dc1c8",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 34,
+    "time": 1792843919888,
+    "op": "attest",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "attestation": {
+        "attestation_id": "01a16dd3-3210-727d-bd2b-bf9fe59dc1c8",
+        "change_id": "01a16dd3-2d9d-7657-9e00-698aa2c4ff23",
+        "format": 1,
+        "kind": "quarantine",
+        "payload_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "signer": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+        "subject": {
+          "id": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+          "kind": "state"
+        },
+        "time": 1792843919888
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-31f5-7665-9a4c-e0ab5cb9898f",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 33,
+    "time": 1792843919861,
+    "op": "attest",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "attestation": {
+        "attestation_id": "01a16dd3-31f5-7665-9a4c-e0ab5cb9898f",
+        "change_id": "01a16dd3-2d9d-7657-9e00-698aa2c4ff23",
+        "format": 1,
+        "kind": "import",
+        "payload_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "signer": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+        "subject": {
+          "id": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+          "kind": "state"
+        },
+        "time": 1792843919861
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-31e0-74e3-8749-929526a2dc20",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 32,
+    "time": 1792843919840,
+    "op": "attest",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "attestation": {
+        "attestation_id": "01a16dd3-31e0-74e3-8749-929526a2dc20",
+        "change_id": "01a16dd3-2d9d-7657-9e00-698aa2c4ff23",
+        "format": 1,
+        "kind": "origin",
+        "payload_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "signer": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+        "subject": {
+          "id": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+          "kind": "state"
+        },
+        "time": 1792843919840
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-31b8-75e7-8e8a-93bbdd2509b0",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 31,
+    "time": 1792843919800,
+    "op": "ref.set",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "ref_change": {
+        "after": {
+          "name": "env/prod",
+          "target": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20"
+        },
+        "before": {
+          "name": "env/prod",
+          "target": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5"
+        },
+        "name": "env/prod"
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-31a3-74d1-bab3-f6a9900252af",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 30,
+    "time": 1792843919779,
+    "op": "config",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "config": {
+        "protect": {
+          "env/prod": {
+            "check": [
+              "smoke"
+            ],
+            "update": "maintainer"
+          },
+          "main": {}
+        }
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-318f-7016-9d14-3888db2afcf8",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 29,
+    "time": 1792843919759,
+    "op": "ref.set",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "ref_change": {
+        "after": {
+          "name": "env/prod",
+          "target": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5"
+        },
+        "before": null,
+        "name": "env/prod"
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-317c-7734-9ad9-fc890374fb3c",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 28,
+    "time": 1792843919740,
+    "op": "commit",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "states": [
+      {
+        "id": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+        "kind": "commit",
+        "change_id": "01a16dd3-3170-7622-9553-0c96e39907d4",
+        "parents": [
+          "01a16dd3-3067-7313-8371-a067af275ca6"
+        ],
+        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+        "subvol": "f58c35c7-4d1b-474f-aeab-b3768f56f4e6",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "after-park",
+        "time": 1792843919728
+      }
+    ],
+    "lines": {
+      "01a16dd3-2d54-704b-8fcf-d8028e578f12": {
+        "before": {
+          "name": "main",
+          "head": "01a16dd3-3067-7313-8371-a067af275ca6",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        },
+        "after": {
+          "name": "main",
+          "head": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        }
+      }
+    },
+    "data": {
+      "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12"
+    }
+  },
+  {
+    "id": "01a16dd3-313f-726d-9e9d-08a3fc3d3cf5",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 27,
+    "time": 1792843919679,
+    "op": "stash.drop",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+      "state": "01a16dd3-30fd-7314-9197-f39af00da84c"
+    }
+  },
+  {
+    "id": "01a16dd3-3133-7065-8215-9f49f05bf9d9",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 26,
+    "time": 1792843919667,
+    "op": "stash.pop",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "states": [
+      {
+        "id": "01a16dd3-312f-7200-8572-f858d907bb4b",
+        "kind": "auto",
+        "parents": [
+          "01a16dd3-3067-7313-8371-a067af275ca6"
+        ],
+        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+        "subvol": "cdd197c8-3f1c-314c-92f5-8229c341c7b0",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "after stash.pop",
+        "time": 1792843919667
+      }
+    ],
+    "lines": {
+      "01a16dd3-2d54-704b-8fcf-d8028e578f12": {
+        "before": {
+          "name": "main",
+          "head": "01a16dd3-3067-7313-8371-a067af275ca6",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        },
+        "after": {
+          "name": "main",
+          "head": "01a16dd3-3067-7313-8371-a067af275ca6",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        },
+        "working_before": "01a16dd3-3101-72f4-ab47-54f69a4aa5db",
+        "working_after": "01a16dd3-312f-7200-8572-f858d907bb4b"
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-3104-769d-8082-013cb38d2d42",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 25,
+    "time": 1792843919620,
+    "op": "stash",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "states": [
+      {
+        "id": "01a16dd3-30fd-7314-9197-f39af00da84c",
+        "kind": "stash",
+        "parents": [
+          "01a16dd3-3067-7313-8371-a067af275ca6"
+        ],
+        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+        "subvol": "0dd2383c-0b1e-1345-a998-1b27a6355464",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "WIP on main: a067af2 Invert \"pick-source\"",
+        "time": 1792843919617
+      },
+      {
+        "id": "01a16dd3-3101-72f4-ab47-54f69a4aa5db",
+        "kind": "auto",
+        "parents": [
+          "01a16dd3-3067-7313-8371-a067af275ca6"
+        ],
+        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+        "subvol": "927a845f-12ac-8e46-94f0-bec7f5207c35",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "after stash",
+        "time": 1792843919620
+      }
+    ],
+    "lines": {
+      "01a16dd3-2d54-704b-8fcf-d8028e578f12": {
+        "before": {
+          "name": "main",
+          "head": "01a16dd3-3067-7313-8371-a067af275ca6",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        },
+        "after": {
+          "name": "main",
+          "head": "01a16dd3-3067-7313-8371-a067af275ca6",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        },
+        "working_before": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a",
+        "working_after": "01a16dd3-3101-72f4-ab47-54f69a4aa5db"
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-30d3-7359-84af-a538723a9af7",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 24,
+    "time": 1792843919571,
+    "op": "ref.set",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "ref_change": {
+        "after": {
+          "name": "pins/auto",
+          "target": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a"
+        },
+        "before": null,
+        "name": "pins/auto"
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-309e-7203-91dc-026719c67b8c",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 23,
+    "time": 1792843919518,
+    "op": "save",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "states": [
+      {
+        "id": "01a16dd3-3096-73ec-a7ff-2a085cd8f56a",
+        "kind": "auto",
+        "parents": [
+          "01a16dd3-3067-7313-8371-a067af275ca6"
+        ],
+        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+        "subvol": "e87be5a1-c882-aa4b-842f-6f59cd8f90ab",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "auto note",
+        "time": 1792843919517
+      }
+    ],
+    "data": {
+      "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12"
+    }
+  },
+  {
+    "id": "01a16dd3-3070-718a-ad21-613e1d9022ae",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 22,
+    "time": 1792843919472,
+    "op": "revert",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "states": [
+      {
+        "id": "01a16dd3-3067-7313-8371-a067af275ca6",
+        "kind": "commit",
+        "change_id": "01a16dd3-306c-7766-81a3-d763efe60f76",
+        "parents": [
+          "01a16dd3-3037-70ac-9a57-3e9e075e6f5a"
+        ],
+        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+        "subvol": "16dc3fe2-f203-a549-b48d-b5db064c3440",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "Invert \"pick-source\"\n\nThis inverts state 3e9e075e6f5a70ac9a5701a16dd33037.",
+        "time": 1792843919468
+      },
+      {
+        "id": "01a16dd3-306d-71a4-8a43-9639e4146410",
+        "kind": "auto",
+        "parents": [
+          "01a16dd3-3037-70ac-9a57-3e9e075e6f5a"
+        ],
+        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+        "subvol": "8e80840b-d56f-944d-a97a-7eaaf4db4d9b",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "after revert",
+        "time": 1792843919472
+      }
+    ],
+    "lines": {
+      "01a16dd3-2d54-704b-8fcf-d8028e578f12": {
+        "before": {
+          "name": "main",
+          "head": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        },
+        "after": {
+          "name": "main",
+          "head": "01a16dd3-3067-7313-8371-a067af275ca6",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        },
+        "working_before": "01a16dd3-303b-7028-b1a2-3245795d90e7",
+        "working_after": "01a16dd3-306d-71a4-8a43-9639e4146410"
+      }
+    },
+    "data": {
+      "source": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a"
+    }
+  },
+  {
+    "id": "01a16dd3-303f-7198-84c7-e37271cd7a7f",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 21,
+    "time": 1792843919423,
+    "op": "cherry-pick",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "states": [
+      {
+        "id": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a",
+        "kind": "commit",
+        "change_id": "01a16dd3-2ff3-75e4-8ef3-bda80491b201",
+        "parents": [
+          "01a16dd3-2f85-7359-bf6c-0777a1f57144"
+        ],
+        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+        "subvol": "3e392e4f-1c6b-4447-9828-75dd9ed96372",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "pick-source",
+        "time": 1792843919418
+      },
+      {
+        "id": "01a16dd3-303b-7028-b1a2-3245795d90e7",
+        "kind": "auto",
+        "parents": [
+          "01a16dd3-2f85-7359-bf6c-0777a1f57144"
+        ],
+        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+        "subvol": "49211ccb-5ef2-1447-93b2-4d73bb044668",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "after cherry-pick",
+        "time": 1792843919423
+      }
+    ],
+    "lines": {
+      "01a16dd3-2d54-704b-8fcf-d8028e578f12": {
+        "before": {
+          "name": "main",
+          "head": "01a16dd3-2f85-7359-bf6c-0777a1f57144",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        },
+        "after": {
+          "name": "main",
+          "head": "01a16dd3-3037-70ac-9a57-3e9e075e6f5a",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        },
+        "working_before": "01a16dd3-2f97-717e-8608-430c60878ecd",
+        "working_after": "01a16dd3-303b-7028-b1a2-3245795d90e7"
+      }
+    },
+    "data": {
+      "source": "01a16dd3-2fed-7663-8e59-220b60b8bf15"
+    }
+  },
+  {
+    "id": "01a16dd3-2ffd-7768-8b9d-062ab46a87a5",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 20,
+    "time": 1792843919357,
+    "op": "commit",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "states": [
+      {
+        "id": "01a16dd3-2fed-7663-8e59-220b60b8bf15",
+        "kind": "commit",
+        "change_id": "01a16dd3-2ff3-75e4-8ef3-bda80491b201",
+        "parents": [
+          "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20"
+        ],
+        "line": "01a16dd3-2d73-774e-9e40-cd73d2601980",
+        "subvol": "384597ff-e446-db47-a96a-f2ec4b7012b9",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "pick-source",
+        "time": 1792843919347
+      }
+    ],
+    "lines": {
+      "01a16dd3-2d73-774e-9e40-cd73d2601980": {
+        "before": {
+          "name": "feature",
+          "head": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        },
+        "after": {
+          "name": "feature",
+          "head": "01a16dd3-2fed-7663-8e59-220b60b8bf15",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        }
+      }
+    },
+    "data": {
+      "line": "01a16dd3-2d73-774e-9e40-cd73d2601980"
+    }
+  },
+  {
+    "id": "01a16dd3-2f9c-755d-b8bc-b108d6f7ec70",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 19,
+    "time": 1792843919260,
+    "op": "merge",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "states": [
+      {
+        "id": "01a16dd3-2f85-7359-bf6c-0777a1f57144",
+        "kind": "commit",
+        "change_id": "01a16dd3-2f88-7496-a8c0-4ee38c77c8bb",
+        "parents": [
+          "01a16dd3-2f48-712e-8922-17abb3617a6f",
+          "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20"
+        ],
+        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+        "subvol": "ea4acbde-941e-6040-8d0f-11de2774a07a",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "Merge line 'feature'",
+        "time": 1792843919240
+      },
+      {
+        "id": "01a16dd3-2f97-717e-8608-430c60878ecd",
+        "kind": "auto",
+        "parents": [
+          "01a16dd3-2f48-712e-8922-17abb3617a6f"
+        ],
+        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+        "subvol": "c9e6a096-fd96-1041-8f5c-f230855ae96f",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "after merge",
+        "time": 1792843919259
+      }
+    ],
+    "lines": {
+      "01a16dd3-2d54-704b-8fcf-d8028e578f12": {
+        "before": {
+          "name": "main",
+          "head": "01a16dd3-2f48-712e-8922-17abb3617a6f",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        },
+        "after": {
+          "name": "main",
+          "head": "01a16dd3-2f85-7359-bf6c-0777a1f57144",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        },
+        "working_before": "01a16dd3-2f68-7245-bfa4-e40e2ce31e1f",
+        "working_after": "01a16dd3-2f97-717e-8608-430c60878ecd"
+      }
+    },
+    "data": {
+      "base": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3",
+      "conflicts": 0,
+      "squash": false,
+      "theirs": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20"
+    }
+  },
+  {
+    "id": "01a16dd3-2f70-7730-9c27-e4e5c804ea6b",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 18,
+    "time": 1792843919216,
+    "op": "save",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "states": [
+      {
+        "id": "01a16dd3-2f68-7245-bfa4-e40e2ce31e1f",
+        "kind": "auto",
+        "parents": [
+          "01a16dd3-2f48-712e-8922-17abb3617a6f"
+        ],
+        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+        "subvol": "62c6f882-d78a-f74d-b5d4-1effc4c37bdd",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "before a layr command",
+        "time": 1792843919215
+      }
+    ],
+    "data": {
+      "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12"
+    }
+  },
+  {
+    "id": "01a16dd3-2f56-7212-a4b8-491be905b4c3",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 17,
+    "time": 1792843919190,
+    "op": "commit",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "states": [
+      {
+        "id": "01a16dd3-2f48-712e-8922-17abb3617a6f",
+        "kind": "commit",
+        "change_id": "01a16dd3-2f4c-7787-893b-81efedeeeaab",
+        "parents": [
+          "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3"
+        ],
+        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+        "subvol": "30f0b682-cc79-be43-bbcb-746b0125a768",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "main-divergence",
+        "time": 1792843919180
+      }
+    ],
+    "lines": {
+      "01a16dd3-2d54-704b-8fcf-d8028e578f12": {
+        "before": {
+          "name": "main",
+          "head": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        },
+        "after": {
+          "name": "main",
+          "head": "01a16dd3-2f48-712e-8922-17abb3617a6f",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        }
+      }
+    },
+    "data": {
+      "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12"
+    }
+  },
+  {
+    "id": "01a16dd3-2eee-77b7-a1f8-2806269fabf7",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 16,
+    "time": 1792843919086,
+    "op": "attest",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "attestation": {
+        "attestation_id": "01a16dd3-2eee-77b7-a1f8-2806269fabf7",
+        "change_id": "01a16dd3-2d9d-7657-9e00-698aa2c4ff23",
+        "format": 1,
+        "kind": "approval",
+        "payload_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "signer": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+        "subject": {
+          "id": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+          "kind": "state"
+        },
+        "time": 1792843919086
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-2eda-7051-a930-a1dc508d2cc8",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 15,
+    "time": 1792843919066,
+    "op": "attest",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "attestation": {
+        "attestation_id": "01a16dd3-2eda-7051-a930-a1dc508d2cc8",
+        "change_id": "01a16dd3-2d9d-7657-9e00-698aa2c4ff23",
+        "format": 1,
+        "kind": "check",
+        "payload_digest": "4c2d5225454a4015c09bc71b31adf70bcba6673f7ccc5ddb21b954444f8d38e2",
+        "signer": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+        "subject": {
+          "id": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+          "kind": "state"
+        },
+        "time": 1792843919066
+      },
+      "check": {
+        "argv": [
+          "sh",
+          "-c",
+          "test -f metric.txt"
+        ],
+        "command": "sh -c test -f metric.txt",
+        "exit": 0,
+        "seconds": 0.001014173
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-2e98-7064-ad1e-ccfc7c716122",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 14,
+    "time": 1792843919000,
+    "op": "rebase",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "states": [
+      {
+        "id": "01a16dd3-2e93-7016-92b1-0249c292cc47",
+        "kind": "auto",
+        "parents": [
+          "01a16dd3-2e24-7234-8b50-f996f5c822a0"
+        ],
+        "line": "01a16dd3-2d73-774e-9e40-cd73d2601980",
+        "subvol": "b03c0464-d63f-1e46-8a98-ed05927fbe54",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "after rebase",
+        "time": 1792843919000
+      }
+    ],
+    "lines": {
+      "01a16dd3-2d73-774e-9e40-cd73d2601980": {
+        "before": {
+          "name": "feature",
+          "head": "01a16dd3-2e24-7234-8b50-f996f5c822a0",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        },
+        "after": {
+          "name": "feature",
+          "head": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        },
+        "working_before": "01a16dd3-2e6f-72f9-92c2-121eca2fe48f",
+        "working_after": "01a16dd3-2e93-7016-92b1-0249c292cc47"
+      }
+    },
+    "data": {
+      "count": 1,
+      "onto": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3",
+      "upstream": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3"
+    }
+  },
+  {
+    "id": "01a16dd3-2e8e-732e-b396-e30503de2dbb",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 13,
+    "time": 1792843918990,
+    "op": "rebase.step",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "states": [
+      {
+        "id": "01a16dd3-2e8a-76f1-96de-0e85ac7d4c20",
+        "kind": "commit",
+        "change_id": "01a16dd3-2d9d-7657-9e00-698aa2c4ff23",
+        "parents": [
+          "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3"
+        ],
+        "line": "01a16dd3-2d73-774e-9e40-cd73d2601980",
+        "subvol": "c8fa1531-f246-a94b-bbaf-7b291d041c46",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "feature-v2",
+        "time": 1792843918990
+      }
+    ]
+  },
+  {
+    "id": "01a16dd3-2e76-7789-8467-edc103f068a3",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 12,
+    "time": 1792843918966,
+    "op": "save",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "states": [
+      {
+        "id": "01a16dd3-2e6f-72f9-92c2-121eca2fe48f",
+        "kind": "auto",
+        "parents": [
+          "01a16dd3-2e24-7234-8b50-f996f5c822a0"
+        ],
+        "line": "01a16dd3-2d73-774e-9e40-cd73d2601980",
+        "subvol": "55c642fd-9d62-db4c-8fda-4a31580978f8",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "before a layr command",
+        "time": 1792843918965
+      }
+    ],
+    "data": {
+      "line": "01a16dd3-2d73-774e-9e40-cd73d2601980"
+    }
+  },
+  {
+    "id": "01a16dd3-2e60-76fc-aaa9-44ee2324ddec",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 11,
+    "time": 1792843918944,
+    "op": "commit",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "states": [
+      {
+        "id": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3",
+        "kind": "commit",
+        "change_id": "01a16dd3-2e58-7607-930a-a6b6aa4e1868",
+        "parents": [
+          "01a16dd3-2d4b-74df-a7e9-1926c5b166a5"
+        ],
+        "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+        "subvol": "d892ecea-3206-0b49-b3b2-4bbeea470861",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "main-base",
+        "time": 1792843918936
+      }
+    ],
+    "lines": {
+      "01a16dd3-2d54-704b-8fcf-d8028e578f12": {
+        "before": {
+          "name": "main",
+          "head": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        },
+        "after": {
+          "name": "main",
+          "head": "01a16dd3-2e53-7202-a2d1-043ebb7ed6f3",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        }
+      }
+    },
+    "data": {
+      "line": "01a16dd3-2d54-704b-8fcf-d8028e578f12"
+    }
+  },
+  {
+    "id": "01a16dd3-2e2f-7278-9e81-37d5d04d2da1",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 10,
+    "time": 1792843918895,
+    "op": "commit",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "states": [
+      {
+        "id": "01a16dd3-2e24-7234-8b50-f996f5c822a0",
+        "kind": "commit",
+        "change_id": "01a16dd3-2d9d-7657-9e00-698aa2c4ff23",
+        "parents": [
+          "01a16dd3-2d4b-74df-a7e9-1926c5b166a5"
+        ],
+        "line": "01a16dd3-2d73-774e-9e40-cd73d2601980",
+        "subvol": "55174811-7e8c-024f-bd68-01fb82292e6b",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "feature-v2",
+        "time": 1792843918888
+      }
+    ],
+    "lines": {
+      "01a16dd3-2d73-774e-9e40-cd73d2601980": {
+        "before": {
+          "name": "feature",
+          "head": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        },
+        "after": {
+          "name": "feature",
+          "head": "01a16dd3-2e24-7234-8b50-f996f5c822a0",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        }
+      }
+    },
+    "data": {
+      "line": "01a16dd3-2d73-774e-9e40-cd73d2601980"
+    }
+  },
+  {
+    "id": "01a16dd3-2dff-77e5-826b-88272179bc3f",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 9,
+    "time": 1792843918847,
+    "op": "attest",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "attestation": {
+        "attestation_id": "01a16dd3-2dff-77e5-826b-88272179bc3f",
+        "change_id": "01a16dd3-2d9d-7657-9e00-698aa2c4ff23",
+        "format": 1,
+        "kind": "approval",
+        "payload_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "signer": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+        "subject": {
+          "id": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35",
+          "kind": "state"
+        },
+        "time": 1792843918847
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-2df0-751b-b76e-af71853a9f11",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 8,
+    "time": 1792843918832,
+    "op": "attest",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "attestation": {
+        "attestation_id": "01a16dd3-2df0-751b-b76e-af71853a9f11",
+        "change_id": "01a16dd3-2d9d-7657-9e00-698aa2c4ff23",
+        "format": 1,
+        "kind": "check",
+        "payload_digest": "89a5288045da1d6102306ce6f32de59185534f0eed943a4c746a5478d0d90092",
+        "signer": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+        "subject": {
+          "id": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35",
+          "kind": "state"
+        },
+        "time": 1792843918832
+      },
+      "check": {
+        "argv": [
+          "sh",
+          "-c",
+          "test -f metric.txt"
+        ],
+        "command": "sh -c test -f metric.txt",
+        "exit": 0,
+        "seconds": 0.001353717
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-2dd5-7067-9c71-7e4132b01cf4",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 7,
+    "time": 1792843918805,
+    "op": "config",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "config": {
+        "check.smoke": "test -f metric.txt"
+      }
+    }
+  },
+  {
+    "id": "01a16dd3-2daa-7210-9932-2b77366e69a3",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 6,
+    "time": 1792843918762,
+    "op": "commit",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "states": [
+      {
+        "id": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35",
+        "kind": "commit",
+        "change_id": "01a16dd3-2d9d-7657-9e00-698aa2c4ff23",
+        "parents": [
+          "01a16dd3-2d4b-74df-a7e9-1926c5b166a5"
+        ],
+        "line": "01a16dd3-2d73-774e-9e40-cd73d2601980",
+        "subvol": "76c81ed3-68a5-6940-9d40-8d7f3255b64d",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "feature-v1",
+        "time": 1792843918749
+      }
+    ],
+    "lines": {
+      "01a16dd3-2d73-774e-9e40-cd73d2601980": {
+        "before": {
+          "name": "feature",
+          "head": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        },
+        "after": {
+          "name": "feature",
+          "head": "01a16dd3-2d99-73cf-bb2f-7f5be8403e35",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        }
+      }
+    },
+    "data": {
+      "line": "01a16dd3-2d73-774e-9e40-cd73d2601980"
+    }
+  },
+  {
+    "id": "01a16dd3-2d77-7078-9e88-6e3594b994f4",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 5,
+    "time": 1792843918711,
+    "op": "line.create",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "lines": {
+      "01a16dd3-2d73-774e-9e40-cd73d2601980": {
+        "before": null,
+        "after": {
+          "name": "feature",
+          "head": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        }
+      }
+    },
+    "data": {
+      "name": "feature",
+      "start": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5"
+    }
+  },
+  {
+    "id": "01a16dd3-2d58-70a9-a21b-954152ee8cbf",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 4,
+    "time": 1792843918680,
+    "op": "line.create",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "lines": {
+      "01a16dd3-2d54-704b-8fcf-d8028e578f12": {
+        "before": null,
+        "after": {
+          "name": "main",
+          "head": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5",
+          "owner": 0,
+          "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab"
+        }
+      }
+    },
+    "data": {
+      "name": "main",
+      "start": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5"
+    }
+  },
+  {
+    "id": "01a16dd3-2d50-709a-9f5f-49a28abee9d4",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 3,
+    "time": 1792843918672,
+    "op": "commit",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "states": [
+      {
+        "id": "01a16dd3-2d4b-74df-a7e9-1926c5b166a5",
+        "kind": "commit",
+        "change_id": "01a16dd3-2d4f-773d-8f69-473fa5b7a84b",
+        "parents": [],
+        "subvol": "d937ec48-27c1-084c-b568-8ac71f09a5fb",
+        "author": {
+          "name": "Tester",
+          "email": "tester@example.com",
+          "uid": 0
+        },
+        "message": "initial state",
+        "time": 1792843918671
+      }
+    ]
+  },
+  {
+    "id": "01a16dd3-2d47-7588-bfdf-1fe777deafae",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 2,
+    "time": 1792843918663,
+    "op": "project",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "config": {
+        "access": {
+          "user:0": "admin"
+        },
+        "protect": {
+          "main": {}
+        }
+      },
+      "id": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+      "name": "model-golden"
+    }
+  },
+  {
+    "id": "01a16dd3-2d46-761b-a299-ce0de55c1c5d",
+    "machine": "01a16dd3-2d1a-7767-b8e8-86aa1854a7ab",
+    "seq": 1,
+    "time": 1792843918662,
+    "op": "machine",
+    "project": "01a16dd3-2d2e-74ac-b5b4-5a912d4ffb04",
+    "actor": {
+      "uid": 0,
+      "name": "root"
+    },
+    "data": {
+      "name": "layr-dev",
+      "public_key": "f45963d1436be4de668d123fe9d291dbdfe04ec4bb9f712409219b3211675ef4"
+    }
+  }
+]

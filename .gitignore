@@ -3,3 +3,7 @@ dist/
 target/
 web/public/zstd.wasm
 __pycache__/
+
+web/test-results/
+web/playwright-report/
+web/wasm/

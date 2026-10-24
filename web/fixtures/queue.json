@@ -1,0 +1,160 @@
+[
+  {
+    "id": "01a16dd3-32dc-76bd-a28e-37ea3ab069cb",
+    "into": "main",
+    "target_line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+    "state": "01a16dd3-3294-7559-80e2-5abc69a01943",
+    "change_id": "01a16dd3-3299-75dd-aa77-706a2ef705ea",
+    "added_by": 0,
+    "time": 1792843920092,
+    "status": "done",
+    "attempts": 1,
+    "result": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+    "probes": {
+      "behavior": {
+        "base": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+        "base_source": "available",
+        "head": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+        "head_source": "available",
+        "probes": [
+          {
+            "base": {
+              "argv": [
+                "python3",
+                "probe.py"
+              ],
+              "exit": 0,
+              "output_state": "01a16dd3-332d-713e-9cbf-8103c3cd6af6",
+              "probe": "metric",
+              "reused": true,
+              "subject": {
+                "id": "01a16dd3-316b-75b9-ab00-c6435657f6fc",
+                "kind": "state"
+              }
+            },
+            "changes": [
+              {
+                "changes": [
+                  {
+                    "after": 110.0,
+                    "before": 100.0,
+                    "metric": "value",
+                    "noise": 0.01,
+                    "relative_change": 0.1
+                  }
+                ],
+                "path": "out/metric.json"
+              }
+            ],
+            "exit_changed": false,
+            "head": {
+              "argv": [
+                "python3",
+                "probe.py"
+              ],
+              "exit": 0,
+              "output_state": "01a16dd3-339c-72fa-a25a-35de7a1483fd",
+              "probe": "metric",
+              "reused": true,
+              "subject": {
+                "id": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+                "kind": "state"
+              }
+            },
+            "probe": "metric",
+            "status": "changed"
+          }
+        ]
+      },
+      "probes": [
+        {
+          "errors": [],
+          "probe": "metric",
+          "reasons": [],
+          "status": "passed"
+        }
+      ],
+      "status": "passed"
+    }
+  },
+  {
+    "id": "01a16dd3-345f-77e4-aa27-85e07682ba4a",
+    "into": "main",
+    "target_line": "01a16dd3-2d54-704b-8fcf-d8028e578f12",
+    "state": "01a16dd3-3434-75a9-ad00-8ccb7315f6ff",
+    "change_id": "01a16dd3-343b-7155-8a7d-6c5391b2dba8",
+    "added_by": 0,
+    "time": 1792843920479,
+    "status": "failed",
+    "attempts": 1,
+    "reason": "probe metric: value 110 → 150 (+36 %) is over the limit +20 %",
+    "probes": {
+      "behavior": {
+        "base": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+        "base_source": "available",
+        "head": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+        "head_source": "available",
+        "probes": [
+          {
+            "base": {
+              "argv": [
+                "python3",
+                "probe.py"
+              ],
+              "exit": 0,
+              "output_state": "01a16dd3-339c-72fa-a25a-35de7a1483fd",
+              "probe": "metric",
+              "reused": true,
+              "subject": {
+                "id": "01a16dd3-3365-737a-a2b6-f2f778b8b8a4",
+                "kind": "state"
+              }
+            },
+            "changes": [
+              {
+                "changes": [
+                  {
+                    "after": 150.0,
+                    "before": 110.0,
+                    "metric": "value",
+                    "noise": 0.01,
+                    "relative_change": 0.3636363636363637
+                  }
+                ],
+                "path": "out/metric.json"
+              }
+            ],
+            "exit_changed": false,
+            "head": {
+              "argv": [
+                "python3",
+                "probe.py"
+              ],
+              "exit": 0,
+              "output_state": "01a16dd3-34f7-74cf-b03d-87c016cac88f",
+              "probe": "metric",
+              "reused": true,
+              "subject": {
+                "id": "01a16dd3-34a7-73f2-8a64-b052d21b6c60",
+                "kind": "state"
+              }
+            },
+            "probe": "metric",
+            "status": "changed"
+          }
+        ]
+      },
+      "probes": [
+        {
+          "errors": [],
+          "probe": "metric",
+          "reasons": [
+            "probe metric: value 110 → 150 (+36 %) is over the limit +20 %"
+          ],
+          "status": "failed"
+        }
+      ],
+      "status": "failed"
+    }
+  }
+]
