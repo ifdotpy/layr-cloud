@@ -581,3 +581,8 @@ html:not(.cli) .cmd { display: inline-flex; margin-right: 10px; }
 .compare-bar .menu button .note { display: block; font-size: 12px; }
 .compare-bar .menu select { max-width: 100%; flex: 1; }
 .file-link.unchanged-file { color: var(--text-2); opacity: .65; }
+
+.readonly-note { margin-top: 4px; }
+.history-evidence td { white-space: nowrap; }
+.evidence-table details { margin-top: 8px; }
+.evidence-table summary { color: var(--text-2); cursor: pointer; font-size: 13px; }

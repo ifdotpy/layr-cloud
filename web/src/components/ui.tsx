@@ -149,15 +149,18 @@ export function PageHead({
   title,
   description,
   actions,
+  readOnly = Boolean(actions),
 }: {
   title: ComponentChildren;
   description?: ComponentChildren;
   actions?: ComponentChildren;
+  readOnly?: boolean;
 }) {
   return (
     <div class="pagehead">
       <div>
         <h1>{title}</h1>
+        {readOnly && <ReadOnlyNote />}
         {description && <p class="lede">{description}</p>}
       </div>
       {actions && <div class="right">{actions}</div>}
@@ -345,6 +348,9 @@ export function Dialog({
       </div>
     </dialog>
   );
+}
+export function ReadOnlyNote() {
+  return <p class="note readonly-note">Read only here. Use the CLI command.</p>;
 }
 export function ReadOnlyAction({
   label,

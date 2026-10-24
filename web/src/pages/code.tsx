@@ -684,6 +684,7 @@ export function StatePage({
     <div class="stack">
       <PageHead
         title={s.message || "Automatic state"}
+        readOnly
         description={
           <>
             <Who name={s.author.name} />

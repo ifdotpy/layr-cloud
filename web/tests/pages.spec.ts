@@ -20,6 +20,14 @@ for (const route of pages) {
       await expect(page.getByLabel('Open changes', { exact: true })).toHaveText(String(openChangeCount));
     }
     await expect(page.getByRole('alert')).toHaveCount(0);
+    const readOnlyNotes = page.locator('main .readonly-note');
+    expect(await readOnlyNotes.count()).toBeLessThanOrEqual(1);
+    if (await page.locator('main .readonly-action').count()) {
+      await expect(readOnlyNotes).toHaveCount(1);
+      await expect(readOnlyNotes).toHaveText('Read only here. Use the CLI command.');
+      await expect(page.locator('main .pagehead, main .chead').first().locator('.readonly-note')).toHaveCount(1);
+    }
+
 
     for (const view of views) {
       await test.step(view.name, async () => {

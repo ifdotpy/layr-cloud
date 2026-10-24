@@ -36,7 +36,6 @@ type Identities = {
   people: Person[];
   operations: Operation[];
 };
-const readOnlyReason = "Read only here. Use the CLI command.";
 const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
 const names = (overlay: Overlay) =>
   overlay.paths ?? overlay.files?.map((file) => file.path);
@@ -104,12 +103,7 @@ function Access({ overlay }: { overlay: Overlay }) {
 }
 
 function WriteAction({ label, command }: { label: string; command: string }) {
-  return (
-    <div class="stack-s">
-      <ReadOnlyAction label={label} command={command} />
-      <p class="note">{readOnlyReason}</p>
-    </div>
-  );
+  return <ReadOnlyAction label={label} command={command} />;
 }
 
 function ManagerRisk({ overlay }: { overlay: Overlay }) {
@@ -412,7 +406,6 @@ export function OverlayPage({
                       ? [
                           ...(showReaderKey ? ["Key"] : []),
                           ...(showReaderSince ? ["Since"] : []),
-                          "Action",
                         ]
                       : []),
                   ]}
@@ -440,10 +433,6 @@ export function OverlayPage({
                                 ]
                               : []),
                             ...(showReaderSince ? [when(details?.since)] : []),
-                            <WriteAction
-                              label="Remove"
-                              command={`layr overlay readers ${target} <remaining-readers>`}
-                            />,
                           ]
                         : []),
                     ];

@@ -390,7 +390,7 @@ function OrganizationSettings({ source }: { source: DataSource }) {
   ];
   return (
     <>
-      <PageHead title="Organization settings" />
+      <PageHead title="Organization settings" readOnly />
       <Card>
         {!result.data ? (
           <LoadError error={result.error} />
@@ -435,6 +435,7 @@ function YouPage({ source }: { source: DataSource }) {
     <>
       <PageHead
         title="You"
+        readOnly
         description="Your person key, invites, disk and AWS access."
       />
       {!result.data ? (

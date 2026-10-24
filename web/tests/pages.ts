@@ -204,7 +204,12 @@ for (const tab of ['overview', 'files', 'behavior', 'steps']) {
       await expect(sidebar).toBeVisible();
       if (historical) {
         await expect(sidebar.getByRole('button', { name: 'Merge', exact: true })).toHaveCount(0);
-        await expect(sidebar.getByRole('table', { name: 'Historical checks and approvals', exact: true })).toBeVisible();
+        const historicalTable = sidebar.getByRole('table', { name: 'Historical checks and approvals', exact: true });
+        await expect(historicalTable).toBeVisible();
+        for (const row of await historicalTable.locator('tbody tr').all()) {
+          const box = await row.boundingBox();
+          expect(box!.height).toBeLessThanOrEqual(41);
+        }
         await expect(sidebar).not.toContainText('No approval required');
         await expect(sidebar).not.toContainText('Not in queue');
         await expect(sidebar).not.toContainText('role not known here');
@@ -215,7 +220,26 @@ for (const tab of ['overview', 'files', 'behavior', 'steps']) {
       }
       if (tab === 'overview') {
         await expect(section(page, 'Versions').locator('li')).toHaveCount(change.versions.length);
-        const evidence = await table(page, 'Checks and approvals', selectedVersion.attestations.length);
+        const revokedIds = new Set(operations.flatMap(operation => {
+          const data = operation.data;
+          return data && typeof data === 'object' && !Array.isArray(data) && Array.isArray(data.revokes) ? data.revokes : [];
+        }));
+        const valid = selectedVersion.attestations.filter(attestation => attestation.kind !== 'revoke');
+        const revoked = valid.filter(attestation => revokedIds.has(attestation.attestation_id));
+        const evidence = await table(page, 'Checks and approvals', valid.length - revoked.length);
+        await expect(evidence).not.toContainText('revoked');
+        if (revoked.length) {
+          const disclosure = section(page, 'Checks and approvals').locator('details');
+          await expect(disclosure).not.toHaveAttribute('open');
+          await expect(disclosure.locator('summary')).toHaveText(`${revoked.length} revoked · show`);
+          await disclosure.locator('summary').click();
+          const revokedTable = await table(page, 'Checks and approvals, revoked', revoked.length);
+          for (const row of await revokedTable.locator('tbody tr').all()) {
+            await expect(row.locator('td').first()).not.toHaveText('revoke');
+            await expect(row).toContainText('revoked');
+          }
+          await disclosure.locator('summary').click();
+        }
         await expect(evidence.getByRole('columnheader')).toHaveText(['Kind', 'Result', 'Version', 'By', 'Time']);
         await expect(main(page).getByRole('table', { name: 'Change checks', exact: true })).toHaveCount(0);
         await expect(main(page).getByRole('heading', { name: 'Attestations', exact: true })).toHaveCount(0);
@@ -512,7 +536,10 @@ const overlay = overlays[0];
 if (overlay) pages.push({
   name: 'Overlay', path: route(`overlay/${encodeURIComponent(overlay.id)}`), heading: overlay.name,
   check: async page => {
-    await table(page, 'Overlay readers', overlay.readers.length);
+    const readersTable = await table(page, 'Overlay readers', overlay.readers.length);
+    await expect(readersTable.getByRole('columnheader', { name: 'Action', exact: true })).toHaveCount(0);
+    await expect(readersTable.getByRole('button')).toHaveCount(0);
+    if (overlay.readable) await expect(main(page).getByRole('button', { name: 'Add reader', exact: true })).toBeDisabled();
     for (const reader of overlay.readers) {
       const uid = reader.match(/^(?:user:|uid:)?(\d+)$/)?.[1];
       const names = [...new Set(operations.filter(item => String(item.actor.uid) === uid).map(item => item.actor.name).filter(Boolean))];

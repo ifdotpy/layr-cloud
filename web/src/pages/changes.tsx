@@ -1,3 +1,4 @@
+import type { ComponentChildren } from "preact";
 import { useState } from "preact/hooks";
 import type { Change, DataSource, Project, QueueEntry } from "../data/source";
 import { projectUrl } from "../router";
@@ -11,6 +12,7 @@ import {
   Mono,
   PageHead,
   ReadOnlyAction,
+  ReadOnlyNote,
   Section,
   Segments,
   Status,
@@ -25,6 +27,42 @@ import { BehaviorCards } from "../components/behavior";
 import { DiffBrowser, DiffFiles, InterdiffBrowser } from "../components/diff";
 import { changeStatus, loadChangeIndex } from "../data/change-index";
 import { object, plural, shortText } from "../labels";
+
+type EvidenceRow = { revoked: boolean; cells: ComponentChildren[] };
+function EvidenceTable({
+  label,
+  rows,
+}: {
+  label: string;
+  rows: EvidenceRow[];
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const active = rows.filter((row) => !row.revoked);
+  const revoked = rows.filter((row) => row.revoked);
+  const headers = ["Kind", "Result", "Version", "By", "Time"];
+  return (
+    <div class="evidence-table">
+      <Table
+        label={label}
+        headers={headers}
+        rows={active.map((row) => row.cells)}
+      />
+      {revoked.length > 0 && (
+        <details onToggle={(event) => setExpanded(event.currentTarget.open)}>
+          <summary>
+            {plural(revoked.length, "revoked", "revoked")} ·{" "}
+            {expanded ? "hide" : "show"}
+          </summary>
+          <Table
+            label={`${label}, revoked`}
+            headers={headers}
+            rows={revoked.map((row) => row.cells)}
+          />
+        </details>
+      )}
+    </div>
+  );
+}
 
 export function ChangesPage({
   source,
@@ -384,23 +422,24 @@ export function ChangePage({
     attestations: typeof selected.attestations,
     asOf = Infinity,
   ) =>
-    attestations.map((attestation) => {
-      const operation = data.operations.find(
-        (item) =>
-          object(object(item.data).attestation).attestation_id ===
-          attestation.attestation_id,
-      );
-      const revoked = data.operations.some(
-        (item) =>
-          item.time <= asOf &&
-          Array.isArray(object(item.data).revokes) &&
-          (object(item.data).revokes as string[]).includes(
+    attestations
+      .filter((attestation) => attestation.kind !== "revoke")
+      .map((attestation) => {
+        const operation = data.operations.find(
+          (item) =>
+            object(object(item.data).attestation).attestation_id ===
             attestation.attestation_id,
-          ),
-      );
-      const exit = object(object(operation?.data).check).exit;
-      const result =
-        revoked || attestation.kind === "revoke"
+        );
+        const revoked = data.operations.some(
+          (item) =>
+            item.time <= asOf &&
+            Array.isArray(object(item.data).revokes) &&
+            (object(item.data).revokes as string[]).includes(
+              attestation.attestation_id,
+            ),
+        );
+        const exit = object(object(operation?.data).check).exit;
+        const result = revoked
           ? "revoked"
           : attestation.kind === "check"
             ? typeof exit === "number"
@@ -411,22 +450,25 @@ export function ChangePage({
             : attestation.kind === "approval"
               ? "approved"
               : "signed";
-      const attestedVersion =
-        c.versions.find((value) => value.state.id === attestation.subject.id)
-          ?.version ?? "Not recorded";
-      return [
-        attestation.kind,
-        <Status value={result} />,
-        <span title={attestation.subject.id}>{attestedVersion}</span>,
-        <span title={attestation.signer}>
-          {operation?.actor.name ||
-            (attestation.signer.startsWith("person:")
-              ? attestation.signer.slice(7)
-              : "Name not recorded")}
-        </span>,
-        when(attestation.time),
-      ];
-    });
+        const attestedVersion =
+          c.versions.find((value) => value.state.id === attestation.subject.id)
+            ?.version ?? "Not recorded";
+        return {
+          revoked,
+          cells: [
+            attestation.kind,
+            <Status value={result} />,
+            <span title={attestation.subject.id}>{attestedVersion}</span>,
+            <span title={attestation.signer}>
+              {operation?.actor.name ||
+                (attestation.signer.startsWith("person:")
+                  ? attestation.signer.slice(7)
+                  : "Name not recorded")}
+            </span>,
+            when(attestation.time),
+          ],
+        };
+      });
   const currentStep = history ? 4 : merge?.allowed === true ? 3 : 1;
   return (
     <>
@@ -435,6 +477,7 @@ export function ChangePage({
           {shortText(s.message || "Change")}{" "}
           <span class="id mono">{short(c.change_id)}</span>
         </h1>
+        {!history && <ReadOnlyNote />}
         <div class="meta">
           <Status value={status} />
           <Who
@@ -509,9 +552,8 @@ export function ChangePage({
                 </ul>
               </Section>
               <Section title="Checks and approvals">
-                <Table
+                <EvidenceTable
                   label="Checks and approvals"
-                  headers={["Kind", "Result", "Version", "By", "Time"]}
                   rows={evidenceRows(selected.attestations)}
                 />
               </Section>
@@ -784,16 +826,17 @@ export function ChangePage({
                     ", time and name are not recorded."
                   )}
                 </p>
-                <Table
-                  label="Historical checks and approvals"
-                  headers={["Kind", "Result", "Version", "By", "Time"]}
-                  rows={evidenceRows(
-                    latest!.attestations.filter(
-                      (a) => !mergeOperation || a.time <= mergeOperation.time,
-                    ),
-                    mergeOperation?.time,
-                  )}
-                />
+                <div class="history-evidence">
+                  <EvidenceTable
+                    label="Historical checks and approvals"
+                    rows={evidenceRows(
+                      latest!.attestations.filter(
+                        (a) => !mergeOperation || a.time <= mergeOperation.time,
+                      ),
+                      mergeOperation?.time,
+                    )}
+                  />
+                </div>
               </div>
             ) : (
               <>
@@ -874,7 +917,6 @@ export function ChangePage({
                   command={`layr queue add ${latest!.state.id}`}
                   primary
                 />
-                <p class="note">Read only here. Use the CLI command.</p>
               </>
             )}
           </section>
