@@ -137,4 +137,22 @@
     b.addEventListener("click", () => { localStorage.setItem("layr.cli", cliOn() ? "0" : "1"); applyCli(); })
   );
   applyCli();
+
+  // Infographics: count up, fill rings, toggle bars. Reduced motion shows final values at once.
+  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  $$("[data-count]").forEach((el) => {
+    const end = Number(el.dataset.count), t0 = performance.now(), dur = still ? 0 : 900;
+    const tick = (t) => { const k = dur ? Math.min(1, (t - t0) / dur) : 1; el.textContent = Math.round(end * (1 - Math.pow(1 - k, 3))).toLocaleString("en-US"); if (k < 1) requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+  });
+  requestAnimationFrame(() => $$(".ring-fg").forEach((c) => (c.style.strokeDashoffset = c.dataset.offset)));
+  $$("[data-bars-toggle]").forEach((seg) => {
+    const box = seg.closest(".card, .bd") || document;
+    seg.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+      const m = b.dataset.mode;
+      seg.querySelectorAll("button").forEach((o) => o.setAttribute("aria-pressed", String(o === b)));
+      box.querySelectorAll(".bar i").forEach((i) => (i.style.width = i.dataset[m] + "%"));
+      box.querySelectorAll(".num[data-a], [data-total]").forEach((n) => (n.textContent = n.dataset[m]));
+    }));
+  });
 })();

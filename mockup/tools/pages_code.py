@@ -1,5 +1,6 @@
 import zlib
 from lib import *
+from pages_info import disk_bars
 
 _rd = []
 
@@ -141,7 +142,7 @@ def lines_page():
 <div class="filters"><div class="seg"><a href="#" aria-current="true">All</a><a href="#">Yours</a><a href="#">Agents</a><a href="#">Stale</a></div>
 <input class="input grow" type="search" placeholder="Filter lines"></div>
 {table(H, rows, stacked=True)}
-<p class="footnote">Disk use for all 20 lines: <b>214 MiB</b>. As separate copies: 3.1 GiB.</p>'''
+{disk_bars()}'''
     return page("Lines", body, tab="Code", dialogs=new)
 
 

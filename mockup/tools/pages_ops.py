@@ -1,4 +1,5 @@
 from lib import *
+from pages_info import pulse
 from pages_change import CHECK_H, checks_rows, behavior_cards
 
 
@@ -173,7 +174,7 @@ def activity_page():
     ]
     body = f'''{pagehead("Activity", "", "The signed operation log. Every operation names who, where and what. Most can be undone.")}
 <div class="filters">{sel(["Anyone", "alice", "bob", "carol"])}{sel(["People and agents", "Agents only"])}{sel(["All machines", "laptop-alice", "laptop-bob", "executor-eu1", "ci-runner-2"])}{sel(["All kinds", "save", "merge", "ref set", "push", "undo"])}</div>
-{table(H, rows)}{cmd("layr op log")}<div class="cmd"><span class="t">layr undo</span>{copybtn("layr undo")}</div>'''
+{pulse()}<h2 style="margin:32px 0 12px">Operations</h2>{table(H, rows)}{cmd("layr op log")}<div class="cmd"><span class="t">layr undo</span>{copybtn("layr undo")}</div>'''
     return page("Activity", body, tab="Activity")
 
 

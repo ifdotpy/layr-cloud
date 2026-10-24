@@ -497,3 +497,20 @@ Same features, fewer places. Every removed element has a named new home.
 | Org tabs: Projects, People, Stores, Machines, Settings | Projects, People, Infrastructure (stores, machines, gateway, executors, deployment), Settings | Stores and machines are one system |
 | Personal items on org pages (person key, invites, your disk, AWS access) and "Machines 3 online" in the top bar | One "You" page from the account menu | Personal and shared settings are apart |
 | "Remotes" in project settings and on the Code page (one machine's list: cloud, vault, laptop-bob, github; recipient pin and trust flow) | "Copies": this store, other encrypted copies and the Git mirror, plus the machines that hold the project, all from signed records | A remote is a per-machine link; the UI is inside one of them. Machines belong to Infrastructure; pins and trust are CLI checks |
+
+## 13. Infographics (2026-10-24, lead)
+
+Inspired by taxagent.pl: data views that move, not decoration. Each one reads live data from
+`layr-model`; motion stops under `prefers-reduced-motion`.
+
+| Where | What | Data |
+|---|---|---|
+| Activity, top | Pulse: counters (saves, merges, passed checks today), a flow from agents, people and the executor through the queue into main, then to environments and copies, with moving dots; a live feed with stamps (signed, merged, checked, encrypted) | Operation log: counts per source and target in the last hour set the dot rate |
+| Change, Merge block | Stepper: Saved, Checks, Approvals, Queue, Merged | Attestations and queue entry of the change |
+| Changes list | A "merged" stamp on merged changes | Merge records |
+| Lines, bottom | Disk use bars with a toggle: Layr or separate copies | Store block sharing per line, caches |
+| Change, Behavior, metric probes | Bars with a toggle: base or v3 | Probe results of the two exact states |
+| Settings, Copies | A ring per copy: states present of states expected, "complete" stamp | Push and sync records per copy |
+
+Not added, on purpose: charts on Code, Files and Settings pages other than Copies (they answer a
+question by reading, not by comparing), and decorative motion anywhere.

@@ -1,6 +1,7 @@
 from lib import *
 from pages_code import diff_frame, derived_frame, diff_toggle, DIFF_TAX
 from pages_visual import visual_card
+from pages_info import merge_stepper, metric_bars, stamp
 
 CHANGES = [
     ("open", "Checkout: support saved cards", "4f2a91", "v3", "bob", None, "topic-checkout",
@@ -28,7 +29,7 @@ def changes_page():
 {sel(["Author"])}{sel(["Line"])}{sel(["Attestation"])}{sel(["Queue"])}</div>
 <div class="list"><div class="lhd"><b>3 open</b><a class="muted" href="queue.html">1 in queue</a><a class="muted" href="#">41 merged</a><a class="muted" href="#">6 closed</a></div>{"".join(items)}</div>
 <h2 style="margin:32px 0 12px">Recently merged</h2>
-<div class="list">{"".join(f'<div class="item"><span class="mark" style="color:var(--purple-900)" aria-hidden="true">✓</span><div class="main"><a class="title" href="state.html">{e(t)}</a><div class="meta"><span class="mono">{n}</span>{badge("merged")}<span>by {a}</span><span>{w}</span></div></div></div>' for t, n, a, w in MERGED)}</div>'''
+<div class="list">{"".join(f'<div class="item"><span class="mark" style="color:var(--purple-900)" aria-hidden="true">✓</span><div class="main"><a class="title" href="state.html">{e(t)}</a><div class="meta"><span class="mono">{n}</span>{stamp("merged", "purple")}<span>by {a}</span><span>{w}</span></div></div></div>' for t, n, a, w in MERGED)}</div>'''
     dlg = dialog("dlg-change", "New change", f'''<p class="muted">Every save on a line already belongs to a change. Pick the line to ask for review and merge.</p>
 {field("Line", sel(["topic-checkout", "feature-coupons", "fix-tax-rounding"], mono=True))}
 {field("Into", sel(["main"], mono=True))}{field("Title", inp("Checkout: support saved cards"))}
@@ -164,8 +165,7 @@ def behavior_cards():
                    f'<p><span class="mono">GET /api/products?page=2</span>: 200 → 200, <span class="warn">● body changed</span> (2 fields)</p>'
                    f'<div class="frame"><table class="diff">{diff_rows(json_diff)}</table></div>', warnb("changed")),
         probe_card("bench-checkout", "metric", "layr probe run 7d3e --probe bench-checkout",
-                   table(H, [["p95 latency", "41 ms", "52 ms", '<span class="warn">▲ +27%</span>'],
-                             ["throughput", "1,920 req/s", "1,905 req/s", '<span class="muted">−0.8%</span>']]), warnb("changed")),
+                   metric_bars(), warnb("changed")),
         probe_card("bundle-size", "file", "layr probe run 7d3e --probe bundle-size",
                    f'<p>{sid("web/dist/app.js")} 214 KiB → 221 KiB <span class="muted">(+3%)</span></p>', grayb("within limit")),
         probe_card("sql-plan", "file", "layr probe run 7d3e --probe sql-plan", '<p><span class="ok">✓</span> No change</p>', okb("same")),
@@ -287,7 +287,7 @@ def cside(c):
         secret,
     ])
     return f'''<aside class="side">
-<section><h3>Merge into main <a href="settings-protection.html">Rules</a></h3><ul class="stack-s">{items}</ul>
+<section><h3>Merge into main <a href="settings-protection.html">Rules</a></h3>{merge_stepper(2)}<ul class="stack-s">{items}</ul>
 <button class="btn primary" type="button" style="width:100%;margin-top:12px">Merge when ready</button>
 <p class="note" style="margin-top:6px">Joins the queue now. It merges the exact result once checks and approvals pass.</p>
 {cmd("layr queue add " + c["line"])}</section>
