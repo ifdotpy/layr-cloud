@@ -24,10 +24,10 @@
         "role": "maintainer"
       }
     ],
-    "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
+    "state": "01a16ea0-26b9-73c1-bdaf-b1032939d236",
     "status": "decided",
     "target": "main",
-    "target_machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "target_machine": "01a16ea0-1ef1-726b-9b29-c814944067f0",
     "undecided_reasons": []
   },
   "ref": {
@@ -54,10 +54,10 @@
         "role": "maintainer"
       }
     ],
-    "state": "01a16e74-d189-74ce-8301-86f483596256",
+    "state": "01a16ea0-20c2-7236-a883-0b097d65c812",
     "status": "decided",
     "target": "env/prod",
-    "target_machine": "01a16e74-cfbd-7799-b375-f621165de230",
+    "target_machine": "01a16ea0-1ef1-726b-9b29-c814944067f0",
     "undecided_reasons": []
   }
 }

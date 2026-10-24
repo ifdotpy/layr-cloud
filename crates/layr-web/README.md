@@ -15,7 +15,7 @@ wasm-pack build crates/layr-web --target web --out-dir ../../web/wasm --release 
 
 The web build can run the same command through `node scripts/build-model-wasm.mjs`.
 Do not commit the generated `web/wasm` package.
-`Cargo.toml` pins the model and store to Layr revision `b1a23c100aa1e0b941afc424c14eb155295cbf50`.
+`Cargo.toml` pins the model and store to Layr revision `1a91cd32555a878e87d63d6311520ecca3be7173`.
 
 Run the native checks:
 
@@ -124,20 +124,21 @@ It opens the list and detail pages and checks one neutral hidden badge on each.
 It writes six screenshots and runs axe for all three display modes.
 `LAYR_WEB_TEST_SCREENSHOT_DIR` selects the screenshot folder.
 
-For fixture epoch ordinals, apply `tests/golden-epoch-numbers.patch` in the disposable Layr archive before the Rust export.
-The patch adds only the page field `number`, from signed key-record sequence and distinct epoch IDs.
-It does not change the CLI comparison outputs or the store records.
-Copy the resulting `overlays.json` and `projects.json` to the web fixtures.
-The browser displays this Rust number directly.
+Epoch ordinals come directly from `layr_model::overlays::epochs`.
+The function follows canonical signed record order (time, machine, sequence), including repeated key publications.
+No supplemental export patch is needed.
 
-The native overlay detail oracles come from `tests/make-overlay-details-oracle.sh`.
-Run it in the VM for both the visible golden overlay and the hidden reader fixture.
-Each oracle contains CLI state history and file paths, plus the overlay's signed operation records.
-The test verifies those signatures against the store's trusted machine keys.
-It compares current state, paths, patterns, operation history, and epoch numbers for both overlay kinds.
-
-`TODO(cli-overlay-json)` tracks replacement of the signed database oracle with CLI operation/show JSON when Layr provides it.
-The pinned CLI already supplies state-history JSON and file paths.
+The native overlay detail oracles use `layr overlay show <name> --json` and
+`layr overlay log <name> --ops --json`.
+`t37-model.sh` exports both contracts for visible and hidden readers with `LAYR_MODEL_FIXTURE_OUT`.
+Run `tests/make-overlay-details-oracle.sh` in Linux as root, with that directory, `LAYR_ORACLE_OUT`,
+`LAYR_BIN`, `LAYR_ORACLE_ARCHIVE` (the t37 store) and `LAYR_ORACLE_PAPER`.
+It also captures independent file paths with `overlay ls-files` from a disposable clone.
+Use the resulting parent directory for `LAYR_WEB_VISIBLE_ORACLE`.
+The native test compares both t37 overlays, including state, readers, managers, patterns, epoch numbers,
+and the operation ID, display name, actor and time. Record signatures remain verified by Session.
+The separate hidden person fixture captures the same CLI commands before its archive is frozen;
+use that fixture directory for `LAYR_WEB_HIDDEN_ORACLE`.
 
 Run all native reader checks, including their optional fixtures, with absolute paths:
 

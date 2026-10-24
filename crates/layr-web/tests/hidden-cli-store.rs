@@ -1,4 +1,4 @@
-//! Fixture: run make-hidden-cli-fixture.sh as root in layr-dev with CLI b1a23c1.
+//! Fixture: run make-hidden-cli-fixture.sh as root in layr-dev with the pinned CLI.
 use layr_store::{format, person};
 use layr_web::Session;
 use serde_json::{json, Value};

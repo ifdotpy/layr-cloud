@@ -11,7 +11,7 @@ rustup target add wasm32-unknown-unknown
 cargo install wasm-pack --version 0.15.0 --locked
 ```
 
-The Rust model and store dependencies use Layr revision `b1a23c100aa1e0b941afc424c14eb155295cbf50`.
+The Rust model and store dependencies use Layr revision `1a91cd32555a878e87d63d6311520ecca3be7173`.
 
 ```sh
 cd web
@@ -45,9 +45,9 @@ The old passkey code is preserved at `src/data/legacy-passkey.js` as a reference
 
 ## Fixture source
 
-The committed capture comes from Layr revision `b1a23c100aa1e0b941afc424c14eb155295cbf50`.
-It was generated as root in the `layr-dev` Linux VM, from a fresh Git archive in `/root/work/web2-b1a23c1`.
-`tests/t37-model.sh` passed 46 checks, including 18 CLI/model comparisons.
+The committed capture comes from Layr revision `1a91cd32555a878e87d63d6311520ecca3be7173`.
+It was generated as root in the `layr-dev` Linux VM, from a fresh Git archive in `/root/work/web3-layr-1a91cd3`.
+`tests/t37-model.sh` passed 47 checks, including 18 CLI/model comparisons.
 
 The recipe creates a disposable btrfs project with the real CLI and pushes an encrypted store.
 `crates/layr-model/examples/store_golden.rs` verifies the store and exports the page JSON.
@@ -64,8 +64,8 @@ The screenshot probe compares five screens with PNG, HTML, XML, JSON and text ou
 The PNG is a 2 × 2 test image. Other screens test structure-only output and unchanged structure.
 `screens.json` adds verified PNG data URLs to the canonical model comparison rows.
 The native real-store test generates it through the same adapter that serves `ModelSource.screens()`.
-The optional epoch `number` field comes from a supplemental Rust page export of the same store.
-It follows signed key-record sequence, independent of clock dates.
+The epoch `number` field comes from `layr_model::overlays::epochs`.
+It follows canonical signed record order (time, machine, sequence), retaining repeated key publications.
 See `crates/layr-web/README.md` for the capture commands.
 
 The `interdiff*.json` files come from real native version folders.

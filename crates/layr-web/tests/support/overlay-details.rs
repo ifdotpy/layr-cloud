@@ -75,33 +75,43 @@ fn assert_details(session: &mut Session, root: &Path, oracle: &Path, overlay: &s
         .iter()
         .find(|row| row["name"] == overlay)
         .unwrap();
-    // TODO(cli-overlay-json): replace the raw signed database oracle with
-    // `layr overlay log --ops --json` and `layr overlay show --json` after that task merges.
-    let signed = fs::read_to_string(oracle.join("signed-history.jsonl")).unwrap();
-    for line in signed.lines() {
-        let raw = record::parse_line(line, None).unwrap();
-        let r: Record = serde_json::from_str(raw.get()).unwrap();
-        record::verify_line(line.as_bytes(), &session.stores["test"].keys[&r.machine]).unwrap();
+    let show: Value = serde_json::from_slice(&fs::read(oracle.join("show.json")).unwrap()).unwrap();
+    for field in ["name", "hidden", "managers", "epochs", "patterns", "state"] {
+        assert_eq!(row[field], show[field], "CLI overlay show field {field}");
     }
-    let history: Vec<Record> =
-        serde_json::from_slice(&fs::read(oracle.join("history.json")).unwrap()).unwrap();
-    assert_eq!(row["history"], json!(history), "own CLI signed operations");
-    let epochs: Value =
-        serde_json::from_slice(&fs::read(oracle.join("epochs.json")).unwrap()).unwrap();
+    let readers: Vec<Value> = row["readers"].as_array().unwrap().iter().map(|r| {
+        let principal = r.as_str().unwrap();
+        let principal = if principal.starts_with("person:") { principal.split('=').next().unwrap() } else { principal };
+        json!({"principal":principal,"kind":principal.split_once(':').map(|(kind,_)| kind).unwrap_or("everyone")})
+    }).collect();
     assert_eq!(
-        row["epochs"], epochs,
-        "own key sequence order and signed epoch metadata"
+        json!(readers),
+        show["readers"],
+        "CLI readers without recipient material"
     );
-    let patterns: Value =
-        serde_json::from_slice(&fs::read(oracle.join("patterns.json")).unwrap()).unwrap();
-    assert_eq!(row["patterns"], patterns, "CLI routed patterns");
-    let log: Vec<Value> = fs::read_to_string(oracle.join("log.json"))
+    let ops: Value = serde_json::from_slice(&fs::read(oracle.join("ops.json")).unwrap()).unwrap();
+    let history: Vec<Value> = row["history"]
+        .as_array()
         .unwrap()
-        .lines()
-        .map(|line| serde_json::from_str(line).unwrap())
+        .iter()
+        .map(|r| {
+            let op = r["op"].as_str().unwrap();
+            let (head, tail) = op
+                .split_once('.')
+                .map(|(h, t)| (h, format!(".{t}")))
+                .unwrap_or((op, String::new()));
+            let head = match head {
+                "commit" => "state",
+                "stash" => "park",
+                "cherry-pick" => "pick",
+                "rebase" => "replay",
+                "revert" => "invert",
+                other => other,
+            };
+            json!({"id":r["id"],"op":format!("{head}{tail}"),"actor":r["actor"],"time":r["time"]})
+        })
         .collect();
-    assert!(!log.is_empty());
-    assert_eq!(row["state"], log[0]["id"], "CLI overlay log head");
+    assert_eq!(json!(history), ops, "CLI overlay log --ops --json");
     let paths: Vec<_> = fs::read_to_string(oracle.join("paths.txt"))
         .unwrap()
         .lines()
@@ -133,7 +143,7 @@ fn assert_details(session: &mut Session, root: &Path, oracle: &Path, overlay: &s
 
 #[test]
 #[ignore = "requires LAYR_WEB_VISIBLE_STORE, LAYR_WEB_VISIBLE_PAPER, LAYR_WEB_VISIBLE_ORACLE"]
-fn visible_cli_overlay_details_match_log_signed_records_and_paths() {
+fn visible_cli_overlay_details_match_cli_json_and_paths() {
     let root = std::env::var("LAYR_WEB_VISIBLE_STORE").unwrap();
     let root = Path::new(&root);
     let paper = fs::read_to_string(std::env::var("LAYR_WEB_VISIBLE_PAPER").unwrap()).unwrap();
@@ -217,12 +227,49 @@ fn visible_cli_overlay_details_match_log_signed_records_and_paths() {
         &root.join(published.prefix()),
     );
     let oracle = std::env::var("LAYR_WEB_VISIBLE_ORACLE").unwrap();
-    assert_details(&mut session, root, Path::new(&oracle), "secrets");
+    assert_details(
+        &mut session,
+        root,
+        Path::new(&oracle).join("visible").as_path(),
+        "secrets",
+    );
+    for object in objects(root, "overlays")
+        .into_iter()
+        .filter(|p| p.contains("/keys/") && p.ends_with(".age"))
+    {
+        let pieces: Vec<_> = object.split('/').collect();
+        let prefix = format!("overlays/{}/epochs/{}", pieces[1], &pieces[3][..36]);
+        let identity = Zeroizing::new(
+            keys::open_slot(
+                &fs::read(root.join(&prefix).join("slots/paper.age")).unwrap(),
+                &opener,
+            )
+            .unwrap(),
+        );
+        let slot = keys::seal_slot(&identity, &recipient).unwrap();
+        let alias = session
+            .open_hidden_overlay(
+                "test",
+                &object,
+                &slot,
+                &fs::read(root.join(&object)).unwrap(),
+            )
+            .unwrap();
+        if !alias.is_empty() {
+            records(&mut session, &alias, &root.join(&prefix));
+        }
+    }
+    assert_details(
+        &mut session,
+        root,
+        Path::new(&oracle).join("hidden-reader").as_path(),
+        "hidden-golden",
+    );
 }
 
 #[test]
 #[ignore = "requires LAYR_WEB_HIDDEN_FIXTURE and LAYR_WEB_HIDDEN_ORACLE"]
-fn hidden_cli_overlay_details_match_log_signed_records_and_paths() {
+fn hidden_cli_overlay_details_match_cli_json_and_paths() {
     let fixture = std::env::var("LAYR_WEB_HIDDEN_FIXTURE").unwrap();
     let fixture = Path::new(&fixture);
     let root = fixture.join("archive");
@@ -264,33 +311,33 @@ fn hidden_cli_overlay_details_match_log_signed_records_and_paths() {
 }
 
 #[test]
-fn epochs_follow_signed_sequence_despite_equal_or_skewed_times() {
-    let mut keys = Vec::new();
-    for (seq, time, epoch) in [
-        (2, 300, "first"),
-        (3, 300, "second"),
-        (4, 100, "third"),
-        (5, 500, "first"),
-    ] {
+fn epoch_views_use_canonical_time_machine_sequence_and_retain_republished_keys() {
+    let mut records = Vec::new();
+    let keys = [
+        ("b", 1, 300, "repeat"),
+        ("a", 9, 300, "second"),
+        ("a", 2, 300, "first"),
+        ("b", 2, 100, "repeat"),
+    ];
+    for (machine, seq, time, epoch) in keys {
         let mut record = Record::new("overlay.key");
         record.seq = seq;
         record.time = time;
-        record.machine = "machine".into();
-        record.id = format!("record-{seq}");
+        record.machine = machine.into();
+        record.id = format!("record-{machine}-{seq}");
         record.data = json!({"epoch":epoch});
-        keys.push(record);
+        records.push(record);
     }
-    keys.reverse();
-    let epochs = key_epochs(&keys);
+    let project = Project::from_records("project", records, "a").unwrap();
+    let epochs = epoch_views(&project);
     assert_eq!(
         epochs
             .iter()
             .map(|e| (e["id"].as_str().unwrap(), e["number"].as_u64().unwrap()))
             .collect::<Vec<_>>(),
-        [("first", 1), ("second", 2), ("third", 3)]
+        [("repeat", 1), ("first", 2), ("second", 3), ("repeat", 4)]
     );
-    assert_eq!(epochs[0]["time"], 300);
-    assert_eq!(epochs[2]["time"], 100);
+    assert_eq!(epochs[0]["time"], 100);
     assert!(epochs.iter().all(|e| e.get("reason").is_none()));
 }
 

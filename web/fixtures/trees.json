@@ -7,7 +7,7 @@
         "name": ".gitignore",
         "path": ".gitignore",
         "size": 5,
-        "state": "01a16e74-cff3-7561-8dc7-b249781d7bed",
+        "state": "01a16ea0-1f2a-73c0-9987-8123c9c69c1f",
         "text": "out/\n"
       },
       {
@@ -16,13 +16,13 @@
         "name": "data.bin",
         "path": "data.bin",
         "size": 8,
-        "state": "01a16e74-cff3-7561-8dc7-b249781d7bed"
+        "state": "01a16ea0-1f2a-73c0-9987-8123c9c69c1f"
       },
       {
         "kind": "directory",
         "name": "docs",
         "path": "docs",
-        "state": "01a16e74-cff3-7561-8dc7-b249781d7bed"
+        "state": "01a16ea0-1f2a-73c0-9987-8123c9c69c1f"
       },
       {
         "kind": "file",
@@ -30,7 +30,7 @@
         "name": "large.txt",
         "path": "large.txt",
         "size": 65537,
-        "state": "01a16e74-cff3-7561-8dc7-b249781d7bed"
+        "state": "01a16ea0-1f2a-73c0-9987-8123c9c69c1f"
       },
       {
         "kind": "file",
@@ -38,7 +38,7 @@
         "name": "layr.toml",
         "path": "layr.toml",
         "size": 231,
-        "state": "01a16e74-cff3-7561-8dc7-b249781d7bed",
+        "state": "01a16ea0-1f2a-73c0-9987-8123c9c69c1f",
         "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
       },
       {
@@ -47,7 +47,7 @@
         "name": "metric-link",
         "path": "metric-link",
         "size": 10,
-        "state": "01a16e74-cff3-7561-8dc7-b249781d7bed",
+        "state": "01a16ea0-1f2a-73c0-9987-8123c9c69c1f",
         "text": "metric.txt"
       },
       {
@@ -56,7 +56,7 @@
         "name": "metric.txt",
         "path": "metric.txt",
         "size": 4,
-        "state": "01a16e74-cff3-7561-8dc7-b249781d7bed",
+        "state": "01a16ea0-1f2a-73c0-9987-8123c9c69c1f",
         "text": "100\n"
       },
       {
@@ -65,7 +65,7 @@
         "name": "probe.py",
         "path": "probe.py",
         "size": 165,
-        "state": "01a16e74-cff3-7561-8dc7-b249781d7bed",
+        "state": "01a16ea0-1f2a-73c0-9987-8123c9c69c1f",
         "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
       },
       {
@@ -74,7 +74,7 @@
         "name": "screens.py",
         "path": "screens.py",
         "size": 943,
-        "state": "01a16e74-cff3-7561-8dc7-b249781d7bed",
+        "state": "01a16ea0-1f2a-73c0-9987-8123c9c69c1f",
         "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
       },
       {
@@ -83,12 +83,12 @@
         "name": "tool.sh",
         "path": "tool.sh",
         "size": 17,
-        "state": "01a16e74-cff3-7561-8dc7-b249781d7bed",
+        "state": "01a16ea0-1f2a-73c0-9987-8123c9c69c1f",
         "text": "#!/bin/sh\nexit 0\n"
       }
     ],
     "path": "",
-    "state": "01a16e74-cff3-7561-8dc7-b249781d7bed"
+    "state": "01a16ea0-1f2a-73c0-9987-8123c9c69c1f"
   },
   {
     "entries": [
@@ -98,12 +98,12 @@
         "name": "guide.txt",
         "path": "docs/guide.txt",
         "size": 32,
-        "state": "01a16e74-cff3-7561-8dc7-b249781d7bed",
+        "state": "01a16ea0-1f2a-73c0-9987-8123c9c69c1f",
         "text": "Guide from the encrypted store.\n"
       }
     ],
     "path": "docs",
-    "state": "01a16e74-cff3-7561-8dc7-b249781d7bed"
+    "state": "01a16ea0-1f2a-73c0-9987-8123c9c69c1f"
   },
   {
     "entries": [
@@ -113,7 +113,7 @@
         "name": ".gitignore",
         "path": ".gitignore",
         "size": 5,
-        "state": "01a16e74-d04d-77bc-aae3-ad86a604d396",
+        "state": "01a16ea0-1f86-7762-8e6b-b112bfc98151",
         "text": "out/\n"
       },
       {
@@ -122,13 +122,13 @@
         "name": "data.bin",
         "path": "data.bin",
         "size": 8,
-        "state": "01a16e74-d04d-77bc-aae3-ad86a604d396"
+        "state": "01a16ea0-1f86-7762-8e6b-b112bfc98151"
       },
       {
         "kind": "directory",
         "name": "docs",
         "path": "docs",
-        "state": "01a16e74-d04d-77bc-aae3-ad86a604d396"
+        "state": "01a16ea0-1f86-7762-8e6b-b112bfc98151"
       },
       {
         "kind": "file",
@@ -136,7 +136,7 @@
         "name": "feature.txt",
         "path": "feature.txt",
         "size": 12,
-        "state": "01a16e74-d04d-77bc-aae3-ad86a604d396",
+        "state": "01a16ea0-1f86-7762-8e6b-b112bfc98151",
         "text": "version one\n"
       },
       {
@@ -145,7 +145,7 @@
         "name": "large.txt",
         "path": "large.txt",
         "size": 65537,
-        "state": "01a16e74-d04d-77bc-aae3-ad86a604d396"
+        "state": "01a16ea0-1f86-7762-8e6b-b112bfc98151"
       },
       {
         "kind": "file",
@@ -153,7 +153,7 @@
         "name": "layr.toml",
         "path": "layr.toml",
         "size": 231,
-        "state": "01a16e74-d04d-77bc-aae3-ad86a604d396",
+        "state": "01a16ea0-1f86-7762-8e6b-b112bfc98151",
         "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
       },
       {
@@ -162,7 +162,7 @@
         "name": "metric-link",
         "path": "metric-link",
         "size": 10,
-        "state": "01a16e74-d04d-77bc-aae3-ad86a604d396",
+        "state": "01a16ea0-1f86-7762-8e6b-b112bfc98151",
         "text": "metric.txt"
       },
       {
@@ -171,7 +171,7 @@
         "name": "metric.txt",
         "path": "metric.txt",
         "size": 4,
-        "state": "01a16e74-d04d-77bc-aae3-ad86a604d396",
+        "state": "01a16ea0-1f86-7762-8e6b-b112bfc98151",
         "text": "100\n"
       },
       {
@@ -180,7 +180,7 @@
         "name": "probe.py",
         "path": "probe.py",
         "size": 165,
-        "state": "01a16e74-d04d-77bc-aae3-ad86a604d396",
+        "state": "01a16ea0-1f86-7762-8e6b-b112bfc98151",
         "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
       },
       {
@@ -189,7 +189,7 @@
         "name": "screens.py",
         "path": "screens.py",
         "size": 943,
-        "state": "01a16e74-d04d-77bc-aae3-ad86a604d396",
+        "state": "01a16ea0-1f86-7762-8e6b-b112bfc98151",
         "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
       },
       {
@@ -198,12 +198,12 @@
         "name": "tool.sh",
         "path": "tool.sh",
         "size": 17,
-        "state": "01a16e74-d04d-77bc-aae3-ad86a604d396",
+        "state": "01a16ea0-1f86-7762-8e6b-b112bfc98151",
         "text": "#!/bin/sh\nexit 0\n"
       }
     ],
     "path": "",
-    "state": "01a16e74-d04d-77bc-aae3-ad86a604d396"
+    "state": "01a16ea0-1f86-7762-8e6b-b112bfc98151"
   },
   {
     "entries": [
@@ -213,12 +213,12 @@
         "name": "guide.txt",
         "path": "docs/guide.txt",
         "size": 32,
-        "state": "01a16e74-d04d-77bc-aae3-ad86a604d396",
+        "state": "01a16ea0-1f86-7762-8e6b-b112bfc98151",
         "text": "Guide from the encrypted store.\n"
       }
     ],
     "path": "docs",
-    "state": "01a16e74-d04d-77bc-aae3-ad86a604d396"
+    "state": "01a16ea0-1f86-7762-8e6b-b112bfc98151"
   },
   {
     "entries": [
@@ -228,7 +228,7 @@
         "name": ".gitignore",
         "path": ".gitignore",
         "size": 5,
-        "state": "01a16e74-d0fd-765a-91e4-7b25d09dcd1a",
+        "state": "01a16ea0-202c-7208-9dd2-b1bd88160d33",
         "text": "out/\n"
       },
       {
@@ -237,13 +237,13 @@
         "name": "data.bin",
         "path": "data.bin",
         "size": 8,
-        "state": "01a16e74-d0fd-765a-91e4-7b25d09dcd1a"
+        "state": "01a16ea0-202c-7208-9dd2-b1bd88160d33"
       },
       {
         "kind": "directory",
         "name": "docs",
         "path": "docs",
-        "state": "01a16e74-d0fd-765a-91e4-7b25d09dcd1a"
+        "state": "01a16ea0-202c-7208-9dd2-b1bd88160d33"
       },
       {
         "kind": "file",
@@ -251,7 +251,7 @@
         "name": "feature.txt",
         "path": "feature.txt",
         "size": 24,
-        "state": "01a16e74-d0fd-765a-91e4-7b25d09dcd1a",
+        "state": "01a16ea0-202c-7208-9dd2-b1bd88160d33",
         "text": "version one\nversion two\n"
       },
       {
@@ -260,7 +260,7 @@
         "name": "large.txt",
         "path": "large.txt",
         "size": 65537,
-        "state": "01a16e74-d0fd-765a-91e4-7b25d09dcd1a"
+        "state": "01a16ea0-202c-7208-9dd2-b1bd88160d33"
       },
       {
         "kind": "file",
@@ -268,7 +268,7 @@
         "name": "layr.toml",
         "path": "layr.toml",
         "size": 231,
-        "state": "01a16e74-d0fd-765a-91e4-7b25d09dcd1a",
+        "state": "01a16ea0-202c-7208-9dd2-b1bd88160d33",
         "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
       },
       {
@@ -277,7 +277,7 @@
         "name": "metric-link",
         "path": "metric-link",
         "size": 10,
-        "state": "01a16e74-d0fd-765a-91e4-7b25d09dcd1a",
+        "state": "01a16ea0-202c-7208-9dd2-b1bd88160d33",
         "text": "metric.txt"
       },
       {
@@ -286,7 +286,7 @@
         "name": "metric.txt",
         "path": "metric.txt",
         "size": 4,
-        "state": "01a16e74-d0fd-765a-91e4-7b25d09dcd1a",
+        "state": "01a16ea0-202c-7208-9dd2-b1bd88160d33",
         "text": "100\n"
       },
       {
@@ -295,7 +295,7 @@
         "name": "probe.py",
         "path": "probe.py",
         "size": 165,
-        "state": "01a16e74-d0fd-765a-91e4-7b25d09dcd1a",
+        "state": "01a16ea0-202c-7208-9dd2-b1bd88160d33",
         "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
       },
       {
@@ -304,7 +304,7 @@
         "name": "screens.py",
         "path": "screens.py",
         "size": 943,
-        "state": "01a16e74-d0fd-765a-91e4-7b25d09dcd1a",
+        "state": "01a16ea0-202c-7208-9dd2-b1bd88160d33",
         "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
       },
       {
@@ -313,12 +313,12 @@
         "name": "tool.sh",
         "path": "tool.sh",
         "size": 17,
-        "state": "01a16e74-d0fd-765a-91e4-7b25d09dcd1a",
+        "state": "01a16ea0-202c-7208-9dd2-b1bd88160d33",
         "text": "#!/bin/sh\nexit 0\n"
       }
     ],
     "path": "",
-    "state": "01a16e74-d0fd-765a-91e4-7b25d09dcd1a"
+    "state": "01a16ea0-202c-7208-9dd2-b1bd88160d33"
   },
   {
     "entries": [
@@ -328,12 +328,12 @@
         "name": "guide.txt",
         "path": "docs/guide.txt",
         "size": 32,
-        "state": "01a16e74-d0fd-765a-91e4-7b25d09dcd1a",
+        "state": "01a16ea0-202c-7208-9dd2-b1bd88160d33",
         "text": "Guide from the encrypted store.\n"
       }
     ],
     "path": "docs",
-    "state": "01a16e74-d0fd-765a-91e4-7b25d09dcd1a"
+    "state": "01a16ea0-202c-7208-9dd2-b1bd88160d33"
   },
   {
     "entries": [
@@ -343,7 +343,7 @@
         "name": ".gitignore",
         "path": ".gitignore",
         "size": 5,
-        "state": "01a16e74-d14b-70f5-b304-015d60d9db64",
+        "state": "01a16ea0-207c-7590-a830-60405c665276",
         "text": "out/\n"
       },
       {
@@ -352,13 +352,13 @@
         "name": "data.bin",
         "path": "data.bin",
         "size": 8,
-        "state": "01a16e74-d14b-70f5-b304-015d60d9db64"
+        "state": "01a16ea0-207c-7590-a830-60405c665276"
       },
       {
         "kind": "directory",
         "name": "docs",
         "path": "docs",
-        "state": "01a16e74-d14b-70f5-b304-015d60d9db64"
+        "state": "01a16ea0-207c-7590-a830-60405c665276"
       },
       {
         "kind": "file",
@@ -366,7 +366,7 @@
         "name": "large.txt",
         "path": "large.txt",
         "size": 65537,
-        "state": "01a16e74-d14b-70f5-b304-015d60d9db64"
+        "state": "01a16ea0-207c-7590-a830-60405c665276"
       },
       {
         "kind": "file",
@@ -374,7 +374,7 @@
         "name": "layr.toml",
         "path": "layr.toml",
         "size": 231,
-        "state": "01a16e74-d14b-70f5-b304-015d60d9db64",
+        "state": "01a16ea0-207c-7590-a830-60405c665276",
         "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
       },
       {
@@ -383,7 +383,7 @@
         "name": "main.txt",
         "path": "main.txt",
         "size": 10,
-        "state": "01a16e74-d14b-70f5-b304-015d60d9db64",
+        "state": "01a16ea0-207c-7590-a830-60405c665276",
         "text": "main only\n"
       },
       {
@@ -392,7 +392,7 @@
         "name": "metric-link",
         "path": "metric-link",
         "size": 10,
-        "state": "01a16e74-d14b-70f5-b304-015d60d9db64",
+        "state": "01a16ea0-207c-7590-a830-60405c665276",
         "text": "metric.txt"
       },
       {
@@ -401,7 +401,7 @@
         "name": "metric.txt",
         "path": "metric.txt",
         "size": 4,
-        "state": "01a16e74-d14b-70f5-b304-015d60d9db64",
+        "state": "01a16ea0-207c-7590-a830-60405c665276",
         "text": "100\n"
       },
       {
@@ -410,7 +410,7 @@
         "name": "probe.py",
         "path": "probe.py",
         "size": 165,
-        "state": "01a16e74-d14b-70f5-b304-015d60d9db64",
+        "state": "01a16ea0-207c-7590-a830-60405c665276",
         "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
       },
       {
@@ -419,7 +419,7 @@
         "name": "screens.py",
         "path": "screens.py",
         "size": 943,
-        "state": "01a16e74-d14b-70f5-b304-015d60d9db64",
+        "state": "01a16ea0-207c-7590-a830-60405c665276",
         "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
       },
       {
@@ -428,12 +428,12 @@
         "name": "tool.sh",
         "path": "tool.sh",
         "size": 17,
-        "state": "01a16e74-d14b-70f5-b304-015d60d9db64",
+        "state": "01a16ea0-207c-7590-a830-60405c665276",
         "text": "#!/bin/sh\nexit 0\n"
       }
     ],
     "path": "",
-    "state": "01a16e74-d14b-70f5-b304-015d60d9db64"
+    "state": "01a16ea0-207c-7590-a830-60405c665276"
   },
   {
     "entries": [
@@ -443,12 +443,12 @@
         "name": "guide.txt",
         "path": "docs/guide.txt",
         "size": 32,
-        "state": "01a16e74-d14b-70f5-b304-015d60d9db64",
+        "state": "01a16ea0-207c-7590-a830-60405c665276",
         "text": "Guide from the encrypted store.\n"
       }
     ],
     "path": "docs",
-    "state": "01a16e74-d14b-70f5-b304-015d60d9db64"
+    "state": "01a16ea0-207c-7590-a830-60405c665276"
   },
   {
     "entries": [
@@ -458,7 +458,7 @@
         "name": ".gitignore",
         "path": ".gitignore",
         "size": 5,
-        "state": "01a16e74-d189-74ce-8301-86f483596256",
+        "state": "01a16ea0-20c2-7236-a883-0b097d65c812",
         "text": "out/\n"
       },
       {
@@ -467,13 +467,13 @@
         "name": "data.bin",
         "path": "data.bin",
         "size": 8,
-        "state": "01a16e74-d189-74ce-8301-86f483596256"
+        "state": "01a16ea0-20c2-7236-a883-0b097d65c812"
       },
       {
         "kind": "directory",
         "name": "docs",
         "path": "docs",
-        "state": "01a16e74-d189-74ce-8301-86f483596256"
+        "state": "01a16ea0-20c2-7236-a883-0b097d65c812"
       },
       {
         "kind": "file",
@@ -481,7 +481,7 @@
         "name": "feature.txt",
         "path": "feature.txt",
         "size": 24,
-        "state": "01a16e74-d189-74ce-8301-86f483596256",
+        "state": "01a16ea0-20c2-7236-a883-0b097d65c812",
         "text": "version one\nversion two\n"
       },
       {
@@ -490,7 +490,7 @@
         "name": "large.txt",
         "path": "large.txt",
         "size": 65537,
-        "state": "01a16e74-d189-74ce-8301-86f483596256"
+        "state": "01a16ea0-20c2-7236-a883-0b097d65c812"
       },
       {
         "kind": "file",
@@ -498,7 +498,7 @@
         "name": "layr.toml",
         "path": "layr.toml",
         "size": 231,
-        "state": "01a16e74-d189-74ce-8301-86f483596256",
+        "state": "01a16ea0-20c2-7236-a883-0b097d65c812",
         "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
       },
       {
@@ -507,7 +507,7 @@
         "name": "main.txt",
         "path": "main.txt",
         "size": 10,
-        "state": "01a16e74-d189-74ce-8301-86f483596256",
+        "state": "01a16ea0-20c2-7236-a883-0b097d65c812",
         "text": "main only\n"
       },
       {
@@ -516,7 +516,7 @@
         "name": "metric-link",
         "path": "metric-link",
         "size": 10,
-        "state": "01a16e74-d189-74ce-8301-86f483596256",
+        "state": "01a16ea0-20c2-7236-a883-0b097d65c812",
         "text": "metric.txt"
       },
       {
@@ -525,7 +525,7 @@
         "name": "metric.txt",
         "path": "metric.txt",
         "size": 4,
-        "state": "01a16e74-d189-74ce-8301-86f483596256",
+        "state": "01a16ea0-20c2-7236-a883-0b097d65c812",
         "text": "100\n"
       },
       {
@@ -534,7 +534,7 @@
         "name": "probe.py",
         "path": "probe.py",
         "size": 165,
-        "state": "01a16e74-d189-74ce-8301-86f483596256",
+        "state": "01a16ea0-20c2-7236-a883-0b097d65c812",
         "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
       },
       {
@@ -543,7 +543,7 @@
         "name": "screens.py",
         "path": "screens.py",
         "size": 943,
-        "state": "01a16e74-d189-74ce-8301-86f483596256",
+        "state": "01a16ea0-20c2-7236-a883-0b097d65c812",
         "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
       },
       {
@@ -552,12 +552,12 @@
         "name": "tool.sh",
         "path": "tool.sh",
         "size": 17,
-        "state": "01a16e74-d189-74ce-8301-86f483596256",
+        "state": "01a16ea0-20c2-7236-a883-0b097d65c812",
         "text": "#!/bin/sh\nexit 0\n"
       }
     ],
     "path": "",
-    "state": "01a16e74-d189-74ce-8301-86f483596256"
+    "state": "01a16ea0-20c2-7236-a883-0b097d65c812"
   },
   {
     "entries": [
@@ -567,12 +567,12 @@
         "name": "guide.txt",
         "path": "docs/guide.txt",
         "size": 32,
-        "state": "01a16e74-d189-74ce-8301-86f483596256",
+        "state": "01a16ea0-20c2-7236-a883-0b097d65c812",
         "text": "Guide from the encrypted store.\n"
       }
     ],
     "path": "docs",
-    "state": "01a16e74-d189-74ce-8301-86f483596256"
+    "state": "01a16ea0-20c2-7236-a883-0b097d65c812"
   },
   {
     "entries": [
@@ -582,7 +582,7 @@
         "name": ".gitignore",
         "path": ".gitignore",
         "size": 5,
-        "state": "01a16e74-d24e-7344-95b4-c6253fdc32bc",
+        "state": "01a16ea0-2192-74a9-9aef-685650c93a32",
         "text": "out/\n"
       },
       {
@@ -591,7 +591,7 @@
         "name": "data.bin",
         "path": "data.bin",
         "size": 8,
-        "state": "01a16e74-d24e-7344-95b4-c6253fdc32bc"
+        "state": "01a16ea0-2192-74a9-9aef-685650c93a32"
       },
       {
         "kind": "file",
@@ -599,14 +599,14 @@
         "name": "divergence.txt",
         "path": "divergence.txt",
         "size": 18,
-        "state": "01a16e74-d24e-7344-95b4-c6253fdc32bc",
+        "state": "01a16ea0-2192-74a9-9aef-685650c93a32",
         "text": "main after replay\n"
       },
       {
         "kind": "directory",
         "name": "docs",
         "path": "docs",
-        "state": "01a16e74-d24e-7344-95b4-c6253fdc32bc"
+        "state": "01a16ea0-2192-74a9-9aef-685650c93a32"
       },
       {
         "kind": "file",
@@ -614,7 +614,7 @@
         "name": "large.txt",
         "path": "large.txt",
         "size": 65537,
-        "state": "01a16e74-d24e-7344-95b4-c6253fdc32bc"
+        "state": "01a16ea0-2192-74a9-9aef-685650c93a32"
       },
       {
         "kind": "file",
@@ -622,7 +622,7 @@
         "name": "layr.toml",
         "path": "layr.toml",
         "size": 231,
-        "state": "01a16e74-d24e-7344-95b4-c6253fdc32bc",
+        "state": "01a16ea0-2192-74a9-9aef-685650c93a32",
         "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
       },
       {
@@ -631,7 +631,7 @@
         "name": "main.txt",
         "path": "main.txt",
         "size": 10,
-        "state": "01a16e74-d24e-7344-95b4-c6253fdc32bc",
+        "state": "01a16ea0-2192-74a9-9aef-685650c93a32",
         "text": "main only\n"
       },
       {
@@ -640,7 +640,7 @@
         "name": "metric-link",
         "path": "metric-link",
         "size": 10,
-        "state": "01a16e74-d24e-7344-95b4-c6253fdc32bc",
+        "state": "01a16ea0-2192-74a9-9aef-685650c93a32",
         "text": "metric.txt"
       },
       {
@@ -649,7 +649,7 @@
         "name": "metric.txt",
         "path": "metric.txt",
         "size": 4,
-        "state": "01a16e74-d24e-7344-95b4-c6253fdc32bc",
+        "state": "01a16ea0-2192-74a9-9aef-685650c93a32",
         "text": "100\n"
       },
       {
@@ -658,7 +658,7 @@
         "name": "probe.py",
         "path": "probe.py",
         "size": 165,
-        "state": "01a16e74-d24e-7344-95b4-c6253fdc32bc",
+        "state": "01a16ea0-2192-74a9-9aef-685650c93a32",
         "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
       },
       {
@@ -667,7 +667,7 @@
         "name": "screens.py",
         "path": "screens.py",
         "size": 943,
-        "state": "01a16e74-d24e-7344-95b4-c6253fdc32bc",
+        "state": "01a16ea0-2192-74a9-9aef-685650c93a32",
         "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
       },
       {
@@ -676,12 +676,12 @@
         "name": "tool.sh",
         "path": "tool.sh",
         "size": 17,
-        "state": "01a16e74-d24e-7344-95b4-c6253fdc32bc",
+        "state": "01a16ea0-2192-74a9-9aef-685650c93a32",
         "text": "#!/bin/sh\nexit 0\n"
       }
     ],
     "path": "",
-    "state": "01a16e74-d24e-7344-95b4-c6253fdc32bc"
+    "state": "01a16ea0-2192-74a9-9aef-685650c93a32"
   },
   {
     "entries": [
@@ -691,12 +691,12 @@
         "name": "guide.txt",
         "path": "docs/guide.txt",
         "size": 32,
-        "state": "01a16e74-d24e-7344-95b4-c6253fdc32bc",
+        "state": "01a16ea0-2192-74a9-9aef-685650c93a32",
         "text": "Guide from the encrypted store.\n"
       }
     ],
     "path": "docs",
-    "state": "01a16e74-d24e-7344-95b4-c6253fdc32bc"
+    "state": "01a16ea0-2192-74a9-9aef-685650c93a32"
   },
   {
     "entries": [
@@ -706,7 +706,7 @@
         "name": ".gitignore",
         "path": ".gitignore",
         "size": 5,
-        "state": "01a16e74-d28d-75a7-855f-16fe07fa24dd",
+        "state": "01a16ea0-21d0-7518-ade8-e68e507513f1",
         "text": "out/\n"
       },
       {
@@ -715,7 +715,7 @@
         "name": "data.bin",
         "path": "data.bin",
         "size": 8,
-        "state": "01a16e74-d28d-75a7-855f-16fe07fa24dd"
+        "state": "01a16ea0-21d0-7518-ade8-e68e507513f1"
       },
       {
         "kind": "file",
@@ -723,14 +723,14 @@
         "name": "divergence.txt",
         "path": "divergence.txt",
         "size": 18,
-        "state": "01a16e74-d28d-75a7-855f-16fe07fa24dd",
+        "state": "01a16ea0-21d0-7518-ade8-e68e507513f1",
         "text": "main after replay\n"
       },
       {
         "kind": "directory",
         "name": "docs",
         "path": "docs",
-        "state": "01a16e74-d28d-75a7-855f-16fe07fa24dd"
+        "state": "01a16ea0-21d0-7518-ade8-e68e507513f1"
       },
       {
         "kind": "file",
@@ -738,7 +738,7 @@
         "name": "feature.txt",
         "path": "feature.txt",
         "size": 24,
-        "state": "01a16e74-d28d-75a7-855f-16fe07fa24dd",
+        "state": "01a16ea0-21d0-7518-ade8-e68e507513f1",
         "text": "version one\nversion two\n"
       },
       {
@@ -747,7 +747,7 @@
         "name": "large.txt",
         "path": "large.txt",
         "size": 65537,
-        "state": "01a16e74-d28d-75a7-855f-16fe07fa24dd"
+        "state": "01a16ea0-21d0-7518-ade8-e68e507513f1"
       },
       {
         "kind": "file",
@@ -755,7 +755,7 @@
         "name": "layr.toml",
         "path": "layr.toml",
         "size": 231,
-        "state": "01a16e74-d28d-75a7-855f-16fe07fa24dd",
+        "state": "01a16ea0-21d0-7518-ade8-e68e507513f1",
         "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
       },
       {
@@ -764,7 +764,7 @@
         "name": "main.txt",
         "path": "main.txt",
         "size": 10,
-        "state": "01a16e74-d28d-75a7-855f-16fe07fa24dd",
+        "state": "01a16ea0-21d0-7518-ade8-e68e507513f1",
         "text": "main only\n"
       },
       {
@@ -773,7 +773,7 @@
         "name": "metric-link",
         "path": "metric-link",
         "size": 10,
-        "state": "01a16e74-d28d-75a7-855f-16fe07fa24dd",
+        "state": "01a16ea0-21d0-7518-ade8-e68e507513f1",
         "text": "metric.txt"
       },
       {
@@ -782,7 +782,7 @@
         "name": "metric.txt",
         "path": "metric.txt",
         "size": 4,
-        "state": "01a16e74-d28d-75a7-855f-16fe07fa24dd",
+        "state": "01a16ea0-21d0-7518-ade8-e68e507513f1",
         "text": "100\n"
       },
       {
@@ -791,7 +791,7 @@
         "name": "probe.py",
         "path": "probe.py",
         "size": 165,
-        "state": "01a16e74-d28d-75a7-855f-16fe07fa24dd",
+        "state": "01a16ea0-21d0-7518-ade8-e68e507513f1",
         "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
       },
       {
@@ -800,7 +800,7 @@
         "name": "screens.py",
         "path": "screens.py",
         "size": 943,
-        "state": "01a16e74-d28d-75a7-855f-16fe07fa24dd",
+        "state": "01a16ea0-21d0-7518-ade8-e68e507513f1",
         "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
       },
       {
@@ -809,12 +809,12 @@
         "name": "tool.sh",
         "path": "tool.sh",
         "size": 17,
-        "state": "01a16e74-d28d-75a7-855f-16fe07fa24dd",
+        "state": "01a16ea0-21d0-7518-ade8-e68e507513f1",
         "text": "#!/bin/sh\nexit 0\n"
       }
     ],
     "path": "",
-    "state": "01a16e74-d28d-75a7-855f-16fe07fa24dd"
+    "state": "01a16ea0-21d0-7518-ade8-e68e507513f1"
   },
   {
     "entries": [
@@ -824,12 +824,12 @@
         "name": "guide.txt",
         "path": "docs/guide.txt",
         "size": 32,
-        "state": "01a16e74-d28d-75a7-855f-16fe07fa24dd",
+        "state": "01a16ea0-21d0-7518-ade8-e68e507513f1",
         "text": "Guide from the encrypted store.\n"
       }
     ],
     "path": "docs",
-    "state": "01a16e74-d28d-75a7-855f-16fe07fa24dd"
+    "state": "01a16ea0-21d0-7518-ade8-e68e507513f1"
   },
   {
     "entries": [
@@ -839,7 +839,7 @@
         "name": ".gitignore",
         "path": ".gitignore",
         "size": 5,
-        "state": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe",
+        "state": "01a16ea0-2241-70b1-a403-740848a60092",
         "text": "out/\n"
       },
       {
@@ -848,13 +848,13 @@
         "name": "data.bin",
         "path": "data.bin",
         "size": 8,
-        "state": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe"
+        "state": "01a16ea0-2241-70b1-a403-740848a60092"
       },
       {
         "kind": "directory",
         "name": "docs",
         "path": "docs",
-        "state": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe"
+        "state": "01a16ea0-2241-70b1-a403-740848a60092"
       },
       {
         "kind": "file",
@@ -862,7 +862,7 @@
         "name": "feature.txt",
         "path": "feature.txt",
         "size": 24,
-        "state": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe",
+        "state": "01a16ea0-2241-70b1-a403-740848a60092",
         "text": "version one\nversion two\n"
       },
       {
@@ -871,7 +871,7 @@
         "name": "large.txt",
         "path": "large.txt",
         "size": 65537,
-        "state": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe"
+        "state": "01a16ea0-2241-70b1-a403-740848a60092"
       },
       {
         "kind": "file",
@@ -879,7 +879,7 @@
         "name": "layr.toml",
         "path": "layr.toml",
         "size": 231,
-        "state": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe",
+        "state": "01a16ea0-2241-70b1-a403-740848a60092",
         "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
       },
       {
@@ -888,7 +888,7 @@
         "name": "main.txt",
         "path": "main.txt",
         "size": 10,
-        "state": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe",
+        "state": "01a16ea0-2241-70b1-a403-740848a60092",
         "text": "main only\n"
       },
       {
@@ -897,7 +897,7 @@
         "name": "metric-link",
         "path": "metric-link",
         "size": 10,
-        "state": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe",
+        "state": "01a16ea0-2241-70b1-a403-740848a60092",
         "text": "metric.txt"
       },
       {
@@ -906,7 +906,7 @@
         "name": "metric.txt",
         "path": "metric.txt",
         "size": 4,
-        "state": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe",
+        "state": "01a16ea0-2241-70b1-a403-740848a60092",
         "text": "100\n"
       },
       {
@@ -915,7 +915,7 @@
         "name": "picked.txt",
         "path": "picked.txt",
         "size": 7,
-        "state": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe",
+        "state": "01a16ea0-2241-70b1-a403-740848a60092",
         "text": "picked\n"
       },
       {
@@ -924,7 +924,7 @@
         "name": "probe.py",
         "path": "probe.py",
         "size": 165,
-        "state": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe",
+        "state": "01a16ea0-2241-70b1-a403-740848a60092",
         "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
       },
       {
@@ -933,7 +933,7 @@
         "name": "screens.py",
         "path": "screens.py",
         "size": 943,
-        "state": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe",
+        "state": "01a16ea0-2241-70b1-a403-740848a60092",
         "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
       },
       {
@@ -942,12 +942,12 @@
         "name": "tool.sh",
         "path": "tool.sh",
         "size": 17,
-        "state": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe",
+        "state": "01a16ea0-2241-70b1-a403-740848a60092",
         "text": "#!/bin/sh\nexit 0\n"
       }
     ],
     "path": "",
-    "state": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe"
+    "state": "01a16ea0-2241-70b1-a403-740848a60092"
   },
   {
     "entries": [
@@ -957,12 +957,12 @@
         "name": "guide.txt",
         "path": "docs/guide.txt",
         "size": 32,
-        "state": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe",
+        "state": "01a16ea0-2241-70b1-a403-740848a60092",
         "text": "Guide from the encrypted store.\n"
       }
     ],
     "path": "docs",
-    "state": "01a16e74-d2fa-741a-b742-0a1e4a9c64fe"
+    "state": "01a16ea0-2241-70b1-a403-740848a60092"
   },
   {
     "entries": [
@@ -972,7 +972,7 @@
         "name": ".gitignore",
         "path": ".gitignore",
         "size": 5,
-        "state": "01a16e74-d342-76ae-a8cc-79d8a3320192",
+        "state": "01a16ea0-228b-72ca-b5d0-8b1e76bd043c",
         "text": "out/\n"
       },
       {
@@ -981,7 +981,7 @@
         "name": "data.bin",
         "path": "data.bin",
         "size": 8,
-        "state": "01a16e74-d342-76ae-a8cc-79d8a3320192"
+        "state": "01a16ea0-228b-72ca-b5d0-8b1e76bd043c"
       },
       {
         "kind": "file",
@@ -989,14 +989,14 @@
         "name": "divergence.txt",
         "path": "divergence.txt",
         "size": 18,
-        "state": "01a16e74-d342-76ae-a8cc-79d8a3320192",
+        "state": "01a16ea0-228b-72ca-b5d0-8b1e76bd043c",
         "text": "main after replay\n"
       },
       {
         "kind": "directory",
         "name": "docs",
         "path": "docs",
-        "state": "01a16e74-d342-76ae-a8cc-79d8a3320192"
+        "state": "01a16ea0-228b-72ca-b5d0-8b1e76bd043c"
       },
       {
         "kind": "file",
@@ -1004,7 +1004,7 @@
         "name": "feature.txt",
         "path": "feature.txt",
         "size": 24,
-        "state": "01a16e74-d342-76ae-a8cc-79d8a3320192",
+        "state": "01a16ea0-228b-72ca-b5d0-8b1e76bd043c",
         "text": "version one\nversion two\n"
       },
       {
@@ -1013,7 +1013,7 @@
         "name": "large.txt",
         "path": "large.txt",
         "size": 65537,
-        "state": "01a16e74-d342-76ae-a8cc-79d8a3320192"
+        "state": "01a16ea0-228b-72ca-b5d0-8b1e76bd043c"
       },
       {
         "kind": "file",
@@ -1021,7 +1021,7 @@
         "name": "layr.toml",
         "path": "layr.toml",
         "size": 231,
-        "state": "01a16e74-d342-76ae-a8cc-79d8a3320192",
+        "state": "01a16ea0-228b-72ca-b5d0-8b1e76bd043c",
         "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
       },
       {
@@ -1030,7 +1030,7 @@
         "name": "main.txt",
         "path": "main.txt",
         "size": 10,
-        "state": "01a16e74-d342-76ae-a8cc-79d8a3320192",
+        "state": "01a16ea0-228b-72ca-b5d0-8b1e76bd043c",
         "text": "main only\n"
       },
       {
@@ -1039,7 +1039,7 @@
         "name": "metric-link",
         "path": "metric-link",
         "size": 10,
-        "state": "01a16e74-d342-76ae-a8cc-79d8a3320192",
+        "state": "01a16ea0-228b-72ca-b5d0-8b1e76bd043c",
         "text": "metric.txt"
       },
       {
@@ -1048,7 +1048,7 @@
         "name": "metric.txt",
         "path": "metric.txt",
         "size": 4,
-        "state": "01a16e74-d342-76ae-a8cc-79d8a3320192",
+        "state": "01a16ea0-228b-72ca-b5d0-8b1e76bd043c",
         "text": "100\n"
       },
       {
@@ -1057,7 +1057,7 @@
         "name": "picked.txt",
         "path": "picked.txt",
         "size": 7,
-        "state": "01a16e74-d342-76ae-a8cc-79d8a3320192",
+        "state": "01a16ea0-228b-72ca-b5d0-8b1e76bd043c",
         "text": "picked\n"
       },
       {
@@ -1066,7 +1066,7 @@
         "name": "probe.py",
         "path": "probe.py",
         "size": 165,
-        "state": "01a16e74-d342-76ae-a8cc-79d8a3320192",
+        "state": "01a16ea0-228b-72ca-b5d0-8b1e76bd043c",
         "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
       },
       {
@@ -1075,7 +1075,7 @@
         "name": "screens.py",
         "path": "screens.py",
         "size": 943,
-        "state": "01a16e74-d342-76ae-a8cc-79d8a3320192",
+        "state": "01a16ea0-228b-72ca-b5d0-8b1e76bd043c",
         "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
       },
       {
@@ -1084,12 +1084,12 @@
         "name": "tool.sh",
         "path": "tool.sh",
         "size": 17,
-        "state": "01a16e74-d342-76ae-a8cc-79d8a3320192",
+        "state": "01a16ea0-228b-72ca-b5d0-8b1e76bd043c",
         "text": "#!/bin/sh\nexit 0\n"
       }
     ],
     "path": "",
-    "state": "01a16e74-d342-76ae-a8cc-79d8a3320192"
+    "state": "01a16ea0-228b-72ca-b5d0-8b1e76bd043c"
   },
   {
     "entries": [
@@ -1099,12 +1099,12 @@
         "name": "guide.txt",
         "path": "docs/guide.txt",
         "size": 32,
-        "state": "01a16e74-d342-76ae-a8cc-79d8a3320192",
+        "state": "01a16ea0-228b-72ca-b5d0-8b1e76bd043c",
         "text": "Guide from the encrypted store.\n"
       }
     ],
     "path": "docs",
-    "state": "01a16e74-d342-76ae-a8cc-79d8a3320192"
+    "state": "01a16ea0-228b-72ca-b5d0-8b1e76bd043c"
   },
   {
     "entries": [
@@ -1114,7 +1114,7 @@
         "name": ".gitignore",
         "path": ".gitignore",
         "size": 5,
-        "state": "01a16e74-d394-767d-b73a-73d5da6602e4",
+        "state": "01a16ea0-22e5-714a-a21b-ffee50450f5d",
         "text": "out/\n"
       },
       {
@@ -1123,7 +1123,7 @@
         "name": "data.bin",
         "path": "data.bin",
         "size": 8,
-        "state": "01a16e74-d394-767d-b73a-73d5da6602e4"
+        "state": "01a16ea0-22e5-714a-a21b-ffee50450f5d"
       },
       {
         "kind": "file",
@@ -1131,14 +1131,14 @@
         "name": "divergence.txt",
         "path": "divergence.txt",
         "size": 18,
-        "state": "01a16e74-d394-767d-b73a-73d5da6602e4",
+        "state": "01a16ea0-22e5-714a-a21b-ffee50450f5d",
         "text": "main after replay\n"
       },
       {
         "kind": "directory",
         "name": "docs",
         "path": "docs",
-        "state": "01a16e74-d394-767d-b73a-73d5da6602e4"
+        "state": "01a16ea0-22e5-714a-a21b-ffee50450f5d"
       },
       {
         "kind": "file",
@@ -1146,7 +1146,7 @@
         "name": "feature.txt",
         "path": "feature.txt",
         "size": 24,
-        "state": "01a16e74-d394-767d-b73a-73d5da6602e4",
+        "state": "01a16ea0-22e5-714a-a21b-ffee50450f5d",
         "text": "version one\nversion two\n"
       },
       {
@@ -1155,7 +1155,7 @@
         "name": "large.txt",
         "path": "large.txt",
         "size": 65537,
-        "state": "01a16e74-d394-767d-b73a-73d5da6602e4"
+        "state": "01a16ea0-22e5-714a-a21b-ffee50450f5d"
       },
       {
         "kind": "file",
@@ -1163,7 +1163,7 @@
         "name": "layr.toml",
         "path": "layr.toml",
         "size": 231,
-        "state": "01a16e74-d394-767d-b73a-73d5da6602e4",
+        "state": "01a16ea0-22e5-714a-a21b-ffee50450f5d",
         "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
       },
       {
@@ -1172,7 +1172,7 @@
         "name": "main.txt",
         "path": "main.txt",
         "size": 10,
-        "state": "01a16e74-d394-767d-b73a-73d5da6602e4",
+        "state": "01a16ea0-22e5-714a-a21b-ffee50450f5d",
         "text": "main only\n"
       },
       {
@@ -1181,7 +1181,7 @@
         "name": "metric-link",
         "path": "metric-link",
         "size": 10,
-        "state": "01a16e74-d394-767d-b73a-73d5da6602e4",
+        "state": "01a16ea0-22e5-714a-a21b-ffee50450f5d",
         "text": "metric.txt"
       },
       {
@@ -1190,7 +1190,7 @@
         "name": "metric.txt",
         "path": "metric.txt",
         "size": 4,
-        "state": "01a16e74-d394-767d-b73a-73d5da6602e4",
+        "state": "01a16ea0-22e5-714a-a21b-ffee50450f5d",
         "text": "100\n"
       },
       {
@@ -1199,7 +1199,7 @@
         "name": "probe.py",
         "path": "probe.py",
         "size": 165,
-        "state": "01a16e74-d394-767d-b73a-73d5da6602e4",
+        "state": "01a16ea0-22e5-714a-a21b-ffee50450f5d",
         "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
       },
       {
@@ -1208,7 +1208,7 @@
         "name": "screens.py",
         "path": "screens.py",
         "size": 943,
-        "state": "01a16e74-d394-767d-b73a-73d5da6602e4",
+        "state": "01a16ea0-22e5-714a-a21b-ffee50450f5d",
         "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
       },
       {
@@ -1217,12 +1217,12 @@
         "name": "tool.sh",
         "path": "tool.sh",
         "size": 17,
-        "state": "01a16e74-d394-767d-b73a-73d5da6602e4",
+        "state": "01a16ea0-22e5-714a-a21b-ffee50450f5d",
         "text": "#!/bin/sh\nexit 0\n"
       }
     ],
     "path": "",
-    "state": "01a16e74-d394-767d-b73a-73d5da6602e4"
+    "state": "01a16ea0-22e5-714a-a21b-ffee50450f5d"
   },
   {
     "entries": [
@@ -1232,12 +1232,12 @@
         "name": "guide.txt",
         "path": "docs/guide.txt",
         "size": 32,
-        "state": "01a16e74-d394-767d-b73a-73d5da6602e4",
+        "state": "01a16ea0-22e5-714a-a21b-ffee50450f5d",
         "text": "Guide from the encrypted store.\n"
       }
     ],
     "path": "docs",
-    "state": "01a16e74-d394-767d-b73a-73d5da6602e4"
+    "state": "01a16ea0-22e5-714a-a21b-ffee50450f5d"
   },
   {
     "entries": [
@@ -1247,7 +1247,7 @@
         "name": ".gitignore",
         "path": ".gitignore",
         "size": 5,
-        "state": "01a16e74-d3be-76de-ab2e-9d4a5321c24c",
+        "state": "01a16ea0-2316-75aa-8d4e-a8c7f66e7d74",
         "text": "out/\n"
       },
       {
@@ -1256,7 +1256,7 @@
         "name": "auto.txt",
         "path": "auto.txt",
         "size": 11,
-        "state": "01a16e74-d3be-76de-ab2e-9d4a5321c24c",
+        "state": "01a16ea0-2316-75aa-8d4e-a8c7f66e7d74",
         "text": "auto bytes\n"
       },
       {
@@ -1265,7 +1265,7 @@
         "name": "data.bin",
         "path": "data.bin",
         "size": 8,
-        "state": "01a16e74-d3be-76de-ab2e-9d4a5321c24c"
+        "state": "01a16ea0-2316-75aa-8d4e-a8c7f66e7d74"
       },
       {
         "kind": "file",
@@ -1273,14 +1273,14 @@
         "name": "divergence.txt",
         "path": "divergence.txt",
         "size": 18,
-        "state": "01a16e74-d3be-76de-ab2e-9d4a5321c24c",
+        "state": "01a16ea0-2316-75aa-8d4e-a8c7f66e7d74",
         "text": "main after replay\n"
       },
       {
         "kind": "directory",
         "name": "docs",
         "path": "docs",
-        "state": "01a16e74-d3be-76de-ab2e-9d4a5321c24c"
+        "state": "01a16ea0-2316-75aa-8d4e-a8c7f66e7d74"
       },
       {
         "kind": "file",
@@ -1288,7 +1288,7 @@
         "name": "feature.txt",
         "path": "feature.txt",
         "size": 24,
-        "state": "01a16e74-d3be-76de-ab2e-9d4a5321c24c",
+        "state": "01a16ea0-2316-75aa-8d4e-a8c7f66e7d74",
         "text": "version one\nversion two\n"
       },
       {
@@ -1297,7 +1297,7 @@
         "name": "large.txt",
         "path": "large.txt",
         "size": 65537,
-        "state": "01a16e74-d3be-76de-ab2e-9d4a5321c24c"
+        "state": "01a16ea0-2316-75aa-8d4e-a8c7f66e7d74"
       },
       {
         "kind": "file",
@@ -1305,7 +1305,7 @@
         "name": "layr.toml",
         "path": "layr.toml",
         "size": 231,
-        "state": "01a16e74-d3be-76de-ab2e-9d4a5321c24c",
+        "state": "01a16ea0-2316-75aa-8d4e-a8c7f66e7d74",
         "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
       },
       {
@@ -1314,7 +1314,7 @@
         "name": "main.txt",
         "path": "main.txt",
         "size": 10,
-        "state": "01a16e74-d3be-76de-ab2e-9d4a5321c24c",
+        "state": "01a16ea0-2316-75aa-8d4e-a8c7f66e7d74",
         "text": "main only\n"
       },
       {
@@ -1323,7 +1323,7 @@
         "name": "metric-link",
         "path": "metric-link",
         "size": 10,
-        "state": "01a16e74-d3be-76de-ab2e-9d4a5321c24c",
+        "state": "01a16ea0-2316-75aa-8d4e-a8c7f66e7d74",
         "text": "metric.txt"
       },
       {
@@ -1332,7 +1332,7 @@
         "name": "metric.txt",
         "path": "metric.txt",
         "size": 4,
-        "state": "01a16e74-d3be-76de-ab2e-9d4a5321c24c",
+        "state": "01a16ea0-2316-75aa-8d4e-a8c7f66e7d74",
         "text": "100\n"
       },
       {
@@ -1341,7 +1341,7 @@
         "name": "probe.py",
         "path": "probe.py",
         "size": 165,
-        "state": "01a16e74-d3be-76de-ab2e-9d4a5321c24c",
+        "state": "01a16ea0-2316-75aa-8d4e-a8c7f66e7d74",
         "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
       },
       {
@@ -1350,7 +1350,7 @@
         "name": "screens.py",
         "path": "screens.py",
         "size": 943,
-        "state": "01a16e74-d3be-76de-ab2e-9d4a5321c24c",
+        "state": "01a16ea0-2316-75aa-8d4e-a8c7f66e7d74",
         "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
       },
       {
@@ -1359,12 +1359,12 @@
         "name": "tool.sh",
         "path": "tool.sh",
         "size": 17,
-        "state": "01a16e74-d3be-76de-ab2e-9d4a5321c24c",
+        "state": "01a16ea0-2316-75aa-8d4e-a8c7f66e7d74",
         "text": "#!/bin/sh\nexit 0\n"
       }
     ],
     "path": "",
-    "state": "01a16e74-d3be-76de-ab2e-9d4a5321c24c"
+    "state": "01a16ea0-2316-75aa-8d4e-a8c7f66e7d74"
   },
   {
     "entries": [
@@ -1374,12 +1374,12 @@
         "name": "guide.txt",
         "path": "docs/guide.txt",
         "size": 32,
-        "state": "01a16e74-d3be-76de-ab2e-9d4a5321c24c",
+        "state": "01a16ea0-2316-75aa-8d4e-a8c7f66e7d74",
         "text": "Guide from the encrypted store.\n"
       }
     ],
     "path": "docs",
-    "state": "01a16e74-d3be-76de-ab2e-9d4a5321c24c"
+    "state": "01a16ea0-2316-75aa-8d4e-a8c7f66e7d74"
   },
   {
     "entries": [
@@ -1389,7 +1389,7 @@
         "name": ".gitignore",
         "path": ".gitignore",
         "size": 5,
-        "state": "01a16e74-d41d-70f8-936c-4170a4ca5269",
+        "state": "01a16ea0-2372-7178-a444-9436e8d79e75",
         "text": "out/\n"
       },
       {
@@ -1398,7 +1398,7 @@
         "name": "auto.txt",
         "path": "auto.txt",
         "size": 11,
-        "state": "01a16e74-d41d-70f8-936c-4170a4ca5269",
+        "state": "01a16ea0-2372-7178-a444-9436e8d79e75",
         "text": "auto bytes\n"
       },
       {
@@ -1407,7 +1407,7 @@
         "name": "data.bin",
         "path": "data.bin",
         "size": 8,
-        "state": "01a16e74-d41d-70f8-936c-4170a4ca5269"
+        "state": "01a16ea0-2372-7178-a444-9436e8d79e75"
       },
       {
         "kind": "file",
@@ -1415,14 +1415,14 @@
         "name": "divergence.txt",
         "path": "divergence.txt",
         "size": 18,
-        "state": "01a16e74-d41d-70f8-936c-4170a4ca5269",
+        "state": "01a16ea0-2372-7178-a444-9436e8d79e75",
         "text": "main after replay\n"
       },
       {
         "kind": "directory",
         "name": "docs",
         "path": "docs",
-        "state": "01a16e74-d41d-70f8-936c-4170a4ca5269"
+        "state": "01a16ea0-2372-7178-a444-9436e8d79e75"
       },
       {
         "kind": "file",
@@ -1430,7 +1430,7 @@
         "name": "feature.txt",
         "path": "feature.txt",
         "size": 24,
-        "state": "01a16e74-d41d-70f8-936c-4170a4ca5269",
+        "state": "01a16ea0-2372-7178-a444-9436e8d79e75",
         "text": "version one\nversion two\n"
       },
       {
@@ -1439,7 +1439,7 @@
         "name": "large.txt",
         "path": "large.txt",
         "size": 65537,
-        "state": "01a16e74-d41d-70f8-936c-4170a4ca5269"
+        "state": "01a16ea0-2372-7178-a444-9436e8d79e75"
       },
       {
         "kind": "file",
@@ -1447,7 +1447,7 @@
         "name": "layr.toml",
         "path": "layr.toml",
         "size": 231,
-        "state": "01a16e74-d41d-70f8-936c-4170a4ca5269",
+        "state": "01a16ea0-2372-7178-a444-9436e8d79e75",
         "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
       },
       {
@@ -1456,7 +1456,7 @@
         "name": "main.txt",
         "path": "main.txt",
         "size": 10,
-        "state": "01a16e74-d41d-70f8-936c-4170a4ca5269",
+        "state": "01a16ea0-2372-7178-a444-9436e8d79e75",
         "text": "main only\n"
       },
       {
@@ -1465,7 +1465,7 @@
         "name": "metric-link",
         "path": "metric-link",
         "size": 10,
-        "state": "01a16e74-d41d-70f8-936c-4170a4ca5269",
+        "state": "01a16ea0-2372-7178-a444-9436e8d79e75",
         "text": "metric.txt"
       },
       {
@@ -1474,7 +1474,7 @@
         "name": "metric.txt",
         "path": "metric.txt",
         "size": 4,
-        "state": "01a16e74-d41d-70f8-936c-4170a4ca5269",
+        "state": "01a16ea0-2372-7178-a444-9436e8d79e75",
         "text": "100\n"
       },
       {
@@ -1483,7 +1483,7 @@
         "name": "probe.py",
         "path": "probe.py",
         "size": 165,
-        "state": "01a16e74-d41d-70f8-936c-4170a4ca5269",
+        "state": "01a16ea0-2372-7178-a444-9436e8d79e75",
         "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
       },
       {
@@ -1492,7 +1492,7 @@
         "name": "screens.py",
         "path": "screens.py",
         "size": 943,
-        "state": "01a16e74-d41d-70f8-936c-4170a4ca5269",
+        "state": "01a16ea0-2372-7178-a444-9436e8d79e75",
         "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
       },
       {
@@ -1501,12 +1501,12 @@
         "name": "tool.sh",
         "path": "tool.sh",
         "size": 17,
-        "state": "01a16e74-d41d-70f8-936c-4170a4ca5269",
+        "state": "01a16ea0-2372-7178-a444-9436e8d79e75",
         "text": "#!/bin/sh\nexit 0\n"
       }
     ],
     "path": "",
-    "state": "01a16e74-d41d-70f8-936c-4170a4ca5269"
+    "state": "01a16ea0-2372-7178-a444-9436e8d79e75"
   },
   {
     "entries": [
@@ -1516,12 +1516,12 @@
         "name": "guide.txt",
         "path": "docs/guide.txt",
         "size": 32,
-        "state": "01a16e74-d41d-70f8-936c-4170a4ca5269",
+        "state": "01a16ea0-2372-7178-a444-9436e8d79e75",
         "text": "Guide from the encrypted store.\n"
       }
     ],
     "path": "docs",
-    "state": "01a16e74-d41d-70f8-936c-4170a4ca5269"
+    "state": "01a16ea0-2372-7178-a444-9436e8d79e75"
   },
   {
     "entries": [
@@ -1531,7 +1531,7 @@
         "name": ".gitignore",
         "path": ".gitignore",
         "size": 5,
-        "state": "01a16e74-d483-74eb-9aa4-6697c40fe915",
+        "state": "01a16ea0-23d6-7604-99c9-519b632962fc",
         "text": "out/\n"
       },
       {
@@ -1540,7 +1540,7 @@
         "name": "auto.txt",
         "path": "auto.txt",
         "size": 11,
-        "state": "01a16e74-d483-74eb-9aa4-6697c40fe915",
+        "state": "01a16ea0-23d6-7604-99c9-519b632962fc",
         "text": "auto bytes\n"
       },
       {
@@ -1549,7 +1549,7 @@
         "name": "data.bin",
         "path": "data.bin",
         "size": 8,
-        "state": "01a16e74-d483-74eb-9aa4-6697c40fe915"
+        "state": "01a16ea0-23d6-7604-99c9-519b632962fc"
       },
       {
         "kind": "file",
@@ -1557,14 +1557,14 @@
         "name": "divergence.txt",
         "path": "divergence.txt",
         "size": 18,
-        "state": "01a16e74-d483-74eb-9aa4-6697c40fe915",
+        "state": "01a16ea0-23d6-7604-99c9-519b632962fc",
         "text": "main after replay\n"
       },
       {
         "kind": "directory",
         "name": "docs",
         "path": "docs",
-        "state": "01a16e74-d483-74eb-9aa4-6697c40fe915"
+        "state": "01a16ea0-23d6-7604-99c9-519b632962fc"
       },
       {
         "kind": "file",
@@ -1572,7 +1572,7 @@
         "name": "feature.txt",
         "path": "feature.txt",
         "size": 24,
-        "state": "01a16e74-d483-74eb-9aa4-6697c40fe915",
+        "state": "01a16ea0-23d6-7604-99c9-519b632962fc",
         "text": "version one\nversion two\n"
       },
       {
@@ -1581,7 +1581,7 @@
         "name": "large.txt",
         "path": "large.txt",
         "size": 65537,
-        "state": "01a16e74-d483-74eb-9aa4-6697c40fe915"
+        "state": "01a16ea0-23d6-7604-99c9-519b632962fc"
       },
       {
         "kind": "file",
@@ -1589,7 +1589,7 @@
         "name": "layr.toml",
         "path": "layr.toml",
         "size": 231,
-        "state": "01a16e74-d483-74eb-9aa4-6697c40fe915",
+        "state": "01a16ea0-23d6-7604-99c9-519b632962fc",
         "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
       },
       {
@@ -1598,7 +1598,7 @@
         "name": "main.txt",
         "path": "main.txt",
         "size": 10,
-        "state": "01a16e74-d483-74eb-9aa4-6697c40fe915",
+        "state": "01a16ea0-23d6-7604-99c9-519b632962fc",
         "text": "main only\n"
       },
       {
@@ -1607,7 +1607,7 @@
         "name": "metric-link",
         "path": "metric-link",
         "size": 10,
-        "state": "01a16e74-d483-74eb-9aa4-6697c40fe915",
+        "state": "01a16ea0-23d6-7604-99c9-519b632962fc",
         "text": "metric.txt"
       },
       {
@@ -1616,7 +1616,7 @@
         "name": "metric.txt",
         "path": "metric.txt",
         "size": 4,
-        "state": "01a16e74-d483-74eb-9aa4-6697c40fe915",
+        "state": "01a16ea0-23d6-7604-99c9-519b632962fc",
         "text": "100\n"
       },
       {
@@ -1625,7 +1625,7 @@
         "name": "probe.py",
         "path": "probe.py",
         "size": 165,
-        "state": "01a16e74-d483-74eb-9aa4-6697c40fe915",
+        "state": "01a16ea0-23d6-7604-99c9-519b632962fc",
         "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
       },
       {
@@ -1634,7 +1634,7 @@
         "name": "screens.py",
         "path": "screens.py",
         "size": 943,
-        "state": "01a16e74-d483-74eb-9aa4-6697c40fe915",
+        "state": "01a16ea0-23d6-7604-99c9-519b632962fc",
         "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
       },
       {
@@ -1643,12 +1643,12 @@
         "name": "tool.sh",
         "path": "tool.sh",
         "size": 17,
-        "state": "01a16e74-d483-74eb-9aa4-6697c40fe915",
+        "state": "01a16ea0-23d6-7604-99c9-519b632962fc",
         "text": "#!/bin/sh\nexit 0\n"
       }
     ],
     "path": "",
-    "state": "01a16e74-d483-74eb-9aa4-6697c40fe915"
+    "state": "01a16ea0-23d6-7604-99c9-519b632962fc"
   },
   {
     "entries": [
@@ -1658,12 +1658,12 @@
         "name": "guide.txt",
         "path": "docs/guide.txt",
         "size": 32,
-        "state": "01a16e74-d483-74eb-9aa4-6697c40fe915",
+        "state": "01a16ea0-23d6-7604-99c9-519b632962fc",
         "text": "Guide from the encrypted store.\n"
       }
     ],
     "path": "docs",
-    "state": "01a16e74-d483-74eb-9aa4-6697c40fe915"
+    "state": "01a16ea0-23d6-7604-99c9-519b632962fc"
   },
   {
     "entries": [
@@ -1673,7 +1673,7 @@
         "name": ".gitignore",
         "path": ".gitignore",
         "size": 5,
-        "state": "01a16e74-d594-76b9-9396-876abef20ffd",
+        "state": "01a16ea0-24e5-737d-b6cf-568423505684",
         "text": "out/\n"
       },
       {
@@ -1682,13 +1682,13 @@
         "name": "data.bin",
         "path": "data.bin",
         "size": 8,
-        "state": "01a16e74-d594-76b9-9396-876abef20ffd"
+        "state": "01a16ea0-24e5-737d-b6cf-568423505684"
       },
       {
         "kind": "directory",
         "name": "docs",
         "path": "docs",
-        "state": "01a16e74-d594-76b9-9396-876abef20ffd"
+        "state": "01a16ea0-24e5-737d-b6cf-568423505684"
       },
       {
         "kind": "file",
@@ -1696,7 +1696,7 @@
         "name": "feature.txt",
         "path": "feature.txt",
         "size": 24,
-        "state": "01a16e74-d594-76b9-9396-876abef20ffd",
+        "state": "01a16ea0-24e5-737d-b6cf-568423505684",
         "text": "version one\nversion two\n"
       },
       {
@@ -1705,7 +1705,7 @@
         "name": "large.txt",
         "path": "large.txt",
         "size": 65537,
-        "state": "01a16e74-d594-76b9-9396-876abef20ffd"
+        "state": "01a16ea0-24e5-737d-b6cf-568423505684"
       },
       {
         "kind": "file",
@@ -1713,7 +1713,7 @@
         "name": "layr.toml",
         "path": "layr.toml",
         "size": 231,
-        "state": "01a16e74-d594-76b9-9396-876abef20ffd",
+        "state": "01a16ea0-24e5-737d-b6cf-568423505684",
         "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
       },
       {
@@ -1722,7 +1722,7 @@
         "name": "main.txt",
         "path": "main.txt",
         "size": 10,
-        "state": "01a16e74-d594-76b9-9396-876abef20ffd",
+        "state": "01a16ea0-24e5-737d-b6cf-568423505684",
         "text": "main only\n"
       },
       {
@@ -1731,7 +1731,7 @@
         "name": "metric-link",
         "path": "metric-link",
         "size": 10,
-        "state": "01a16e74-d594-76b9-9396-876abef20ffd",
+        "state": "01a16ea0-24e5-737d-b6cf-568423505684",
         "text": "metric.txt"
       },
       {
@@ -1740,7 +1740,7 @@
         "name": "metric.txt",
         "path": "metric.txt",
         "size": 4,
-        "state": "01a16e74-d594-76b9-9396-876abef20ffd",
+        "state": "01a16ea0-24e5-737d-b6cf-568423505684",
         "text": "110\n"
       },
       {
@@ -1749,7 +1749,7 @@
         "name": "picked.txt",
         "path": "picked.txt",
         "size": 7,
-        "state": "01a16e74-d594-76b9-9396-876abef20ffd",
+        "state": "01a16ea0-24e5-737d-b6cf-568423505684",
         "text": "picked\n"
       },
       {
@@ -1758,7 +1758,7 @@
         "name": "probe.py",
         "path": "probe.py",
         "size": 165,
-        "state": "01a16e74-d594-76b9-9396-876abef20ffd",
+        "state": "01a16ea0-24e5-737d-b6cf-568423505684",
         "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
       },
       {
@@ -1767,7 +1767,7 @@
         "name": "screens.py",
         "path": "screens.py",
         "size": 943,
-        "state": "01a16e74-d594-76b9-9396-876abef20ffd",
+        "state": "01a16ea0-24e5-737d-b6cf-568423505684",
         "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
       },
       {
@@ -1776,12 +1776,12 @@
         "name": "tool.sh",
         "path": "tool.sh",
         "size": 17,
-        "state": "01a16e74-d594-76b9-9396-876abef20ffd",
+        "state": "01a16ea0-24e5-737d-b6cf-568423505684",
         "text": "#!/bin/sh\nexit 0\n"
       }
     ],
     "path": "",
-    "state": "01a16e74-d594-76b9-9396-876abef20ffd"
+    "state": "01a16ea0-24e5-737d-b6cf-568423505684"
   },
   {
     "entries": [
@@ -1791,12 +1791,12 @@
         "name": "guide.txt",
         "path": "docs/guide.txt",
         "size": 32,
-        "state": "01a16e74-d594-76b9-9396-876abef20ffd",
+        "state": "01a16ea0-24e5-737d-b6cf-568423505684",
         "text": "Guide from the encrypted store.\n"
       }
     ],
     "path": "docs",
-    "state": "01a16e74-d594-76b9-9396-876abef20ffd"
+    "state": "01a16ea0-24e5-737d-b6cf-568423505684"
   },
   {
     "entries": [
@@ -1804,11 +1804,11 @@
         "kind": "directory",
         "name": "out",
         "path": "out",
-        "state": "01a16e74-d612-777e-ac14-e062f3ddfd67"
+        "state": "01a16ea0-2566-70fc-92c4-66f171d0e3b3"
       }
     ],
     "path": "",
-    "state": "01a16e74-d612-777e-ac14-e062f3ddfd67"
+    "state": "01a16ea0-2566-70fc-92c4-66f171d0e3b3"
   },
   {
     "entries": [
@@ -1818,12 +1818,12 @@
         "name": "metric.json",
         "path": "out/metric.json",
         "size": 14,
-        "state": "01a16e74-d612-777e-ac14-e062f3ddfd67",
+        "state": "01a16ea0-2566-70fc-92c4-66f171d0e3b3",
         "text": "{\"value\": 100}"
       }
     ],
     "path": "out",
-    "state": "01a16e74-d612-777e-ac14-e062f3ddfd67"
+    "state": "01a16ea0-2566-70fc-92c4-66f171d0e3b3"
   },
   {
     "entries": [
@@ -1831,11 +1831,11 @@
         "kind": "directory",
         "name": "out",
         "path": "out",
-        "state": "01a16e74-d63d-75b0-9a0d-83116dec2c5f"
+        "state": "01a16ea0-2599-731f-bbe8-1894be170629"
       }
     ],
     "path": "",
-    "state": "01a16e74-d63d-75b0-9a0d-83116dec2c5f"
+    "state": "01a16ea0-2599-731f-bbe8-1894be170629"
   },
   {
     "entries": [
@@ -1843,11 +1843,11 @@
         "kind": "directory",
         "name": "screens",
         "path": "out/screens",
-        "state": "01a16e74-d63d-75b0-9a0d-83116dec2c5f"
+        "state": "01a16ea0-2599-731f-bbe8-1894be170629"
       }
     ],
     "path": "out",
-    "state": "01a16e74-d63d-75b0-9a0d-83116dec2c5f"
+    "state": "01a16ea0-2599-731f-bbe8-1894be170629"
   },
   {
     "entries": [
@@ -1857,7 +1857,7 @@
         "name": "Home@Phone.html",
         "path": "out/screens/Home@Phone.html",
         "size": 35,
-        "state": "01a16e74-d63d-75b0-9a0d-83116dec2c5f",
+        "state": "01a16ea0-2599-731f-bbe8-1894be170629",
         "text": "<main nonce=\"100\"><p>100</p></main>"
       },
       {
@@ -1866,7 +1866,7 @@
         "name": "Home@Phone.png",
         "path": "out/screens/Home@Phone.png",
         "size": 74,
-        "state": "01a16e74-d63d-75b0-9a0d-83116dec2c5f"
+        "state": "01a16ea0-2599-731f-bbe8-1894be170629"
       },
       {
         "kind": "file",
@@ -1874,7 +1874,7 @@
         "name": "Native@Phone.xml",
         "path": "out/screens/Native@Phone.xml",
         "size": 38,
-        "state": "01a16e74-d63d-75b0-9a0d-83116dec2c5f",
+        "state": "01a16ea0-2599-731f-bbe8-1894be170629",
         "text": "<node bounds=\"[1,2][4,6]\" text=\"100\"/>"
       },
       {
@@ -1883,7 +1883,7 @@
         "name": "Stable@Phone.txt",
         "path": "out/screens/Stable@Phone.txt",
         "size": 5,
-        "state": "01a16e74-d63d-75b0-9a0d-83116dec2c5f",
+        "state": "01a16ea0-2599-731f-bbe8-1894be170629",
         "text": "Same\n"
       },
       {
@@ -1892,7 +1892,7 @@
         "name": "Text@Phone.txt",
         "path": "out/screens/Text@Phone.txt",
         "size": 4,
-        "state": "01a16e74-d63d-75b0-9a0d-83116dec2c5f",
+        "state": "01a16ea0-2599-731f-bbe8-1894be170629",
         "text": "100\n"
       },
       {
@@ -1901,12 +1901,12 @@
         "name": "Tree@Phone.json",
         "path": "out/screens/Tree@Phone.json",
         "size": 39,
-        "state": "01a16e74-d63d-75b0-9a0d-83116dec2c5f",
+        "state": "01a16ea0-2599-731f-bbe8-1894be170629",
         "text": "{\"label\": \"100\", \"frame\": [1, 2, 3, 4]}"
       }
     ],
     "path": "out/screens",
-    "state": "01a16e74-d63d-75b0-9a0d-83116dec2c5f"
+    "state": "01a16ea0-2599-731f-bbe8-1894be170629"
   },
   {
     "entries": [
@@ -1916,7 +1916,7 @@
         "name": ".gitignore",
         "path": ".gitignore",
         "size": 5,
-        "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+        "state": "01a16ea0-25c1-76f1-957b-8ccc5e88bacf",
         "text": "out/\n"
       },
       {
@@ -1925,7 +1925,7 @@
         "name": "auto.txt",
         "path": "auto.txt",
         "size": 11,
-        "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+        "state": "01a16ea0-25c1-76f1-957b-8ccc5e88bacf",
         "text": "auto bytes\n"
       },
       {
@@ -1934,7 +1934,7 @@
         "name": "data.bin",
         "path": "data.bin",
         "size": 8,
-        "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec"
+        "state": "01a16ea0-25c1-76f1-957b-8ccc5e88bacf"
       },
       {
         "kind": "file",
@@ -1942,14 +1942,14 @@
         "name": "divergence.txt",
         "path": "divergence.txt",
         "size": 18,
-        "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+        "state": "01a16ea0-25c1-76f1-957b-8ccc5e88bacf",
         "text": "main after replay\n"
       },
       {
         "kind": "directory",
         "name": "docs",
         "path": "docs",
-        "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec"
+        "state": "01a16ea0-25c1-76f1-957b-8ccc5e88bacf"
       },
       {
         "kind": "file",
@@ -1957,7 +1957,7 @@
         "name": "feature.txt",
         "path": "feature.txt",
         "size": 24,
-        "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+        "state": "01a16ea0-25c1-76f1-957b-8ccc5e88bacf",
         "text": "version one\nversion two\n"
       },
       {
@@ -1966,7 +1966,7 @@
         "name": "large.txt",
         "path": "large.txt",
         "size": 65537,
-        "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec"
+        "state": "01a16ea0-25c1-76f1-957b-8ccc5e88bacf"
       },
       {
         "kind": "file",
@@ -1974,7 +1974,7 @@
         "name": "layr.toml",
         "path": "layr.toml",
         "size": 231,
-        "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+        "state": "01a16ea0-25c1-76f1-957b-8ccc5e88bacf",
         "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
       },
       {
@@ -1983,7 +1983,7 @@
         "name": "main.txt",
         "path": "main.txt",
         "size": 10,
-        "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+        "state": "01a16ea0-25c1-76f1-957b-8ccc5e88bacf",
         "text": "main only\n"
       },
       {
@@ -1992,7 +1992,7 @@
         "name": "metric-link",
         "path": "metric-link",
         "size": 10,
-        "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+        "state": "01a16ea0-25c1-76f1-957b-8ccc5e88bacf",
         "text": "metric.txt"
       },
       {
@@ -2001,7 +2001,7 @@
         "name": "metric.txt",
         "path": "metric.txt",
         "size": 4,
-        "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+        "state": "01a16ea0-25c1-76f1-957b-8ccc5e88bacf",
         "text": "110\n"
       },
       {
@@ -2010,7 +2010,7 @@
         "name": "picked.txt",
         "path": "picked.txt",
         "size": 7,
-        "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+        "state": "01a16ea0-25c1-76f1-957b-8ccc5e88bacf",
         "text": "picked\n"
       },
       {
@@ -2019,7 +2019,7 @@
         "name": "probe.py",
         "path": "probe.py",
         "size": 165,
-        "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+        "state": "01a16ea0-25c1-76f1-957b-8ccc5e88bacf",
         "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
       },
       {
@@ -2028,7 +2028,7 @@
         "name": "screens.py",
         "path": "screens.py",
         "size": 943,
-        "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+        "state": "01a16ea0-25c1-76f1-957b-8ccc5e88bacf",
         "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
       },
       {
@@ -2037,12 +2037,12 @@
         "name": "tool.sh",
         "path": "tool.sh",
         "size": 17,
-        "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+        "state": "01a16ea0-25c1-76f1-957b-8ccc5e88bacf",
         "text": "#!/bin/sh\nexit 0\n"
       }
     ],
     "path": "",
-    "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec"
+    "state": "01a16ea0-25c1-76f1-957b-8ccc5e88bacf"
   },
   {
     "entries": [
@@ -2052,12 +2052,12 @@
         "name": "guide.txt",
         "path": "docs/guide.txt",
         "size": 32,
-        "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec",
+        "state": "01a16ea0-25c1-76f1-957b-8ccc5e88bacf",
         "text": "Guide from the encrypted store.\n"
       }
     ],
     "path": "docs",
-    "state": "01a16e74-d667-766e-8b35-cb48f8e5ebec"
+    "state": "01a16ea0-25c1-76f1-957b-8ccc5e88bacf"
   },
   {
     "entries": [
@@ -2065,11 +2065,11 @@
         "kind": "directory",
         "name": "out",
         "path": "out",
-        "state": "01a16e74-d69e-75af-aced-784496159970"
+        "state": "01a16ea0-25ff-73c3-867f-3f032a9dc536"
       }
     ],
     "path": "",
-    "state": "01a16e74-d69e-75af-aced-784496159970"
+    "state": "01a16ea0-25ff-73c3-867f-3f032a9dc536"
   },
   {
     "entries": [
@@ -2079,12 +2079,12 @@
         "name": "metric.json",
         "path": "out/metric.json",
         "size": 14,
-        "state": "01a16e74-d69e-75af-aced-784496159970",
+        "state": "01a16ea0-25ff-73c3-867f-3f032a9dc536",
         "text": "{\"value\": 110}"
       }
     ],
     "path": "out",
-    "state": "01a16e74-d69e-75af-aced-784496159970"
+    "state": "01a16ea0-25ff-73c3-867f-3f032a9dc536"
   },
   {
     "entries": [
@@ -2092,11 +2092,11 @@
         "kind": "directory",
         "name": "out",
         "path": "out",
-        "state": "01a16e74-d6cd-7004-a0cb-699913058561"
+        "state": "01a16ea0-262c-752e-a4b1-93193d099323"
       }
     ],
     "path": "",
-    "state": "01a16e74-d6cd-7004-a0cb-699913058561"
+    "state": "01a16ea0-262c-752e-a4b1-93193d099323"
   },
   {
     "entries": [
@@ -2104,11 +2104,11 @@
         "kind": "directory",
         "name": "screens",
         "path": "out/screens",
-        "state": "01a16e74-d6cd-7004-a0cb-699913058561"
+        "state": "01a16ea0-262c-752e-a4b1-93193d099323"
       }
     ],
     "path": "out",
-    "state": "01a16e74-d6cd-7004-a0cb-699913058561"
+    "state": "01a16ea0-262c-752e-a4b1-93193d099323"
   },
   {
     "entries": [
@@ -2118,7 +2118,7 @@
         "name": "Home@Phone.html",
         "path": "out/screens/Home@Phone.html",
         "size": 35,
-        "state": "01a16e74-d6cd-7004-a0cb-699913058561",
+        "state": "01a16ea0-262c-752e-a4b1-93193d099323",
         "text": "<main nonce=\"110\"><p>110</p></main>"
       },
       {
@@ -2127,7 +2127,7 @@
         "name": "Home@Phone.png",
         "path": "out/screens/Home@Phone.png",
         "size": 74,
-        "state": "01a16e74-d6cd-7004-a0cb-699913058561"
+        "state": "01a16ea0-262c-752e-a4b1-93193d099323"
       },
       {
         "kind": "file",
@@ -2135,7 +2135,7 @@
         "name": "Native@Phone.xml",
         "path": "out/screens/Native@Phone.xml",
         "size": 38,
-        "state": "01a16e74-d6cd-7004-a0cb-699913058561",
+        "state": "01a16ea0-262c-752e-a4b1-93193d099323",
         "text": "<node bounds=\"[1,2][4,6]\" text=\"110\"/>"
       },
       {
@@ -2144,7 +2144,7 @@
         "name": "Stable@Phone.txt",
         "path": "out/screens/Stable@Phone.txt",
         "size": 5,
-        "state": "01a16e74-d6cd-7004-a0cb-699913058561",
+        "state": "01a16ea0-262c-752e-a4b1-93193d099323",
         "text": "Same\n"
       },
       {
@@ -2153,7 +2153,7 @@
         "name": "Text@Phone.txt",
         "path": "out/screens/Text@Phone.txt",
         "size": 4,
-        "state": "01a16e74-d6cd-7004-a0cb-699913058561",
+        "state": "01a16ea0-262c-752e-a4b1-93193d099323",
         "text": "110\n"
       },
       {
@@ -2162,12 +2162,12 @@
         "name": "Tree@Phone.json",
         "path": "out/screens/Tree@Phone.json",
         "size": 39,
-        "state": "01a16e74-d6cd-7004-a0cb-699913058561",
+        "state": "01a16ea0-262c-752e-a4b1-93193d099323",
         "text": "{\"label\": \"110\", \"frame\": [1, 2, 3, 4]}"
       }
     ],
     "path": "out/screens",
-    "state": "01a16e74-d6cd-7004-a0cb-699913058561"
+    "state": "01a16ea0-262c-752e-a4b1-93193d099323"
   },
   {
     "entries": [
@@ -2177,7 +2177,7 @@
         "name": ".gitignore",
         "path": ".gitignore",
         "size": 5,
-        "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
+        "state": "01a16ea0-26b9-73c1-bdaf-b1032939d236",
         "text": "out/\n"
       },
       {
@@ -2186,13 +2186,13 @@
         "name": "data.bin",
         "path": "data.bin",
         "size": 8,
-        "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f"
+        "state": "01a16ea0-26b9-73c1-bdaf-b1032939d236"
       },
       {
         "kind": "directory",
         "name": "docs",
         "path": "docs",
-        "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f"
+        "state": "01a16ea0-26b9-73c1-bdaf-b1032939d236"
       },
       {
         "kind": "file",
@@ -2200,7 +2200,7 @@
         "name": "feature.txt",
         "path": "feature.txt",
         "size": 24,
-        "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
+        "state": "01a16ea0-26b9-73c1-bdaf-b1032939d236",
         "text": "version one\nversion two\n"
       },
       {
@@ -2209,7 +2209,7 @@
         "name": "large.txt",
         "path": "large.txt",
         "size": 65537,
-        "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f"
+        "state": "01a16ea0-26b9-73c1-bdaf-b1032939d236"
       },
       {
         "kind": "file",
@@ -2217,7 +2217,7 @@
         "name": "layr.toml",
         "path": "layr.toml",
         "size": 231,
-        "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
+        "state": "01a16ea0-26b9-73c1-bdaf-b1032939d236",
         "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
       },
       {
@@ -2226,7 +2226,7 @@
         "name": "main.txt",
         "path": "main.txt",
         "size": 10,
-        "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
+        "state": "01a16ea0-26b9-73c1-bdaf-b1032939d236",
         "text": "main only\n"
       },
       {
@@ -2235,7 +2235,7 @@
         "name": "metric-link",
         "path": "metric-link",
         "size": 10,
-        "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
+        "state": "01a16ea0-26b9-73c1-bdaf-b1032939d236",
         "text": "metric.txt"
       },
       {
@@ -2244,7 +2244,7 @@
         "name": "metric.txt",
         "path": "metric.txt",
         "size": 4,
-        "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
+        "state": "01a16ea0-26b9-73c1-bdaf-b1032939d236",
         "text": "150\n"
       },
       {
@@ -2253,7 +2253,7 @@
         "name": "picked.txt",
         "path": "picked.txt",
         "size": 7,
-        "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
+        "state": "01a16ea0-26b9-73c1-bdaf-b1032939d236",
         "text": "picked\n"
       },
       {
@@ -2262,7 +2262,7 @@
         "name": "probe.py",
         "path": "probe.py",
         "size": 165,
-        "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
+        "state": "01a16ea0-26b9-73c1-bdaf-b1032939d236",
         "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
       },
       {
@@ -2271,7 +2271,7 @@
         "name": "screens.py",
         "path": "screens.py",
         "size": 943,
-        "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
+        "state": "01a16ea0-26b9-73c1-bdaf-b1032939d236",
         "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
       },
       {
@@ -2280,12 +2280,12 @@
         "name": "tool.sh",
         "path": "tool.sh",
         "size": 17,
-        "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
+        "state": "01a16ea0-26b9-73c1-bdaf-b1032939d236",
         "text": "#!/bin/sh\nexit 0\n"
       }
     ],
     "path": "",
-    "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f"
+    "state": "01a16ea0-26b9-73c1-bdaf-b1032939d236"
   },
   {
     "entries": [
@@ -2295,12 +2295,12 @@
         "name": "guide.txt",
         "path": "docs/guide.txt",
         "size": 32,
-        "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f",
+        "state": "01a16ea0-26b9-73c1-bdaf-b1032939d236",
         "text": "Guide from the encrypted store.\n"
       }
     ],
     "path": "docs",
-    "state": "01a16e74-d7aa-73e1-8d1d-eaa41837a41f"
+    "state": "01a16ea0-26b9-73c1-bdaf-b1032939d236"
   },
   {
     "entries": [
@@ -2310,7 +2310,7 @@
         "name": ".gitignore",
         "path": ".gitignore",
         "size": 5,
-        "state": "01a16e74-d802-70f6-a817-77f90941446d",
+        "state": "01a16ea0-2710-748f-a80e-c6a16c128533",
         "text": "out/\n"
       },
       {
@@ -2319,7 +2319,7 @@
         "name": "auto.txt",
         "path": "auto.txt",
         "size": 11,
-        "state": "01a16e74-d802-70f6-a817-77f90941446d",
+        "state": "01a16ea0-2710-748f-a80e-c6a16c128533",
         "text": "auto bytes\n"
       },
       {
@@ -2328,7 +2328,7 @@
         "name": "data.bin",
         "path": "data.bin",
         "size": 8,
-        "state": "01a16e74-d802-70f6-a817-77f90941446d"
+        "state": "01a16ea0-2710-748f-a80e-c6a16c128533"
       },
       {
         "kind": "file",
@@ -2336,14 +2336,14 @@
         "name": "divergence.txt",
         "path": "divergence.txt",
         "size": 18,
-        "state": "01a16e74-d802-70f6-a817-77f90941446d",
+        "state": "01a16ea0-2710-748f-a80e-c6a16c128533",
         "text": "main after replay\n"
       },
       {
         "kind": "directory",
         "name": "docs",
         "path": "docs",
-        "state": "01a16e74-d802-70f6-a817-77f90941446d"
+        "state": "01a16ea0-2710-748f-a80e-c6a16c128533"
       },
       {
         "kind": "file",
@@ -2351,7 +2351,7 @@
         "name": "feature.txt",
         "path": "feature.txt",
         "size": 24,
-        "state": "01a16e74-d802-70f6-a817-77f90941446d",
+        "state": "01a16ea0-2710-748f-a80e-c6a16c128533",
         "text": "version one\nversion two\n"
       },
       {
@@ -2360,7 +2360,7 @@
         "name": "large.txt",
         "path": "large.txt",
         "size": 65537,
-        "state": "01a16e74-d802-70f6-a817-77f90941446d"
+        "state": "01a16ea0-2710-748f-a80e-c6a16c128533"
       },
       {
         "kind": "file",
@@ -2368,7 +2368,7 @@
         "name": "layr.toml",
         "path": "layr.toml",
         "size": 231,
-        "state": "01a16e74-d802-70f6-a817-77f90941446d",
+        "state": "01a16ea0-2710-748f-a80e-c6a16c128533",
         "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
       },
       {
@@ -2377,7 +2377,7 @@
         "name": "main.txt",
         "path": "main.txt",
         "size": 10,
-        "state": "01a16e74-d802-70f6-a817-77f90941446d",
+        "state": "01a16ea0-2710-748f-a80e-c6a16c128533",
         "text": "main only\n"
       },
       {
@@ -2386,7 +2386,7 @@
         "name": "metric-link",
         "path": "metric-link",
         "size": 10,
-        "state": "01a16e74-d802-70f6-a817-77f90941446d",
+        "state": "01a16ea0-2710-748f-a80e-c6a16c128533",
         "text": "metric.txt"
       },
       {
@@ -2395,7 +2395,7 @@
         "name": "metric.txt",
         "path": "metric.txt",
         "size": 4,
-        "state": "01a16e74-d802-70f6-a817-77f90941446d",
+        "state": "01a16ea0-2710-748f-a80e-c6a16c128533",
         "text": "150\n"
       },
       {
@@ -2404,7 +2404,7 @@
         "name": "picked.txt",
         "path": "picked.txt",
         "size": 7,
-        "state": "01a16e74-d802-70f6-a817-77f90941446d",
+        "state": "01a16ea0-2710-748f-a80e-c6a16c128533",
         "text": "picked\n"
       },
       {
@@ -2413,7 +2413,7 @@
         "name": "probe.py",
         "path": "probe.py",
         "size": 165,
-        "state": "01a16e74-d802-70f6-a817-77f90941446d",
+        "state": "01a16ea0-2710-748f-a80e-c6a16c128533",
         "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
       },
       {
@@ -2422,7 +2422,7 @@
         "name": "screens.py",
         "path": "screens.py",
         "size": 943,
-        "state": "01a16e74-d802-70f6-a817-77f90941446d",
+        "state": "01a16ea0-2710-748f-a80e-c6a16c128533",
         "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
       },
       {
@@ -2431,12 +2431,12 @@
         "name": "tool.sh",
         "path": "tool.sh",
         "size": 17,
-        "state": "01a16e74-d802-70f6-a817-77f90941446d",
+        "state": "01a16ea0-2710-748f-a80e-c6a16c128533",
         "text": "#!/bin/sh\nexit 0\n"
       }
     ],
     "path": "",
-    "state": "01a16e74-d802-70f6-a817-77f90941446d"
+    "state": "01a16ea0-2710-748f-a80e-c6a16c128533"
   },
   {
     "entries": [
@@ -2446,12 +2446,12 @@
         "name": "guide.txt",
         "path": "docs/guide.txt",
         "size": 32,
-        "state": "01a16e74-d802-70f6-a817-77f90941446d",
+        "state": "01a16ea0-2710-748f-a80e-c6a16c128533",
         "text": "Guide from the encrypted store.\n"
       }
     ],
     "path": "docs",
-    "state": "01a16e74-d802-70f6-a817-77f90941446d"
+    "state": "01a16ea0-2710-748f-a80e-c6a16c128533"
   },
   {
     "entries": [
@@ -2459,11 +2459,11 @@
         "kind": "directory",
         "name": "out",
         "path": "out",
-        "state": "01a16e74-d838-77a6-aa6d-36d37a895b8e"
+        "state": "01a16ea0-2748-72ff-9c65-3f17de4a6b44"
       }
     ],
     "path": "",
-    "state": "01a16e74-d838-77a6-aa6d-36d37a895b8e"
+    "state": "01a16ea0-2748-72ff-9c65-3f17de4a6b44"
   },
   {
     "entries": [
@@ -2473,12 +2473,12 @@
         "name": "metric.json",
         "path": "out/metric.json",
         "size": 14,
-        "state": "01a16e74-d838-77a6-aa6d-36d37a895b8e",
+        "state": "01a16ea0-2748-72ff-9c65-3f17de4a6b44",
         "text": "{\"value\": 150}"
       }
     ],
     "path": "out",
-    "state": "01a16e74-d838-77a6-aa6d-36d37a895b8e"
+    "state": "01a16ea0-2748-72ff-9c65-3f17de4a6b44"
   },
   {
     "entries": [
@@ -2486,11 +2486,11 @@
         "kind": "directory",
         "name": "out",
         "path": "out",
-        "state": "01a16e74-d860-7289-a2b1-627901a4ba6c"
+        "state": "01a16ea0-2776-764a-9aad-b4147978c226"
       }
     ],
     "path": "",
-    "state": "01a16e74-d860-7289-a2b1-627901a4ba6c"
+    "state": "01a16ea0-2776-764a-9aad-b4147978c226"
   },
   {
     "entries": [
@@ -2498,11 +2498,11 @@
         "kind": "directory",
         "name": "screens",
         "path": "out/screens",
-        "state": "01a16e74-d860-7289-a2b1-627901a4ba6c"
+        "state": "01a16ea0-2776-764a-9aad-b4147978c226"
       }
     ],
     "path": "out",
-    "state": "01a16e74-d860-7289-a2b1-627901a4ba6c"
+    "state": "01a16ea0-2776-764a-9aad-b4147978c226"
   },
   {
     "entries": [
@@ -2512,7 +2512,7 @@
         "name": "Home@Phone.html",
         "path": "out/screens/Home@Phone.html",
         "size": 35,
-        "state": "01a16e74-d860-7289-a2b1-627901a4ba6c",
+        "state": "01a16ea0-2776-764a-9aad-b4147978c226",
         "text": "<main nonce=\"150\"><p>150</p></main>"
       },
       {
@@ -2521,7 +2521,7 @@
         "name": "Home@Phone.png",
         "path": "out/screens/Home@Phone.png",
         "size": 74,
-        "state": "01a16e74-d860-7289-a2b1-627901a4ba6c"
+        "state": "01a16ea0-2776-764a-9aad-b4147978c226"
       },
       {
         "kind": "file",
@@ -2529,7 +2529,7 @@
         "name": "Native@Phone.xml",
         "path": "out/screens/Native@Phone.xml",
         "size": 38,
-        "state": "01a16e74-d860-7289-a2b1-627901a4ba6c",
+        "state": "01a16ea0-2776-764a-9aad-b4147978c226",
         "text": "<node bounds=\"[1,2][4,6]\" text=\"150\"/>"
       },
       {
@@ -2538,7 +2538,7 @@
         "name": "Stable@Phone.txt",
         "path": "out/screens/Stable@Phone.txt",
         "size": 5,
-        "state": "01a16e74-d860-7289-a2b1-627901a4ba6c",
+        "state": "01a16ea0-2776-764a-9aad-b4147978c226",
         "text": "Same\n"
       },
       {
@@ -2547,7 +2547,7 @@
         "name": "Text@Phone.txt",
         "path": "out/screens/Text@Phone.txt",
         "size": 4,
-        "state": "01a16e74-d860-7289-a2b1-627901a4ba6c",
+        "state": "01a16ea0-2776-764a-9aad-b4147978c226",
         "text": "150\n"
       },
       {
@@ -2556,12 +2556,12 @@
         "name": "Tree@Phone.json",
         "path": "out/screens/Tree@Phone.json",
         "size": 39,
-        "state": "01a16e74-d860-7289-a2b1-627901a4ba6c",
+        "state": "01a16ea0-2776-764a-9aad-b4147978c226",
         "text": "{\"label\": \"150\", \"frame\": [1, 2, 3, 4]}"
       }
     ],
     "path": "out/screens",
-    "state": "01a16e74-d860-7289-a2b1-627901a4ba6c"
+    "state": "01a16ea0-2776-764a-9aad-b4147978c226"
   },
   {
     "entries": [
@@ -2571,7 +2571,7 @@
         "name": ".gitignore",
         "path": ".gitignore",
         "size": 5,
-        "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9",
+        "state": "01a16ea0-2970-7507-89f8-74c13f7e9ce6",
         "text": "out/\n"
       },
       {
@@ -2580,7 +2580,7 @@
         "name": "auto.txt",
         "path": "auto.txt",
         "size": 11,
-        "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9",
+        "state": "01a16ea0-2970-7507-89f8-74c13f7e9ce6",
         "text": "auto bytes\n"
       },
       {
@@ -2589,7 +2589,7 @@
         "name": "data.bin",
         "path": "data.bin",
         "size": 8,
-        "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9"
+        "state": "01a16ea0-2970-7507-89f8-74c13f7e9ce6"
       },
       {
         "kind": "file",
@@ -2597,14 +2597,14 @@
         "name": "divergence.txt",
         "path": "divergence.txt",
         "size": 18,
-        "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9",
+        "state": "01a16ea0-2970-7507-89f8-74c13f7e9ce6",
         "text": "main after replay\n"
       },
       {
         "kind": "directory",
         "name": "docs",
         "path": "docs",
-        "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9"
+        "state": "01a16ea0-2970-7507-89f8-74c13f7e9ce6"
       },
       {
         "kind": "file",
@@ -2612,7 +2612,7 @@
         "name": "feature.txt",
         "path": "feature.txt",
         "size": 24,
-        "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9",
+        "state": "01a16ea0-2970-7507-89f8-74c13f7e9ce6",
         "text": "version one\nversion two\n"
       },
       {
@@ -2621,7 +2621,7 @@
         "name": "large.txt",
         "path": "large.txt",
         "size": 65537,
-        "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9"
+        "state": "01a16ea0-2970-7507-89f8-74c13f7e9ce6"
       },
       {
         "kind": "file",
@@ -2629,7 +2629,7 @@
         "name": "layr.toml",
         "path": "layr.toml",
         "size": 231,
-        "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9",
+        "state": "01a16ea0-2970-7507-89f8-74c13f7e9ce6",
         "text": "[probe.metric]\nrun = [\"python3\", \"probe.py\"]\noutputs = [\"out/metric.json\"]\nkind = \"number\"\nnoise = 0.01\nfail_over = 0.2\n[probe.screens]\nrun = [\"python3\", \"screens.py\"]\noutputs = [\"out/screens\"]\nkind = \"screenshots\"\nfail_over = 0.5\n"
       },
       {
@@ -2638,7 +2638,7 @@
         "name": "main.txt",
         "path": "main.txt",
         "size": 10,
-        "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9",
+        "state": "01a16ea0-2970-7507-89f8-74c13f7e9ce6",
         "text": "main only\n"
       },
       {
@@ -2647,7 +2647,7 @@
         "name": "metric-link",
         "path": "metric-link",
         "size": 10,
-        "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9",
+        "state": "01a16ea0-2970-7507-89f8-74c13f7e9ce6",
         "text": "metric.txt"
       },
       {
@@ -2656,7 +2656,7 @@
         "name": "metric.txt",
         "path": "metric.txt",
         "size": 4,
-        "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9",
+        "state": "01a16ea0-2970-7507-89f8-74c13f7e9ce6",
         "text": "150\n"
       },
       {
@@ -2665,7 +2665,7 @@
         "name": "picked.txt",
         "path": "picked.txt",
         "size": 7,
-        "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9",
+        "state": "01a16ea0-2970-7507-89f8-74c13f7e9ce6",
         "text": "picked\n"
       },
       {
@@ -2674,7 +2674,7 @@
         "name": "probe.py",
         "path": "probe.py",
         "size": 165,
-        "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9",
+        "state": "01a16ea0-2970-7507-89f8-74c13f7e9ce6",
         "text": "import json\nfrom pathlib import Path\nPath('out').mkdir(exist_ok=True)\nPath('out/metric.json').write_text(json.dumps({'value': int(Path('metric.txt').read_text())}))\n"
       },
       {
@@ -2683,7 +2683,7 @@
         "name": "screens.py",
         "path": "screens.py",
         "size": 943,
-        "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9",
+        "state": "01a16ea0-2970-7507-89f8-74c13f7e9ce6",
         "text": "import json, struct, zlib\nfrom pathlib import Path\nvalue = int(Path('metric.txt').read_text())\nout = Path('out/screens')\nout.mkdir(parents=True, exist_ok=True)\ndef chunk(tag, data):\n    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data))\nheader = struct.pack('>IIBBBBB', 2, 2, 8, 6, 0, 0, 0)\npixels = bytes([value, 0, 0, 255] + [0, 0, 0, 255] * 3)\nrows = b'\\0' + pixels[:8] + b'\\0' + pixels[8:]\n(out / 'Home@Phone.png').write_bytes(b'\\x89PNG\\r\\n\\x1a\\n' + chunk(b'IHDR', header) + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))\n(out / 'Home@Phone.html').write_text(f'<main nonce=\"{value}\"><p>{value}</p></main>')\n(out / 'Native@Phone.xml').write_text(f'<node bounds=\"[1,2][4,6]\" text=\"{value}\"/>')\n(out / 'Tree@Phone.json').write_text(json.dumps({'label': str(value), 'frame': [1, 2, 3, 4]}))\n(out / 'Text@Phone.txt').write_text(f'{value}\\n')\n(out / 'Stable@Phone.txt').write_text('Same\\n')\n"
       },
       {
@@ -2692,12 +2692,12 @@
         "name": "tool.sh",
         "path": "tool.sh",
         "size": 17,
-        "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9",
+        "state": "01a16ea0-2970-7507-89f8-74c13f7e9ce6",
         "text": "#!/bin/sh\nexit 0\n"
       }
     ],
     "path": "",
-    "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9"
+    "state": "01a16ea0-2970-7507-89f8-74c13f7e9ce6"
   },
   {
     "entries": [
@@ -2707,11 +2707,11 @@
         "name": "guide.txt",
         "path": "docs/guide.txt",
         "size": 32,
-        "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9",
+        "state": "01a16ea0-2970-7507-89f8-74c13f7e9ce6",
         "text": "Guide from the encrypted store.\n"
       }
     ],
     "path": "docs",
-    "state": "01a16e74-da2f-7198-b2c3-c6f49f7591e9"
+    "state": "01a16ea0-2970-7507-89f8-74c13f7e9ce6"
   }
 ]

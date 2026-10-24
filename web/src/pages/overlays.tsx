@@ -115,8 +115,8 @@ function ManagerRisk({ overlay }: { overlay: Overlay }) {
   ) : null;
 }
 
-function Epoch({ overlay, id }: { overlay: Overlay; id: string }) {
-  const epoch = overlay.epochs?.find((epoch) => epoch.id === id);
+function Epoch({ overlay, id, number }: { overlay: Overlay; id: string; number?: number }) {
+  const epoch = overlay.epochs?.find((epoch) => number === undefined ? epoch.id === id : epoch.number === number);
   return (
     <span title={id}>
       {epoch?.number === undefined ? "Epoch number not recorded" : `epoch ${epoch.number}`}
@@ -451,11 +451,11 @@ export function OverlayPage({
                   <ul class="tl">
                     {overlay.epochs.map((epoch) => (
                       <li
-                        key={epoch.id}
+                        key={`${epoch.id}:${epoch.number}`}
                         class={epoch.id === overlay.epoch ? "major" : ""}
                       >
                         <b>
-                          <Epoch overlay={overlay} id={epoch.id} />
+                          <Epoch overlay={overlay} id={epoch.id} number={epoch.number} />
                         </b>
                         <p class="note">
                           {shortText(epoch.reason ?? "No reason is recorded.")}

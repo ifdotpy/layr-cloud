@@ -1,5 +1,5 @@
 #!/bin/bash
-# Run as root in layr-dev with the b1a23c1 CLI, using the web-core btrfs recipe.
+# Run as root in layr-dev with the pinned CLI, using the web-core btrfs recipe.
 set -euo pipefail
 : "${LAYR_BIN:?Set LAYR_BIN to the native layr binary}"
 RUN=$(mktemp -d /root/work/layr-web-hidden.XXXXXX)
@@ -49,6 +49,11 @@ run(['--line', 'main', 'overlay', 'move', 'hidden-browser-secret', 'hidden.txt',
 run(['--line', 'main', 'save', '-qm', 'hidden browser state'])
 (root/'overlays.json').write_text(run(['overlay', 'list', '--json']))
 (root/'lines.json').write_text(run(['line', 'list', '--json']))
+run(['push', 'archive', '-q'])
+(root/'show.json').write_text(run(['overlay', 'show', 'hidden-browser-secret', '--json']))
+(root/'ops.json').write_text(run(['overlay', 'log', 'hidden-browser-secret', '--ops', '--json']))
+(root/'paths.txt').write_text(run(['overlay', 'ls-files', 'hidden-browser-secret']))
+# Transfer results are published by the next exchange, as in t37.
 run(['push', 'archive', '-q'])
 shutil.copytree(root/'archive', root/'without-hidden', ignore=shutil.ignore_patterns('overlays'))
 assert len(list((root/'archive').glob('overlays/*/keys/*.age'))) == 1

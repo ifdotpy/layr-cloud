@@ -627,34 +627,8 @@ impl Session {
         Ok(files)
     }
 }
-// TODO(cli-overlay-json): replace this adapter with the shared layr-model epoch
-// function after that branch merges. Its canonical record order may differ from
-// this temporary sequence-based numbering; keep CLI and browser on one function.
-// A key can be republished (for reader additions or another store). Number distinct
-// identities in signed sequence order; wall-clock skew never changes their ordinal.
-fn key_epochs(records: &[Record]) -> Vec<Value> {
-    let mut keys: Vec<_> = records.iter().filter(|r| r.op == "overlay.key").collect();
-    keys.sort_by(|a, b| (a.seq, &a.machine, &a.id).cmp(&(b.seq, &b.machine, &b.id)));
-    let mut seen = BTreeSet::new();
-    let mut epochs = Vec::new();
-    for record in keys {
-        let Some(id) = record.data["epoch"].as_str() else {
-            continue;
-        };
-        if !seen.insert(id) {
-            continue;
-        }
-        let mut epoch =
-            json!({"id":id,"number":epochs.len()+1,"time":record.time,"machine":record.machine});
-        if let Some(reason) = record.data.get("reason") {
-            epoch["reason"] = reason.clone();
-        }
-        epochs.push(epoch);
-    }
-    epochs
-}
 pub(super) fn epoch_views(project: &Project) -> Vec<Value> {
-    key_epochs(&project.op_log(None, usize::MAX))
+    layr_model::overlays::epochs(&project.op_log(None, usize::MAX))
 }
 pub(super) type Parent = (String, Published, Authority);
 

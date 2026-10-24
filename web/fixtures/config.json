@@ -1,17 +1,17 @@
 {
   "line_owners": [
     {
-      "id": "01a16e74-d01e-7126-8780-7d2e115f6fc6",
+      "id": "01a16ea0-1f57-7016-a3e1-2691d00fd696",
       "name": "feature",
       "owner": 0
     },
     {
-      "id": "01a16e74-cffc-72cf-8a1d-5c7b03d45827",
+      "id": "01a16ea0-1f33-7363-8d03-00d75267ea77",
       "name": "main",
       "owner": 0
     }
   ],
-  "machine": "01a16e74-cfbd-7799-b375-f621165de230",
+  "machine": "01a16ea0-1ef1-726b-9b29-c814944067f0",
   "path_rules": {
     "main": {
       "feature.txt": "maintainer"
@@ -41,7 +41,7 @@
       }
     }
   },
-  "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
+  "project": "01a16ea0-1f08-733a-9e28-1894edf8399c",
   "values": {
     "access": {
       "user:0": "admin",
@@ -51,17 +51,17 @@
     "check.smoke": "\"false\"",
     "cloud.remote.peer.url": "ssh://fixture/model-golden",
     "cloud.remote.store.store": {
-      "paper_recipient": "age1ggn8cemhjya4ywuvueht8raxrqenl6yt2gwpm7c03ddu2ssw6qrs5wdu67",
-      "project": "01a16e74-cfd0-7615-a8d9-3e7995798224",
-      "recipient": "age1ns70mfuzdtgyne5cvukeuh2cvvc4zw8c9hfx25s8dk79r7cacveqc6wxe3"
+      "paper_recipient": "age1r26emyqr5lqkz77tk3mkvhqhjpg28gvdjulql90hzqa78en909nq895tkx",
+      "project": "01a16ea0-1f08-733a-9e28-1894edf8399c",
+      "recipient": "age1rtqkuy3cmkx6gnf4zddep8qeqwj50gcd4h2g2zmqsgnacpexrg8qpcyy6t"
     },
-    "cloud.remote.store.url": "file:///var/tmp/layr-test.f1wlHp/archive",
+    "cloud.remote.store.url": "file:///var/tmp/layr-test.HOn1GY/archive",
     "overlay.secrets": {
       "hidden": false,
-      "id": "01a16e74-d8d0-7258-b5f5-d2c891dd17ce",
+      "id": "01a16ea0-27e5-7492-9bec-bf1996a20e15",
       "mode": "shared",
       "owner": 0,
-      "root": "01a16e74-d8f5-7745-a063-d41333382960"
+      "root": "01a16ea0-2806-73ce-af54-ef3ca48f18d1"
     },
     "protect": {
       "env/prod": {
@@ -80,10 +80,10 @@
       }
     },
     "queue.probes": true,
-    "stack.01a16e74-cffc-72cf-8a1d-5c7b03d45827": [
+    "stack.01a16ea0-1f33-7363-8d03-00d75267ea77": [
       {
         "overlay": "secrets",
-        "state": "01a16e74-d97e-7311-ab27-00afdf805f89"
+        "state": "01a16ea0-289d-74bc-a139-0af5fc93aa4e"
       }
     ]
   }
