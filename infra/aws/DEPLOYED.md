@@ -1,6 +1,6 @@
 # AWS deployment of Layr Cloud
 
-Measured state: 2026-10-25, 13:48 UTC. Three storage stacks are created. Host deployment awaits Tailscale enrollment keys. Until encrypted v2 is ready, request and claim writes must be disabled.
+Measured state: 2026-10-25, 15:13 UTC. Three storage stacks are created. Host deployment awaits Tailscale enrollment keys. The current source uses encrypted v2 person requests; earlier release gates below are historical.
 This file records the M8 deployment from `layr-cloud` base `e4fdf656a0cae5ada5e2e3c7ebaf2fbe372c5f8d`.
 The deployment branch is `cloud/m8-deploy`.
 
@@ -583,3 +583,36 @@ The same process served HTML, JavaScript, CSS and the 4,316,443-byte WASM with 2
 HEAD with an empty body, traversal with 400 and wrong Host with 421.
 This guarded gateway archive can be used for hosting at b337229 if the keys arrive before v2.
 The earlier unguarded gateway archives must not be deployed.
+
+
+## Encrypted request v2 integration at 466f120
+
+At 15:12 UTC, `git ls-remote https://github.com/ifdotpy/layr main` returned
+`466f120f0846da86f63028bbec9eabb2fa69581f`, the lead-approved main with request v2.
+All shared `layr-store` and `layr-model` dependencies and the release CLI are pinned to that hash.
+The v2 build removes the temporary request-write HTTP 503 guard. Earlier guarded and unguarded
+b337229 artifacts are superseded by the verified v2 artifacts recorded below.
+
+The gateway accepts only the shared v2 sealed envelope for person request writes. It verifies
+`layr/request/v2\0 || decoded ciphertext` against the stored person signing key and binds the
+outer person, project and request UUID to the authenticated tailnet login, descriptor and path.
+It stores the opaque original body with a conditional create. It does not decrypt or parse the action.
+Signed plaintext v1 bodies, altered ciphertext, invalid signatures, wrong caller/project/path,
+unknown fields and oversized envelopes are refused. Root requests are supported; non-root epoch
+requests remain refused until the separately assigned gateway epoch integration.
+Claims retain the existing write-bearer, structural and project/path checks. The executor verifies
+machine trust and signatures. Its machine-local person-key pin and access policy remain mandatory.
+
+The regression test can run all three native caller phases with:
+
+```sh
+LAYR_TEST_REQUEST=1 LAYR_TEST_INDEX=1 \
+  LAYR_BIN=/root/work/m8-release-466f120/executor/layr \
+  LAYR_GATEWAY_BINARY=/root/work/m8-release-466f120/gateway/layr-gateway \
+  /opt/layr-cfn-lint/bin/python tests/public-writer-gateway.py
+```
+
+The disposable project, person recovery material, tokens and TLS test material stay in `/run`
+tmpfs on the trusted local VM. The test deletes them on completion. No real project keys are made.
+The local test uses MinIO and a Tailscale LocalAPI identity stand-in; it does not prove live AWS
+or real tailnet enrollment. Those M8 checks still require the Tailscale keys.
