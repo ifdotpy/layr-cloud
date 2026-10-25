@@ -395,3 +395,9 @@ CLEANUP all disposable recovery/token/test material removed from /run
 
 This local live test exposes an M7 client integration failure. It does not replace the pending
 AWS/tailnet clone, push and browser recovery verification for M8.
+
+The lead clarified the replacement client's transport contract at 13:15 UTC:
+one anonymous `GET /p/<project>/public.json` side request is allowed for the public manifest.
+The rest of the push must use authenticated `/v1/p/` routes; every object write must carry the writer bearer.
+The regression now checks this exact sequence and compares write bearers only in memory.
+No authenticated public-manifest route was added. Rerun awaits the replacement M7 commit.

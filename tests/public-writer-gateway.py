@@ -170,7 +170,8 @@ def main():
                 reply = connection.getresponse()
                 data = reply.read()
                 trace.append({'method': self.command, 'path': self.path, 'status': reply.status,
-                              'credential_present': 'Authorization' in self.headers})
+                              'credential_present': 'Authorization' in self.headers,
+                              'write_bearer': self.headers.get('Authorization') == 'Bearer ' + issued.stdout.decode().strip()})
                 self.send_response(reply.status)
                 for name, value in reply.getheaders():
                     if name.lower() not in ('connection', 'transfer-encoding', 'content-length'):
@@ -195,9 +196,16 @@ def main():
         print(json.dumps({'push_exit': pushed.returncode, 'requests': trace}))
         if b'gateway reads require a machine slot or paper key' in pushed.stderr.encode():
             print('CLI error: gateway reads require a machine slot or paper key')
-        assert all(row['path'].startswith('/v1/p/') for row in trace), 'writer switched to public-only routes'
+        public_requests = [row for row in trace if row['path'].startswith('/p/')]
+        assert [(row['method'], row['path']) for row in public_requests] == [
+            ('GET', '/p/public-test/public.json')], 'writer may read only the public manifest anonymously, once'
+        assert not public_requests[0]['credential_present'], 'public manifest probe must not carry a bearer'
+        assert all(row['path'].startswith(('/v1/p/', '/p/')) for row in trace)
         assert pushed.returncode == 0, 'trusted writer push to a public project failed'
-        assert any(row['method'] == 'PUT' and row['status'] == 201 and row['credential_present'] for row in trace)
+        writes = [row for row in trace if row['method'] in ('PUT', 'DELETE', 'PATCH')]
+        assert writes and all(row['path'].startswith('/v1/p/') and row['write_bearer'] for row in writes), \
+            'every object write must use the authenticated route and exact writer bearer'
+        assert any(row['method'] == 'PUT' and row['status'] == 201 for row in writes)
         after = s3.list_objects_v2(Bucket=bucket, Prefix='project/states/').get('KeyCount', 0)
         assert after > before, 'gateway push added no state objects'
         print('PASS trusted writer pushed a new public-project state through authenticated gateway transport')

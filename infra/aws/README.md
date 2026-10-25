@@ -771,6 +771,8 @@ LAYR_GATEWAY_BINARY=/absolute/path/to/debug/layr-gateway \
 ```
 
 The trace contains only method, path, status and credential presence. It never prints headers or bodies.
+The writer may make exactly one anonymous `GET /p/<project>/public.json` side request.
+All object writes must use `/v1/p/` and the exact writer bearer. Other public routes are refused by the test.
 All disposable recovery and token material stays under `/run` on tmpfs and is removed on exit.
 TLS private keys stay in memory-backed file descriptors. The test creates no AWS resources.
 A template lint result does not prove AWS deployment, first boot, or a live gateway request.
