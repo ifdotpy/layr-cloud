@@ -10,14 +10,15 @@ function setup(){
  class Session{
   unlock_recovery(){calls.push('open person');} open_signing_key(){signing=true;calls.push('open signing');}
   sign_session(challenge:string){assert(signing);calls.push(`sign ${challenge}`);return 'proof';}
-  refresh_person(){calls.push('private index');}slot_name(){return 'person.age';}query(){return '[]';}
+  refresh_person(){calls.push('private index');}slot_name(){return 'person.age';}query(_name:string,method:string){return method==='pins'?'["project"]':'[]';}
+  open_store(){return 'project';}add_segment(){}finish_records(){}overlay_slots(){return '[]';}overlay_inputs(){return '[]';}
   prepare_person(_login:string,entropy:Uint8Array){buffers.push(entropy);signing=true;return JSON.stringify({words:'recovery words',recipient:'recipient',paper:'sealed paper',signing_key:'public',signing:'sealed signing'});}
   sign_request(){return 'sealed request';}lock(){signing=false;calls.push('lock');}free(){}
  }
  class Gateway{
   unlock(login:string){calls.push(`bootstrap ${login}`);return {login,recipient:'recipient',signing:'sealed',signing_key:'public'};}
   signIn(login:string,sign:(s:string)=>string){if(refused)throw new HttpError(401,'wrong proof');calls.push(`session ${login}`);assert.equal(sign('challenge'),'proof');}
-  person(){calls.push('person');return {login:'ann@example.com'};}projects(){if(refused)throw new HttpError(401,'sign in again');calls.push('projects');return [];}
+  person(){calls.push('person');return {login:'ann@example.com'};}projects(){if(refused)throw new HttpError(401,'sign in again');calls.push('projects');return ['store'];}descriptor(){return {project:'project'};}slot(){return new Uint8Array();}list(){return [];}
   register(_login:string,invite:string,body:string){bodies.push(body);refused=invite==='invalid';if(refused)throw new HttpError(401,'invalid invite');throw new Error('reply lost');}
   putRequest(){if(refused)throw new HttpError(401,'sign in again');}lock(){}
  }
@@ -41,5 +42,5 @@ test('an invalid invite keeps the prepared key for an authorized retry',async()=
 });
 
 test('a final person-session refusal clears the worker key and requires sign-in',async()=>{
- const w=setup();await w.call('unlockRecovery',['words','ann@example.com']);w.refuse();assert.match((await w.call('projects')).error!,/sign in again/);assert.equal(w.calls.at(-1),'lock');assert.match((await w.call('projects')).error!,/locked/);
+ const w=setup();await w.call('unlockRecovery',['words','ann@example.com']);w.refuse();assert.match((await w.call('submitRequest',['project',{kind:'approve',state:'state',into:'main'}])).error!,/sign in again/);assert.equal(w.calls.at(-1),'lock');assert.match((await w.call('projects')).error!,/locked/);
 });
