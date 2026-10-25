@@ -2335,6 +2335,10 @@ mod tests {
                 .unwrap();
             f.gateway
                 .storage
+                .put(project, "slots/paper.age", b"encrypted-paper-slot".to_vec())
+                .unwrap();
+            f.gateway
+                .storage
                 .put(
                     project,
                     &format!("slots/{machine}"),
@@ -2386,6 +2390,23 @@ mod tests {
                 .status,
             404
         );
+        let paper = "/v1/p/example/objects/slots/paper.age";
+        let reply = f.request("GET", paper, &read, b"", None);
+        assert_eq!(reply.status, 200);
+        assert_eq!(reply.body, b"encrypted-paper-slot");
+        for token in ["", "invalid", &write, &other, &expired] {
+            let reply = f.request("GET", paper, token, b"", None);
+            let absent = f.request(
+                "GET",
+                "/v1/p/nonexistent/objects/slots/paper.age",
+                token,
+                b"",
+                None,
+            );
+            assert_eq!(reply.status, 404);
+            assert_eq!(reply.body, absent.body);
+            assert_eq!(reply.headers, absent.headers);
+        }
         assert_eq!(
             f.request(
                 "GET",
