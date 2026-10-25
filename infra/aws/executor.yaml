@@ -101,6 +101,9 @@ Resources:
                 Action: ssm:GetParameter
                 Resource:
                   - !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${WriteTokenParameter}'
+              - Effect: Deny
+                Action: [ssm:GetParameter, ssm:GetParameters, ssm:GetParametersByPath]
+                NotResource: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${WriteTokenParameter}'
               - !If
                 - HasRunner
                 - Effect: Allow

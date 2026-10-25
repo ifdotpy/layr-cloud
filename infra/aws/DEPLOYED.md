@@ -1,6 +1,6 @@
 # AWS deployment of Layr Cloud
 
-Measured state: 2026-10-25, 16:51 UTC. Three storage stacks are created. Gateway and executor deployment is authorized for public IPv6 HTTPS with SSM administration. Tailscale enrollment is no longer required. Earlier tailnet plans and release gates below are historical.
+Measured state: 2026-10-25, 17:00 UTC. Three storage stacks and the public IPv6 gateway host are created. Executor deployment is authorized with SSM administration. Tailscale enrollment is no longer required. Earlier tailnet plans and release gates below are historical.
 This file records the M8 deployment from `layr-cloud` base `e4fdf656a0cae5ada5e2e3c7ebaf2fbe372c5f8d`.
 The deployment branch is `cloud/m8-deploy`.
 
@@ -645,3 +645,31 @@ served both HTTPS HTTP/1.1 and HTTP/2 over `::1`, with a verified disposable TLS
 The same listener refused an IPv4 connection, confirming `IPV6_V6ONLY`. Its disposable TLS key lived
 only in a memfd; the descriptor was closed and tmpfs fixture removed. This is local protocol evidence,
 not a claim of AWS deployment or real ACME issuance.
+
+
+## Gateway host created
+
+`layr-gateway` reached CREATE_COMPLETE at 16:56 UTC from infrastructure commit `afa8573`.
+The deployed template SHA-256 at that point was
+`ea809ed76b974de9a27c3e3f4ae335a47390c401fd4a095482f95935043f86b4`.
+
+```text
+InstanceId i-04da10c290655544f
+InstanceType t4g.nano
+State running
+IPv6 2a05:d016:df9:4000:8463:e4d6:66bb:c15f
+PublicIPv4 null
+VpcId vpc-0c5b8b1792383ecf5
+SubnetId subnet-07f9b77a10c790951
+AvailabilityZone eu-north-1a
+RouteTableId rtb-07dfadc754796fa35
+RoleArn arn:aws:iam::134250228509:role/layr-gateway
+SSM PingStatus Online
+SSM AgentVersion 3.3.5538.0
+```
+
+SSM command `215507be-ae40-45fb-a5eb-512ea41f582e` succeeded: SSM agent and the release-sync timer
+are active; an HTTPS request using `curl -6` to the regional S3 dualstack endpoint returned 307.
+Cloud-init reported a scripts-user error and early recoverable IPv6 metadata route warnings.
+The final release and gateway configuration have not yet been published, so service readiness and
+ACME are not claimed. The failing bootstrap step will be inspected and the sync rerun after publication.
