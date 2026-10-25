@@ -1,13 +1,13 @@
 # AWS deployment of Layr Cloud
 
-Measured state: 2026-10-25, 15:13 UTC. Three storage stacks are created. Host deployment awaits Tailscale enrollment keys. The current source uses encrypted v2 person requests; earlier release gates below are historical.
+Measured state: 2026-10-25, 16:51 UTC. Three storage stacks are created. Gateway and executor deployment is authorized for public IPv6 HTTPS with SSM administration. Tailscale enrollment is no longer required. Earlier tailnet plans and release gates below are historical.
 This file records the M8 deployment from `layr-cloud` base `e4fdf656a0cae5ada5e2e3c7ebaf2fbe372c5f8d`.
 The deployment branch is `cloud/m8-deploy`.
 
 ## Target and scope
 
 - AWS profile: `ifdotpy`; account: `134250228509`; region: `eu-north-1` (Stockholm).
-- Gateway URL: `https://cloud.layr.ws`, reachable through igor's tailnet.
+- Gateway URL: `https://cloud.layr.ws`, public IPv6 HTTPS.
 - Existing Route 53 zone: `Z00094863IAG61NP8YENE` (`layr.ws`). No new hosted zone is planned.
 - Allowed DNS changes: `cloud.layr.ws` and `_acme-challenge.cloud.layr.ws` only.
 - The `layr.ws` apex, `desk.layr.ws`, and the existing ACM validation record must stay unchanged.
@@ -17,7 +17,7 @@ The deployment branch is `cloud/m8-deploy`.
 
 ## Resources
 
-The storage stacks below reached `CREATE_COMPLETE`. Gateway and executor deployment awaits both auth-key parameter names.
+The storage stacks below reached `CREATE_COMPLETE`. Gateway and executor deployment no longer needs auth-key parameters.
 The five-stack plan was approved by the lead on 2026-10-25 at 12:04 UTC:
 
 | Stack | Planned resources |
@@ -25,8 +25,8 @@ The five-stack plan was approved by the lead on 2026-10-25 at 12:04 UTC:
 | `layr-bootstrap` | Retained, encrypted, versioned artifacts S3 bucket |
 | `layr-store-m8-smoke` | Separate disposable verification store bucket and exact reader, writer and GC roles |
 | `layr-store-layr` | Retained, encrypted, versioned project S3 bucket; reader, writer and GC roles; bucket policy |
-| `layr-gateway` | IPv6-only VPC and subnet, internet gateway, route table and IPv6 route, WireGuard security group, IAM role and instance profile, `t4g.nano` EC2 instance with 8 GiB gp3 root |
-| `layr-executor-layr` | WireGuard security group, IAM role and instance profile, `t4g.small` EC2 instance with 12 GiB gp3 root, retained encrypted 10 GiB gp3 btrfs volume and attachment |
+| `layr-gateway` | IPv6-only VPC and subnet, internet gateway, route table and IPv6 route, HTTPS-only security group, IAM role and instance profile, `t4g.nano` EC2 instance with 8 GiB gp3 root |
+| `layr-executor-layr` | No inbound rules; SSM administration; security group, IAM role and instance profile, `t4g.small` EC2 instance with 12 GiB gp3 root, retained encrypted 10 GiB gp3 btrfs volume and attachment |
 
 The hosts use standard CPU credits. No public IPv4 address, NAT gateway, load balancer, or new hosted zone is planned.
 
@@ -616,3 +616,32 @@ The disposable project, person recovery material, tokens and TLS test material s
 tmpfs on the trusted local VM. The test deletes them on completion. No real project keys are made.
 The local test uses MinIO and a Tailscale LocalAPI identity stand-in; it does not prove live AWS
 or real tailnet enrollment. Those M8 checks still require the Tailscale keys.
+
+
+## Public IPv6 gateway transition
+
+The lead's design `docs/public-gateway-design.md` at `f8e5e00` replaces the tailnet requirement.
+The worktree was rebased onto that origin/main before implementation. The approved base cost
+and instance sizes remain unchanged: gateway t4g.nano, executor t4g.small, approximately $18.21/month
+plus usage. There is no public IPv4 address or NAT gateway.
+
+The gateway security group permits only TCP 443 from `::/0`. The executor has no inbound rules.
+Both hosts install Amazon SSM Agent, attach `AmazonSSMManagedInstanceCore`, and enable its
+`Agent.UseDualStackEndpoint` option. Administration uses SSM Session Manager or Run Command;
+no SSH port or Tailscale key is required. The gateway publishes only the AAAA record for
+`cloud.layr.ws` and the ACME DNS challenge allowed by its scoped Route 53 policy.
+
+AWS source for the SSM setup: [Debian agent installation](https://docs.aws.amazon.com/systems-manager/latest/userguide/agent-install-deb.html)
+and [AWS's IPv6 agent configuration](https://github.com/aws/amazon-ecs-agent/blob/master/scripts/ecs-anywhere-install.sh).
+The package download uses the regional S3 dualstack endpoint. No inbound SSM port is needed.
+
+The Mac has no IPv6 and layr-dev has only an OrbStack ULA with no internet IPv6 route.
+Live IPv6 checks will therefore run from the executor through SSM. From networks without IPv6,
+the site needs an IPv4 front later, such as CloudFront or one public IPv4 address.
+
+Local implementation verification at 16:50 UTC: gateway tests 28 passed, 0 failed, 1 environment-dependent
+MinIO test ignored; infrastructure tests 32 passed; cfn-lint exited 0. The actual new gateway binary
+served both HTTPS HTTP/1.1 and HTTP/2 over `::1`, with a verified disposable TLS certificate.
+The same listener refused an IPv4 connection, confirming `IPV6_V6ONLY`. Its disposable TLS key lived
+only in a memfd; the descriptor was closed and tmpfs fixture removed. This is local protocol evidence,
+not a claim of AWS deployment or real ACME issuance.

@@ -18,7 +18,7 @@ The [gateway README](../../README.md#store-gateway) describes the server contrac
 The gateway has no direct access to project buckets.
 It assumes the exact project roles that `StoreRoleArns` names.
 The executor can assume the reader and writer roles, but cannot assume the GC role.
-The host roles can also read their release artifacts and tailnet key.
+The host roles can also read their release artifacts. Administration uses SSM Session Manager.
 The gateway can change its DNS records when `Host` and `ZoneId` are set.
 
 Identity and Access Management (IAM) separates the project grants.
@@ -47,29 +47,21 @@ See the [AWS conditional-write policy reference](https://docs.aws.amazon.com/Ama
 ## Requirements
 
 - AWS CLI v2 with a deployment profile and permission to create the template resources.
-- `jq`, Python 3, `tar`, and static Linux ARM64 binaries for `layr-gateway` and `layr`.
-- A Debian 13 ARM64 Amazon Machine Image (AMI) with cloud-init and IPv6 support.
-- A tailnet with MagicDNS, HTTPS certificates, Tailscale SSH, and the tags below.
-- A project with a store remote and a machine slot for each executor.
+- Python 3, tar, and static Linux ARM64 binaries for `layr-gateway` and `layr`.
+- A Debian 13 ARM64 AMI with cloud-init and IPv6 support.
+- An existing Route 53 zone for the gateway host and an IPv6 route from its subnet.
+- A project store with a machine slot for each executor. Real owner recovery keys stay on the owner's machine.
 
-The templates use IPv6 for package downloads, AWS APIs, and Tailscale.
-They do not assign public IPv4 addresses or create a NAT gateway.
-The security groups accept only WireGuard UDP port 41641.
-The gateway binds HTTPS to its tailnet IPv4 address.
-The executor registry must also bind to its tailnet address.
-Tailscale can relay connections from clients without IPv6.
-See the [AWS IPv6-only subnet reference](https://aws.amazon.com/blogs/networking-and-content-delivery/introducing-ipv6-only-subnets-and-ec2-instances/).
+The default deployment serves public HTTPS on IPv6 only. The gateway permits TCP 443 from `::/0`.
+The executor has no inbound rules. Neither host has a public IPv4 address or SSH port.
+Both install SSM Agent with dualstack endpoints; use SSM Session Manager for administration.
+No Tailscale auth key is required. Tailscale can be configured separately as an optional private transport.
+The older tailnet command examples below are historical and must not be used for the public deployment;
+they are being replaced with the public procedures as live verification completes.
 
-Allow these tailnet connections:
-
-- Members to `tag:layr-gateway` on TCP port 443.
-- Members to `tag:layr-executor` on TCP port 5000, if they use the registry.
-- `tag:layr-executor` to `tag:layr-gateway` on TCP port 443.
-- Administrators to both tags through Tailscale SSH as root.
-
-Assign tag ownership to administrators.
-Use separate reusable, pre-approved auth keys for the two tags.
-Do not grant either host access to other tailnet devices unless a task requires it.
+Clients need internet IPv6. For clients without IPv6, add an IPv4 front later, such as CloudFront
+or one public IPv4 address. Run IPv6 verification from an AWS host if the local network lacks IPv6.
+See [DEPLOYED.md](DEPLOYED.md) for the current target, resource inventory and measured verification.
 
 ## Deploy with layr-cloud
 

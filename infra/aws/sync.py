@@ -132,6 +132,18 @@ class Sync:
             raise ValueError("no tailnet IPv4 address")
         return address
 
+    def address(self) -> str:
+        if self.source.get("network") != "public-ipv6":
+            return self.tailnet()
+        import ipaddress
+        interfaces = json.loads(run("ip", "-j", "-6", "address", "show", "scope", "global").stdout)
+        for interface in interfaces:
+            for address in interface.get("addr_info", []):
+                ip = ipaddress.ip_address(address["local"])
+                if ip.version == 6 and ip.is_global:
+                    return str(ip)
+        raise ValueError("no global IPv6 address")
+
     def release(self) -> None:
         release = json.loads(self.get(f"{self.kind}/release.json"))
         digest = release["sha256"]
@@ -212,7 +224,7 @@ class Sync:
                     for field in ("writeTokenHashes", "gcTokenHashes"):
                         if field in old_projects.get(name, {}):
                             project[field] = old_projects[name][field]
-            config = {"host": gateway["host"], "listen": f"{listen}:443", "projects": projects,
+            config = {"host": gateway["host"], "listen": f"[{listen}]:443" if ":" in listen else f"{listen}:443", "projects": projects,
                       "people": {"bucket": self.bucket, "region": self.source["region"], "prefix": "people/"}}
             app = getattr(self, "app", Path("/opt/layr-gateway"))
             if (app / "current/site/index.html").is_file():
@@ -235,16 +247,17 @@ class Sync:
 
     def dns(self, gateway: dict, listen: str) -> None:
         route53 = boto3.client("route53")
+        record_type = "AAAA" if ":" in listen else "A"
         host = gateway["host"].rstrip(".") + "."
         found = route53.list_resource_record_sets(
-            HostedZoneId=gateway["zone"], StartRecordName=host, StartRecordType="A", MaxItems="1"
+            HostedZoneId=gateway["zone"], StartRecordName=host, StartRecordType=record_type, MaxItems="1"
         )["ResourceRecordSets"]
-        if found and found[0]["Name"] == host and found[0]["Type"] == "A":
+        if found and found[0]["Name"] == host and found[0]["Type"] == record_type:
             if [r["Value"] for r in found[0]["ResourceRecords"]] == [listen]:
                 return
         route53.change_resource_record_sets(HostedZoneId=gateway["zone"], ChangeBatch={
-            "Comment": "Layr gateway tailnet address", "Changes": [{"Action": "UPSERT",
-            "ResourceRecordSet": {"Name": host, "Type": "A", "TTL": 300,
+            "Comment": "Layr gateway address", "Changes": [{"Action": "UPSERT",
+            "ResourceRecordSet": {"Name": host, "Type": record_type, "TTL": 300,
                                   "ResourceRecords": [{"Value": listen}]}}]})
 
     def certificate(self, host: str) -> tuple[str, str]:
@@ -260,7 +273,7 @@ class Sync:
         name = f"layr-{self.kind}-sync"
         changed = write_if_changed(UNITS / f"{name}.service", f"""[Unit]
 Description=Layr {self.kind} release sync
-After=network-online.target tailscaled.service
+After=network-online.target
 Wants=network-online.target
 [Service]
 Type=oneshot
@@ -278,7 +291,7 @@ WantedBy=timers.target
             changed |= write_if_changed(UNITS / "certbot.service.d/layr-gateway.conf", f"[Service]\n{ENV}")
             if write_if_changed(UNITS / "layr-gateway.service", f"""[Unit]
 Description=Layr gateway
-After=network-online.target tailscaled.service
+After=network-online.target
 Wants=network-online.target
 [Service]
 ExecStart={self.app}/current/layr-gateway serve --config /etc/layr-gateway/config.json
@@ -322,8 +335,8 @@ WantedBy=multi-user.target
             write_if_changed(active_release, digest)
 
     def execute(self) -> int:
-        # A missing tailnet address fails closed before a server can bind.
-        listen = self.tailnet()
+        # A missing explicit network address fails closed before a server can bind.
+        listen = self.address()
         self.release()
         pair = None
         if self.kind == "gateway":

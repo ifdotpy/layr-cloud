@@ -167,6 +167,21 @@ class ConfigTests(unittest.TestCase):
             client.return_value.get_parameter.return_value = {"Parameter": {"Value": "disposable-test-value"}}
             self.assertEqual(host.tailnet(), "100.64.0.1")
 
+    def test_public_ipv6_selects_only_global_address_and_updates_aaaa(self):
+        host = sync.Sync.__new__(sync.Sync)
+        host.source = {"network":"public-ipv6"}
+        addresses=[{"addr_info":[{"local":"fd07::1"},{"local":"2001:4860:4860::8888"}]}]
+        with patch.object(sync,"run",return_value=Mock(stdout=json.dumps(addresses))):
+            self.assertEqual(host.address(),"2001:4860:4860::8888")
+        with patch.object(sync,"run",return_value=Mock(stdout='[{"addr_info":[{"local":"fd07::1"}]}]')):
+            with self.assertRaisesRegex(ValueError,"global IPv6"):
+                host.address()
+        with patch.object(sync.boto3,"client") as client:
+            client.return_value.list_resource_record_sets.return_value={"ResourceRecordSets":[]}
+            host.dns({"host":"cloud.layr.ws","zone":"ZEXAMPLE"},"2001:4860:4860::8888")
+            record=client.return_value.change_resource_record_sets.call_args.kwargs["ChangeBatch"]["Changes"][0]["ResourceRecordSet"]
+            self.assertEqual(record,{"Name":"cloud.layr.ws.","Type":"AAAA","TTL":300,"ResourceRecords":[{"Value":"2001:4860:4860::8888"}]})
+
     def test_config_schema_and_local_token_changes(self):
         with tempfile.TemporaryDirectory() as temporary:
             host = sync.Sync.__new__(sync.Sync)
@@ -229,6 +244,7 @@ class ConfigTests(unittest.TestCase):
 
     def test_no_server_without_tailnet(self):
         host = sync.Sync.__new__(sync.Sync)
+        host.source = {}
         host.tailnet = Mock(side_effect=ValueError("no tailnet IPv4 address"))
         host.release = Mock()
         host.services = Mock()

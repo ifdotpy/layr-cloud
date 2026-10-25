@@ -118,6 +118,18 @@ class TemplateTests(unittest.TestCase):
                         {"Ref": "ReaderRoleArn"}, {"Ref": "WriterRoleArn"}]
                     self.assertEqual(item["Resource"], expected)
 
+    def test_public_ipv6_ingress_and_ssm_administration(self):
+        for name in ("gateway.yaml","executor.yaml"):
+            host=template(name)["Resources"]
+            ingress=host["SecurityGroup"]["Properties"]["SecurityGroupIngress"]
+            self.assertEqual(ingress,[{"IpProtocol":"tcp","FromPort":443,"ToPort":443,"CidrIpv6":"::/0"}] if name=="gateway.yaml" else [])
+            self.assertIn({"Fn::Sub":"arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"},host["Role"]["Properties"]["ManagedPolicyArns"])
+            code=host["Instance"]["Properties"]["UserData"]["Fn::Base64"]["Fn::Sub"]
+            self.assertIn('"UseDualStackEndpoint":true',code)
+            self.assertIn('"network":"public-ipv6"' if name=="executor.yaml" else '"network": "public-ipv6"',code)
+            self.assertNotIn("apt-get install -y tailscale",code)
+            self.assertNotIn("AuthKeyParameter",code)
+
     def test_host_security_and_retained_data(self):
         for name in ("gateway.yaml", "executor.yaml"):
             instance = template(name)["Resources"]["Instance"]["Properties"]

@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Layr executor or idle-stopping check runner, tailnet Graviton and retained btrfs data.
+Description: Layr executor or idle-stopping check runner, IPv6 Graviton and retained btrfs data.
 Parameters:
   HostKind:
     Type: String
@@ -44,10 +44,6 @@ Parameters:
     Type: String
   WriterRoleArn:
     Type: String
-  AuthKeyParameter:
-    Type: String
-    AllowedPattern: '/[A-Za-z0-9_./-]+'
-    Default: /layr-store/executor/tailscale-auth-key
   WriteTokenParameter:
     Type: String
     AllowedPattern: '/[A-Za-z0-9_./-]+'
@@ -72,13 +68,9 @@ Resources:
   SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Layr executor, WireGuard only
+      GroupDescription: Layr executor, outbound connections and SSM only
       VpcId: !Ref VpcId
-      SecurityGroupIngress:
-        - IpProtocol: udp
-          FromPort: 41641
-          ToPort: 41641
-          CidrIpv6: '::/0'
+      SecurityGroupIngress: []
       SecurityGroupEgress:
         - IpProtocol: '-1'
           CidrIpv6: '::/0'
@@ -93,6 +85,7 @@ Resources:
             Principal:
               Service: ec2.amazonaws.com
             Action: sts:AssumeRole
+      ManagedPolicyArns: [!Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"]
       Policies:
         - PolicyName: executor
           PolicyDocument:
@@ -107,7 +100,6 @@ Resources:
               - Effect: Allow
                 Action: ssm:GetParameter
                 Resource:
-                  - !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${AuthKeyParameter}'
                   - !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${WriteTokenParameter}'
               - !If
                 - HasRunner
@@ -196,22 +188,23 @@ Resources:
             useradd --system --user-group --create-home --home-dir /var/lib/layr-checks \
               --shell /usr/sbin/nologin layr-checks
           fi
-          curl -fsSL https://pkgs.tailscale.com/stable/debian/trixie.noarmor.gpg \
-            -o /usr/share/keyrings/tailscale-archive-keyring.gpg
-          curl -fsSL https://pkgs.tailscale.com/stable/debian/trixie.tailscale-keyring.list \
-            -o /etc/apt/sources.list.d/tailscale.list
-          apt-get update
-          apt-get install -y tailscale
+          mkdir -p /etc/amazon/ssm
+          cat > /etc/amazon/ssm/amazon-ssm-agent.json <<'EOF'
+          {"Agent":{"UseDualStackEndpoint":true}}
+          EOF
+          curl -fSsL --retry 5 https://s3.dualstack.${AWS::Region}.amazonaws.com/amazon-ssm-${AWS::Region}/latest/debian_arm64/amazon-ssm-agent.deb -o /tmp/amazon-ssm-agent.deb
+          dpkg -i /tmp/amazon-ssm-agent.deb
+          rm /tmp/amazon-ssm-agent.deb
+          systemctl enable --now amazon-ssm-agent
           cat > /etc/apt/apt.conf.d/52layr-executor <<'EOF'
           APT::Periodic::Update-Package-Lists "1";
           APT::Periodic::Unattended-Upgrade "1";
-          Unattended-Upgrade::Origins-Pattern:: "origin=Tailscale";
           Unattended-Upgrade::Automatic-Reboot "true";
           Unattended-Upgrade::Automatic-Reboot-Time "04:30";
           EOF
           install -d -m 0755 /etc/layr-executor
           cat > /etc/layr-executor/source.json <<'EOF'
-          {"kind":"executor","hostKind":"${HostKind}","tailnetTag":"tag:layr-${HostKind}","runnerInstanceId":"${RunnerInstanceId}","hostname":"${TailnetHostname}","bucket":"${ArtifactsBucket}","region":"${AWS::Region}","authKeyParameter":"${AuthKeyParameter}","writeTokenParameter":"${WriteTokenParameter}"}
+          {"kind":"executor","hostKind":"${HostKind}","tailnetTag":"tag:layr-${HostKind}","runnerInstanceId":"${RunnerInstanceId}","hostname":"${TailnetHostname}","bucket":"${ArtifactsBucket}","region":"${AWS::Region}","network":"public-ipv6","writeTokenParameter":"${WriteTokenParameter}"}
           EOF
           cat > /usr/local/lib/layr-executor-token.py <<'EOF'
           import json, os, sys, tempfile, subprocess
@@ -311,7 +304,7 @@ Resources:
           [Unit]
           Description=Layr service
           Requires=layr-data.service layr-executor-token.service
-          After=layr-data.service layr-executor-token.service network-online.target tailscaled.service
+          After=layr-data.service layr-executor-token.service network-online.target
           Wants=network-online.target
           ConditionPathExists=/etc/layr-executor/ready
           [Service]
@@ -432,7 +425,7 @@ Resources:
           cat > /etc/systemd/system/layr-executor-sync.service <<'EOF'
           [Unit]
           Description=Layr executor release sync
-          After=network-online.target tailscaled.service
+          After=network-online.target
           Wants=network-online.target
           [Service]
           Type=oneshot
