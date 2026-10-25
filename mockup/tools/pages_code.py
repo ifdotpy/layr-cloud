@@ -113,36 +113,47 @@ def lines_page():
         return (f'<div class="menu-wrap"><button class="iconbtn" type="button" data-menu="{mid}" aria-label="Actions for {name}">{icon("dots")}</button>'
                 f'<div class="menu end" id="{mid}"><button type="button">Rename</button><button type="button">Park</button>'
                 f'<button type="button">Replay onto main</button><hr><button type="button" class="bad">Delete</button></div></div>')
-    H = [("Line", ""), ("Owner", ""), ("Head", ""), ("Ahead / behind main", "num"), ("Cache", "num"),
+    H = [("Line", ""), ("Owner", ""), ("Head", ""), ("Ahead / behind main", "num"),
          ("Conflict radar", ""), ("Last activity", "num"), ("", "")]
+
+    def row(cells, tags, attrs=""):
+        return {"attrs": f'data-f="{tags}" {attrs}'.strip(), "cells": cells}
     rows = [
-        ["<a href='code.html'>main</a> " + badge("protected"), who("alice"), sid("7d3e9a1c") + ' <span class="muted">Merge change 2d9e5c</span>',
-         '<span class="muted">·</span>', "412 MiB", radar(0, []), "2 h", ""],
-        ["<a href='change.html'>topic-checkout</a>", who("bob"), sid("5b20e1f7") + ' <span class="muted">Support saved cards</span>', "3 ↑ 1 ↓",
-         "128 MiB, shared", radar(2, [("agent-4", "src/cart.rs"), ("feature-coupons", "src/cart.rs")]), "40 min", menu("topic-checkout")],
-        ["<a href='change.html'>fix-tax-rounding</a>", who("bob"), sid("e8813c2a") + ' <span class="muted">Round EUR tax per line</span>', "2 ↑ 0 ↓",
-         "96 MiB, shared", radar(0, []), "1 h", menu("fix-tax-rounding")],
-        ["<a href='change-steps.html'>feature-coupons</a>", who("alice"), sid("0c7f55d1") + ' <span class="muted">auto · agent-7</span>', "38 ↑ 0 ↓",
-         "131 MiB, shared", radar(1, [("topic-checkout", "src/cart.rs")]), "6 min", menu("feature-coupons")],
-        {"attrs": 'class="group" data-group="agents"', "cells": ['<span class="chev">▸</span> agent-1 … agent-16 <span class="muted">(16 lines, made together)</span>',
-         who("alice"), '<span class="muted">from main 7d3e9a1c</span>', "", "16 × 128 MiB, shared", radar(1, [("topic-checkout", "src/cart.rs")]), "now", ""]},
+        row(["<a href='code.html'>main</a> " + badge("protected"), who("alice"), sid("7d3e9a1c") + ' <span class="muted">Merge change 2d9e5c</span>',
+             '<span class="muted">·</span>', radar(0, []), "2 h", ""], "mine"),
+        row(["<a href='change.html'>topic-checkout</a>", who("bob"), sid("5b20e1f7") + ' <span class="muted">Support saved cards</span>', "3 ↑ 1 ↓",
+             radar(2, [("agent-4", "src/cart.rs"), ("feature-coupons", "src/cart.rs")]), "40 min", menu("topic-checkout")], ""),
+        row(["<a href='change.html'>fix-tax-rounding</a>", who("bob"), sid("e8813c2a") + ' <span class="muted">Round EUR tax per line</span>', "2 ↑ 0 ↓",
+             radar(0, []), "1 h", menu("fix-tax-rounding")], ""),
+        row(["<a href='change-steps.html'>feature-coupons</a>", who("alice"), sid("0c7f55d1") + ' <span class="muted">auto · agent-7</span>', "38 ↑ 0 ↓",
+             radar(1, [("topic-checkout", "src/cart.rs")]), "6 min", menu("feature-coupons")], "mine"),
+        row(['<span class="chev">▸</span> exp/ <span class="muted">(2 lines)</span>', who("carol"), "", "", "", '<span class="muted">stale</span>', ""],
+            "group", 'class="group" data-group="exp"'),
+        row(["<a href='code.html'>exp/redis-cache</a>", who("carol"), sid("4a7e01c9") + ' <span class="muted">Try a Redis cart cache</span>', "5 ↑ 31 ↓",
+             radar(0, []), '<span class="muted">23 days</span>', menu("exp-redis-cache")], "stale", 'class="child" data-in="exp"'),
+        row(["<a href='code.html'>exp/http3</a>", who("carol"), sid("91d2b6e0") + ' <span class="muted">Serve over HTTP/3</span>', "2 ↑ 58 ↓",
+             radar(0, []), '<span class="muted">41 days</span>', menu("exp-http3")], "stale", 'class="child" data-in="exp"'),
+        row(['<span class="chev">▸</span> agent-1 … agent-16 <span class="muted">(16 lines, made together)</span>',
+             who("alice"), '<span class="muted">from main 7d3e9a1c</span>', "", radar(1, [("topic-checkout", "src/cart.rs")]), "now", ""],
+            "group", 'class="group" data-group="agents"'),
     ]
     for i, a in enumerate(AGENTS, 1):
         ahead = [4, 0, 2, 7, 1, 0, 0, 3, 5, 0, 1, 2, 0, 6, 1, 0][i - 1]
-        rows.append({"attrs": 'class="child" data-in="agents"', "cells": [
+        rows.append(row([
             f"<a href='code.html'>{a}</a>", who("alice"), sid(f"{(0x3a1 * i * 7919) % 0xffffffff:08x}") + ' <span class="muted">auto</span>',
-            f"{ahead} ↑ 0 ↓", "128 MiB, shared", radar(2 if i == 4 else 0, [("topic-checkout", "src/cart.rs"), ("feature-coupons", "src/cart.rs")]),
-            f"{i % 9 + 1} min", menu(a)]})
+            f"{ahead} ↑ 0 ↓", radar(2 if i == 4 else 0, [("topic-checkout", "src/cart.rs"), ("feature-coupons", "src/cart.rs")]),
+            f"{i % 9 + 1} min", menu(a)], "mine agents", 'class="child" data-in="agents"'))
     new = dialog("dlg-line", "New line", f'''{field("Name", inp("agent", mono=True))}
 {field("From", sel(["main", "topic-checkout", "env/prod", "release/1.4.2"], mono=True))}
 <label class="field"><span>Count</span><input class="input" type="number" value="16" min="1" style="width:120px">
 <span class="note" style="font-weight:400;margin-top:6px">Make several lines at once, for agents. Names get a number: agent-1, agent-2 …</span></label>
 {cmd("layr line new agent main --count 16")}''', '<button class="btn" type="button" data-close>Cancel</button><button class="btn primary" type="button" data-close>Create 16 lines</button>')
     body = f'''{pagehead("Lines", '<button class="btn primary" type="button" data-dialog="dlg-line">New line</button>',
-               "Each line is a real folder with its own caches. A new line is ready in milliseconds.")}
-<div class="filters"><div class="seg"><a href="#" aria-current="true">All</a><a href="#">Yours</a><a href="#">Agents</a><a href="#">Stale</a></div>
+               "Each line is a real folder with its own caches. Names with a slash group together, for example exp/.")}
+<div class="filters"><div class="seg" data-filter-for="lines"><button type="button" data-filter="" aria-pressed="true">All</button><button type="button" data-filter="mine" aria-pressed="false">Yours</button><button type="button" data-filter="agents" aria-pressed="false">Agents</button><button type="button" data-filter="stale" aria-pressed="false">Stale</button></div>
 <input class="input grow" type="search" placeholder="Filter lines"></div>
-{table(H, rows, stacked=True)}
+<div class="note" data-when="stale" hidden style="margin-bottom:12px">Lines with no save for 21 days. Delete the ones you do not need. Their states stay in history. {cmd("layr line delete exp/http3")}</div>
+<div id="lines">{table(H, rows, stacked=True)}</div>
 {disk_bars()}'''
     return page("Lines", body, tab="Code", dialogs=new)
 

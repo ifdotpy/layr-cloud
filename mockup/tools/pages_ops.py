@@ -1,3 +1,4 @@
+from pages_release import DEPLOY_NAV
 from lib import *
 from pages_info import pulse
 from pages_change import CHECK_H, checks_rows, behavior_cards
@@ -71,22 +72,20 @@ def behavior_page():
 def environments_page():
     H = [("Ref", ""), ("Current state", ""), ("Release", ""), ("Protection", ""), ("Last moved", ""), ("Image tag", "")]
     rows = [
-        ['<a href="environment.html">env/prod</a>', sid("c0ffee4a") + ' <span class="muted">Release 1.4.2</span>', ref("release/1.4.2"),
+        ['<a href="environment.html">env/prod</a>', sid("c0ffee4a") + ' <span class="muted">Release 1.4.2</span>', '<a href="release.html">' + ref("release/1.4.2") + '</a>',
          '<span class="ok">✓</span> unit · <span class="ok">✓</span> e2e · 1 approval', "alice · yesterday", sid("app:prod")],
         ['<a href="environment.html">env/staging</a>', sid("a91c4e07") + ' <span class="muted">Add the table saved_cards</span>', '<span class="muted">·</span>',
          '<span class="ok">✓</span> unit', "bob · 6 h ago", sid("app:staging")],
     ]
     OH = [("Ref", ""), ("State", ""), ("Note", ""), ("Expires", "num")]
     other = [
-        [sid("release/1.4.2"), sid("c0ffee4a"), "Release 1.4.2", "never"],
-        [sid("release/1.4.1"), sid("b17a2c90"), "Release 1.4.1", "never"],
         [sid("pins/audit-2026-10"), sid("b17a2c90"), "Kept for the October audit", "never"],
         [sid("holds/legal-hold-17"), sid("6e2d81c0"), "Legal hold: case 17. GC keeps it.", "never"],
         [sid("leases/agent-3"), sid("e87d0c55"), "agent-3 is working on it", '<span class="warn">1 h 52 min</span>'],
     ]
-    body = f'''{subnav([("Environments", "environments.html"), ("Images", "registry.html")], "Environments")}{pagehead("Environments", "", "An environment is a ref. It moves only with compare and swap, and keeps its history.")}
+    body = f'''{subnav(DEPLOY_NAV, "Environments")}{pagehead("Environments", "", "An environment is a ref. It moves only with compare and swap, and keeps its history.")}
 {table(H, rows)}
-<div class="sect" style="margin-top:40px"><h2 style="margin-bottom:12px">Other refs</h2>{table(OH, other)}
+<div class="sect" style="margin-top:40px"><h2 style="margin-bottom:12px">Other refs</h2><p class="note" style="margin-bottom:12px">Releases have their own page: <a href="releases.html">Releases</a>.</p>{table(OH, other)}
 {cmd("layr ref list")}</div>'''
     return page("Environments", body, tab="Deploy")
 
@@ -145,7 +144,7 @@ def registry_page():
     charts = [[sid("chart"), sid("1.4.2"), ref("release/1.4.2"), sid("sha256:0a5c…e811")],
               [sid("chart"), sid("1.4.1"), ref("release/1.4.1"), sid("sha256:93f0…2c6d")]]
     toml = "".join(f'<span class="l">{e(l)}</span>' for l in TOML.split("\n"))
-    main = f'''{subnav([("Environments", "environments.html"), ("Images", "registry.html")], "Images")}{pagehead("Images", "", "Every ref, line and change is an image. Same state, same digest.")}
+    main = f'''{subnav(DEPLOY_NAV, "Images")}{pagehead("Images", "", "Every ref, line and change is an image. Same state, same digest.")}
 <div class="callout" style="margin-bottom:24px">Images are built on demand from the exact state when a tag is first pulled.</div>
 <h2 style="margin-bottom:12px">Images</h2>{table(H, rows)}
 <h2 style="margin:32px 0 12px">Helm charts</h2>{table(CH, charts)}

@@ -558,3 +558,22 @@ moved this change onto the newest main after your review. That move changed no c
 not shown."). "Since your review" is the default only when an approval names the viewer;
 otherwise "Everything in this change". Approvals are per exact state, so the Merge checklist
 counts approvals on the latest version only.
+
+## 18. Releases and line organization
+
+Priority: simple, easy to use, minimal. Nothing new in Layr; all data exists today.
+
+**Releases** (`releases.html`, `release.html`, Deploy tab, subnav Environments | Releases | Images):
+
+- A release is the ref `release/<version>` on one exact state. It never moves.
+- List columns: Release (latest badge on the newest), Changes since the previous release, Checks, By, Date, Where (environments that point at it).
+- "New release": version and source; command `layr ref set release/1.4.3 main`. The `release/*` protection rule decides who may make one.
+- Release page: who released which state and when; the changes since the previous release as a table (the release notes); "Compare files with release/1.4.1"; checks on the exact state; images on the side; `layr line new try-1.4.2 release/1.4.2` to get it.
+- Releases leave the "Other refs" table on Environments, which now links to Releases.
+
+**Lines** (`lines.html`):
+
+- Filters that work: All, Yours, Agents, Stale.
+- Names with a slash group into one collapsible row (`exp/ (2 lines)`), like lines made together.
+- Stale: no save for 21 days. "Last activity" shows the age in muted text. The Stale filter shows one note and `layr line delete <name>`; states stay in history.
+- The Cache column is gone; the disk card under the table already shows it.

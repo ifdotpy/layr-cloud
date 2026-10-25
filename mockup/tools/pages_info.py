@@ -58,8 +58,8 @@ def merge_stepper(current=2):
 
 # ---------- 3. Disk use toggle on Lines ----------
 
-DISK = {"layr": [("main", 412), ("topic-checkout", 9), ("fix-tax-rounding", 6), ("feature-coupons", 11), ("16 agent lines", 176)],
-        "copies": [("main", 412), ("topic-checkout", 405), ("fix-tax-rounding", 398), ("feature-coupons", 420), ("16 agent lines", 6512)]}
+DISK = {"layr": [("main", 412), ("topic-checkout", 9), ("fix-tax-rounding", 6), ("feature-coupons", 11), ("exp/ (2 lines)", 14), ("16 agent lines", 176)],
+        "copies": [("main", 412), ("topic-checkout", 405), ("fix-tax-rounding", 398), ("feature-coupons", 420), ("exp/ (2 lines)", 790), ("16 agent lines", 6512)]}
 
 
 def disk_bars():
@@ -70,7 +70,7 @@ def disk_bars():
                     f'<span class="num" data-a="{a} MiB" data-b="{b} MiB">{a} MiB</span></div>')
     ta, tb = sum(v for _, v in DISK["layr"]), sum(v for _, v in DISK["copies"])
     return f'''<div class="card" style="margin-top:24px"><div class="bd">
-<div class="row" style="align-items:flex-end"><div><div class="muted small">Disk use of all 20 lines</div>
+<div class="row" style="align-items:flex-end"><div><div class="muted small">Disk use of all 22 lines</div>
 <div class="big" data-a="{ta} MiB" data-b="{tb / 1024:.1f} GiB" data-total>{ta} MiB</div></div><span class="spacer"></span>
 <div class="seg" data-bars-toggle><button type="button" aria-pressed="true" data-mode="a">Layr</button><button type="button" aria-pressed="false" data-mode="b">As separate copies</button></div></div>
 <div class="bars" style="margin-top:16px">{"".join(rows)}</div>

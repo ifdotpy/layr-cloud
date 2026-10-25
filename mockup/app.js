@@ -86,6 +86,28 @@
     });
   });
 
+  // Row filters: <div class="seg" data-filter-for="id"> buttons with data-filter match rows by data-f words.
+  $$("[data-filter-for]").forEach((seg) => {
+    const box = document.getElementById(seg.dataset.filterFor);
+    const btns = $$("[data-filter]", seg);
+    btns.forEach((b) =>
+      b.addEventListener("click", () => {
+        const f = b.dataset.filter;
+        btns.forEach((o) => o.setAttribute("aria-pressed", String(o === b)));
+        $$("tbody tr", box).forEach((r) => {
+          const words = (r.dataset.f || "").split(" ");
+          if (!f) {
+            if (r.dataset.in) {
+              const g = box.querySelector('tr.group[data-group="' + r.dataset.in + '"]');
+              r.hidden = g.getAttribute("aria-expanded") !== "true";
+            } else r.hidden = false;
+          } else r.hidden = !words.includes(f);
+        });
+        $$("[data-when]").forEach((el) => (el.hidden = el.dataset.when !== f));
+      })
+    );
+  });
+
   // Copy buttons: <button data-copy="text">.
   $$("[data-copy]").forEach((b) =>
     b.addEventListener("click", (e) => {
