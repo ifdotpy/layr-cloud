@@ -45,7 +45,7 @@ def wake_runner(source: dict, pending: int) -> None:
     state = rows[0]['Instances'][0]['State']['Name']
     if state == 'stopped':
         ec2.start_instances(InstanceIds=[instance])
-        print('started privileged check runner', instance, flush=True)
+        print('started check runner', instance, flush=True)
     elif state not in ('pending', 'running', 'stopping'):
         raise RuntimeError('runner instance is unavailable')
 

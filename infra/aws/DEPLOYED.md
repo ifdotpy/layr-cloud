@@ -1,6 +1,6 @@
 # AWS deployment of Layr Cloud
 
-Measured state: 2026-10-25, 12:18 UTC. The lead approved deployment; the three storage stacks are created. Tailnet host enrollment is pending.
+Measured state: 2026-10-25, 12:56 UTC. The lead approved deployment; the three storage stacks are created. Tailnet host enrollment is pending.
 This file records the M8 deployment from `layr-cloud` base `e4fdf656a0cae5ada5e2e3c7ebaf2fbe372c5f8d`.
 The deployment branch is `cloud/m8-deploy`.
 
@@ -162,7 +162,8 @@ SHA-256: `b458d17c8eb2540086e1c374e62b8caa4b278a103dd9bc80d05e5346072461bc`.
 
 ## Prepared release artifacts
 
-The archives are ready in `/root/work/m8-release` in `layr-dev`.
+These preparation archives remain in `/root/work/m8-release` in `layr-dev`.
+They predate the M2/M3/M7 integration and must be rebuilt from the final merged source before deployment.
 They contain no AWS credentials or Tailscale auth keys.
 They were created with sorted entries, zero timestamps, and numeric root ownership.
 The host's `release_files` validator accepted both real archives:
@@ -177,19 +178,18 @@ The executor archive contains the pinned static Layr binary and sync script.
 The application changes and initial deployment record are in commit `d9ece2632c509981d69a8135af07ac051fbe4d76`.
 No push or merge was performed.
 
-## Executor checks handoff
+## Executor and runner contract
 
-The M3 worker supplied these requirements after the preparation commit:
+The executor stays `t4g.small`, with no Rust toolchain. It fetches, applies person requests,
+scans pending checks with both machine-local runner flags false, pushes, and optionally starts the runner.
+All checks run on the optional `t4g.large` runner. Normal unit checks remain unprivileged in bubblewrap
+with no network; privileged suites need reviewed local policy and root-only opt-in.
+The final static Layr binary must include merged M2, M3 and M7 work.
 
-- Normal checks use an unprivileged account, bubblewrap, and no network.
-- Privileged suites require a maintainer entry in `checks.privileged` and local `checks.privileged-runner` opt-in.
-- Additional tools: `bubblewrap`, `xfsprogs`, `e2fsprogs`, `python3`, `docker-registry`, `skopeo`,
-  `apache2-utils`, Helm, and a pinned MinIO binary. The base template already installs `btrfs-progs`, `git`, and `zstd`.
-- The worker estimated at least 4 GiB RAM and about 40 GiB disk for full cargo and loop-filesystem suites.
-  This is an estimate, not a measured minimum. The proposed M8 sizes cover the initial smoke flow only.
-- M3 also needs its newer Layr runtime. The assigned `1a91cd3` binary does not contain that implementation.
-
-These requirements have not been installed or enabled. The lead must select the runtime and resource plan before deployment.
+Person-key pins are machine-local. Before enabling person requests, an administrator must run
+`layr --project "$PROJECT" access person-key "$PERSON_LOGIN" "$PERSON_SIGNING_KEY"` on the executor,
+using Igor's verified public signing key. The gateway's registered person key does not replace this local pin.
+No private person key or recovery material belongs on the executor or runner.
 
 ## Tailnet policy to add
 
@@ -300,7 +300,7 @@ and 128 means an operational error. Only a successful JSON scan contributes work
 
 Policies must be provisioned locally on both hosts: imported config is namespaced by the source machine.
 After cloning, grant `layr-checks` reader access and run the project's reviewed `tools/checks/configure.sh` locally.
-Set `checks.runner=true` and `checks.privileged-runner=true` locally as root on the runner only. The executor does not run the watcher and needs no Rust toolchain.
+Set `checks.runner=true` and `checks.privileged-runner=true` locally as root on the runner only. The executor runs the watcher in reporter mode and needs no Rust toolchain.
 
 The final split keeps every check on the runner, including sandboxed unit checks.
 The executor syncs, applies person requests, scans pending work without executing it, and optionally starts the runner.
@@ -313,3 +313,46 @@ Prewarm locked dependencies from the verified project source with `cargo fetch -
 The reporter uses `checks watch --once --json` with both machine-local runner flags false.
 The host loop explicitly enforces both false on the executor before each report scan.
 It wakes on the total `pending` count, which includes normal checks.
+
+## Additional verification while host enrollment waits
+
+Storage IAM updates completed successfully on 2026-10-25 at 12:40–12:46 UTC.
+They add the optional runner role to the exact trust list and allow create-only `requests/` writes.
+The real `layr` project store remains uninitialized.
+
+Latest infrastructure checks: `cfn-lint infra/aws/*.yaml` exited 0; Python tests: 29 passed, 0 failed.
+Gateway tests against committed M2 shared source `39711d7` plus M7's shared public module from `75b4111`:
+26 passed, 0 failed, 1 ignored. This temporary source combination is test evidence, not the deployment pin.
+The final tests will use the merged Git dependency revision.
+
+Anonymous reads use `/p/<project>/<object>` and `/p/<project>/objects?prefix=records/|states/`.
+They require a signed public manifest bound to the configured store descriptor.
+Object names use the shared anchored record and state parsers; only `store.json`, `public.json`,
+`slots/public.age`, record segments and state tree/data objects are exposed.
+Listings filter out noncanonical entries and never list overlays, people, requests or private slots.
+The limit is 600 requests per real socket client IP per minute, with at most 4,096 tracked clients;
+excess requests receive HTTP 429 with `Retry-After: 60`. Forwarding headers do not select the address.
+Refusal tests cover missing/invalid publication, private namespaces, traversal and write methods.
+Anonymous public access grants no write, GC or token-issuance authority.
+
+## Disposable recovery material
+
+At 12:41 UTC the lead approved a narrow exception for the disposable smoke store and test person:
+recovery material may live only under `/run` on tmpfs in the trusted local `layr-dev` VM.
+It must never appear on AWS hosts, persistent disks, logs, commits or messages.
+It must be deleted after the live UI check. That live check and deletion are still pending;
+this file must record the measured deletion result before the task is submitted as complete.
+Igor will create real project keys for `layr`, `layr-cloud` and `layr-studio` later on his own machine.
+This task creates none of those real project keys.
+
+The extracted token loader and systemd units also passed a lifecycle check in `layr-dev`,
+using an SSM stand-in with no live credentials:
+
+```text
+SSM stand-in -> extracted runtime loader: tmpfs, root-owned, mode0600; value not emitted
+Stop parent service -> PartOf stopped token unit; token and runtime directory removed
+```
+
+The parent stop can return while the dependent token stop job is still finishing.
+The check waited for that job and verified that both the file and runtime directory were absent.
+This proves the local service lifecycle; live instance-role access to SSM remains unverified.

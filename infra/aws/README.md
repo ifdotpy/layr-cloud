@@ -616,6 +616,20 @@ findmnt -no SOURCE,FSTYPE,TARGET /var/lib/layr
 Clone creates the local project with the remote project identity and configures `origin`.
 Clone and fetch use the machine slot that the trusted Mac created.
 
+As an administrator, pin the person's Ed25519 public signing key on the executor.
+Obtain Igor's login and public key from him and check them through a trusted channel.
+Do not copy his private person identity or recovery words to this host.
+Run this against each executor project before enabling person requests:
+
+```sh
+layr --project "$PROJECT" access person-key "$PERSON_LOGIN" "$PERSON_SIGNING_KEY"
+```
+
+The person-key pin and person access policy are machine-local.
+Fetching project records does not install another machine's pin or policy.
+The gateway checks request signatures against the registered person key; the executor independently
+checks its administrator's local pin and person policy before applying an action.
+
 For an existing copy of the same project without `origin`, add the gateway remote directly:
 
 ```sh
@@ -628,7 +642,8 @@ Read requests use the machine slot and challenge; they need no stored bearer tok
 Replace the SSM value before the token expires. Restart the token service to refresh an active daemon token.
 Keep bearer tokens out of command arguments, project config, records, and logs.
 
-The root daemon runs the queue and project checks.
+The root daemon serves local IPC and the registry. Keep `queue.run` empty on the executor.
+The separate runner executes all checks.
 First boot creates the dedicated system account `layr-registry` without a home or login shell.
 The registry handler uses that unprivileged account.
 Do not use that account for ordinary Layr commands.
@@ -669,7 +684,14 @@ A retained volume needs explicit reattachment or resource import; a new stack cr
 
 Save the bucket names and volume ID before deletion:
 
+If the optional runner stack exists, delete it before deleting the gateway subnet.
+Save its data volume ID first. Its retained disk remains billable after deletion.
+
 ```sh
+if [ -n "${RUNNER_STACK:-}" ]; then
+  aws cloudformation delete-stack --stack-name "$RUNNER_STACK"
+  aws cloudformation wait stack-delete-complete --stack-name "$RUNNER_STACK"
+fi
 printf 'store=%s\nartifacts=%s\ndata=%s\n' "$STORE_BUCKET" "$ARTIFACTS_BUCKET" "$DATA_VOLUME_ID"
 tailscale ssh root@"$EXECUTOR_ROLE_NAME" 'systemctl stop layr-transfer.timer layr-transfer.service layr.service'
 aws cloudformation delete-stack --stack-name "$EXECUTOR_STACK"
@@ -681,16 +703,20 @@ aws cloudformation wait stack-delete-complete --stack-name "layr-store-$PROJECT"
 aws cloudformation delete-stack --stack-name layr-bootstrap
 aws cloudformation wait stack-delete-complete --stack-name layr-bootstrap
 aws ssm delete-parameters --names /layr-store/gateway/tailscale-auth-key \
-  /layr-store/executor/tailscale-auth-key
+  /layr-store/executor/tailscale-auth-key /layr-store/executor/write-token
 ```
 
-Delete the executor first because it uses the gateway subnet.
+Delete the executor and optional runner before the gateway because they use its subnet.
 The project bucket, artifacts bucket, and data volume remain, with their storage charges.
 Do not delete the shared gateway, artifacts, or SSM keys while another project uses them.
 Remove the two host devices from the tailnet administration console.
 Revoke the two tailnet auth keys.
 
-For a custom domain, delete its records and update registrar delegation before you remove the zone.
+For an existing shared zone such as `layr.ws`, keep the zone, its delegation, the apex,
+`desk.layr.ws`, and its ACM validation record. Remove only this deployment's `cloud.layr.ws`
+and ACME challenge records. Skip the DNS stack and hosted-zone deletion commands below.
+
+Only if this deployment created a dedicated new zone, delete its records and update registrar delegation before you remove the zone.
 The DNS stack retains the zone:
 
 ```sh
@@ -734,7 +760,7 @@ They reject ext4 and preserve data across repeat mounts.
 The release tests use synthetic ELF headers. They do not execute either release binary.
 A template lint result does not prove AWS deployment, first boot, or a live gateway request.
 
-## Separate privileged check runner
+## Optional check runner
 
 Reuse `executor.yaml` for the runner. Set `HostKind=runner`, `InstanceType=t4g.large`,
 `DataVolumeSize=60`, `RootVolumeSize=8`, a distinct role and hostname, and separate runner SSM parameter names.
@@ -764,6 +790,22 @@ runuser -u layr-checks -- env LAYR_ROOT=/var/lib/layr LAYR_SOCKET=/run/layr.sock
 touch /etc/layr-executor/checks-ready
 systemctl enable --now layr-checks.timer
 ```
+
+Before enabling the runner timer, seed its offline dependencies from the verified checked-out source:
+
+```sh
+source_dir=$(layr --project "$PROJECT" --line main rev-parse --show-toplevel)
+(
+  cd "$source_dir"
+  CARGO_HOME=/usr/local/share/layr-checks/cargo \
+  RUSTUP_HOME=/usr/local/share/layr-checks/rustup \
+    /usr/local/share/layr-checks/cargo/bin/cargo fetch --locked
+)
+```
+
+Use this seed on the runner only. It must contain no credential files.
+The normal sandbox has no network and copies the cargo seed into its private home.
+Repeat the fetch after a reviewed lockfile update, before enabling its new check commands.
 
 The executor runs the watcher only in reporter mode, with both local runner flags false. It needs no Rust.
 Keep its `queue.run` empty; applying a person queue request must not launch checks on this small host.
