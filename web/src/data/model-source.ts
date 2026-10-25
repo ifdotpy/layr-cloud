@@ -1,5 +1,5 @@
 import type {
-  DataSource, Project, Line, State, Change, Ref, RefChange, QueueEntry, Attestation,
+  RequestAction, RequestStatus, ActionAccess, Comment, DataSource, Project, Line, State, Change, Ref, RefChange, QueueEntry, Attestation,
   Operation, Behavior, Tree, FileContent, Diff, Copy, Person, Machine, Store, You,
   ScreenDiff, LogOptions, MergeStatus, ChangeDiff,
 } from './source';
@@ -66,6 +66,10 @@ export class ModelSource implements DataSource {
     try { await this.call('unlockPrf', [secret, slot], [secret.buffer as ArrayBuffer]); this.active = true; }
     finally { if (secret.byteLength) secret.fill(0); }
   }
+  actionAccess(project: string): Promise<ActionAccess> { return this.call('actionAccess', [project]); }
+  submitRequest(project: string, action: RequestAction): Promise<RequestStatus> { return this.call('submitRequest', [project, action]); }
+  requestStatus(project: string, id: string): Promise<RequestStatus> { return this.call('requestStatus', [project, id]); }
+  comments(project: string, change: string): Promise<Comment[]> { return this.call('comments', [project, change]); }
   projects(): Promise<Project[]> { return this.call('projects'); }
   lines(project: string): Promise<Line[]> { return this.call('lines', [project]); }
   log(project: string, line: string, options: LogOptions = {}): Promise<State[]> { return this.call('log', [project, line, options]); }

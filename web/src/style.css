@@ -601,3 +601,16 @@ html:not(.cli) .cmd { display: inline-flex; margin-right: 10px; }
 .line-group-toggle { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; background: none; border: 0; padding: 2px 0; color: var(--text); font: inherit; cursor: pointer; }
 .line-group td { background: var(--surface); }
 .pagehead h1 .release-name { font-size: inherit; }
+
+.request-action { display:grid; gap:8px; min-width:0; }
+.request-outcome { display:grid; gap:6px; font-size:12px; overflow-wrap:anywhere; }
+.request-outcome .mono { overflow-wrap:anywhere; }
+.comment { border-top:1px solid var(--border); padding:16px 0; }
+.comment.reply { padding-left:16px; }
+.comment-text { white-space:pre-wrap; overflow-wrap:anywhere; margin:10px 0; }
+.comment-composer { display:grid; gap:10px; margin-top:16px; }
+.comment-composer label { display:grid; gap:8px; }
+.comment-composer textarea { width:100%; resize:vertical; min-height:84px; }
+.inline-comment td { padding:16px; white-space:normal; }
+.inline-comment .conversation { max-width:760px; font-family:var(--sans); }
+.comment-line { background:var(--bg-100); color:var(--text); border:1px solid var(--border); border-radius:4px; cursor:pointer; min-width:24px; }

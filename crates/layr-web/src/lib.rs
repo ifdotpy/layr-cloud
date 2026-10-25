@@ -13,6 +13,7 @@ mod changes;
 mod metadata;
 mod overlays;
 mod screens;
+mod requests;
 
 fn js(error: anyhow::Error) -> JsValue {
     JsValue::from_str(&format!("{error:#}"))
@@ -41,6 +42,7 @@ struct Store {
 pub struct Session {
     person: Option<Zeroizing<String>>,
     login: String,
+    signing: Option<ed25519_dalek::SigningKey>,
     index: person::Index,
     invites: Vec<person::Pin>,
     invite_errors: Vec<Value>,
@@ -51,6 +53,7 @@ impl Default for Session {
         Self {
             person: None,
             login: String::new(),
+            signing: None,
             index: person::Index::default(),
             invites: Vec::new(),
             invite_errors: Vec::new(),
@@ -840,6 +843,9 @@ impl Session {
                 .map(|id| p.change_show(&id, &context))
                 .collect::<Result<Vec<_>>>()?),
             "changeShow" => p.change_show(arg(0), &context)?,
+            "comments" => json!(p.comments(arg(0))),
+            "actionAccess" => self.action_access(name)?,
+            "requestStatus" => self.request_status(name, arg(0))?,
             "refs" => json!(p.ref_list("", now)),
             "refLog" => json!(p.ref_log(arg(0))),
             "queue" => json!(p.queue_list(None)),

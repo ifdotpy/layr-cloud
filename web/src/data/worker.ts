@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 import init, { Session } from '../../wasm/layr_web';
-import { Gateway } from './gateway';
+import { uuidV7 } from './requests';
+import { Gateway, fromBase64 } from './gateway';
 
 const scope = self as unknown as DedicatedWorkerGlobalScope;
 const idleMs = 30 * 60 * 1000;
@@ -75,6 +76,10 @@ async function unlock(method: string, args: unknown[], base: string) {
       try { session.unlock_prf(secret, args[1] as string, JSON.stringify(person)); }
       finally { secret.fill(0); }
     }
+    if (person.signing && person.signing_key) {
+      const sealed = fromBase64(person.signing);
+      try { session.open_signing_key(sealed, person.signing_key); } finally { sealed.fill(0); }
+    }
     const slotName = session.slot_name();
     const pins: string[] = JSON.parse(session.query('', 'pins', '[]', Date.now()));
     for (const name of await gateway.projects()) {
@@ -134,6 +139,20 @@ async function call(method: string, args: unknown[], base = ''): Promise<unknown
     }
     return JSON.parse(session.diff(name, object, other, filter));
   }
+  if (method === 'submitRequest') {
+    const name = alias(args[0] as string);
+    const id = uuidV7();
+    const envelope = session.sign_request(name, id, JSON.stringify(args[1]), Date.now());
+    const target = route(name);
+    try { await current().gateway.putRequest(target.gateway, id, envelope); }
+    catch (error) {
+      // A lost success response must never cause a new request identity.
+      try { if (await current().gateway.requestObject(target.gateway, id, proof(name)) !== envelope) throw error; }
+      catch { return {id, status:'pending', reason:'Delivery could not be confirmed. Keep this request ID and check its status before trying again.'}; }
+    }
+    return {id, status: 'pending'};
+  }
+  if (method === 'requestStatus') await loadStore(alias(args[0] as string));
   if (method === 'changeDiff') {
     const name = alias(args[0] as string);
     const states: string[] = JSON.parse(session.query(name, 'changeInputs', JSON.stringify(args.slice(1)), Date.now()));

@@ -1,3 +1,4 @@
+import { RefMove } from "../components/actions";
 import { useState } from "preact/hooks";
 import type {
   DataSource,
@@ -334,11 +335,7 @@ export function DeployPage({
             title={<Mono>{reference}</Mono>}
             description="An environment is a ref. Every position names an exact state."
             actions={
-              <ReadOnlyAction
-                label={`Move ${reference}…`}
-                command={`layr ref set ${reference} <state> --expect <current>`}
-                primary
-              />
+              <RefMove source={source} project={project.id} name={reference!} expected={data.refs.find(ref => ref.name === reference)?.target ?? null} />
             }
           />
           <Section title="Position history">

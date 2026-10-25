@@ -1358,47 +1358,20 @@ dependencies = [
 [[package]]
 name = "layr-model"
 version = "0.1.0"
-source = "git+https://github.com/ifdotpy/layr?rev=1a91cd32555a878e87d63d6311520ecca3be7173#1a91cd32555a878e87d63d6311520ecca3be7173"
+source = "git+https://github.com/ifdotpy/layr?rev=b337229691083d2738ebc6db4bdd48c0b9ede3c5#b337229691083d2738ebc6db4bdd48c0b9ede3c5"
 dependencies = [
  "anyhow",
  "ed25519-dalek",
  "hex",
  "html5gum",
  "image",
- "layr-store 0.1.0 (git+https://github.com/ifdotpy/layr?rev=1a91cd32555a878e87d63d6311520ecca3be7173)",
+ "layr-store 0.1.0 (git+https://github.com/ifdotpy/layr?rev=b337229691083d2738ebc6db4bdd48c0b9ede3c5)",
  "quick-xml",
  "serde",
  "serde_json",
  "sha1",
  "sha2 0.10.9",
  "similar",
-]
-
-[[package]]
-name = "layr-store"
-version = "0.1.0"
-source = "git+https://github.com/ifdotpy/layr?rev=1a91cd32555a878e87d63d6311520ecca3be7173#1a91cd32555a878e87d63d6311520ecca3be7173"
-dependencies = [
- "age",
- "anyhow",
- "base64 0.22.1",
- "bech32 0.11.1",
- "bip39",
- "chrono",
- "ed25519-dalek",
- "getrandom 0.2.17",
- "hex",
- "hmac",
- "rand 0.8.8",
- "reqwest",
- "ruzstd",
- "serde",
- "serde_json",
- "sha1",
- "sha2 0.10.9",
- "ssh-key",
- "uuid",
- "zstd-safe",
 ]
 
 [[package]]
@@ -1427,6 +1400,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "layr-store"
+version = "0.1.0"
+source = "git+https://github.com/ifdotpy/layr?rev=b337229691083d2738ebc6db4bdd48c0b9ede3c5#b337229691083d2738ebc6db4bdd48c0b9ede3c5"
+dependencies = [
+ "age",
+ "anyhow",
+ "base64 0.22.1",
+ "bech32 0.11.1",
+ "bip39",
+ "chrono",
+ "ed25519-dalek",
+ "getrandom 0.2.17",
+ "hex",
+ "hmac",
+ "rand 0.8.8",
+ "reqwest",
+ "ruzstd",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2 0.10.9",
+ "ssh-key",
+ "uuid",
+ "zstd-safe",
+]
+
+[[package]]
 name = "layr-web"
 version = "0.1.0"
 dependencies = [
@@ -1434,7 +1434,7 @@ dependencies = [
  "base64 0.22.1",
  "ed25519-dalek",
  "layr-model",
- "layr-store 0.1.0 (git+https://github.com/ifdotpy/layr?rev=1a91cd32555a878e87d63d6311520ecca3be7173)",
+ "layr-store 0.1.0 (git+https://github.com/ifdotpy/layr?rev=b337229691083d2738ebc6db4bdd48c0b9ede3c5)",
  "reqwest",
  "serde",
  "serde_json",

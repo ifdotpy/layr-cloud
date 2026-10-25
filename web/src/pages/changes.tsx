@@ -1,3 +1,4 @@
+import { CommentThread, RequestActionButton } from "../components/actions";
 import type { ComponentChildren } from "preact";
 import { useState } from "preact/hooks";
 import type { Change, DataSource, Project, QueueEntry } from "../data/source";
@@ -75,9 +76,10 @@ export function ChangesPage({
   section: string;
 }) {
   const [filter, setFilter] = useState("");
+  const [revision, setRevision] = useState(0);
   const { data, error } = useData(
     () => loadChangeIndex(source, project),
-    [source, project.id],
+    [source, project.id, revision],
   );
   if (!data) return <LoadError error={error} />;
   const base = projectUrl(project.id, "changes");
@@ -146,6 +148,7 @@ export function ChangesPage({
                 "Probes",
                 "Added by",
                 "Time",
+                "Action",
               ]}
               rows={data.queue.map((q, i) => [
                 <Mono>{i + 1}</Mono>,
@@ -182,6 +185,7 @@ export function ChangesPage({
                 />,
                 <Mono>{q.added_by}</Mono>,
                 when(q.time),
+                <RequestActionButton source={source} project={project.id} label="Remove from queue" action={{kind:'queue_remove',entry:q.id}} command={`layr request queue-remove ${q.id} --person`} onApplied={() => setRevision(value => value + 1)} />,
               ])}
             />
             {data.queue
@@ -271,6 +275,8 @@ export function ChangePage({
   id: string;
   section: string;
 }) {
+  const [revision, setRevision] = useState(0);
+  const refresh = () => setRevision(value => value + 1);
   const [version, setVersion] = useState(""),
     [from, setFrom] = useState(""),
     [to, setTo] = useState(""),
@@ -284,7 +290,7 @@ export function ChangePage({
       source.lines(project.id),
     ]);
     return { change, queue, operations, lines };
-  }, [source, project.id, id]);
+  }, [source, project.id, id, revision]);
   const change = data?.change;
   const { data: viewer } = useData(() => source.you(), [source]);
   const latest = change?.versions.at(-1);
@@ -308,7 +314,7 @@ export function ChangePage({
             project.default_line ?? "main",
           )
         : undefined,
-    [source, project.id, latest?.state.id],
+    [source, project.id, latest?.state.id, revision],
   );
   const changeState = merge?.already_in_target
     ? "merged"
@@ -479,7 +485,7 @@ export function ChangePage({
           {shortText(s.message || "Change")}{" "}
           <span class="id mono">{short(c.change_id)}</span>
         </h1>
-        {!history && <ReadOnlyNote />}
+
         <div class="meta">
           <Status value={status} />
           <Who
@@ -560,7 +566,7 @@ export function ChangePage({
                 />
               </Section>
               <Section title="Conversation">
-                <p class="note">No comments yet.</p>
+                <CommentThread source={source} project={project.id} change={id} version={selected.state.id} refresh={revision} />
               </Section>
             </>
           ) : section === "files" ? (
@@ -745,6 +751,7 @@ export function ChangePage({
                   to={last.version}
                   files={files.files}
                   mode={diffMode}
+                  comments={{source,project:project.id,change:id,version:last!.state.id}}
                 />
               ) : files ? (
                 <DiffBrowser
@@ -754,6 +761,7 @@ export function ChangePage({
                   head={files.head}
                   files={files.files}
                   mode={diffMode}
+                  comments={{source,project:project.id,change:id,version:last!.state.id}}
                 />
               ) : (
                 <LoadError error={diffError} />
@@ -919,11 +927,11 @@ export function ChangePage({
                     )}
                   </li>
                 </ul>
-                <ReadOnlyAction
-                  label="Merge"
-                  command={`layr queue add ${latest!.state.id}`}
-                  primary
-                />
+                <div class="stack-s">
+                  <RequestActionButton key={`approve-${s.id}`} source={source} project={project.id} label={`Approve ${selected.version}`} action={{kind:'approve',state:s.id,into:project.default_line ?? 'main'}} command={`layr request approve ${s.id} --person`} onApplied={refresh} primary />
+                  <RequestActionButton key={`withdraw-${s.id}`} source={source} project={project.id} label="Withdraw approval" action={{kind:'withdraw',state:s.id,into:project.default_line ?? 'main'}} command={`layr request withdraw ${s.id} --person`} onApplied={refresh} />
+                  {entry ? <RequestActionButton source={source} project={project.id} label="Remove from queue" action={{kind:'queue_remove',entry:entry.id}} command={`layr request queue-remove ${entry.id} --person`} onApplied={refresh} /> : <RequestActionButton source={source} project={project.id} label="Add to queue" action={{kind:'queue_add',state:latest!.state.id,into:project.default_line ?? 'main'}} command={`layr request queue-add ${latest!.state.id} --person`} onApplied={refresh} />}
+                </div>
               </>
             )}
           </section>

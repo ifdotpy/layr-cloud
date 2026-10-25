@@ -1,5 +1,6 @@
 import { textDiff } from "../text-diff";
 import type {
+  RequestAction, RequestStatus, ActionAccess, Comment,
   Attestation,
   Behavior,
   Change,
@@ -32,6 +33,10 @@ import type {
  * Gateway facts are intentionally empty until a real gateway capture is supplied.
  */
 export class FixtureSource implements DataSource {
+  async actionAccess(_project: Id): Promise<ActionAccess> { return {available: false, reason: 'Actions need an unlocked person signing key.'}; }
+  async submitRequest(_project: Id, _action: RequestAction): Promise<RequestStatus> { throw new Error('Actions need a connected store.'); }
+  async requestStatus(_project: Id, _id: Id): Promise<RequestStatus> { throw new Error('Requests need a connected store.'); }
+  async comments(project: Id, change: Id): Promise<Comment[]> { return (await this.changeShow(project, change) as Change & {comments?: Comment[]}).comments ?? []; }
   private readonly values: Record<string, unknown>;
   private locked = false;
   constructor(files: Record<string, unknown>) {

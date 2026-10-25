@@ -33,6 +33,7 @@ fn main() -> Result<()> {
             .join(person::slot_name(login, &recipient)?),
         keys::seal_slot(&vault, &recipient)?,
     )?;
+    let signing = person::make_signing_keys(&recipient)?;
     let person_root = output.join("people").join(login);
     fs::create_dir_all(person_root.join("slots"))?;
     fs::write(
@@ -41,9 +42,12 @@ fn main() -> Result<()> {
             format: 1,
             recipient: recipient.clone(),
             created: 0,
+            signing_key: Some(signing.public_key.clone()),
         })?,
     )?;
     fs::write(person_root.join("slots/paper.age"), &slot)?;
+    fs::write(person_root.join("signing.age"), &signing.sealed)?;
+    fs::write(output.join("signing-public.txt"), &signing.public_key)?;
     fs::write(person_root.join("index.age"), &sealed_index)?;
     fs::write(
         output.join("recovery.txt"),
@@ -52,7 +56,7 @@ fn main() -> Result<()> {
     fs::write(
         output.join("person-view.json"),
         serde_json::to_vec(
-            &json!({"login":login,"recipient":recipient,"slots":[{"name":"paper","data":B64.encode(slot)}],"index":B64.encode(sealed_index),"inbox":[]}),
+            &json!({"login":login,"recipient":recipient,"slots":[{"name":"paper","data":B64.encode(slot)}],"index":B64.encode(sealed_index),"inbox":[],"signing_key":signing.public_key,"signing":B64.encode(signing.sealed)}),
         )?,
     )?;
     fs::write(
