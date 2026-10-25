@@ -485,3 +485,8 @@ PUT /v1/p/public-test/objects/index/heads/01a17348-f026-7402-bb19-2b38907c07fe/0
 PASS executor index write published immutable signed index objects through gateway
 CLEANUP all disposable recovery/token/test material removed from /run
 ```
+
+The browser production build with the final dependency pin also passed:
+`npm run build --prefix web` exited 0, including the WASM build, TypeScript check and Vite build.
+Vite built 62 modules and the 4,316,440-byte WASM module (size rounded in Vite output).
+The existing large-chunk warning remains.
