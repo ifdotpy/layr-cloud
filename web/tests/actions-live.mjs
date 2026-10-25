@@ -59,11 +59,11 @@ export async function checkActions({page,site,project,actionFixture,store,person
   await expect(approve).toBeEnabled(); await capture('approve-before');
   async function action(button,status='applied') {
     await button.click(); const block=button.locator('../..');
-    await expect(block).toContainText('Waiting for the executor.');
+    await expect(block).toContainText('waiting for the executor.');
     await apply();
     await expect(block.locator('.request-outcome')).toContainText(status,{timeout:30000});
   }
-  await approve.click(); await expect(approve.locator('../..')).toContainText('Waiting for the executor.'); await apply();
+  await approve.click(); await expect(approve.locator('../..')).toContainText('waiting for the executor.'); await apply();
   await expect(page.locator('.approval-confirmation')).toHaveText('You approved v1',{timeout:30000});
   await expect(approve).toHaveCount(0);
   await expect(page.locator('[aria-label="Merge progress"] .step').nth(2)).toHaveClass(/done/);

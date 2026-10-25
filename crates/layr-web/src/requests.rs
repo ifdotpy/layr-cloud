@@ -5,6 +5,17 @@ use layr_store::request::{Action, Request};
 
 #[wasm_bindgen]
 impl Session {
+    pub fn sign_session(&self, challenge: &str) -> std::result::Result<String, JsValue> {
+        let key = self.signing.as_ref().context("person signing key is unavailable").map_err(js)?;
+        layr_store::session::sign(&self.login, challenge, key).map_err(js)
+    }
+    pub fn refresh_person(&mut self, view: &str) -> std::result::Result<(), JsValue> {
+        self.refresh_person_view(&serde_json::from_str(view).map_err(|e| js(e.into()))?).map_err(js)
+    }
+    /// New person material is produced and retained in the worker; only recovery words and sealed fields leave this method.
+    pub fn prepare_person(&mut self, login: &str, entropy: &[u8]) -> std::result::Result<String, JsValue> {
+        self.new_person(login, entropy).map_err(js)
+    }
     pub fn open_signing_key(
         &mut self,
         sealed: &[u8],
@@ -24,6 +35,19 @@ impl Session {
     }
 }
 impl Session {
+    fn new_person(&mut self, login: &str, entropy: &[u8]) -> Result<String> {
+        if !person::login_name(login) || entropy.len() != 96 { bail!("invalid person login or entropy"); }
+        self.lock();
+        let identity = Zeroizing::new(keys::identity_from_secret(&entropy[..32])?);
+        let paper = Zeroizing::new(keys::identity_from_secret(&entropy[32..64])?);
+        let seed = Zeroizing::new(<[u8;32]>::try_from(&entropy[64..])?);
+        let signing = SigningKey::from_bytes(&seed);
+        let recipient = keys::recipient_of(&identity)?;
+        let public = signing.verifying_key().to_bytes().iter().map(|b| format!("{b:02x}")).collect::<String>();
+        let result = encoded(json!({"recipient":recipient,"paper":B64.encode(keys::seal_slot(&identity,&keys::recipient_of(&paper)?)?),"signing_key":public,"signing":B64.encode(keys::encrypt(&recipient,&signing.to_bytes())?),"words":keys::words_of_identity(&paper)?}))?;
+        self.person = Some(identity); self.login = login.into(); self.signing = Some(signing);
+        Ok(result)
+    }
     fn open_signing(&mut self, sealed: &[u8], public: &str) -> Result<()> {
         self.signing = None;
         let bytes = Zeroizing::new(keys::decrypt(
@@ -112,6 +136,30 @@ impl Session {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn new_person_recovers_and_signs_the_shared_session_proof() {
+        let mut session = Session::new();
+        let entropy = (0..96).collect::<Vec<u8>>();
+        let prepared: Value = serde_json::from_str(&session.new_person("ann@example.com", &entropy).unwrap()).unwrap();
+        let view = json!({"login":"ann@example.com","recipient":prepared["recipient"],"signing_key":prepared["signing_key"],"signing":prepared["signing"],"slots":[{"name":"paper","data":prepared["paper"]}],"index":null,"inbox":[]});
+        let key = session.signing.as_ref().unwrap().verifying_key();
+        session.lock();
+        let paper = keys::identity_from_paper(prepared["words"].as_str().unwrap()).unwrap();
+        session.unlock(&paper,"paper",&view.to_string()).unwrap();
+        session.open_signing(&unb64(prepared["signing"].as_str().unwrap()).unwrap(),prepared["signing_key"].as_str().unwrap()).unwrap();
+        let challenge = B64.encode([17;32]);
+        let signature = session.sign_session(&challenge).unwrap();
+        let bytes = (0..signature.len()).step_by(2).map(|i| u8::from_str_radix(&signature[i..i+2],16).unwrap()).collect::<Vec<_>>();
+        let signature = ed25519_dalek::Signature::from_slice(&bytes).unwrap();
+        key.verify_strict(&layr_store::session::message("ann@example.com",&challenge).unwrap(),&signature).unwrap();
+        assert!(key.verify_strict(&layr_store::session::message("bob@example.com",&challenge).unwrap(),&signature).is_err());
+        session.refresh_person_view(&view).unwrap();
+        let mut changed = view.clone(); changed["login"] = json!("bob@example.com");
+        assert!(session.refresh_person_view(&changed).is_err());
+        changed = view.clone(); changed["signing_key"] = json!("00".repeat(32));
+        assert!(session.refresh_person_view(&changed).is_err());
+        session.lock(); assert!(session.signing.is_none());
+    }
     #[test]
     fn signing_requires_matching_person_and_project_pin_and_lock_discards_it() {
         let (mut session, _, _, _) = crate::tests::fixture();

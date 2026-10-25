@@ -8,8 +8,8 @@ publish.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-layr-store = { git = "https://github.com/ifdotpy/layr", rev = "466f120f0846da86f63028bbec9eabb2fa69581f", default-features = false, features = ["wasm"] }
-layr-model = { git = "https://github.com/ifdotpy/layr", rev = "466f120f0846da86f63028bbec9eabb2fa69581f" }
+layr-store = { git = "https://github.com/ifdotpy/layr", rev = "2007480315e6bb48a06a686e8badaa4dc5266cbd", default-features = false, features = ["wasm"] }
+layr-model = { git = "https://github.com/ifdotpy/layr", rev = "2007480315e6bb48a06a686e8badaa4dc5266cbd" }
 anyhow = "1"
 base64 = "0.22"
 ed25519-dalek = { version = "2", features = ["rand_core"] }
@@ -19,7 +19,7 @@ wasm-bindgen = "0.2"
 zeroize = "1"
 similar = "2"
 toml = "0.8"
-reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"], optional = true }
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls", "json"], optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 zstd = "0.13"
@@ -31,4 +31,8 @@ test-tools = ["layr-store/native", "dep:reqwest"]
 
 [[example]]
 name = "upload_gateway"
+required-features = ["test-tools"]
+
+[[example]]
+name = "session_gateway"
 required-features = ["test-tools"]

@@ -336,10 +336,8 @@ export function DeployPage({
             title={<Mono>{reference}</Mono>}
             readOnly={false}
             description="An environment is a ref. Every position names an exact state."
-            actions={
-              <RefMove source={source} project={project.id} name={reference!} expected={data.refs.find(ref => ref.name === reference)?.target ?? null} onApplied={() => setRevision(value => value + 1)} />
-            }
           />
+          <RefMove source={source} project={project.id} name={reference!} expected={data.refs.find(ref => ref.name === reference)?.target ?? null} onApplied={() => setRevision(value => value + 1)} />
           <Section title="Position history">
             <Table
               label="Ref history"
@@ -353,6 +351,7 @@ export function DeployPage({
                 r.after ? (
                   <a
                     class="mono"
+                    title={r.after.target}
                     href={projectUrl(project.id, "state/" + r.after.target)}
                   >
                     {short(r.after.target)}
@@ -360,7 +359,7 @@ export function DeployPage({
                 ) : (
                   "removed"
                 ),
-                <Mono>{r.before ? short(r.before.target) : "none"}</Mono>,
+                <span class="mono" title={r.before?.target}>{r.before ? short(r.before.target) : "none"}</span>,
               ])}
             />
             {!data.history.length && <Empty>No ref history recorded.</Empty>}

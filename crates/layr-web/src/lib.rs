@@ -237,8 +237,23 @@ impl Session {
         if Some(keys::recipient_of(&identity)?.as_str()) != view["recipient"].as_str() {
             bail!("person recipient differs from slot");
         }
+        self.person = Some(identity);
+        self.login = login.into();
+        match self.refresh_person_view(&view) {
+            Ok(()) => Ok(()),
+            Err(error) => { self.lock(); Err(error) }
+        }
+    }
+    fn refresh_person_view(&mut self, view: &Value) -> Result<()> {
+        let identity = self.person.as_ref().context("locked")?;
+        if view["login"].as_str() != Some(self.login.as_str()) || view["recipient"].as_str() != Some(keys::recipient_of(identity)?.as_str()) {
+            bail!("person record differs from the unlocked identity");
+        }
+        if let Some(signing) = &self.signing {
+            if view["signing_key"].as_str().map(person::verifying_key).transpose()? != Some(signing.verifying_key()) { bail!("person signing key changed after unlock"); }
+        }
         let index = match view["index"].as_str() {
-            Some(data) => person::open_index(&identity, &unb64(data)?)?,
+            Some(data) => person::open_index(identity, &unb64(data)?)?,
             None => person::Index::default(),
         };
         // Pending invites do not replace the authenticated index or authorize a store.
@@ -247,7 +262,7 @@ impl Session {
         for invite in view["inbox"].as_array().into_iter().flatten() {
             let opened = (|| -> Result<person::Pin> {
                 person::open_invite(
-                    &identity,
+                    identity,
                     &unb64(invite["data"].as_str().context("invalid invite")?)?,
                 )
             })();
@@ -260,8 +275,6 @@ impl Session {
         }
         self.invites = invites;
         self.invite_errors = invite_errors;
-        self.person = Some(identity);
-        self.login = login.into();
         self.index = index;
         Ok(())
     }

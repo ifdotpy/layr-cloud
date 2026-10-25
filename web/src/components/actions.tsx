@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { DataSource, RequestAction, RequestStatus } from '../data/source';
-import { Cmd, Mono, Status, useData, when } from './ui';
+import { Cmd, Mono, Status, useData, when, short } from './ui';
 import { parseRoute, projectUrl, queryUrl } from '../router';
 import { personLabel } from '../labels';
 
@@ -10,6 +10,7 @@ export function RequestActionButton({source, project, action, label, command, on
   source: DataSource; project: string; action: RequestAction; label: string; command?: string;
   onApplied?: () => void; primary?: boolean; disabled?: boolean; requestKey?: string;
 }) {
+  const actionName = {approve:'Approval',withdraw:'Withdrawal',queue_add:'Queue addition',queue_remove:'Queue removal',ref_move:'Move',comment:'Comment'}[action.kind];
   const key = project + (requestKey ?? JSON.stringify(action));
   let requests = pending.get(source);
   if (!requests) { requests = new Map(); pending.set(source, requests); }
@@ -44,7 +45,7 @@ export function RequestActionButton({source, project, action, label, command, on
   return <div class="request-action">
     <div class="action-row"><button type="button" class={`btn${primary ? ' primary' : ''}`} disabled={disabled || !access?.available || sending || request?.status === 'pending'} onClick={send}>{sending ? 'Sending…' : label}</button>{command && <Cmd text={command} />}</div>
     {!access?.available && <p class="note">{access?.reason || accessError?.message || 'Checking your signing key…'}</p>}
-    {request && <div class="request-outcome" role="status"><Status value={request.status} /> <span>{request.status === 'pending' ? 'Waiting for the executor.' : request.status === 'applied' ? 'Recorded by the executor.' : request.reason || 'The executor refused this request.'}</span><span class="note">Request <Mono>{request.id}</Mono></span>{request.status === 'pending' && request.reason && <p class="note">{request.reason}</p>}</div>}
+    {request && <div class="request-outcome" role="status"><Status value={request.status} /> <span>{actionName} {request.status}{request.status === 'refused' ? `: ${request.reason || 'The executor refused this request.'}` : request.status === 'pending' ? ': waiting for the executor.' : ''}</span><span class="note">Request <span class="mono" title={request.id}>{short(request.id)}</span></span>{request.status === 'pending' && request.reason && <p class="note">{request.reason}</p>}</div>}
     {request?.status === 'pending' && request.reason && <button class="btn" type="button" disabled={sending} onClick={async () => {
       setSending(true);
       try { remember(await source.retryRequest(project,request.id)); } catch (error) { setError(error instanceof Error ? error.message : String(error)); }
@@ -95,7 +96,7 @@ export function CommentThread({source, project, change, version, path, line, ref
 export function RefMove({source, project, name, expected, onApplied}: {source: DataSource; project: string; name: string; expected: string | null; onApplied?: () => void}) {
   const [target, setTarget] = useState('');
   return <div class="stack-s"><label>Target state<input class="input mono" value={target} onInput={event => setTarget(event.currentTarget.value.trim())} /></label>
-    <p class="note">Expected state: <Mono>{expected ?? 'none'}</Mono></p>
+    <p class="note">Expected state: <span class="mono" title={expected ?? undefined}>{expected ? short(expected) : 'none'}</span></p>
     <RequestActionButton source={source} project={project} label={`Move ${name}`} disabled={!target} requestKey={`ref:${name}`} action={{kind:'ref_move',name,target,expected}} command={`layr request ref-move ${name} ${target || '<state>'} --expect ${expected ?? 'none'} --person`} onApplied={onApplied} />
   </div>;
 }

@@ -568,7 +568,7 @@ export function StatesPage({
               </div>
             </div>
             <div class="side">
-              <a class="mono" href={projectUrl(project.id, "state/" + s.id)}>
+              <a class="mono" title={s.id} href={projectUrl(project.id, "state/" + s.id)}>
                 {short(s.id)}
               </a>
               <a
@@ -636,7 +636,7 @@ export function StatePage({
         description={
           <>
             <Who name={s.author.name} />
-            {when(s.time)} · <Mono>{s.id}</Mono>
+            {when(s.time)} · <span class="mono" title={s.id}>{short(s.id)}</span>
           </>
         }
       />
@@ -644,7 +644,7 @@ export function StatePage({
         Parents:{" "}
         {s.parents.length
           ? s.parents.map((id) => (
-              <a href={projectUrl(project.id, "state/" + id)} class="mono">
+              <a href={projectUrl(project.id, "state/" + id)} class="mono" title={id}>
                 {short(id)}{" "}
               </a>
             ))
@@ -667,7 +667,7 @@ export function StatePage({
           headers={["Kind", "Subject", "Signer", "Time"]}
           rows={data.attestations.map((a) => [
             a.kind,
-            <Mono>{short(a.subject.id)}</Mono>,
+            <span class="mono" title={a.subject.id}>{short(a.subject.id)}</span>,
             <Mono>{short(a.signer)}</Mono>,
             when(a.time),
           ])}
@@ -712,7 +712,7 @@ function FileView({source, project, file, indexNote}:{source:DataSource;project:
       const state = data.blame.states.find(s=>s.id===line.state);
       return <tr key={line.line}><td>{line.state ? <a class="mono" href={projectUrl(project.id,"state/"+line.state)}>{short(line.state)}</a> : <span class="muted">Not recorded</span>}</td><td>{state ? personLabel(state.author.name) : <span class="muted">Not recorded</span>}</td><td class="mono muted">{line.line}</td><td><code>{line.text || " "}</code></td></tr>;
     })}</tbody></table></div> : data.history ? data.history.length ? <Table label="File history" headers={["State","Message","By","Time"]} rows={data.history.map(state=>[
-      <a class="mono" href={queryUrl(projectUrl(project.id,"code"),{state:state.id,path:file.path})}>{short(state.id)}</a>,state.message,<span>{personLabel(state.author.name)}</span>,when(state.time),
+      <a class="mono" title={state.id} href={queryUrl(projectUrl(project.id,"code"),{state:state.id,path:file.path})}>{short(state.id)}</a>,state.message,<span>{personLabel(state.author.name)}</span>,when(state.time),
     ])} /> : <p class="note">No file changes recorded.</p> : null}
   </div>;
 }

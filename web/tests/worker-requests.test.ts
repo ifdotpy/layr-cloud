@@ -11,6 +11,7 @@ function setup(mode:'lost-success'|'offline') {
   let online=false, locked=false;
   let received:(value:{id:number;value?:unknown;error?:string})=>void;
   class Session {
+    refresh_person() {} sign_session(){return "signature";}
     unlock_recovery() {} slot_name(){return 'person.age';} open_store(){return 'project';}
     open_signing_key(bytes:Uint8Array){opened.push(bytes);}
     add_segment(){} finish_records(){} overlay_slots(){return '[]';} overlay_inputs(){return '[]';}
@@ -19,6 +20,7 @@ function setup(mode:'lost-success'|'offline') {
     challenge(){return 'proof';} lock(){locked=true;} free(){}
   }
   class Gateway {
+    unlock(){return this.person();} signIn(){}
     person(){return {recipient:'person',signing:'sealed',signing_key:'public'};}
     projects(){return ['store'];} descriptor(){return {project:'project'};} slot(){return new Uint8Array();}
     list(){return [];} lock(){}
@@ -26,7 +28,7 @@ function setup(mode:'lost-success'|'offline') {
     async requestObject(){if(mode==='offline'&&!online)throw Error('offline');return writes[0].envelope;}
   }
   const scope={onmessage:(_event:unknown)=>{},postMessage:(value:Parameters<typeof received>[0])=>received(value),close(){}};
-  vm.runInNewContext(code,{self:scope,Session,Gateway,init:async()=>{},uuidV7,fromBase64:()=>new Uint8Array([1,2,3]),setTimeout:()=>1,clearTimeout(){},Uint8Array,Date,Error});
+  vm.runInNewContext(code,{self:scope,Session,Gateway,HttpError:class extends Error{},init:async()=>{},uuidV7,fromBase64:()=>new Uint8Array([1,2,3]),setTimeout:()=>1,clearTimeout(){},Uint8Array,Date,Error});
   let id=0;
   return {writes,opened,online:()=>{online=true;},call:(method:string,args:unknown[]=[])=>new Promise<Parameters<typeof received>[0]>(resolve=>{received=resolve;scope.onmessage({data:{id:++id,method,args}});})};
 }

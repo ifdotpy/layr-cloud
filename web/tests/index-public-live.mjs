@@ -38,7 +38,7 @@ export async function checkIndexPublic({browser,page,site,project,fixture,words,
   await tampered.getByText('Index discarded. Showing verified records.',{exact:true}).waitFor();assert.equal(await tampered.getByText('Provisional · checking signed records…',{exact:true}).count(),0);await tamperedContext.close();
   const actual=await page.evaluate(async words=>{
     const {ModelSource}=await import('/src/data/model-source.ts');const source=new ModelSource();
-    try{const start=performance.now();await source.unlockRecovery(words);const [p]=await source.projects();const lines=await source.lines(p.id);const firstPageMs=performance.now()-start;const main=lines.find(l=>l.name==='main');const feature=lines.find(l=>l.name==='feature');
+    try{const start=performance.now();await source.unlockRecovery(words,'owner@example.com');const [p]=await source.projects();const lines=await source.lines(p.id);const firstPageMs=performance.now()-start;const main=lines.find(l=>l.name==='main');const feature=lines.find(l=>l.name==='feature');
       const history=await source.fileHistory(p.id,feature.head,'test.txt');const blame=await source.blame(p.id,feature.head,'test.txt');const opens=await source.openChanges(p.id);return {firstPageMs,lines,history,blame,open:opens.length,head:feature.head};
     }finally{await source.lock()}
   },words);

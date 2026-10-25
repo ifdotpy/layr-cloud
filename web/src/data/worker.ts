@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 import init, { Session } from '../../wasm/layr_web';
 import { uuidV7 } from './requests';
-import { Gateway, fromBase64 } from './gateway';
+import { Gateway, HttpError, fromBase64 } from './gateway';
 
 const scope = self as unknown as DedicatedWorkerGlobalScope;
 const idleMs = 30 * 60 * 1000;
@@ -16,10 +16,11 @@ const requestOutcomes = new Map<string,string>();
 const requestEnvelopes = new Map<string, {project: string; envelope: string; uncertain: boolean}>();
 let busy = Promise.resolve();
 let generation = 0;
+let registration: {login:string; body:string} | undefined;
 const refreshing = new Map<string, Promise<void>>();
 const publicProjects = new Set<string>();
 function lock() {
-  generation++; refreshing.clear();
+  generation++; refreshing.clear(); registration = undefined;
   clearTimeout(timer);
   session?.lock(); session?.free(); session = undefined;
   gateway?.lock(); gateway = undefined;
@@ -131,7 +132,8 @@ async function unlock(method: string, args: unknown[], base: string) {
   gateway = new Gateway(base); session = new Session();
   try {
     const {session, gateway} = current();
-    const person = await gateway.person();
+    const login = args[method === 'unlockRecovery' ? 1 : 2] as string;
+    const person = await gateway.unlock(login);
     if (!person.recipient) throw new Error('Your person key is absent from this gateway.');
     if (method === 'unlockRecovery') session.unlock_recovery(args[0] as string, JSON.stringify(person));
     else {
@@ -143,6 +145,14 @@ async function unlock(method: string, args: unknown[], base: string) {
       const sealed = fromBase64(person.signing);
       try { session.open_signing_key(sealed, person.signing_key); } finally { sealed.fill(0); }
     }
+    await gateway.signIn(person.login, challenge => session.sign_session(challenge));
+    session.refresh_person(JSON.stringify(await gateway.person()));
+    await loadProjects();
+    touch();
+  } catch (error) { lock(); throw error; }
+}
+async function loadProjects() {
+    const {session, gateway} = current();
     const slotName = session.slot_name();
     const pins: string[] = JSON.parse(session.query('', 'pins', '[]', Date.now()));
     for (const name of await gateway.projects()) {
@@ -179,8 +189,29 @@ async function unlock(method: string, args: unknown[], base: string) {
       if (await loadStoreFast(name)) reconcile(name, loadOverlays);
       else await loadOverlays();
     }
-    touch();
+}
+async function prepareRegistration(login: string, base: string) {
+  lock(); await init(); gateway = new Gateway(base); session = new Session();
+  const entropy = crypto.getRandomValues(new Uint8Array(96));
+  try {
+    const {words, ...body} = JSON.parse(session.prepare_person(login, entropy));
+    registration = {login, body:JSON.stringify(body)};
+    touch(); return {words};
   } catch (error) { lock(); throw error; }
+  finally { entropy.fill(0); }
+}
+async function registerPerson(invite: string) {
+  const {session, gateway} = current();
+  if (!registration) throw new Error('Create your person key first.');
+  const {login, body} = registration;
+  let deliveryError;
+  try { await gateway.register(login, invite, body); } catch(error) { deliveryError = error; }
+  // If registration succeeded but its reply was lost, proof of this exact key recovers it.
+  try { await gateway.signIn(login, challenge => session.sign_session(challenge)); }
+  catch(error) { throw deliveryError ?? error; }
+  session.refresh_person(JSON.stringify(await gateway.person()));
+  registration = undefined;
+  await loadProjects(); touch();
 }
 // TODO(modes-rotation): resolve keys/ and project/epochs/ with shared readers and gateway epoch routes.
 async function openPublic(project: string, base: string) {
@@ -227,7 +258,9 @@ async function fileHistory(method: string, project: string, state: string, path:
 }
 async function call(method: string, args: unknown[], base = ''): Promise<unknown> {
   if (method === 'openPublic') return openPublic(args[0] as string, base);
-  if (method === 'person') return new Gateway(base).person();
+  if (method === 'person') return new Gateway(base).unlock(args[0] as string);
+  if (method === 'prepareRegistration') return prepareRegistration(args[0] as string, base);
+  if (method === 'registerPerson') return registerPerson(args[0] as string);
   if (method === 'unlockRecovery' || method === 'unlockPrf') return unlock(method, args, base);
   if (method === 'lock') { lock(); return; }
   touch();
@@ -260,7 +293,8 @@ async function call(method: string, args: unknown[], base = ''): Promise<unknown
     if (!saved || saved.project !== project) throw new Error('This request is unavailable in your session.');
     const target = route(name);
     try { await current().gateway.putRequest(target.gateway,id,saved.envelope); saved.uncertain = false; }
-    catch {
+    catch (error) {
+      if (error instanceof HttpError && error.status === 401) throw error;
       try { saved.uncertain = await current().gateway.requestObject(target.gateway,id,proof(name)) !== saved.envelope; }
       catch { saved.uncertain = true; }
     }
@@ -343,6 +377,6 @@ scope.onmessage = event => {
         if (requestOutcomes.get(key) !== value.status) { requestOutcomes.set(key,String(value.status)); scope.postMessage({updated:true}); }
       }
     }
-    catch (error) { scope.postMessage({ id, error: error instanceof Error ? error.message : String(error) }); }
+    catch (error) { scope.postMessage({ id, error: error instanceof Error ? error.message : String(error) }); if (method !== 'registerPerson' && error instanceof HttpError && error.status === 401) { lock(); scope.postMessage({locked:true}); } }
   });
 };

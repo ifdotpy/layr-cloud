@@ -1,7 +1,7 @@
 /** Real CLI store -> MinIO -> layr-gateway -> worker -> ModelSource -> page. */
 import assert from 'node:assert/strict';
 import { spawn, execFileSync } from 'node:child_process';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID, createHash } from 'node:crypto';
 import { mkdtemp, mkdir, cp, readFile, writeFile, rm } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -31,7 +31,8 @@ const vmPort = 20000 + randomBytes(2).readUInt16BE() % 20000;
 const access = `web${randomBytes(8).toString('hex')}`;
 const secret = randomBytes(24).toString('hex');
 const children = [];
-let minio, whois, gateway, vite, browser;
+let minio, gateway, vite, browser;
+const gatewayVmBinary=process.env.LAYR_WEB_GATEWAY_VM_BINARY;
 const logs = [];
 function start(command, args, options = {}) {
   const child = spawn(command, args, { ...options, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -63,6 +64,13 @@ try {
     await cp(path.join(hiddenFixture, 'reader-paper'), path.join(person, 'recovery.txt'));
   } else execFileSync(path.join(root, 'target/debug/examples/prepare_gateway'), [store, paperInput, person], { stdio: 'pipe' });
   await cp(linesInput, path.join(person, 'lines.json'));
+  const nativeSession = process.env.LAYR_WEB_NATIVE_SESSION_VM_BINARY;
+  const invite = randomBytes(32).toString('base64');
+  if(process.env.LAYR_WEB_TEST_SIGNIN){
+    const registration = path.join(person,'people/_registration'); await mkdir(registration,{recursive:true});
+    await writeFile(path.join(registration,createHash('sha256').update(invite).digest('hex')),JSON.stringify({login:'new@example.com',expires:Date.now()+3600000}));
+    if(nativeSession)execFileSync('orb',['-m','layr-dev','-u','root',nativeSession,'passkey-fixture','/mnt/mac'+person],{stdio:'pipe'});
+  }
   const descriptor = JSON.parse(await readFile(path.join(store, 'store.json'), 'utf8'));
   const words = (await readFile(path.join(person, 'recovery.txt'), 'utf8')).trim();
   const lines = JSON.parse(await readFile(linesInput, 'utf8'));
@@ -91,24 +99,16 @@ try {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
   }
-  whois = createServer(socket => {
-    let request = '';
-    socket.on('data', bytes => {
-      request += bytes;
-      if (!request.includes('\r\n\r\n')) return;
-      assert(request.startsWith('GET /localapi/v0/whois?addr='));
-      const body = JSON.stringify({ Node: {}, UserProfile: { LoginName: personLogin } });
-      socket.end(`HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: ${Buffer.byteLength(body)}\r\nConnection: close\r\n\r\n${body}`);
-    });
-  });
-  const socketPath = path.join(home, 'whois.sock');
-  await new Promise((resolve, reject) => { whois.once('error', reject); whois.listen(socketPath, resolve); });
   const reserve = createServer(); const port = await listen(reserve); await new Promise(resolve => reserve.close(resolve));
   const role = 'arn:aws:iam::123456789012:role/web-test';
   const config = { host: 'localhost', listen: `127.0.0.1:${port}`, projects: { example: { bucket, region: 'us-east-1', prefix: 'fixture', readerRoleArn: role, writerRoleArn: role, gcRoleArn: role, recipient: descriptor.recipient, writeTokenHashes: [], gcTokenHashes: [] } }, people: { bucket, region: 'us-east-1', prefix: 'people/' } };
   const configPath = path.join(home, 'gateway.json'); await writeFile(configPath, JSON.stringify(config), { mode: 0o600 });
-  gateway = start(path.join(root, 'target/debug/layr-gateway'), ['serve', '--config', configPath, '--tls', 'none', '--test-static-credentials', '--tailscale-socket', socketPath], { env });
-  await waitFor(`http://localhost:${port}/api/person`, gateway);
+  if(gatewayVmBinary){
+    const gatewayLaunch=`echo $$ > '${vmHome}/gateway.pid'\nexec env AWS_ACCESS_KEY_ID='${access}' AWS_SECRET_ACCESS_KEY='${secret}' AWS_ENDPOINT_URL_S3='http://127.0.0.1:${vmPort}' '${gatewayVmBinary}' serve --config '/mnt/mac${configPath}' --tls none --test-static-credentials`;
+    start('orb',['-m','layr-dev','-u','root','bash','-c',`setsid nohup bash -c ${quote(gatewayLaunch)} </dev/null >'${vmHome}/gateway.log' 2>&1 & disown`]);
+    gateway=start('ssh',['-o','BatchMode=yes','-o','ExitOnForwardFailure=yes','-N','-L',`127.0.0.1:${port}:127.0.0.1:${port}`,'root@layr-dev@orb']);
+  }else gateway = start(path.join(root, 'target/debug/layr-gateway'), ['serve', '--config', configPath, '--tls', 'none', '--test-static-credentials'], { env });
+  await waitFor(`http://localhost:${port}/api/person/unlock?login=${encodeURIComponent(personLogin)}`, gateway);
   vite = await createVite({ configFile: false, root: path.join(root, 'web'), server: { host: '127.0.0.1', port: 0, watch: null, hmr: false, proxy: { '/p': { target: `http://localhost:${port}`, changeOrigin: true, headers: { origin: `http://localhost:${port}` } }, '/api': { target: `http://localhost:${port}`, changeOrigin: true, headers: { origin: `http://localhost:${port}` } }, '/v1': { target: `http://localhost:${port}`, changeOrigin: true, headers: { origin: `http://localhost:${port}` } } } }, worker: { format: 'es' } });
   await vite.listen(); const site = vite.resolvedUrls.local[0];
   browser = await chromium.launch({ headless: true });
@@ -118,6 +118,7 @@ try {
   page.on('request', request => { if (request.postData()) writes.push(request.postData()); if (request.url().includes('.data.age')) dataRequests.push(request.url()); });
   await observePersistence(page);
   await page.goto(site);
+  await page.getByLabel('Login',{exact:true}).fill(personLogin);
   await page.getByLabel('24 recovery words').fill(words);
   await page.getByRole('button', { name: 'Unlock with recovery words', exact: true }).click();
   try { await page.locator('#main-content').getByRole('heading', { name: 'Projects', exact: true }).waitFor({ timeout: 30000 }); } catch { throw new Error('Browser unlock failed: ' + JSON.stringify({alerts:await page.getByRole('alert').allTextContents(), headings:await page.getByRole('heading').allTextContents(), url:page.url()})); }
@@ -144,7 +145,7 @@ try {
       const { ModelSource } = await import('/src/data/model-source.ts');
       const source = new ModelSource();
       try {
-        await source.unlockRecovery(words);
+        await source.unlockRecovery(words,'owner@example.com');
         const [project] = await source.projects();
         const [main] = await source.lines(project.id);
         const file = await source.file(project.id, main.head, 'hidden.txt');
@@ -206,7 +207,7 @@ try {
       const { ModelSource } = await import('/src/data/model-source.ts');
       const source = new ModelSource();
       try {
-        await source.unlockRecovery(words);
+        await source.unlockRecovery(words,'owner@example.com');
         const [project] = await source.projects();
         const screens = await source.screens(project.id, request.probe_base, request.probe_head);
         const behavior = await source.probeDiff(project.id, request.probe_base, request.probe_head);
@@ -238,7 +239,7 @@ try {
     const { loadChangeIndex } = await import('/src/data/change-index.ts');
     const source = new ModelSource();
     try {
-      await source.unlockRecovery(words);
+      await source.unlockRecovery(words,'owner@example.com');
       const [project] = await source.projects();
       const lines = await source.lines(project.id);
       const base = lines.find(line => line.name === 'main').head;
@@ -265,6 +266,10 @@ try {
   assert.equal(gap, 8, 'The disabled action and CLI chip use the normal 8px gap.');
   if (process.env.LAYR_WEB_TEST_SCREENSHOT) await page.screenshot({path: process.env.LAYR_WEB_TEST_SCREENSHOT, fullPage: true});
   }
+  if(process.env.LAYR_WEB_TEST_SIGNIN){
+    const {checkSignin} = await import('./signin-live.mjs');
+    await checkSignin({browser,page,site,words,invite,personLogin,root,nativeSession,port,person});
+  }
   const rows = await page.evaluate(async () => {
     const { ModelSource } = await import('/src/data/model-source.ts');
     // A separate locked worker cannot reuse the unlocked page's person identity.
@@ -277,10 +282,10 @@ try {
   assert(writes.every(body => !body.includes(words) && !body.includes('AGE-SECRET-KEY-')), 'Unlock material must not reach the gateway');
   await page.getByRole('button', { name: /Account/ }).click();
   await page.getByRole('button', { name: 'Lock', exact: true }).click();
-  await page.getByRole('heading', { name: 'Open your person key' }).waitFor();
+  await page.getByRole('heading', { name: 'Sign in',exact:true }).waitFor();
   assert.equal(await page.getByRole('heading', { name: 'Lines', exact: true }).count(), 0);
   assert.deepEqual(errors, []);
-  console.log(`PASS ModelSource: real CLI store, ${lines.length} lines, MinIO, gateway whois and read proof, recovery unlock, worker isolation, lock, no persistent secrets`);
+  console.log(`PASS ModelSource: real CLI store, ${lines.length} lines, MinIO, gateway person signature session and read proof, recovery unlock, worker isolation, lock, no persistent secrets`);
 } catch (error) {
   // Server logs contain no keys. Suppress disposable MinIO credentials if its startup fails.
   const tail = logs.join('').slice(-6000).replaceAll(access, '[test access]').replaceAll(secret, '[test secret]');
@@ -292,7 +297,7 @@ try {
   try {
     execFileSync('orb', ['-m', 'layr-dev', '-u', 'root', 'sh', '-c', `if test -f '${vmHome}/pid'; then pid=$(cat '${vmHome}/pid'); if test -r /proc/$pid/cmdline && tr '\\0' ' ' < /proc/$pid/cmdline | grep -Fq '${vmHome}/data'; then kill -TERM "$pid" 2>/dev/null || true; fi; fi`], { stdio: 'ignore' });
   } catch {}
-  await new Promise(resolve => whois ? whois.close(resolve) : resolve());
+  if(gatewayVmBinary)try{execFileSync('orb',['-m','layr-dev','-u','root','sh','-c',`if test -f '${vmHome}/gateway.pid'; then kill -TERM "$(cat '${vmHome}/gateway.pid')" 2>/dev/null || true; fi`],{stdio:'ignore'});}catch{}
   await rm(home, { recursive: true, force: true });
   try { execFileSync('orb', ['-m', 'layr-dev', '-u', 'root', 'rm', '-rf', vmHome], { stdio: 'ignore' }); } catch {}
 }

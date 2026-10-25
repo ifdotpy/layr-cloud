@@ -11,7 +11,7 @@ rustup target add wasm32-unknown-unknown
 cargo install wasm-pack --version 0.15.0 --locked
 ```
 
-The Rust model and store dependencies use Layr revision `466f120f0846da86f63028bbec9eabb2fa69581f`.
+The Rust model and store dependencies use Layr revision `2007480315e6bb48a06a686e8badaa4dc5266cbd`.
 
 ```sh
 cd web
@@ -22,7 +22,7 @@ npm run dev
 
 The production build regenerates WASM. The dev command checks for generated WASM and does not rebuild it.
 
-Open `http://127.0.0.1:5173/`. The default source opens a person key in a Web Worker. Use `?source=fixture#/projects` to inspect the captured test project without a gateway.
+Open `http://127.0.0.1:5173/`. The default source opens a person key in a Web Worker. Enter your login, then unlock with a passkey or recovery words. A new account needs an invite token from a gateway owner; save the displayed recovery words before registration. Use `?source=fixture#/projects` to inspect the captured test project without a gateway.
 
 ```sh
 npm run build
@@ -37,7 +37,7 @@ Playwright writes the page screenshots and axe reports to `web/test-results/`. T
 
 ## Data boundary
 
-Every page reads through `src/data/source.ts`. CLI twins retain the model JSON field names and full IDs. `FixtureSource` only reshapes JSON from the real store recipe. `ModelSource` uses the verified Rust model in a Web Worker. No secret material enters browser storage.
+Every page reads through `src/data/source.ts`. CLI twins retain the model JSON field names and full IDs. `FixtureSource` only reshapes JSON from the real store recipe. `ModelSource` uses the verified Rust model in a Web Worker. No secret material enters browser storage. The worker opens the padded public unlock response, signs the gateway challenge through `layr_store::session::sign`, and keeps its person session bearer in memory. It retries a person route once after a 401 with a fresh session. Lock discards the bearer, signing key and pending delivery material.
 
 Unknown facts stay unknown. The site does not invent disk use, live jobs, organization settings, image digests, readers, approval results, or copy completeness.
 

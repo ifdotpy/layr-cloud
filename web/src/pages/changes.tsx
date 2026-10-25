@@ -174,7 +174,7 @@ export function ChangesPage({
                     {short(q.change_id)}
                   </a>
                 ) : (
-                  <Mono>{short(q.state)}</Mono>
+                  <span class="mono" title={q.state}>{short(q.state)}</span>
                 ),
                 <a
                   href={projectUrl(
@@ -569,6 +569,7 @@ export function ChangePage({
                       <b>{v.version}</b>{" "}
                       <a
                         class="mono"
+                        title={v.state.id}
                         href={projectUrl(project.id, "state/" + v.state.id)}
                       >
                         {short(v.state.id)}
@@ -739,7 +740,7 @@ export function ChangePage({
                 {shortText(last.operation.actor.session ?? last.operation.actor.name)}{" "}
                 {last.operation.kind === "replay" ? "replayed" : last.operation.kind === "pick" ? "picked" : "amended"} this change
                 {last.operation.target_line && <> on <Mono>{data.lines.find((line) => line.id === last.operation!.target_line)?.name ?? "a recorded line"}</Mono></>}
-                {" · target head "}<Mono>{short(last.operation.target_head)}</Mono>{" · "}{when(last.operation.time)}
+                {" · target head "}<span class="mono" title={last.operation.target_head}>{short(last.operation.target_head)}</span>{" · "}{when(last.operation.time)}
               </p>}
               {first && !("canonical" in (files ?? {})) && (
                 <p class="note compare-note">
@@ -813,7 +814,7 @@ export function ChangePage({
                     <a href={projectUrl(project.id, "state/" + step.id)}>
                       View diff
                     </a>{" "}
-                    <Mono>{short(step.id)}</Mono>
+                    <span class="mono" title={step.id}>{short(step.id)}</span>
                   </li>
                 ))}
               </ul>

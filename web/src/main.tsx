@@ -47,7 +47,7 @@ function Root() {
     return () => removeEventListener("pagehide", close);
   }, [source]);
   if (signIn && source instanceof ModelSource)
-    return <Unlock source={source} onUnlock={() => { setSignIn(false); setUnlocked(true); setEpoch((e)=>e+1); }} onCancel={() => setSignIn(false)} />;
+    return <Unlock source={source} onUnlock={() => { setSignIn(false); setUnlocked(true); setEpoch((e)=>e+1); }} onCancel={() => { void (async () => { await source.lock(); if (publicAlias) { await source.openPublic(publicAlias); setUnlocked(true); } setSignIn(false); })().catch(setPublicError); }} />;
   if (!unlocked && openingPublic) return <main class="page"><p class="note" role="status">Opening public project…</p></main>;
   if (!unlocked && publicError) return <main class="page"><PageHead title="This project is not public" /><button class="btn" type="button" onClick={() => setSignIn(true)}>Sign in</button></main>;
   if (unlocked)
@@ -79,6 +79,8 @@ function Unlock({
   onUnlock: () => void;
   onCancel?: () => void;
 }) {
+  const [login, setLogin] = useState(''), [registering, setRegistering] = useState(false);
+  const [invite, setInvite] = useState(''), [newWords, setNewWords] = useState(''), [saved, setSaved] = useState(false);
   const [words, setWords] = useState(""),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
@@ -86,11 +88,11 @@ function Unlock({
     setBusy(true);
     setError("");
     try {
-      if (passkey) await source.unlockPasskey();
+      if (passkey) await source.unlockPasskey(login.trim());
       else {
         const input = words;
         setWords("");
-        await source.unlockRecovery(input);
+        await source.unlockRecovery(input,login.trim());
       }
       onUnlock();
     } catch (e) {
@@ -111,15 +113,28 @@ function Unlock({
       </header>
       <main class="page unlock-page">
         <PageHead
-          title="Open your person key"
+          title={registering ? "Create your person key" : "Sign in"}
           description="One key opens every project you may read. Layr Cloud never holds it."
         />
-        <Card title="Unlock">
+        <Card title={registering ? "Join with an invite" : "Open your person key"}>
           <div class="stack-s">
+            <label class="field"><span>Login</span><input class="input" autoComplete="username" autoCapitalize="off" spellcheck={false} value={login} disabled={busy || Boolean(newWords)} onInput={e => setLogin(e.currentTarget.value)} /></label>
+            {registering ? <form class="stack-s" onSubmit={async e => {
+              e.preventDefault(); setBusy(true); setError('');
+              try {
+                if (!newWords) { const result = await source.prepareRegistration(login.trim()); setNewWords(result.words); }
+                else { const token = invite; setInvite(''); await source.registerPerson(token); setNewWords(''); onUnlock(); }
+              } catch(e) { setError(e instanceof Error ? e.message : 'Could not create your person key.'); }
+              finally { setBusy(false); }
+            }}>
+              <label class="field"><span>Invite token</span><input class="input" type="password" autoComplete="off" value={invite} disabled={busy} onInput={e => setInvite(e.currentTarget.value)} /></label>
+              {newWords && <><label class="field"><span>Your 24 recovery words</span><textarea class="input" rows={4} readOnly value={newWords} autoComplete="off" spellcheck={false} /></label><p class="note">Keep these words somewhere private. They open your person key.</p><label><input type="checkbox" checked={saved} onChange={e => setSaved(e.currentTarget.checked)} /> I saved my recovery words</label></>}
+              <button class="btn primary" disabled={busy || !login.trim() || !invite.trim() || (Boolean(newWords) && !saved)}>{newWords ? 'Create account and sign in' : 'Create person key'}</button>
+            </form> : <>
             <button
               class="btn primary"
               type="button"
-              disabled={busy}
+              disabled={busy || !login.trim()}
               onClick={() => unlock(true)}
             >
               Unlock with a passkey
@@ -146,15 +161,17 @@ function Unlock({
               <button
                 class="btn"
                 type="submit"
-                disabled={busy || !words.trim()}
+                disabled={busy || !login.trim() || !words.trim()}
               >
                 Unlock with recovery words
               </button>
             </form>
+            </>}
+            <button class="btn" type="button" disabled={busy} onClick={() => { setRegistering(value => !value); setError(''); setWords(''); setInvite(''); setNewWords(''); setSaved(false); }}>{registering ? 'Use an existing person key' : 'Join with an invite'}</button>
             {onCancel && <button class="btn" type="button" onClick={onCancel}>Back to public project</button>}
             {busy && (
               <p role="status" class="muted">
-                Opening your key…
+                Signing in…
               </p>
             )}
             {error && (

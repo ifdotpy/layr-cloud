@@ -13,6 +13,7 @@ function worker(tamper=false) {
   const reconcile=new Promise<void>(resolve=>release=resolve);
   let onReply:(message:{id?:number;value?:unknown;error?:string;updated?:boolean})=>void=()=>{};
   class Session {
+    refresh_person() {} sign_session(){return "signature";}
     unlock_recovery(){} slot_name(){return 'person.age'} open_store(){return 'project'} challenge(){return 'proof'} lock(){} free(){}
     query(_name:string,method:string){
       if(method==='pins')return '["project"]';if(method==='projects')return '[{"id":"project"}]';
@@ -25,13 +26,14 @@ function worker(tamper=false) {
     overlay_slots(){return '[]'}overlay_inputs(){return '[]'}
   }
   class Gateway {
+    unlock(){return this.person();} signIn(){}
     async person(){return {recipient:'person'}}async projects(){return ['store']}async descriptor(){return {project:'project'}}async slot(){return new Uint8Array()}
     async list(_name:string,prefix:string){if(prefix==='index/heads/')return [{key:head}];if(prefix==='records/')return [{key:first},{key:second}];return []}
     async object(_name:string,key:string){if(key===second&&!tamper)await reconcile;return new Uint8Array()}
     lock(){}
   }
   const scope={onmessage:(_event:unknown)=>{},postMessage:(message:Parameters<typeof onReply>[0])=>onReply(message),close(){}};
-  vm.runInNewContext(source,{self:scope,Session,Gateway,init:async()=>{},setTimeout:(fn:()=>void,ms:number)=>ms===0?setTimeout(fn,0):undefined,clearTimeout,Uint8Array,Date,Error});
+  vm.runInNewContext(source,{self:scope,Session,Gateway,HttpError:class extends Error{},init:async()=>{},setTimeout:(fn:()=>void,ms:number)=>ms===0?setTimeout(fn,0):undefined,clearTimeout,Uint8Array,Date,Error});
   let id=0;
   function request(method:string,args:unknown[]=[]){return new Promise<Parameters<typeof onReply>[0]>(resolve=>{const wanted=++id;onReply=message=>{if(message.id===wanted)resolve(message)};scope.onmessage({data:{id:wanted,method,args}})})}
   return {calls,request,release,finishes:()=>finishes,updated:()=>new Promise<void>(resolve=>onReply=message=>{if(message.updated)resolve()})};
