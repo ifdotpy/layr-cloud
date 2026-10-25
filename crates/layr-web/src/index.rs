@@ -11,6 +11,7 @@ pub(super) struct Cache {
     pub graphs: BTreeMap<String, store_index::Graph>,
     pub trusted: BTreeMap<String, VerifyingKey>,
     pub note: Option<String>,
+    pub policy_note: Option<String>,
     pub public: Option<public::Manifest>,
 }
 #[wasm_bindgen]
@@ -343,6 +344,48 @@ mod tests {
         .unwrap();
         s.segment("test", &object, &cipher).unwrap();
         s.finish("test").unwrap();
+    }
+    #[test]
+    #[ignore = "requires LAYR_WEB_INDEX_FIXTURE encrypted store and LAYR_WEB_INDEX_PERSON in VM tmpfs"]
+    fn actual_two_writer_indexes_reconcile() {
+        use std::{env,fs,path::PathBuf};
+        let root=PathBuf::from(env::var("LAYR_WEB_INDEX_FIXTURE").unwrap());
+        let person=PathBuf::from(env::var("LAYR_WEB_INDEX_PERSON").unwrap());
+        let mut session=Session::new();
+        let paper=keys::identity_from_paper(&fs::read_to_string(person.join("recovery.txt")).unwrap()).unwrap();
+        session.unlock(&paper,"paper",&fs::read_to_string(person.join("person-view.json")).unwrap()).unwrap();
+        let slot=person::slot_name(&session.login,&keys::recipient_of(session.person.as_ref().unwrap()).unwrap()).unwrap();
+        session.add_store("test",&fs::read_to_string(root.join("store.json")).unwrap(),&fs::read(root.join("slots").join(slot)).unwrap()).unwrap();
+        let load=|session:&mut Session| {
+            for machine in fs::read_dir(root.join("records")).unwrap() {
+                for entry in fs::read_dir(machine.unwrap().path()).unwrap() {
+                    let path=entry.unwrap().path();
+                    let name=path.strip_prefix(&root).unwrap().to_str().unwrap();
+                    session.segment("test",name,&fs::read(&path).unwrap()).unwrap();
+                }
+            }
+            session.finish("test").unwrap();
+        };
+        load(&mut session);
+        assert!(session.stores["test"].keys.len()>=2);
+        for machine in fs::read_dir(root.join("index/heads")).unwrap() {
+            let mut entries=fs::read_dir(machine.unwrap().path()).unwrap().map(|entry|entry.unwrap().path()).collect::<Vec<_>>();
+            entries.sort();let path=entries.last().unwrap();let name=path.strip_prefix(&root).unwrap().to_str().unwrap();
+            session.cache_heads("test",name,&fs::read(path).unwrap()).unwrap_or_else(|error|panic!("index open {name}: {error:#}"));
+        }
+        assert!(session.select_heads("test").unwrap());
+        let snapshot=session.stores["test"].cache.heads.clone().unwrap();
+        let mut lines=Vec::new();
+        for machine in fs::read_dir(root.join("records")).unwrap() {
+            for entry in fs::read_dir(machine.unwrap().path()).unwrap() {
+                let bytes=fs::read(entry.unwrap().path()).unwrap();
+                let text=String::from_utf8(keys::decrypt(&session.stores["test"].identity,&bytes).unwrap()).unwrap();
+                lines.extend(text.lines().map(String::from));
+            }
+        }
+        layr_model::index::reconcile(&snapshot,&lines).unwrap_or_else(|error|panic!("index reconcile: {error:#}"));
+        load(&mut session);
+        assert!(session.stores["test"].cache.note.is_none());
     }
     #[test]
     fn provisional_heads_are_reconciled_and_signed_lies_fall_back_to_records() {

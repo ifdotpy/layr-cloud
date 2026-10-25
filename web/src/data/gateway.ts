@@ -2,6 +2,8 @@
 export interface PersonView {
   login: string;
   recipient: string | null;
+  signing_key?: string | null;
+  signing?: string | null;
   slots: { name: string; data: string }[];
   index: string | null;
   inbox: { id: string; from: string; time: number; data: string }[];
@@ -10,11 +12,15 @@ export interface Descriptor { format: number; project: string; recipient: string
 export interface ObjectEntry { key: string; modified?: number }
 export const fromBase64 = (text: string): Uint8Array => Uint8Array.from(atob(text), c => c.charCodeAt(0));
 
-class HttpError extends Error {
+export class HttpError extends Error {
   constructor(readonly status: number, message: string) { super(message); }
 }
 export class Gateway {
   private tokens = new Map<string, { token: string; expires: number }>();
+  private personSession?: {login: string; token: string; expires: number};
+  private signer?: {login: string; sign: (challenge: string) => string};
+  private signingIn?: Promise<void>;
+  private generation = 0;
   private ciphertext = new Map<string, Uint8Array>();
   private bytes = 0;
   readonly base: string;
@@ -31,20 +37,73 @@ export class Gateway {
     }
     return response;
   }
-  async person(): Promise<PersonView> { return (await this.request('/api/person')).json(); }
-  async projects(): Promise<string[]> { return (await (await this.request('/api/projects')).json()).projects; }
+  async unlock(login: string): Promise<PersonView> {
+    const result = await (await this.request(`/api/person/unlock?login=${encodeURIComponent(login)}`)).json();
+    const bytes = fromBase64(result.unlock);
+    if (bytes.length !== 65536) throw new Error('Invalid person unlock response.');
+    const view = JSON.parse(new TextDecoder('utf-8', {fatal:true}).decode(bytes));
+    if (view.login !== login || !Array.isArray(view.slots) || 'index' in view || 'inbox' in view) throw new Error('Invalid person unlock response.');
+    return {...view, index:null, inbox:[]};
+  }
+  async signIn(login: string, sign: (challenge: string) => string): Promise<void> {
+    this.signer = {login,sign};
+    await this.renew();
+  }
+  private async renew(): Promise<void> {
+    if (this.signingIn) return this.signingIn;
+    const signer = this.signer, generation = this.generation;
+    if (!signer) throw new Error('Sign in to the gateway.');
+    const pending = (async () => {
+      this.personSession = undefined;
+      const {challenge} = await (await this.request(`/api/session/challenge?login=${encodeURIComponent(signer.login)}`)).json();
+      if (generation !== this.generation) throw new Error('Your session is locked.');
+      const response = await this.request('/api/session', {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({login:signer.login,challenge,signature:signer.sign(challenge)})});
+      const token = await response.json();
+      if (generation !== this.generation) throw new Error('Your session is locked.');
+      if (token.login !== signer.login || typeof token.token !== 'string' || !token.token || !Number.isFinite(token.expires) || token.expires <= Date.now()) throw new Error('Invalid gateway session.');
+      this.personSession = token;
+    })();
+    this.signingIn = pending;
+    try { await pending; } finally { if (this.signingIn === pending) this.signingIn = undefined; }
+  }
+  private async personRequest(path: string, init: RequestInit = {}): Promise<Response> {
+    for (let attempt = 0; ; attempt++) {
+      if (!this.personSession || this.personSession.expires <= Date.now() + 5000) await this.renew();
+      const headers = new Headers(init.headers);
+      headers.set('authorization', `Bearer ${this.personSession!.token}`);
+      try { return await this.request(path, {...init, headers}); }
+      catch (error) {
+        if (!(error instanceof HttpError) || error.status !== 401) throw error;
+        this.personSession = undefined;
+        if (attempt) throw error;
+      }
+    }
+  }
+  async person(): Promise<PersonView> { return (await this.personRequest('/api/person')).json(); }
+  async register(login: string, invite: string, body: string): Promise<void> {
+    await this.request(`/api/person?login=${encodeURIComponent(login)}`, {method:'PUT',headers:{'content-type':'application/json',authorization:`Bearer ${invite}`},body});
+  }
+  async putRequest(project: string, id: string, envelope: string): Promise<void> {
+    await this.personRequest(this.route(project, `objects/requests/${encodeURIComponent(id)}.json`), {
+      method: 'PUT', headers: {'content-type': 'application/json'}, body: envelope,
+    });
+  }
+  async requestObject(project: string, id: string, decrypt: (bytes: Uint8Array) => string): Promise<string> {
+    return (await this.authorized(project, `objects/requests/${encodeURIComponent(id)}.json`, decrypt)).text();
+  }
+  async projects(): Promise<string[]> { return (await (await this.personRequest('/api/projects')).json()).projects; }
   private route(project: string, path: string): string { return `/v1/p/${encodeURIComponent(project)}/${path}`; }
   async descriptor(project: string): Promise<Descriptor> {
-    return (await this.request(this.route(project, 'store.json'))).json();
+    return (await this.personRequest(this.route(project, 'store.json'))).json();
   }
   async slot(project: string, name: string): Promise<Uint8Array> {
-    return new Uint8Array(await (await this.request(this.route(project, `slots/${encodeURIComponent(name)}`))).arrayBuffer());
+    return new Uint8Array(await (await this.personRequest(this.route(project, `slots/${encodeURIComponent(name)}`))).arrayBuffer());
   }
   private async token(project: string, decrypt: (bytes: Uint8Array) => string): Promise<string> {
     const old = this.tokens.get(project);
     if (old && old.expires > Date.now() + 5000) return old.token;
-    const { challenge } = await (await this.request(this.route(project, 'challenge'))).json();
-    const response = await this.request(this.route(project, 'token'), {
+    const { challenge } = await (await this.personRequest(this.route(project, 'challenge'))).json();
+    const response = await this.personRequest(this.route(project, 'token'), {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ challenge: decrypt(fromBase64(challenge)) }),
     });
@@ -91,5 +150,5 @@ export class Gateway {
     if (!key.endsWith('.age') || key.split('/').some(part => !part || part === '.' || part === '..')) throw new Error('Invalid ciphertext object.');
     return new Uint8Array(await (await this.request(this.publicRoute(project, key.split('/').map(encodeURIComponent).join('/')))).arrayBuffer());
   }
-  lock(): void { this.tokens.clear(); this.ciphertext.clear(); this.bytes = 0; }
+  lock(): void { this.generation++; this.personSession = undefined; this.signer = undefined; this.signingIn = undefined; this.tokens.clear(); this.ciphertext.clear(); this.bytes = 0; }
 }

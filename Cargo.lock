@@ -1399,7 +1399,7 @@ dependencies = [
 [[package]]
 name = "layr-model"
 version = "0.1.0"
-source = "git+https://github.com/ifdotpy/layr?rev=45080bb53b4de5c84726ac85563c979374308024#45080bb53b4de5c84726ac85563c979374308024"
+source = "git+https://github.com/ifdotpy/layr?rev=34ad8c0e9e31b4898ec3b98cbbd33ad6f30c41bf#34ad8c0e9e31b4898ec3b98cbbd33ad6f30c41bf"
 dependencies = [
  "anyhow",
  "ed25519-dalek",
@@ -1418,7 +1418,7 @@ dependencies = [
 [[package]]
 name = "layr-store"
 version = "0.1.0"
-source = "git+https://github.com/ifdotpy/layr?rev=45080bb53b4de5c84726ac85563c979374308024#45080bb53b4de5c84726ac85563c979374308024"
+source = "git+https://github.com/ifdotpy/layr?rev=34ad8c0e9e31b4898ec3b98cbbd33ad6f30c41bf#34ad8c0e9e31b4898ec3b98cbbd33ad6f30c41bf"
 dependencies = [
  "age",
  "anyhow",
@@ -1451,6 +1451,7 @@ dependencies = [
  "ed25519-dalek",
  "layr-model",
  "layr-store",
+ "rand 0.8.8",
  "reqwest",
  "serde",
  "serde_json",

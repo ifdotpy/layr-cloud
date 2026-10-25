@@ -113,9 +113,10 @@ test('all fixture pages keep secrets out of browser storage and cookies', async 
   }
   await test.step('recovery input', async () => {
     await page.goto('/');
-    await expect(page.locator('main h1')).toHaveText('Open your person key');
+    await expect(page.locator('main h1')).toHaveText('Sign in');
     const recovery = page.getByRole('textbox', { name: '24 recovery words' });
     const fakeSecret = Array.from({ length: 24 }, (_, index) => `test-secret-${index}`).join(' ');
+    await page.getByLabel('Login',{exact:true}).fill('ann@example.com');
     await recovery.fill(fakeSecret);
     await expectNoPersistence(page, 'recovery input before submit');
     await page.getByRole('button', { name: 'Unlock with recovery words', exact: true }).click();

@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 import init, { Session } from '../../wasm/layr_web';
-import { Gateway } from './gateway';
+import { uuidV7 } from './requests';
+import { Gateway, HttpError, fromBase64 } from './gateway';
 
 const scope = self as unknown as DedicatedWorkerGlobalScope;
 const idleMs = 30 * 60 * 1000;
@@ -11,16 +12,19 @@ const routes = new Map<string, {gateway: string; prefix: string}>();
 const aliases = new Map<string, string>();
 const attempts = new Map<string, string>();
 const loaded = new Set<string>();
+const requestOutcomes = new Map<string,string>();
+const requestEnvelopes = new Map<string, {project: string; envelope: string; uncertain: boolean}>();
 let busy = Promise.resolve();
 let generation = 0;
+let registration: {login:string; body:string} | undefined;
 const refreshing = new Map<string, Promise<void>>();
 const publicProjects = new Set<string>();
 function lock() {
-  generation++; refreshing.clear();
+  generation++; refreshing.clear(); registration = undefined;
   clearTimeout(timer);
   session?.lock(); session?.free(); session = undefined;
   gateway?.lock(); gateway = undefined;
-  routes.clear(); aliases.clear(); attempts.clear(); loaded.clear(); publicProjects.clear();
+  routes.clear(); aliases.clear(); attempts.clear(); loaded.clear(); requestEnvelopes.clear(); requestOutcomes.clear(); publicProjects.clear();
 }
 function touch() { clearTimeout(timer); timer = setTimeout(() => { lock(); scope.postMessage({ locked: true }); scope.close(); }, idleMs); }
 function current() { if (!session || !gateway) throw new Error('Your session is locked.'); return { session, gateway }; }
@@ -51,6 +55,7 @@ async function loadStoreFast(name: string): Promise<boolean> {
   try { found = await listObjects(name, 'index/heads/'); }
   catch { await loadStore(name); return false; }
   if (!found.length) { await loadStore(name); return false; }
+  let completeRecords = false;
   try {
     // Bootstrap complete prefixes from each writer, never an index-provided key.
     const records = await listObjects(name, 'records/');
@@ -62,10 +67,27 @@ async function loadStoreFast(name: string): Promise<boolean> {
       const match = /^index\/heads\/([^/]+)\/(\d{20})\.age$/.exec(entry.key);
       if (match && entry.key > (latest.get(match[1]) || '')) latest.set(match[1], entry.key);
     }
-    for (const object of latest.values()) session.add_heads(name, object, await objectBytes(name, object));
-    if (session.use_heads(name)) return true;
+    for (const object of latest.values()) {
+      const bytes = await objectBytes(name, object);
+      try { session.add_heads(name, object, bytes); }
+      catch (error) {
+        if (completeRecords) throw error;
+        // A later signed machine.trust record can authorize a new index writer.
+        // Authenticate complete history before deciding that its cache is invalid.
+        await loadStore(name); completeRecords = true;
+        session.add_heads(name, object, bytes);
+      }
+    }
+    if (session.use_heads(name)) {
+      if (!completeRecords) return true;
+      // This path already fetched the full history; reconcile before returning it.
+      // TODO: reuse authenticated source watermarks here. finish_records currently
+      // drops exact signed segment bytes, which reconciliation still needs.
+      await loadStore(name); return false;
+    }
   } catch { session.discard_index(name); }
-  await loadStore(name); return false;
+  if (!completeRecords) await loadStore(name);
+  return false;
 }
 function reconcile(name: string, overlays: () => Promise<void>) {
   const expected = generation;
@@ -128,7 +150,8 @@ async function unlock(method: string, args: unknown[], base: string) {
   gateway = new Gateway(base); session = new Session();
   try {
     const {session, gateway} = current();
-    const person = await gateway.person();
+    const login = args[method === 'unlockRecovery' ? 1 : 2] as string;
+    const person = await gateway.unlock(login);
     if (!person.recipient) throw new Error('Your person key is absent from this gateway.');
     if (method === 'unlockRecovery') session.unlock_recovery(args[0] as string, JSON.stringify(person));
     else {
@@ -136,6 +159,18 @@ async function unlock(method: string, args: unknown[], base: string) {
       try { session.unlock_prf(secret, args[1] as string, JSON.stringify(person)); }
       finally { secret.fill(0); }
     }
+    if (person.signing && person.signing_key) {
+      const sealed = fromBase64(person.signing);
+      try { session.open_signing_key(sealed, person.signing_key); } finally { sealed.fill(0); }
+    }
+    await gateway.signIn(person.login, challenge => session.sign_session(challenge));
+    session.refresh_person(JSON.stringify(await gateway.person()));
+    await loadProjects();
+    touch();
+  } catch (error) { lock(); throw error; }
+}
+async function loadProjects() {
+    const {session, gateway} = current();
     const slotName = session.slot_name();
     const pins: string[] = JSON.parse(session.query('', 'pins', '[]', Date.now()));
     for (const name of await gateway.projects()) {
@@ -172,8 +207,28 @@ async function unlock(method: string, args: unknown[], base: string) {
       if (await loadStoreFast(name)) reconcile(name, loadOverlays);
       else await loadOverlays();
     }
-    touch();
+}
+async function prepareRegistration(login: string, base: string) {
+  lock(); await init(); gateway = new Gateway(base); session = new Session();
+  const entropy = crypto.getRandomValues(new Uint8Array(96));
+  try {
+    const {words, ...body} = JSON.parse(session.prepare_person(login, entropy));
+    registration = {login, body:JSON.stringify(body)};
+    touch(); return {words};
   } catch (error) { lock(); throw error; }
+  finally { entropy.fill(0); }
+}
+async function registerPerson(invite: string) {
+  const {session, gateway} = current();
+  if (!registration) throw new Error('Create your person key first.');
+  const {login, body} = registration;
+  let deliveryError;
+  try { await gateway.register(login, invite, body); } catch(error) { deliveryError = error; }
+  // If registration succeeded but its reply was lost, proof of this exact key recovers it.
+  try { await gateway.signIn(login, challenge => session.sign_session(challenge)); }
+  catch(error) { throw deliveryError ?? error; }
+  session.refresh_person(JSON.stringify(await gateway.person()));
+  await loadProjects(); registration = undefined; touch();
 }
 // TODO(modes-rotation): resolve keys/ and project/epochs/ with shared readers and gateway epoch routes.
 async function openPublic(project: string, base: string) {
@@ -220,7 +275,9 @@ async function fileHistory(method: string, project: string, state: string, path:
 }
 async function call(method: string, args: unknown[], base = ''): Promise<unknown> {
   if (method === 'openPublic') return openPublic(args[0] as string, base);
-  if (method === 'person') return new Gateway(base).person();
+  if (method === 'person') return new Gateway(base).unlock(args[0] as string);
+  if (method === 'prepareRegistration') return prepareRegistration(args[0] as string, base);
+  if (method === 'registerPerson') return registerPerson(args[0] as string);
   if (method === 'unlockRecovery' || method === 'unlockPrf') return unlock(method, args, base);
   if (method === 'lock') { lock(); return; }
   touch();
@@ -243,6 +300,31 @@ async function call(method: string, args: unknown[], base = ''): Promise<unknown
       }
     }
     return JSON.parse(session.diff(name, object, other, filter));
+  }
+  if (method === 'submitRequest' || method === 'retryRequest') {
+    const project = args[0] as string;
+    const name = alias(project);
+    const id = method === 'submitRequest' ? uuidV7() : args[1] as string;
+    if (method === 'submitRequest') requestEnvelopes.set(id, {project, envelope:session.sign_request(name,id,JSON.stringify(args[1]),Date.now()), uncertain:false});
+    const saved = requestEnvelopes.get(id);
+    if (!saved || saved.project !== project) throw new Error('This request is unavailable in your session.');
+    const target = route(name);
+    try { await current().gateway.putRequest(target.gateway,id,saved.envelope); saved.uncertain = false; }
+    catch (error) {
+      if (error instanceof HttpError && error.status === 401) throw error;
+      try { saved.uncertain = await current().gateway.requestObject(target.gateway,id,proof(name)) !== saved.envelope; }
+      catch { saved.uncertain = true; }
+    }
+    return {id,status:'pending',...(saved.uncertain ? {reason:'Delivery could not be confirmed. Retry delivery with the same request ID.'} : {})};
+  }
+  if (method === 'requestStatus') {
+    const name = alias(args[0] as string), id = args[1] as string;
+    await complete(name);
+    await loadStore(name);
+    const result = JSON.parse(session.query(name,method,JSON.stringify([id]),Date.now()));
+    const saved = requestEnvelopes.get(id);
+    if (result.status === 'pending' && saved?.uncertain) result.reason = 'Delivery could not be confirmed. Retry delivery with the same request ID.';
+    return result;
   }
   if (method === 'changeDiff') {
     const name = alias(args[0] as string);
@@ -304,7 +386,14 @@ scope.onmessage = event => {
   }
   // Serialize calls so a lock or unlock cannot race an in-flight fetch.
   busy = busy.then(async () => {
-    try { const value = await call(method, args, base); scope.postMessage({ id, value }); }
-    catch (error) { scope.postMessage({ id, error: error instanceof Error ? error.message : String(error) }); }
+    try {
+      const value = await call(method, args, base);
+      scope.postMessage({ id, value });
+      if (method === 'requestStatus' && value && typeof value === 'object' && 'status' in value && value.status !== 'pending') {
+        const key = `${args[0]}/${args[1]}`;
+        if (requestOutcomes.get(key) !== value.status) { requestOutcomes.set(key,String(value.status)); scope.postMessage({updated:true}); }
+      }
+    }
+    catch (error) { scope.postMessage({ id, error: error instanceof Error ? error.message : String(error) }); if (method !== 'registerPerson' && error instanceof HttpError && error.status === 401) { lock(); scope.postMessage({locked:true}); } }
   });
 };

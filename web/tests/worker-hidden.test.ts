@@ -20,6 +20,7 @@ function worker(options: { hidden?: boolean; slot?: boolean; foreign?: boolean; 
   let locked = false;
   let resolve: (message: { id: number; value?: unknown; error?: string }) => void;
   class Session {
+    refresh_person() {} sign_session(){return "signature";}
     unlock_recovery() { calls.push('unlock'); }
     slot_name() { return 'person-reader.age'; }
     open_store() { return 'project'; }
@@ -45,6 +46,7 @@ function worker(options: { hidden?: boolean; slot?: boolean; foreign?: boolean; 
     overlay_inputs() { return '[]'; }
   }
   class Gateway {
+    unlock(){return this.person();} signIn(){}
     async person() { return { recipient: 'person' }; }
     async projects() { return ['store']; }
     async descriptor() { return { project: 'project' }; }
@@ -64,7 +66,7 @@ function worker(options: { hidden?: boolean; slot?: boolean; foreign?: boolean; 
     lock() {}
   }
   const scope = { onmessage: (_event: unknown) => {}, postMessage: (message: Parameters<typeof resolve>[0]) => resolve(message), close() {} };
-  vm.runInNewContext(source, { self: scope, Session, Gateway, init: async () => {}, setTimeout: () => 1, clearTimeout() {}, Uint8Array, Date, Error });
+  vm.runInNewContext(source, { self: scope, Session, Gateway, HttpError:class extends Error{}, init: async () => {}, setTimeout: () => 1, clearTimeout() {}, Uint8Array, Date, Error });
   let id = 0;
   const request = (method: string) => new Promise<Parameters<typeof resolve>[0]>(done => {
     resolve = done;

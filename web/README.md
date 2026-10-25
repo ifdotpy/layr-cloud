@@ -1,6 +1,6 @@
 # Layr Cloud web
 
-The read-only site uses TypeScript, Preact and Vite. The stylesheet comes from the approved mockup. No CSS framework or external runtime library is used. Geist and Geist Mono load from the site. Their OFL license and source revision are in `public/fonts/`.
+The site uses TypeScript, Preact and Vite. The stylesheet comes from the approved mockup. No CSS framework or external runtime library is used. Geist and Geist Mono load from the site. Their OFL license and source revision are in `public/fonts/`.
 
 ## Run
 
@@ -11,7 +11,7 @@ rustup target add wasm32-unknown-unknown
 cargo install wasm-pack --version 0.15.0 --locked
 ```
 
-The Rust model and store dependencies use Layr revision `b337229691083d2738ebc6db4bdd48c0b9ede3c5`.
+The Rust model and store dependencies use Layr revision `45080bb53b4de5c84726ac85563c979374308024`.
 
 ```sh
 cd web
@@ -22,7 +22,7 @@ npm run dev
 
 The production build regenerates WASM. The dev command checks for generated WASM and does not rebuild it.
 
-Open `http://127.0.0.1:5173/`. The default source opens a person key in a Web Worker. Use `?source=fixture#/projects` to inspect the captured test project without a gateway.
+Open `http://127.0.0.1:5173/`. The default source opens a person key in a Web Worker. Enter your login, then unlock with a passkey or recovery words. A new account needs an invite token from a gateway owner; save the displayed recovery words before registration. Use `?source=fixture#/projects` to inspect the captured test project without a gateway.
 
 ```sh
 npm run build
@@ -37,7 +37,7 @@ Playwright writes the page screenshots and axe reports to `web/test-results/`. T
 
 ## Data boundary
 
-Every page reads through `src/data/source.ts`. CLI twins retain the model JSON field names and full IDs. `FixtureSource` only reshapes JSON from the real store recipe. `ModelSource` uses the verified Rust model in a Web Worker. No secret material enters browser storage.
+Every page reads through `src/data/source.ts`. CLI twins retain the model JSON field names and full IDs. `FixtureSource` only reshapes JSON from the real store recipe. `ModelSource` uses the verified Rust model in a Web Worker. No secret material enters browser storage. The worker opens the padded public unlock response, signs the gateway challenge through `layr_store::session::sign`, and keeps its person session bearer in memory. It retries a person route once after a 401 with a fresh session. Lock discards the bearer, signing key and pending delivery material.
 
 Unknown facts stay unknown. The site does not invent disk use, live jobs, organization settings, image digests, readers, approval results, or copy completeness.
 
@@ -96,6 +96,42 @@ Open a public project with `/?project=<gateway-project-name>`. The worker uses t
 
 Passkey tests check the salt and PRF bytes. A live authenticator has not been tested.
 
+## Person actions and comments
+
+The worker opens `people/<login>/signing.age` from the person response and checks the public key.
+The project must pin the same key with `layr access person-key`.
+Approve, withdraw, queue changes, ref moves, comments and replies all use `DataSource.submitRequest`.
+The shared `layr_store::request::seal` encrypts the signed request to the current project recipient.
+Only the v2 ciphertext envelope reaches the gateway and store.
+Each submission has one UUIDv7 ID. The UI waits for the verified operation or signed refusal record.
+An uncertain delivery can retry the same envelope and ID. It does not create another action.
+Comments use the model's folded records; line comments name an exact change state, path and line.
+
+The executor smoke test uses a disposable btrfs project in `layr-dev` and a disposable MinIO bucket.
+Build the gateway and fixture tools as described in `crates/layr-web/README.md`, then run:
+
+```sh
+cd web
+node tests/setup-actions-fixture.mjs
+```
+
+Use the printed folder as `ACTION_FIXTURE`:
+
+```sh
+LAYR_WEB_ACTION_FIXTURE="$ACTION_FIXTURE" \
+LAYR_WEB_ACTION_EXECUTOR="$ACTION_FIXTURE/apply.sh" \
+cargo test --manifest-path ../Cargo.toml -p layr-web real_executor_applies_browser_signatures -- --ignored --nocapture
+
+LAYR_WEB_ACTION_FIXTURE="$ACTION_FIXTURE" \
+LAYR_WEB_TEST_STORE="$ACTION_FIXTURE/store" \
+LAYR_WEB_TEST_PAPER="$ACTION_FIXTURE/paper" \
+LAYR_WEB_TEST_LINES="$ACTION_FIXTURE/lines.json" \
+node --experimental-strip-types tests/model-gateway.e2e.mjs
+```
+
+The browser check writes approval before and after, withdrawal, queue add, thread, inline comment, refusal and queue screenshots,
+with axe reports, to `web/test-results/actions-live/` in three display modes.
+After both checks, run `$ACTION_FIXTURE/cleanup.sh` to unmount and remove its Linux project.
 
 ## Index and public checks
 
@@ -111,3 +147,17 @@ LAYR_WEB_TEST_STORE=/path/fixture/archive LAYR_WEB_TEST_PAPER=/path/fixture/pape
 The live check uses MinIO, the real gateway and WASM worker. It withholds a later record segment while opening Lines, Code and Changes, checks corrupted-index fallback, compares history/blame with the CLI, and opens the public project in a fresh anonymous browser session. It also checks missing/invalid public manifests and personal sign-in. Screenshots cover provisional first page, blame, file history and public project at all three display settings, with axe and AA badge contrast checks.
 
 `cargo run --release -p layr-web --example index_first_page -- 1000 100000 1000000` measures the native Session adapter, including manifest/slot opening, writer-prefix verification and index authentication. It excludes network and listing time. Generation and encryption are outside each measured interval.
+
+## Signature sign-in checks
+
+`tests/signin.spec.ts` covers the sign-in and invite forms in all three screenshot views. Recovery words are masked in screenshots. `tests/signin-live.mjs` adds a real gateway, native Session proof, passkey PRF caller, invite registration, recovery sign-in and one session renewal after a 401 to the disposable MinIO run.
+
+For the deployed gateway, run `tests/signin-deployed.mjs` in layr-dev. Keep the live fixture, owner store image and recovery files under `/run` tmpfs. Set `LAYR_WEB_LIVE_FIXTURE` to a JSON file with `login`, `words_file`, `project` and `change`; set `LAYR_WEB_LIVE_DIST` to the reviewed browser build. `LAYR_WEB_LIVE_PROXY` selects the restricted CONNECT proxy through the AWS executor. The page uses `https://cloud.layr.ws`, with its real Host, SNI and certificate verification. The test uses the published site by default. `LAYR_WEB_LIVE_STAGED_CLIENT=1` serves the reviewed static client files inside the VM while API calls still use the deployed gateway. It does not establish public IPv4 reachability.
+
+Set `LAYR_WEB_LIVE_READ_ONLY=1` to verify sign-in, project reads, screenshots and lock before the executor is ready, without submitting a request.
+
+The full deployed check waits for the executor's signed comment record, saves three screenshots and axe reports, checks storage isolation, then locks the key. Only encrypted request bytes and public proofs cross the relay.
+
+Person and public readers use the verified project creator's policy perspective. Configuration from other machines retains its machine namespace. A missing or ambiguous creator leaves policy unavailable and disables actions with an explanatory note. The CLI retains its local machine perspective.
+
+`tests/index-worker.test.ts` also covers an executor index whose trust record appears after the creator's first segment. The worker verifies complete history and retries the index before marking it invalid. To check an encrypted snapshot from a real two-writer store, run the ignored Rust test `actual_two_writer_indexes_reconcile` with `LAYR_WEB_INDEX_FIXTURE` set to the exported store and `LAYR_WEB_INDEX_PERSON` set to the disposable person folder. Keep the person folder and its recovery file in VM tmpfs.

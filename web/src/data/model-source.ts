@@ -1,5 +1,5 @@
 import type {
-  DataSource, Project, Line, State, Change, Ref, RefChange, QueueEntry, Attestation,
+  RequestAction, RequestStatus, ActionAccess, Comment, DataSource, Project, Line, State, Change, Ref, RefChange, QueueEntry, Attestation,
   Operation, Behavior, Tree, FileContent, Diff, Copy, Person, Machine, Store, You,
   ScreenDiff, LogOptions, MergeStatus, ChangeDiff, OpenChange, Blame, LoadStatus,
 } from './source';
@@ -68,14 +68,21 @@ export class ModelSource implements DataSource {
   fileHistory(project:string,state:string,path:string):Promise<State[]> { return this.call('fileHistory',[project,state,path]); }
   loadStatus(project:string):Promise<LoadStatus> { return this.call('loadStatus',[project]); }
   private async restorePublic() { if (this.publicProject) await this.openPublic(this.publicProject); }
-  person(): Promise<PersonView> { return this.call('person'); }
-  async unlockRecovery(words: string): Promise<void> { await this.call('unlockRecovery', [words]); this.active = true; await this.restorePublic(); }
-  async unlockPasskey(): Promise<void> {
-    const person = await this.person();
+  person(login: string): Promise<PersonView> { return this.call('person',[login]); }
+  prepareRegistration(login: string): Promise<{words:string}> { return this.call('prepareRegistration',[login]); }
+  async registerPerson(invite: string): Promise<void> { await this.call('registerPerson',[invite]); this.active = true; await this.restorePublic(); }
+  async unlockRecovery(words: string, login: string): Promise<void> { await this.call('unlockRecovery', [words,login]); this.active = true; await this.restorePublic(); }
+  async unlockPasskey(login: string): Promise<void> {
+    const person = await this.person(login);
     const { slot, secret } = await passkeySecret(person);
-    try { await this.call('unlockPrf', [secret, slot], [secret.buffer as ArrayBuffer]); this.active = true; await this.restorePublic(); }
+    try { await this.call('unlockPrf', [secret, slot, login], [secret.buffer as ArrayBuffer]); this.active = true; await this.restorePublic(); }
     finally { if (secret.byteLength) secret.fill(0); }
   }
+  actionAccess(project: string): Promise<ActionAccess> { return this.call('actionAccess', [project]); }
+  submitRequest(project: string, action: RequestAction): Promise<RequestStatus> { return this.call('submitRequest', [project, action]); }
+  retryRequest(project: string, id: string): Promise<RequestStatus> { return this.call('retryRequest', [project, id]); }
+  requestStatus(project: string, id: string): Promise<RequestStatus> { return this.call('requestStatus', [project, id]); }
+  comments(project: string, change: string): Promise<Comment[]> { return this.call('comments', [project, change]); }
   projects(): Promise<Project[]> { return this.call('projects'); }
   lines(project: string): Promise<Line[]> { return this.call('lines', [project]); }
   log(project: string, line: string, options: LogOptions = {}): Promise<State[]> { return this.call('log', [project, line, options]); }

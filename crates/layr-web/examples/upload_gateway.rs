@@ -14,10 +14,12 @@ fn upload(s3: &S3, root: &Path, at: &Path, prefix: &str) -> Result<()> {
                     .to_str()
                     .context("path is not UTF-8")?
             );
-            anyhow::ensure!(
-                s3.put_new(&key, fs::read(&path)?)?,
-                "fixture object already exists"
-            );
+            let bytes = fs::read(&path)?;
+            if !s3.put_new(&key, bytes.clone())? {
+                anyhow::ensure!(env::var_os("LAYR_WEB_APPEND").is_some(), "fixture object already exists");
+                let response = s3.request(reqwest::Method::GET, &key, &[], &[], Vec::new(), Duration::from_secs(10))?;
+                anyhow::ensure!(response.status().is_success() && response.bytes()?.as_ref() == bytes, "existing fixture object differs");
+            }
         }
     }
     Ok(())
@@ -31,7 +33,7 @@ fn main() -> Result<()> {
         token: None,
     };
     let endpoint = env::var("AWS_ENDPOINT_URL_S3")?;
-    let http = reqwest::blocking::Client::builder().no_proxy().build()?;
+    let http = reqwest::blocking::Client::builder().no_proxy().pool_max_idle_per_host(0).build()?;
     let s3 = S3::new_with_client(bucket, "us-east-1", credentials, Some(&endpoint), http)?;
     let response = s3.request(
         reqwest::Method::PUT,
@@ -49,7 +51,7 @@ fn main() -> Result<()> {
             .nth(1)
             .and_then(|value| value.split("</Code>").next())
             .unwrap_or("unknown");
-        anyhow::bail!("create fixture bucket failed: HTTP {status}, {code}");
+        anyhow::ensure!(env::var_os("LAYR_WEB_APPEND").is_some() && status.as_u16() == 409 && code == "BucketAlreadyOwnedByYou", "create fixture bucket failed: HTTP {status}, {code}");
     }
     let store = Path::new(args.get(1).context("store path")?);
     let people = Path::new(args.get(2).context("people path")?);

@@ -14,6 +14,7 @@ mod index;
 mod metadata;
 mod overlays;
 mod screens;
+mod requests;
 
 fn js(error: anyhow::Error) -> JsValue {
     JsValue::from_str(&format!("{error:#}"))
@@ -43,6 +44,7 @@ struct Store {
 pub struct Session {
     person: Option<Zeroizing<String>>,
     login: String,
+    signing: Option<ed25519_dalek::SigningKey>,
     index: person::Index,
     invites: Vec<person::Pin>,
     invite_errors: Vec<Value>,
@@ -53,6 +55,7 @@ impl Default for Session {
         Self {
             person: None,
             login: String::new(),
+            signing: None,
             index: person::Index::default(),
             invites: Vec::new(),
             invite_errors: Vec::new(),
@@ -234,8 +237,23 @@ impl Session {
         if Some(keys::recipient_of(&identity)?.as_str()) != view["recipient"].as_str() {
             bail!("person recipient differs from slot");
         }
+        self.person = Some(identity);
+        self.login = login.into();
+        match self.refresh_person_view(&view) {
+            Ok(()) => Ok(()),
+            Err(error) => { self.lock(); Err(error) }
+        }
+    }
+    fn refresh_person_view(&mut self, view: &Value) -> Result<()> {
+        let identity = self.person.as_ref().context("locked")?;
+        if view["login"].as_str() != Some(self.login.as_str()) || view["recipient"].as_str() != Some(keys::recipient_of(identity)?.as_str()) {
+            bail!("person record differs from the unlocked identity");
+        }
+        if let Some(signing) = &self.signing {
+            if view["signing_key"].as_str().map(person::verifying_key).transpose()? != Some(signing.verifying_key()) { bail!("person signing key changed after unlock"); }
+        }
         let index = match view["index"].as_str() {
-            Some(data) => person::open_index(&identity, &unb64(data)?)?,
+            Some(data) => person::open_index(identity, &unb64(data)?)?,
             None => person::Index::default(),
         };
         // Pending invites do not replace the authenticated index or authorize a store.
@@ -244,7 +262,7 @@ impl Session {
         for invite in view["inbox"].as_array().into_iter().flatten() {
             let opened = (|| -> Result<person::Pin> {
                 person::open_invite(
-                    &identity,
+                    identity,
                     &unb64(invite["data"].as_str().context("invalid invite")?)?,
                 )
             })();
@@ -257,8 +275,6 @@ impl Session {
         }
         self.invites = invites;
         self.invite_errors = invite_errors;
-        self.person = Some(identity);
-        self.login = login.into();
         self.index = index;
         Ok(())
     }
@@ -386,12 +402,13 @@ impl Session {
         } else {
             layr_model::authority::from_lines(&store.descriptor.project, &exact, &machine_keys)?
         };
-        let perspective = if machine_keys.len() == 1 {
-            machine_keys.keys().next().map(String::as_str).unwrap_or("")
-        } else {
-            ""
-        };
-        let model = Model::from_verified_lines(verified, perspective)?;
+        let policy_records = exact.iter().map(|line| {
+            serde_json::from_str::<Record>(record::parse_line(line, None)?.get()).map_err(Into::into)
+        }).collect::<Result<Vec<_>>>()?;
+        let perspective = layr_model::project_perspective(&store.descriptor.project, &policy_records);
+        store.cache.policy_note = perspective.as_ref().err().map(|error|
+            format!("Project policy is unavailable: {error}. Actions are disabled."));
+        let model = Model::from_verified_lines(verified, perspective.as_deref().unwrap_or(""))?;
         let trusted = if store.parent.is_none() {
             match layr_store::public::trusted_writers(&store.descriptor.project, &exact) {
                 Ok(keys) => keys,
@@ -621,7 +638,7 @@ impl Session {
         }
         if method == "loadStatus" {
             let store = self.stores.get(name).context("store is locked")?;
-            return Ok(json!({"provisional":store.cache.heads.is_some(),"note":store.cache.note}));
+            return Ok(json!({"provisional":store.cache.heads.is_some(),"note":store.cache.policy_note.as_ref().or(store.cache.note.as_ref())}));
         }
         if let Some(value) = self.index_answer(name, method, args)? {
             return Ok(value);
@@ -878,6 +895,9 @@ impl Session {
                 .map(|id| p.change_show(&id, &context))
                 .collect::<Result<Vec<_>>>()?),
             "changeShow" => p.change_show(arg(0), &context)?,
+            "comments" => json!(p.comments(arg(0))),
+            "actionAccess" => self.action_access(name)?,
+            "requestStatus" => self.request_status(name, arg(0))?,
             "refs" => json!(p.ref_list("", now)),
             "refLog" => json!(p.ref_log(arg(0))),
             "queue" => json!(p.queue_list(None)),
@@ -1038,6 +1058,49 @@ mod tests {
             .iter()
             .map(|b| format!("{b:02x}"))
             .collect()
+    }
+    #[test]
+    fn second_writer_preserves_the_project_person_pin_and_protection() {
+        let (mut session, vault, _, owner) = fixture();
+        let executor = ed25519_dalek::SigningKey::from_bytes(&[13; 32]);
+        let person = ed25519_dalek::SigningKey::from_bytes(&[47; 32]);
+        session.signing = Some(person.clone());
+        let other = "01a12290-0000-7000-8000-000000000003";
+        let seal = |lines: Vec<String>| keys::encrypt(
+            &keys::recipient_of(&vault).unwrap(), lines.join("\n").as_bytes()
+        ).unwrap();
+        let owner_lines = vec![
+            signed(&owner, 1, "machine", json!({"public_key":hex_key(&owner)})),
+            signed(&owner, 2, "project", json!({"id":PROJECT,"name":"Example","config":{
+                "person.keys":{"owner@example.com":hex_key(&person)},"protect":{"main":{}}
+            }})),
+            signed(&owner, 3, "machine.trust", json!({"machine":other,"public_key":hex_key(&executor)})),
+        ];
+        let body = json!({"id":"01a12290-0000-7000-8001-000000000001","machine":other,"project":PROJECT,"seq":1,"time":4,"op":"machine","actor":{"uid":0,"name":"Executor"},"states":[],"lines":{},"data":{"public_key":hex_key(&executor)}}).to_string();
+        let executor_line = format!("{{\"r\":{body},\"s\":\"{}\"}}",keys::sign_bytes(body.as_bytes(),&executor));
+        session.segment("test",&format::segment_name(MACHINE,1,3),&seal(owner_lines)).unwrap();
+        session.segment("test",&format::segment_name(other,1,1),&seal(vec![executor_line])).unwrap();
+        session.finish("test").unwrap();
+        assert_eq!(session.action_access("test").unwrap()["available"],true);
+        assert_eq!(session.project("test").unwrap().config.get("protect"),Some(&json!({"main":{}})));
+    }
+    #[test]
+    fn missing_or_ambiguous_creator_disables_policy_without_guessing_a_writer() {
+        for ambiguous in [false,true] {
+            let (mut session,vault,_,key)=fixture();
+            let mut lines=vec![signed(&key,1,"machine",json!({"public_key":hex_key(&key)}))];
+            if ambiguous {
+                for seq in [2,3] { lines.push(signed(&key,seq,"project",json!({"id":PROJECT,"name":"Example","config":{"protect":{"main":{}}}}))); }
+            }
+            let cipher=keys::encrypt(&keys::recipient_of(&vault).unwrap(),lines.join("\n").as_bytes()).unwrap();
+            session.segment("test",&format::segment_name(MACHINE,1,lines.len() as u64),&cipher).unwrap();
+            session.finish("test").unwrap();
+            let access=session.action_access("test").unwrap();
+            assert_eq!(access["available"],false);
+            assert!(access["reason"].as_str().unwrap().contains(if ambiguous {"ambiguous"} else {"missing"}));
+            assert!(!session.project("test").unwrap().config.contains_key("protect"));
+            assert!(session.answer("test","loadStatus",&json!([]),0).unwrap()["note"].as_str().unwrap().contains("Actions are disabled"));
+        }
     }
     #[test]
     fn pins_bind_the_project_and_the_recipient() {

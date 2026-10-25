@@ -1,4 +1,4 @@
-/** The pages' only data boundary. All methods are read-only and asynchronous.
+/** The pages' only data boundary. All methods are asynchronous.
  * CLI twins preserve layr-model's JSON names, full IDs, and millisecond timestamps.
  * Sources must reject unavailable objects; they must never invent successful results.
  * Keys, tokens, plaintext, and recovery words stay out of browser persistent storage.
@@ -121,6 +121,7 @@ export interface Operation {
 }
 /** `layr change show --json`. Version order is authoritative. */
 export interface Change {
+  comments?: Comment[];
   change_id: Id;
   versions: { version: string; state: State; attestations: Attestation[]; operation?: VersionOperation }[];
   behavior: Behavior;
@@ -412,7 +413,23 @@ export interface LogOptions {
   limit?: number;
   offset?: number;
 }
+export type RequestAction =
+  | { kind: 'approve' | 'withdraw' | 'queue_add'; state: Id; into: string }
+  | { kind: 'queue_remove'; entry: Id }
+  | { kind: 'ref_move'; name: string; target: Id; expected: Id | null }
+  | { kind: 'comment'; change_id: Id; version: Id; path?: string; line?: number; text: string; reply_to?: Id };
+export interface ActionAccess { available: boolean; reason?: string | null }
+export interface RequestStatus { id: Id; status: 'pending' | 'applied' | 'refused'; record?: Id; reason?: string | null }
+export interface Comment {
+  id: Id; change_id: Id; version: Id; path?: string; line?: number;
+  text: string; reply_to?: Id; actor: { uid: number; name: string }; time: number;
+}
 export interface DataSource {
+  actionAccess(project: Id): Promise<ActionAccess>;
+  submitRequest(project: Id, action: RequestAction): Promise<RequestStatus>;
+  requestStatus(project: Id, id: Id): Promise<RequestStatus>;
+  retryRequest(project: Id, id: Id): Promise<RequestStatus>;
+  comments(project: Id, change: Id): Promise<Comment[]>;
   openChanges?(project:string):Promise<OpenChange[]>;
   blame?(project:string,state:string,path:string):Promise<Blame>;
   fileHistory?(project:string,state:string,path:string):Promise<State[]>;

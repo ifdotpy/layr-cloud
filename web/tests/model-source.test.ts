@@ -49,7 +49,7 @@ test('page activity keeps an open session active without a model query', async (
   const source = new ModelSource({ worker: () => worker as unknown as Worker });
   events.dispatchEvent(new Event('scroll'));
   assert.equal(worker.messages.length, 0, 'activity must not open a locked worker');
-  const unlock = source.unlockRecovery('disposable test words');
+  const unlock = source.unlockRecovery('disposable test words','ann@example.com');
   worker.reply(worker.messages[0].id, undefined); await unlock;
   events.dispatchEvent(new Event('scroll'));
   assert.equal(worker.messages.at(-1)?.method, 'touch');
