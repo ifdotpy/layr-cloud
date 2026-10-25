@@ -124,7 +124,7 @@ After merging reviewed layr-cloud main `c8ca115`, exact merge source `ac02cf4412
 
 ## Fixture replacement and cleanup
 
-The VM rebooted at about 22:32 UTC during the merge hold. This cleared the original tmpfs fixture `/run/layr-web-actions.f627Ed` and its private recovery material. Its earlier persistent `/root/work/layr-web-actions.wcGUsl` copy had already been unmounted and removed before AWS enrollment. No private backup or AWS copy existed. The disabled-button attempt against the earlier site delivered no comment; the old S3 request prefix was empty.
+The VM rebooted at about 22:32 UTC during the merge hold. This cleared the original tmpfs fixture `/run/layr-web-actions.f627Ed` and its private recovery material. Its earlier persistent `/root/work/layr-web-actions.wcGUsl` copy had already been unmounted and removed before AWS enrollment. No other copy of the private material existed, in AWS or elsewhere. The disabled-button attempt against the earlier site delivered no comment; the old S3 request prefix was empty.
 
 The lead approved a fresh disposable person `web-signin-final-34ad@example.com` and project `browser-signin-final`, generated only under VM tmpfs `/run/layr-web-actions.6ihzJN`. The new store uses the same reviewed template in `layr-store-m8-final`. The existing executor public identity was trusted; only encrypted project/person objects and public descriptors were uploaded. One invite was issued through SSM. The first registration returned 429; the exact person record was confirmed absent, the rate window elapsed, and the same invite retry returned 200. Rate limits were unchanged.
 
