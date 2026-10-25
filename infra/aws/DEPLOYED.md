@@ -1,6 +1,6 @@
 # AWS deployment of Layr Cloud
 
-Measured state: 2026-10-25, 17:00 UTC. Three storage stacks and the public IPv6 gateway host are created. Executor deployment is authorized with SSM administration. Tailscale enrollment is no longer required. Earlier tailnet plans and release gates below are historical.
+Measured state: 2026-10-25, 17:21 UTC. Three storage stacks and both public IPv6 hosts are created. Both hosts report SSM Online and have no public IPv4 address. Gateway application installation and live user checks are still pending. Tailscale enrollment is no longer required. Earlier tailnet plans and release gates below are historical.
 This file records the M8 deployment from `layr-cloud` base `e4fdf656a0cae5ada5e2e3c7ebaf2fbe372c5f8d`.
 The deployment branch is `cloud/m8-deploy`.
 
@@ -16,6 +16,36 @@ The deployment branch is `cloud/m8-deploy`.
   Earlier local preparation used `1a91cd32555a878e87d63d6311520ecca3be7173`; that build is not the final deployment pin.
 
 ## Resources
+
+Current host inventory:
+
+| Host | Instance | IPv6 | Retained data |
+| --- | --- | --- | --- |
+| Gateway | `i-04da10c290655544f` | `2a05:d016:df9:4000:8463:e4d6:66bb:c15f` | None |
+| Executor | `i-0df29a43f3b810a82` | `2a05:d016:df9:4000:d35f:3f24:8eae:a94` | `vol-0c764a630871fc14c`, 10 GiB |
+
+The VPC is `vpc-0c5b8b1792383ecf5`; subnet `subnet-07f9b77a10c790951` is in `eu-north-1a`.
+SSM agent version is `3.3.5538.0`. The gateway permits TCP 443 from `::/0`; the executor has no inbound rules.
+Neither host accepts SSH. On first boot, the gateway sync timer reported a missing release manifest;
+this is an application installation dependency, not an SSM or IPv6 connectivity failure.
+
+## Live verification path
+
+The administration Mac has no IPv6 connectivity, and `layr-dev` has only an OrbStack ULA.
+The approved live check keeps the browser and all disposable private recovery material on `layr-dev`.
+It forwards HTTPS through the executor with SSM:
+
+```sh
+AWS_PROFILE=ifdotpy AWS_REGION=eu-north-1 aws ssm start-session \
+  --target i-0df29a43f3b810a82 \
+  --document-name AWS-StartPortForwardingSessionToRemoteHost \
+  --parameters '{"host":["cloud.layr.ws"],"portNumber":["443"],"localPortNumber":["18443"]}'
+```
+
+The browser must preserve `Host` and TLS SNI `cloud.layr.ws` and verify the real certificate.
+The executor connects to the gateway over IPv6. This check proves that gateway path;
+it does not prove public access from an IPv4-only network. Such networks need an IPv4 front later,
+for example CloudFront or one public IPv4 address. No private test material is sent to AWS hosts.
 
 The storage stacks below reached `CREATE_COMPLETE`. Gateway and executor deployment no longer needs auth-key parameters.
 The five-stack plan was approved by the lead on 2026-10-25 at 12:04 UTC:

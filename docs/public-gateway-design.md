@@ -44,7 +44,8 @@ The challenge is canonical padded STANDARD base64 for 32 random bytes. Decode it
   and is consumed on the first exchange attempt, including an invalid signature.
 - `POST /api/session` takes JSON `{login, challenge, signature}` and returns 200 with
   `{login, token, expires}`. Invalid, expired or used proofs return 401. Tokens last 12 hours;
-  only their hashes and login bindings are kept in gateway memory. A restart ends existing sessions.
+  only their hashes and login bindings are kept in gateway memory. Tokens contain 32 random bytes
+  encoded as 64 lowercase hexadecimal characters. A restart ends existing sessions.
 - `GET /api/person/unlock?login=<login>` is the unlock bootstrap exception to session authentication.
   It returns 200 with `{unlock: <STANDARD base64>}`. Decode the field and parse the JSON, including
   trailing ASCII space padding. The decoded value is exactly 65536 bytes, containing
