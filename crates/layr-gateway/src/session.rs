@@ -295,29 +295,7 @@ impl crate::server::Gateway {
     }
 
     fn decoy(&self, login: &str) -> Value {
-        use hmac::{Hmac, Mac};
-        use sha2::Sha256;
-        let bytes = |label: &str, length: usize| {
-            let mut out = Vec::new();
-            for i in 0..length.div_ceil(32) {
-                let mut mac = Hmac::<Sha256>::new_from_slice(self.person_secret.as_ref()).unwrap();
-                mac.update(b"layr/unlock-decoy/v1\0");
-                mac.update(login.as_bytes());
-                mac.update(label.as_bytes());
-                mac.update(&(i as u64).to_be_bytes());
-                out.extend_from_slice(&mac.finalize().into_bytes());
-            }
-            out.truncate(length);
-            out
-        };
-        let recipient = bech32::encode::<bech32::Bech32>(
-            bech32::Hrp::parse("age").unwrap(),
-            &bytes("recipient", 32),
-        )
-        .unwrap();
-        json!({"login":login,"recipient":recipient,
-            "slots":[{"name":"paper","data":STANDARD.encode(bytes("paper",384))}],
-            "signing_key":hex::encode(bytes("signing-key",32)),"signing":STANDARD.encode(bytes("signing",384))})
+        crate::decoy::unlock(self.person_secret.as_ref(), login)
     }
 }
 
