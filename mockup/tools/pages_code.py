@@ -127,11 +127,11 @@ def lines_page():
              radar(0, []), "1 h", menu("fix-tax-rounding")], ""),
         row(["<a href='change-steps.html'>feature-coupons</a>", who("alice"), sid("0c7f55d1") + ' <span class="muted">auto · agent-7</span>', "38 ↑ 0 ↓",
              radar(1, [("topic-checkout", "src/cart.rs")]), "6 min", menu("feature-coupons")], "mine"),
-        row(['<span class="chev">▸</span> exp/ <span class="muted">(2 lines)</span>', who("carol"), "", "", "", '<span class="muted">stale</span>', ""],
+        row(['<span class="chev">▸</span> exp-… <span class="muted">(2 lines)</span>', who("carol"), "", "", "", '<span class="muted">stale</span>', ""],
             "group", 'class="group" data-group="exp"'),
-        row(["<a href='code.html'>exp/redis-cache</a>", who("carol"), sid("4a7e01c9") + ' <span class="muted">Try a Redis cart cache</span>', "5 ↑ 31 ↓",
+        row(["<a href='code.html'>exp-redis-cache</a>", who("carol"), sid("4a7e01c9") + ' <span class="muted">Try a Redis cart cache</span>', "5 ↑ 31 ↓",
              radar(0, []), '<span class="muted">23 days</span>', menu("exp-redis-cache")], "stale", 'class="child" data-in="exp"'),
-        row(["<a href='code.html'>exp/http3</a>", who("carol"), sid("91d2b6e0") + ' <span class="muted">Serve over HTTP/3</span>', "2 ↑ 58 ↓",
+        row(["<a href='code.html'>exp-http3</a>", who("carol"), sid("91d2b6e0") + ' <span class="muted">Serve over HTTP/3</span>', "2 ↑ 58 ↓",
              radar(0, []), '<span class="muted">41 days</span>', menu("exp-http3")], "stale", 'class="child" data-in="exp"'),
         row(['<span class="chev">▸</span> agent-1 … agent-16 <span class="muted">(16 lines, made together)</span>',
              who("alice"), '<span class="muted">from main 7d3e9a1c</span>', "", radar(1, [("topic-checkout", "src/cart.rs")]), "now", ""],
@@ -149,10 +149,10 @@ def lines_page():
 <span class="note" style="font-weight:400;margin-top:6px">Make several lines at once, for agents. Names get a number: agent-1, agent-2 …</span></label>
 {cmd("layr line new agent main --count 16")}''', '<button class="btn" type="button" data-close>Cancel</button><button class="btn primary" type="button" data-close>Create 16 lines</button>')
     body = f'''{pagehead("Lines", '<button class="btn primary" type="button" data-dialog="dlg-line">New line</button>',
-               "Each line is a real folder with its own caches. Names with a slash group together, for example exp/.")}
+               "Each line is a real folder with its own caches. Lines that share a name prefix group together, for example exp-redis-cache and exp-http3.")}
 <div class="filters"><div class="seg" data-filter-for="lines"><button type="button" data-filter="" aria-pressed="true">All</button><button type="button" data-filter="mine" aria-pressed="false">Yours</button><button type="button" data-filter="agents" aria-pressed="false">Agents</button><button type="button" data-filter="stale" aria-pressed="false">Stale</button></div>
 <input class="input grow" type="search" placeholder="Filter lines"></div>
-<div class="note" data-when="stale" hidden style="margin-bottom:12px">Lines with no save for 21 days. Delete the ones you do not need. Their states stay in history. {cmd("layr line delete exp/http3")}</div>
+<div class="note" data-when="stale" hidden style="margin-bottom:12px">Lines with no save for 21 days. Delete the ones you do not need. Their states stay in history. {cmd("layr line delete exp-http3")}</div>
 <div id="lines">{table(H, rows, stacked=True)}</div>
 {disk_bars()}'''
     return page("Lines", body, tab="Code", dialogs=new)

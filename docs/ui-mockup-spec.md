@@ -574,6 +574,6 @@ Priority: simple, easy to use, minimal. Nothing new in Layr; all data exists tod
 **Lines** (`lines.html`):
 
 - Filters that work: All, Yours, Agents, Stale.
-- Names with a slash group into one collapsible row (`exp/ (2 lines)`), like lines made together.
+- Lines that share the name part before the first `-` group into one collapsible row when 2 or more share it (`exp-… (2 lines)`, `agent-1 … agent-16`). Line names cannot contain `/`.
 - Stale: no save for 21 days. "Last activity" shows the age in muted text. The Stale filter shows one note and `layr line delete <name>`; states stay in history.
 - The Cache column is gone; the disk card under the table already shows it.

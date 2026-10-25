@@ -58,8 +58,8 @@ def merge_stepper(current=2):
 
 # ---------- 3. Disk use toggle on Lines ----------
 
-DISK = {"layr": [("main", 412), ("topic-checkout", 9), ("fix-tax-rounding", 6), ("feature-coupons", 11), ("exp/ (2 lines)", 14), ("16 agent lines", 176)],
-        "copies": [("main", 412), ("topic-checkout", 405), ("fix-tax-rounding", 398), ("feature-coupons", 420), ("exp/ (2 lines)", 790), ("16 agent lines", 6512)]}
+DISK = {"layr": [("main", 412), ("topic-checkout", 9), ("fix-tax-rounding", 6), ("feature-coupons", 11), ("exp-… (2 lines)", 14), ("16 agent lines", 176)],
+        "copies": [("main", 412), ("topic-checkout", 405), ("fix-tax-rounding", 398), ("feature-coupons", 420), ("exp-… (2 lines)", 790), ("16 agent lines", 6512)]}
 
 
 def disk_bars():
