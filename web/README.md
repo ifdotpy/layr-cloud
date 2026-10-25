@@ -78,6 +78,16 @@ Transfer records prove the recorded counts and successful operation. They do not
 
 ## Limits
 
+The **Yours** filter matches your session login to an exact recorded actor name on the line's machine and owner UID.
+The model does not bind a person key to a local UID. If the names do not match, the filter shows no matching lines.
+
+Lines share a group when at least two names have the same prefix before the first hyphen, for example `exp-one` and `exp-two`.
+The group label is `exp-… (2 lines)`. A prefix with one line stays ungrouped.
+The default line appears first, then other single lines by last activity, then groups.
+Groups start closed. A filter or search opens the matching groups.
+The **Made together** note requires a verified operation that creates all lines in the group.
+The pinned CLI records each line separately, including lines from `line new --count`. These records do not prove a shared command.
+
 Unlock verifies all record metadata before the first page. The lines and refs first load for stores above 100,000 records (design section 4) is not built and not benchmarked. The lead accepted this limit for phase 1. A follow-up task will add this load path and a store index.
 
 Passkey tests check the salt and PRF bytes. A live authenticator has not been tested.

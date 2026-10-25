@@ -118,7 +118,7 @@ export const pages: PageCase[] = [
   {
     name: 'Lines', path: route('lines'), heading: 'Lines',
     check: async page => {
-      const visible = lines.filter(line => !line.name.startsWith('agent-'));
+      const visible = lines;
       const target = await table(page, 'Lines', visible.length);
       for (const line of visible) {
         const row = target.getByRole('row').filter({ has: page.getByRole('link', { name: line.name, exact: true }) });
@@ -365,6 +365,26 @@ for (const tab of ['overview', 'files', 'behavior', 'steps']) {
   });
 }
 
+for (const filter of ['Yours', 'Agents', 'Stale']) pages.push({
+  name: `Lines ${filter}`, path: route('lines'), heading: 'Lines',
+  check: async page => {
+    await main(page).getByRole('group', { name: 'Line filters' }).getByRole('button', { name: filter, exact: true }).click();
+    await expect(main(page).getByRole('button', { name: filter, exact: true })).toHaveAttribute('aria-pressed', 'true');
+    if (filter === 'Stale') await text(page, 'No save for 21 days.');
+    await expect(main(page).getByRole('columnheader', { name: 'Cache', exact: true })).toHaveCount(0);
+  },
+});
+
+pages.push({
+  name: 'Releases', path: route('deploy/releases'), heading: 'Releases',
+  check: async page => {
+    const releases = refs.filter(ref => ref.name.startsWith('release/'));
+    await table(page, 'Releases', releases.length);
+    await expect(main(page).getByRole('button', { name: 'New release', exact: true })).toBeDisabled();
+    if (!releases.length) await text(page, 'No releases recorded.');
+  },
+});
+
 const checkDefinitions = Object.keys(config).filter(key => key.startsWith('check.'));
 const storedChecks = operations.flatMap(operation => {
   const data = operation.data;
@@ -404,8 +424,8 @@ pages.push(
     check: async page => {
       const envs = refs.filter(ref => ref.name.startsWith('env/'));
       await table(page, 'Environments', envs.length);
-      await expect(section(page, 'Other refs').locator('tbody tr')).toHaveCount(refs.length - envs.length);
-      for (const ref of refs) await text(page, ref.name);
+      await expect(section(page, 'Other refs').locator('tbody tr')).toHaveCount(refs.filter(ref => !ref.name.startsWith('env/') && !ref.name.startsWith('release/')).length);
+      for (const ref of refs.filter(ref => !ref.name.startsWith('release/'))) await text(page, ref.name);
     },
   },
   {

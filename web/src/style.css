@@ -274,9 +274,9 @@ table.diff tbody tr:hover td { background: inherit; }
 table.diff td.ln { width: 1%; color: var(--gray-700); text-align: right; user-select: none; padding: 0 8px; }
 table.diff td.sg { width: 1%; user-select: none; padding: 0 4px; }
 table.diff tr.a td { background: color-mix(in oklch, var(--green-900) 10%, transparent); }
-table.diff tr.a td.sg, table.diff tr.a td.tx { color: var(--green-900); }
+table.diff tr.a td.sg, table.diff tr.a td.tx { color: color-mix(in srgb, var(--green-900) 85%, var(--text)); }
 table.diff tr.d td { background: color-mix(in oklch, var(--red-900) 10%, transparent); }
-table.diff tr.d td.sg, table.diff tr.d td.tx { color: var(--red-900); }
+table.diff tr.d td.sg, table.diff tr.d td.tx { color: color-mix(in srgb, var(--red-900) 85%, var(--text)); }
 table.diff tr.h td { background: var(--bg-200); color: var(--text-2); padding: 4px 8px; }
 table.diff tr.cm td { white-space: normal; font-family: var(--sans); padding: 0; }
 .split-view { display: none; }
@@ -451,7 +451,7 @@ pre.code, .md pre { background: var(--surface-2); }
 .badge.warn { background: color-mix(in srgb, var(--amber-900) 16%, var(--surface)); border-color: transparent; }
 .badge.bad { background: color-mix(in srgb, var(--red-900) 14%, var(--surface)); border-color: transparent; }
 .badge.purple { color: var(--purple-900); background: color-mix(in srgb, var(--purple-900) 14%, var(--surface)); border-color: transparent; }
-.badge.blue { color: var(--blue-900); background: color-mix(in srgb, var(--blue-900) 14%, var(--surface)); border-color: transparent; }
+.badge.blue { color: color-mix(in srgb, var(--blue-900) 85%, var(--text)); background: color-mix(in srgb, var(--blue-900) 14%, var(--surface)); border-color: transparent; }
 .ref { background: color-mix(in srgb, var(--blue-900) 12%, var(--surface)); color: var(--blue-900); }
 .mark.open { color: var(--green-900); }
 
@@ -597,3 +597,7 @@ html:not(.cli) .cmd { display: inline-flex; margin-right: 10px; }
 .vd-main > .row { flex-wrap: wrap; }
 .vd-main > .row > .seg { max-width: 100%; overflow-x: auto; flex: none; }
 .vd-main > .row > .seg button { flex-shrink: 0; white-space: nowrap; }
+
+.line-group-toggle { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; background: none; border: 0; padding: 2px 0; color: var(--text); font: inherit; cursor: pointer; }
+.line-group td { background: var(--surface); }
+.pagehead h1 .release-name { font-size: inherit; }
