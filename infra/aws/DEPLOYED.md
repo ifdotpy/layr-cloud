@@ -110,6 +110,8 @@ This proves the gateway path through the executor. It does not prove public acce
 
 ## Verification evidence
 
+After merging reviewed layr-cloud main `c8ca115`, exact merge source `ac02cf44123eab3bebdaec15ca67480281f8e5d4` passed `cargo test --locked --workspace`: 62 passed, zero failed, eight environment-dependent tests ignored. CloudFormation lint and all 35 infrastructure tests passed. These checks ran from the exact Git archive in `layr-dev`; no deployed binaries or epoch routes were changed.
+
 - Gateway: 31 tests passed; one environment-dependent test ignored. Exact paper-slot proof/authority regression passed subsequently, commit `d4ecef0a743151467e62f9d3e4c177731f775a75`.
 - Infrastructure: 35 Python tests passed and cfn-lint passed. These include real btrfs volume checks, release validation, IAM boundaries and transfer failure ordering.
 - Real CLI, gateway and MinIO: private-project push and signed index publication passed. Proof precedes data listing; machines make no aggregate slot requests. Public-project push/index, invite registration, signature sign-in and encrypted v2 comment submission also passed. Test material was removed from `/run` after each run. Harness commit `44dfb110afb3b28fea25d9210113afbc32dcb80e`.
