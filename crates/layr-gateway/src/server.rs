@@ -1247,6 +1247,110 @@ mod tests {
     }
 
     #[test]
+    fn unlock_decoy_matches_real_age_structure_lengths_and_survives_restart() {
+        use base64::engine::general_purpose::STANDARD as B64;
+        fn shape(data: &[u8]) -> (Vec<String>, usize) {
+            assert!(age::Decryptor::new(data).is_ok());
+            let footer = data.windows(5).position(|v| v == b"\n--- ").unwrap() + 1;
+            let end = footer + data[footer..].iter().position(|b| *b == b'\n').unwrap() + 1;
+            let lines = std::str::from_utf8(&data[..end])
+                .unwrap()
+                .lines()
+                .map(|line| {
+                    if line.starts_with("-> ") {
+                        let words: Vec<_> = line.split(' ').collect();
+                        let kind = if words[1] == "X25519" {
+                            "X25519"
+                        } else {
+                            assert!(words[1].ends_with("-grease"));
+                            "GREASE"
+                        };
+                        format!(
+                            "stanza {kind} {:?}",
+                            words[1..].iter().map(|w| w.len()).collect::<Vec<_>>()
+                        )
+                    } else if line.starts_with("age-encryption.org/") {
+                        line.into()
+                    } else if line.starts_with("--- ") {
+                        format!("MAC {}", line.len())
+                    } else {
+                        format!("base64 {}", line.len())
+                    }
+                })
+                .collect();
+            (lines, data.len())
+        }
+        let mut f = Fixture::new();
+        f.config.people = Some(super::super::config::People {
+            bucket: "artifacts".into(),
+            region: "eu-north-1".into(),
+            prefix: "people/".into(),
+        });
+        std::fs::write(&f.path, serde_json::to_vec(&f.config).unwrap()).unwrap();
+        let identity = layr_store::keys::identity_from_secret(&[1; 32]).unwrap();
+        let recipient = layr_store::keys::recipient_of(&identity).unwrap();
+        let signing = layr_store::person::make_signing_keys(&recipient).unwrap();
+        assert_eq!(
+            api(
+                &f,
+                Some("ann@example.com"),
+                "PUT",
+                "/api/person",
+                "",
+                json!({
+                    "recipient":recipient,"paper":crate::decoy::PAPER.trim(),
+                    "signing_key":signing.public_key,"signing":crate::decoy::SIGNING.trim()
+                })
+            )
+            .status,
+            200
+        );
+        let known = f.request(
+            "GET",
+            "/api/person/unlock?login=ann%40example.com",
+            "",
+            b"",
+            None,
+        );
+        let path = "/api/person/unlock?login=missing%40example.com";
+        let missing = f.request("GET", path, "", b"", None);
+        assert_eq!((known.status, missing.status), (200, 200));
+        assert_eq!(known.body.len(), missing.body.len());
+        let decode = |reply: &Reply| -> serde_json::Value {
+            let outer: serde_json::Value = serde_json::from_slice(&reply.body).unwrap();
+            serde_json::from_slice(&B64.decode(outer["unlock"].as_str().unwrap()).unwrap()).unwrap()
+        };
+        let k = decode(&known);
+        let m = decode(&missing);
+        assert_eq!(
+            k["slots"].as_array().unwrap().len(),
+            m["slots"].as_array().unwrap().len()
+        );
+        for (real, decoy) in [
+            (&k["slots"][0]["data"], &m["slots"][0]["data"]),
+            (&k["signing"], &m["signing"]),
+        ] {
+            let real = B64.decode(real.as_str().unwrap()).unwrap();
+            let decoy = B64.decode(decoy.as_str().unwrap()).unwrap();
+            assert_eq!(shape(&real), shape(&decoy));
+            assert_ne!(real, decoy);
+        }
+        assert_eq!(missing.body, f.request("GET", path, "", b"", None).body);
+        let mut restarted = Fixture::new();
+        restarted.config.people = f.config.people.clone();
+        std::fs::write(
+            &restarted.path,
+            serde_json::to_vec(&restarted.config).unwrap(),
+        )
+        .unwrap();
+        restarted.gateway.person_secret = f.gateway.person_secret.clone();
+        assert_eq!(
+            missing.body,
+            restarted.request("GET", path, "", b"", None).body
+        );
+    }
+
+    #[test]
     fn public_sign_in_registration_decoys_and_session_identity() {
         use base64::engine::general_purpose::STANDARD as B64;
         let mut f = Fixture::new();

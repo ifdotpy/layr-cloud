@@ -3,6 +3,7 @@
 mod auth;
 mod aws;
 mod config;
+mod decoy;
 #[cfg(test)]
 mod minio;
 mod people;
