@@ -91,3 +91,38 @@ The pinned CLI records each line separately, including lines from `line new --co
 Unlock verifies all record metadata before the first page. The lines and refs first load for stores above 100,000 records (design section 4) is not built and not benchmarked. The lead accepted this limit for phase 1. A follow-up task will add this load path and a store index.
 
 Passkey tests check the salt and PRF bytes. A live authenticator has not been tested.
+
+## Person actions and comments
+
+The worker opens `people/<login>/signing.age` from the person response and checks the public key.
+The project must pin the same key with `layr access person-key`.
+Approve, withdraw, queue changes, ref moves, comments and replies all use `DataSource.submitRequest`.
+Each submission has one UUIDv7 ID. The UI waits for the verified operation or signed refusal record.
+An uncertain delivery can retry the same envelope and ID. It does not create another action.
+Comments use the model's folded records; line comments name an exact change state, path and line.
+
+The executor smoke test uses a disposable btrfs project in `layr-dev` and a disposable MinIO bucket.
+Build the gateway and fixture tools as described in `crates/layr-web/README.md`, then run:
+
+```sh
+cd web
+node tests/setup-actions-fixture.mjs
+```
+
+Use the printed folder as `ACTION_FIXTURE`:
+
+```sh
+LAYR_WEB_ACTION_FIXTURE="$ACTION_FIXTURE" \
+LAYR_WEB_ACTION_EXECUTOR="$ACTION_FIXTURE/apply.sh" \
+cargo test --manifest-path ../Cargo.toml -p layr-web real_executor_applies_browser_signatures -- --ignored --nocapture
+
+LAYR_WEB_ACTION_FIXTURE="$ACTION_FIXTURE" \
+LAYR_WEB_TEST_STORE="$ACTION_FIXTURE/store" \
+LAYR_WEB_TEST_PAPER="$ACTION_FIXTURE/paper" \
+LAYR_WEB_TEST_LINES="$ACTION_FIXTURE/lines.json" \
+node --experimental-strip-types tests/model-gateway.e2e.mjs
+```
+
+The browser check writes approve, thread, inline comment, refusal and queue screenshots,
+with axe reports, to `web/test-results/actions-live/` in three display modes.
+After both checks, run `$ACTION_FIXTURE/cleanup.sh` to unmount and remove its Linux project.

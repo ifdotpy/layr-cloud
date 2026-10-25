@@ -5,11 +5,11 @@ import { personLabel, shortText } from '../labels';
 
 // Preserve pending identities when a page or a version selection is reopened.
 const pending = new WeakMap<DataSource, Map<string, RequestStatus>>();
-export function RequestActionButton({source, project, action, label, command, onApplied, primary = false}: {
+export function RequestActionButton({source, project, action, label, command, onApplied, primary = false, disabled = false, requestKey}: {
   source: DataSource; project: string; action: RequestAction; label: string; command?: string;
-  onApplied?: () => void; primary?: boolean;
+  onApplied?: () => void; primary?: boolean; disabled?: boolean; requestKey?: string;
 }) {
-  const key = project + JSON.stringify(action);
+  const key = project + (requestKey ?? JSON.stringify(action));
   let requests = pending.get(source);
   if (!requests) { requests = new Map(); pending.set(source, requests); }
   const [request, setRequest] = useState<RequestStatus | undefined>(requests.get(key));
@@ -41,7 +41,7 @@ export function RequestActionButton({source, project, action, label, command, on
     finally { setSending(false); }
   }
   return <div class="request-action">
-    <button type="button" class={`btn${primary ? ' primary' : ''}`} disabled={!access?.available || sending || request?.status === 'pending'} onClick={send}>{sending ? 'Sending…' : label}</button>
+    <button type="button" class={`btn${primary ? ' primary' : ''}`} disabled={disabled || !access?.available || sending || request?.status === 'pending'} onClick={send}>{sending ? 'Sending…' : label}</button>
     {!access?.available && <p class="note">{access?.reason || accessError?.message || 'Checking your signing key…'}</p>}
     {request && <div class="request-outcome" role="status"><Status value={request.status} /> <span>{request.status === 'pending' ? 'Waiting for the executor.' : request.status === 'applied' ? 'Recorded by the executor.' : request.reason || 'The executor refused this request.'}</span><span class="note">Request <Mono>{request.id}</Mono></span>{request.status === 'pending' && request.reason && <p class="note">{request.reason}</p>}</div>}
     {request?.status === 'pending' && request.reason && <button class="btn" type="button" disabled={sending} onClick={async () => {
@@ -92,6 +92,6 @@ export function RefMove({source, project, name, expected, onApplied}: {source: D
   const [target, setTarget] = useState('');
   return <div class="stack-s"><label>Target state<input class="input mono" value={target} onInput={event => setTarget(event.currentTarget.value.trim())} /></label>
     <p class="note">Expected state: <Mono>{expected ?? 'none'}</Mono></p>
-    {target ? <RequestActionButton source={source} project={project} label={`Move ${name}`} action={{kind:'ref_move',name,target,expected}} command={`layr request ref-move ${name} ${target} --expect ${expected ?? 'none'} --person`} onApplied={onApplied} /> : <button class="btn" disabled>Move ref</button>}
+    <RequestActionButton source={source} project={project} label={`Move ${name}`} disabled={!target} requestKey={`ref:${name}`} action={{kind:'ref_move',name,target,expected}} command={`layr request ref-move ${name} ${target || '<state>'} --expect ${expected ?? 'none'} --person`} onApplied={onApplied} />
   </div>;
 }

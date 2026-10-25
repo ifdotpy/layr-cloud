@@ -37,7 +37,7 @@ export class FixtureSource implements DataSource {
   async submitRequest(_project: Id, _action: RequestAction): Promise<RequestStatus> { throw new Error('Actions need a connected store.'); }
   async retryRequest(_project: Id, _id: Id): Promise<RequestStatus> { throw new Error('Requests need a connected store.'); }
   async requestStatus(_project: Id, _id: Id): Promise<RequestStatus> { throw new Error('Requests need a connected store.'); }
-  async comments(project: Id, change: Id): Promise<Comment[]> { return (await this.changeShow(project, change) as Change & {comments?: Comment[]}).comments ?? []; }
+  async comments(project: Id, change: Id): Promise<Comment[]> { return (await this.changeShow(project, change)).comments ?? []; }
   private readonly values: Record<string, unknown>;
   private locked = false;
   constructor(files: Record<string, unknown>) {

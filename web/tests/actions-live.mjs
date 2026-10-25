@@ -91,7 +91,7 @@ export async function checkActions({page,site,project,actionFixture,store,person
   await page.reload();
   await page.getByLabel('Target state',{exact:true}).fill(feature.state);
   await action(page.getByRole('button',{name:'Move env/native-test',exact:true}));
-  assert.equal(submitted.length,8);
+  assert.equal(submitted.length,9);
   assert.deepEqual(new Set(submitted.map(row=>row.r.action.kind)),new Set(['approve','withdraw','comment','queue_add','queue_remove','ref_move']));
-  console.log(`PASS browser actions: ${submitted.length} real signed requests, 7 applied, 1 refused; 5 screens x ${views.length} views, axe and contrast; ${shots}`);
+  console.log(`PASS browser actions: ${submitted.length} real signed requests, 8 applied, 1 refused; 5 screens x ${views.length} views, axe and contrast; ${shots}`);
 }

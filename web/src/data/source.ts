@@ -121,6 +121,7 @@ export interface Operation {
 }
 /** `layr change show --json`. Version order is authoritative. */
 export interface Change {
+  comments?: Comment[];
   change_id: Id;
   versions: { version: string; state: State; attestations: Attestation[]; operation?: VersionOperation }[];
   behavior: Behavior;

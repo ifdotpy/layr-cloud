@@ -13,7 +13,6 @@ import {
   Mono,
   PageHead,
   ReadOnlyAction,
-  ReadOnlyNote,
   Section,
   Segments,
   Status,
