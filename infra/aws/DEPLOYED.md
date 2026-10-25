@@ -1,13 +1,13 @@
 # AWS deployment of Layr Cloud
 
-Measured state: 2026-10-25, 15:13 UTC. Three storage stacks are created. Host deployment awaits Tailscale enrollment keys. The current source uses encrypted v2 person requests; earlier release gates below are historical.
+Measured state: 2026-10-25, 17:00 UTC. Three storage stacks and the public IPv6 gateway host are created. Executor deployment is authorized with SSM administration. Tailscale enrollment is no longer required. Earlier tailnet plans and release gates below are historical.
 This file records the M8 deployment from `layr-cloud` base `e4fdf656a0cae5ada5e2e3c7ebaf2fbe372c5f8d`.
 The deployment branch is `cloud/m8-deploy`.
 
 ## Target and scope
 
 - AWS profile: `ifdotpy`; account: `134250228509`; region: `eu-north-1` (Stockholm).
-- Gateway URL: `https://cloud.layr.ws`, reachable through igor's tailnet.
+- Gateway URL: `https://cloud.layr.ws`, public IPv6 HTTPS.
 - Existing Route 53 zone: `Z00094863IAG61NP8YENE` (`layr.ws`). No new hosted zone is planned.
 - Allowed DNS changes: `cloud.layr.ws` and `_acme-challenge.cloud.layr.ws` only.
 - The `layr.ws` apex, `desk.layr.ws`, and the existing ACM validation record must stay unchanged.
@@ -17,7 +17,7 @@ The deployment branch is `cloud/m8-deploy`.
 
 ## Resources
 
-The storage stacks below reached `CREATE_COMPLETE`. Gateway and executor deployment awaits both auth-key parameter names.
+The storage stacks below reached `CREATE_COMPLETE`. Gateway and executor deployment no longer needs auth-key parameters.
 The five-stack plan was approved by the lead on 2026-10-25 at 12:04 UTC:
 
 | Stack | Planned resources |
@@ -25,8 +25,8 @@ The five-stack plan was approved by the lead on 2026-10-25 at 12:04 UTC:
 | `layr-bootstrap` | Retained, encrypted, versioned artifacts S3 bucket |
 | `layr-store-m8-smoke` | Separate disposable verification store bucket and exact reader, writer and GC roles |
 | `layr-store-layr` | Retained, encrypted, versioned project S3 bucket; reader, writer and GC roles; bucket policy |
-| `layr-gateway` | IPv6-only VPC and subnet, internet gateway, route table and IPv6 route, WireGuard security group, IAM role and instance profile, `t4g.nano` EC2 instance with 8 GiB gp3 root |
-| `layr-executor-layr` | WireGuard security group, IAM role and instance profile, `t4g.small` EC2 instance with 12 GiB gp3 root, retained encrypted 10 GiB gp3 btrfs volume and attachment |
+| `layr-gateway` | IPv6-only VPC and subnet, internet gateway, route table and IPv6 route, HTTPS-only security group, IAM role and instance profile, `t4g.nano` EC2 instance with 8 GiB gp3 root |
+| `layr-executor-layr` | No inbound rules; SSM administration; security group, IAM role and instance profile, `t4g.small` EC2 instance with 12 GiB gp3 root, retained encrypted 10 GiB gp3 btrfs volume and attachment |
 
 The hosts use standard CPU credits. No public IPv4 address, NAT gateway, load balancer, or new hosted zone is planned.
 
@@ -616,3 +616,90 @@ The disposable project, person recovery material, tokens and TLS test material s
 tmpfs on the trusted local VM. The test deletes them on completion. No real project keys are made.
 The local test uses MinIO and a Tailscale LocalAPI identity stand-in; it does not prove live AWS
 or real tailnet enrollment. Those M8 checks still require the Tailscale keys.
+
+
+## Public IPv6 gateway transition
+
+The lead's design `docs/public-gateway-design.md` at `f8e5e00` replaces the tailnet requirement.
+The worktree was rebased onto that origin/main before implementation. The approved base cost
+and instance sizes remain unchanged: gateway t4g.nano, executor t4g.small, approximately $18.21/month
+plus usage. There is no public IPv4 address or NAT gateway.
+
+The gateway security group permits only TCP 443 from `::/0`. The executor has no inbound rules.
+Both hosts install Amazon SSM Agent, attach `AmazonSSMManagedInstanceCore`, and enable its
+`Agent.UseDualStackEndpoint` option. Administration uses SSM Session Manager or Run Command;
+no SSH port or Tailscale key is required. The gateway publishes only the AAAA record for
+`cloud.layr.ws` and the ACME DNS challenge allowed by its scoped Route 53 policy.
+
+AWS source for the SSM setup: [Debian agent installation](https://docs.aws.amazon.com/systems-manager/latest/userguide/agent-install-deb.html)
+and [AWS's IPv6 agent configuration](https://github.com/aws/amazon-ecs-agent/blob/master/scripts/ecs-anywhere-install.sh).
+The package download uses the regional S3 dualstack endpoint. No inbound SSM port is needed.
+
+The Mac has no IPv6 and layr-dev has only an OrbStack ULA with no internet IPv6 route.
+Live IPv6 checks will therefore run from the executor through SSM. From networks without IPv6,
+the site needs an IPv4 front later, such as CloudFront or one public IPv4 address.
+
+Local implementation verification at 16:50 UTC: gateway tests 28 passed, 0 failed, 1 environment-dependent
+MinIO test ignored; infrastructure tests 32 passed; cfn-lint exited 0. The actual new gateway binary
+served both HTTPS HTTP/1.1 and HTTP/2 over `::1`, with a verified disposable TLS certificate.
+The same listener refused an IPv4 connection, confirming `IPV6_V6ONLY`. Its disposable TLS key lived
+only in a memfd; the descriptor was closed and tmpfs fixture removed. This is local protocol evidence,
+not a claim of AWS deployment or real ACME issuance.
+
+
+## Gateway host created
+
+`layr-gateway` reached CREATE_COMPLETE at 16:56 UTC from infrastructure commit `afa8573`.
+The deployed template SHA-256 at that point was
+`ea809ed76b974de9a27c3e3f4ae335a47390c401fd4a095482f95935043f86b4`.
+
+```text
+InstanceId i-04da10c290655544f
+InstanceType t4g.nano
+State running
+IPv6 2a05:d016:df9:4000:8463:e4d6:66bb:c15f
+PublicIPv4 null
+VpcId vpc-0c5b8b1792383ecf5
+SubnetId subnet-07f9b77a10c790951
+AvailabilityZone eu-north-1a
+RouteTableId rtb-07dfadc754796fa35
+RoleArn arn:aws:iam::134250228509:role/layr-gateway
+SSM PingStatus Online
+SSM AgentVersion 3.3.5538.0
+```
+
+SSM command `215507be-ae40-45fb-a5eb-512ea41f582e` succeeded: SSM agent and the release-sync timer
+are active; an HTTPS request using `curl -6` to the regional S3 dualstack endpoint returned 307.
+Cloud-init reported a scripts-user error and early recoverable IPv6 metadata route warnings.
+The final release and gateway configuration have not yet been published, so service readiness and
+ACME are not claimed. The failing bootstrap step will be inspected and the sync rerun after publication.
+
+
+## Public signature gateway implementation
+
+The shared signature helper is now on merged Layr main `2007480315e6bb48a06a686e8badaa4dc5266cbd`.
+The cloud crates are repinned to it. The gateway imports its canonical session message format;
+there is no independent signature-byte implementation in the gateway or browser.
+
+The gateway uses a random 32-byte, one-minute, single-use challenge and a login-bound 12-hour session.
+Only token hashes are retained in RAM. Session identity replaces the network login on every person
+route. Registration requires an unused seven-day invite for that login and does not grant a session
+until the new key proves a fresh challenge. Existing registrations cannot be overwritten.
+Unlock and sign-in routes share a 12/minute socket-address limit; all routes have a 600/minute limit.
+The bootstrap has one fixed-size base64 field (65536 decoded bytes), with no person index or inbox.
+Known and unknown logins return the same status, outer keys and response size. Unknown decoys use a
+persistent HMAC key in `/layr-store/gateway/session-secret`, fetched only into gateway memory.
+No secret or raw token goes in source, a configuration file, a log or a command argument.
+
+The administrator's invite command sends the raw invite directly to a new SecureString and prints
+only its parameter name. Service write-token issuance supports the same memory-to-SSM path.
+The gateway role can read only the decoy secret and can write only invite and the exact service-token
+parameters. The executor can read only its own service write token; explicit IAM denies narrow the
+broader parameter-read grant in the SSM managed agent policy.
+
+The last workspace test with the development source override passed 52 tests, 0 failed, 5 ignored;
+the gateway portion passed 28 tests, 0 failed, 1 ignored. Template lint and all 32 then-current Python
+tests passed. The exact-main locked gateway check then passed 28 tests, 0 failed, 1 ignored; cfn-lint exited 0
+and all 33 infrastructure tests passed, including persisted-secret handling.
+SSM bootstrap inspection confirmed the gateway sync failure is `NoSuchKey` for the not-yet-published
+release manifest, not an IPv6 or SSM connectivity failure. Timer retry remains active.

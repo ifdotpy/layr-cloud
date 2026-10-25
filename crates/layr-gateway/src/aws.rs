@@ -199,6 +199,80 @@ impl Aws {
         Ok(credentials)
     }
 
+    fn ssm(
+        &self,
+        region: &str,
+        operation: &str,
+        value: serde_json::Value,
+    ) -> Result<serde_json::Value> {
+        let credentials = self.instance()?;
+        let host = format!("ssm.{region}.api.aws");
+        let data = serde_json::to_vec(&value)?;
+        let target = format!("AmazonSSM.{operation}");
+        let headers = [
+            ("content-type", "application/x-amz-json-1.1"),
+            ("x-amz-target", target.as_str()),
+        ];
+        let signed = aws::sign(
+            &aws::Request {
+                method: "POST",
+                host: &host,
+                path: "/",
+                query: &[],
+                headers: &headers,
+                payload_sha256: &hex::encode(Sha256::digest(&data)),
+            },
+            &credentials,
+            region,
+            "ssm",
+            auth::now() / 1000,
+        );
+        let mut request = self
+            .http
+            .post(format!("https://{host}/"))
+            .body(data)
+            .timeout(Duration::from_secs(30));
+        for (name, value) in headers {
+            request = request.header(name, value);
+        }
+        for (name, value) in signed {
+            request = request.header(name, value);
+        }
+        let response = request.send().map_err(reqwest::Error::without_url)?;
+        anyhow::ensure!(
+            response.status().is_success(),
+            "SSM operation failed (HTTP {})",
+            response.status().as_u16()
+        );
+        Ok(serde_json::from_slice(&body(response, 32 * 1024)?)?)
+    }
+
+    pub fn put_secure_parameter(
+        &self,
+        region: &str,
+        name: &str,
+        value: &str,
+        overwrite: bool,
+    ) -> Result<()> {
+        self.ssm(region,"PutParameter",serde_json::json!({"Name":name,"Type":"SecureString","Value":value,"Overwrite":overwrite}))?;
+        Ok(())
+    }
+
+    pub fn session_secret(&self, region: &str) -> Result<[u8; 32]> {
+        let value = self.ssm(
+            region,
+            "GetParameter",
+            serde_json::json!({"Name":"/layr-store/gateway/session-secret","WithDecryption":true}),
+        )?;
+        let data = hex::decode(
+            value["Parameter"]["Value"]
+                .as_str()
+                .context("missing gateway secret")?,
+        )?;
+        data.try_into()
+            .map_err(|_| anyhow!("invalid gateway secret length"))
+    }
+
     fn credentials(&self, project: &Project, role: Role) -> Result<Credentials> {
         #[cfg(debug_assertions)]
         if let Some((_, credentials)) = &self.test {

@@ -137,6 +137,32 @@ impl<B: Bucket> People<B> {
         )
     }
 
+    /// Unlock bootstrap excludes the index and inbox and bounds the public response.
+    pub fn unlock(&self, login: &str) -> Result<Option<Value>> {
+        let Some(record) = self.record(login)? else {
+            return Ok(None);
+        };
+        let under = self.key(login, "slots/");
+        let names = self.bucket.list(&under)?;
+        if names.len() > crate::session::SLOT_COUNT {
+            return fail(502, "too many person slots");
+        }
+        let mut slots = Vec::new();
+        for name in names {
+            let Some(data) = self.read(&name)? else {
+                continue;
+            };
+            if data.len() > 4096 {
+                return fail(502, "person slot exceeds limit");
+            }
+            slots.push(json!({"name":name[under.len()..].trim_end_matches(".age"),"data":STANDARD.encode(data)}));
+        }
+        Ok(Some(
+            json!({"login":login,"recipient":record.recipient,"slots":slots,
+            "signing_key":record.signing_key,"signing":self.read(&self.key(login,"signing.age"))?.map(|v|STANDARD.encode(v))}),
+        ))
+    }
+
     /// Register a person key: its recipient and its paper slot. Once only; the same recipient
     /// again is fine (true when it is new).
     pub fn register(
@@ -263,6 +289,9 @@ impl<B: Bucket> People<B> {
             return fail(400, "only passkey slots change here");
         }
         let body = slot_bytes(data)?;
+        if self.bucket.list(&self.key(login, "slots/"))?.len() >= crate::session::SLOT_COUNT {
+            return fail(429, "person has the maximum number of slots");
+        }
         if !self
             .bucket
             .put_new(&self.key(login, &format!("slots/{name}.age")), body)?

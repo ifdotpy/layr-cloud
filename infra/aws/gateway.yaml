@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Layr store gateway (infra/aws/README.md) - one IPv6-only Graviton host in the tailnet.
+Description: Layr store gateway (infra/aws/README.md) - one IPv6-only Graviton public HTTPS host with SSM administration.
 
 Parameters:
   ArtifactsBucket:
@@ -28,10 +28,7 @@ Parameters:
     Type: String
     AllowedPattern: "(Z[A-Z0-9]{1,32})?"
     Default: ""
-  AuthKeyParameter:
-    Type: String
-    AllowedPattern: '/[A-Za-z0-9_./-]+'
-    Default: /layr-store/gateway/tailscale-auth-key
+
 
 Rules:
   HostAndZone:
@@ -97,17 +94,16 @@ Resources:
       SubnetId: !Ref Subnet
       RouteTableId: !Ref Routes
 
-  # Nothing comes in except WireGuard, which answers only tailnet peers; the gateway listens on the
-  # tailnet address only.
+  # Public IPv6 HTTPS only. Administration uses outbound SSM channels.
   SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Layr store gateway
       VpcId: !Ref Vpc
       SecurityGroupIngress:
-        - IpProtocol: udp
-          FromPort: 41641
-          ToPort: 41641
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
           CidrIpv6: "::/0"
       SecurityGroupEgress:
         - IpProtocol: "-1"
@@ -125,6 +121,7 @@ Resources:
             Principal:
               Service: ec2.amazonaws.com
             Action: sts:AssumeRole
+      ManagedPolicyArns: [!Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"]
       Policies:
         - PolicyName: layr-gateway
           PolicyDocument:
@@ -146,8 +143,15 @@ Resources:
                 Action: sts:AssumeRole
                 Resource: !Ref StoreRoleArns
               - Effect: Allow
-                Action: ssm:GetParameter
-                Resource: !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${AuthKeyParameter}"
+                Action: ssm:PutParameter
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/layr-store/invites/*"
+                  - !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/layr-store/gateway/session-secret"
+                  - !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/layr-store/executor/write-token"
+                  - !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/layr-store/runner/write-token"
+              - Effect: Deny
+                Action: [ssm:GetParameter, ssm:GetParameters, ssm:GetParametersByPath]
+                NotResource: !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/layr-store/gateway/session-secret"
               # Only the host's address and its ACME challenge.
               - !If
                 - HasZone
@@ -217,27 +221,27 @@ Resources:
           set -euo pipefail
           umask 022
           export DEBIAN_FRONTEND=noninteractive
-          fallocate -l 512M /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
-          echo "/swapfile none swap sw 0 0" >> /etc/fstab
           for try in 1 2 3 4 5; do apt-get update && break || sleep 15; done
           apt-get install -y --no-install-recommends ca-certificates curl python3-boto3 \
             certbot python3-certbot-dns-route53 unattended-upgrades
-          curl -fsSL https://pkgs.tailscale.com/stable/debian/trixie.noarmor.gpg \
-            -o /usr/share/keyrings/tailscale-archive-keyring.gpg
-          curl -fsSL https://pkgs.tailscale.com/stable/debian/trixie.tailscale-keyring.list \
-            -o /etc/apt/sources.list.d/tailscale.list
-          apt-get update
-          apt-get install -y tailscale
+          mkdir -p /etc/amazon/ssm
+          cat > /etc/amazon/ssm/amazon-ssm-agent.json <<'EOF'
+          {"Agent":{"UseDualStackEndpoint":true}}
+          EOF
+          curl -fSsL --retry 5 https://s3.dualstack.${AWS::Region}.amazonaws.com/amazon-ssm-${AWS::Region}/latest/debian_arm64/amazon-ssm-agent.deb -o /tmp/amazon-ssm-agent.deb
+          dpkg -i /tmp/amazon-ssm-agent.deb
+          rm /tmp/amazon-ssm-agent.deb
+          systemctl enable --now amazon-ssm-agent
           cat > /etc/apt/apt.conf.d/52layr-gateway <<'EOF'
           APT::Periodic::Update-Package-Lists "1";
           APT::Periodic::Unattended-Upgrade "1";
-          Unattended-Upgrade::Origins-Pattern:: "origin=Tailscale";
           Unattended-Upgrade::Automatic-Reboot "true";
           Unattended-Upgrade::Automatic-Reboot-Time "04:30";
           EOF
+          ln -sfn /opt/layr-gateway/current/layr-gateway /usr/local/bin/layr-cloud
           mkdir -p /etc/layr-gateway
           cat > /etc/layr-gateway/source.json <<'EOF'
-          {"kind": "gateway", "hostname": "${TailnetHostname}", "bucket": "${ArtifactsBucket}", "region": "${AWS::Region}", "authKeyParameter": "${AuthKeyParameter}"}
+          {"kind": "gateway", "hostname": "${TailnetHostname}", "bucket": "${ArtifactsBucket}", "region": "${AWS::Region}", "network": "public-ipv6"}
           EOF
           export AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE=IPv6 AWS_USE_DUALSTACK_ENDPOINT=true
           cat > /usr/local/lib/layr-cloud-bootstrap.py <<'EOF'
@@ -271,7 +275,7 @@ Resources:
           cat > /etc/systemd/system/layr-gateway-sync.service <<'EOF'
           [Unit]
           Description=Layr gateway first boot and release sync
-          After=network-online.target tailscaled.service
+          After=network-online.target
           Wants=network-online.target
           [Service]
           Type=oneshot

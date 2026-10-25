@@ -79,6 +79,17 @@ fn arguments(args: impl IntoIterator<Item = String>) -> Result<Option<Args>> {
 }
 
 fn run() -> Result<()> {
+    let raw = std::env::args().skip(1).collect::<Vec<_>>();
+    if raw.first().is_some_and(|arg| arg == "invite") {
+        let binary = std::env::var_os("LAYR_GATEWAY_BINARY")
+            .unwrap_or_else(|| "/opt/layr-gateway/current/layr-gateway".into());
+        let status = std::process::Command::new(binary)
+            .args(&raw)
+            .status()
+            .context("run invite on the gateway through SSM")?;
+        anyhow::ensure!(status.success(), "invite creation failed");
+        return Ok(());
+    }
     let Some(args) = arguments(std::env::args().skip(1))? else {
         println!("Usage: {USAGE}");
         return Ok(());

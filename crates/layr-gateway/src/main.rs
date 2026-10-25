@@ -1,4 +1,4 @@
-//! Tailnet object gateway. It runs independently of the local Layr service and store.
+//! Public IPv6 object gateway. It runs independently of the local Layr service and store.
 
 mod auth;
 mod aws;
@@ -10,8 +10,11 @@ mod person_support;
 mod public;
 mod requests;
 mod server;
+mod session;
 mod site;
 mod tls;
+mod transport;
+#[cfg(test)]
 mod whois;
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -24,6 +27,7 @@ struct Options {
     key: Option<PathBuf>,
     tls_dir: PathBuf,
     test_static: bool,
+    ssm_parameter: Option<String>,
     tailscale_socket: PathBuf,
 }
 
@@ -40,6 +44,9 @@ fn command(args: &[String]) -> Result<()> {
         println!("usage: layr-gateway serve [options]\n       layr-gateway token <project> --write|--gc [options]");
         return Ok(());
     }
+    if args[0] == "invite" {
+        return invite_command(&args[1..]);
+    }
     if !matches!(args[0].as_str(), "serve" | "token") {
         bail!("expected serve or token");
     }
@@ -52,7 +59,8 @@ fn command(args: &[String]) -> Result<()> {
         key: None,
         tls_dir: "/etc/layr-gateway/tls".into(),
         test_static: false,
-        tailscale_socket: whois::SOCKET.into(),
+        ssm_parameter: None,
+        tailscale_socket: "/var/run/tailscale/tailscaled.sock".into(),
     };
     let mut positional = Vec::new();
     let mut write = false;
@@ -66,7 +74,7 @@ fn command(args: &[String]) -> Result<()> {
             "--gc" => gc = true,
             "--test-static-credentials" if cfg!(debug_assertions) => options.test_static = true,
             "--config" | "--tls" | "--cert" | "--key" | "--tls-dir" | "--until"
-            | "--tailscale-socket" => {
+            | "--tailscale-socket" | "--ssm-parameter" => {
                 index += 1;
                 let value = args
                     .get(index)
@@ -79,6 +87,7 @@ fn command(args: &[String]) -> Result<()> {
                     "--tls-dir" => options.tls_dir = value.into(),
                     "--tailscale-socket" => options.tailscale_socket = value.into(),
                     "--until" => until = value.clone(),
+                    "--ssm-parameter" => options.ssm_parameter = Some(value.clone()),
                     _ => unreachable!(),
                 }
             }
@@ -101,16 +110,84 @@ fn command(args: &[String]) -> Result<()> {
         }
         let token = auth::issue(gc, auth::duration(&until)?, auth::now())?;
         config::add_hash(&options.config, project, auth::hash(&token), gc)?;
-        println!("{token}");
+        if let Some(parameter) = options.ssm_parameter {
+            anyhow::ensure!(
+                rustix::process::geteuid().is_root(),
+                "store service tokens as the gateway administrator"
+            );
+            anyhow::ensure!(
+                matches!(
+                    parameter.as_str(),
+                    "/layr-store/executor/write-token" | "/layr-store/runner/write-token"
+                ),
+                "unexpected service token parameter"
+            );
+            let config = config::ConfigFile::new(options.config.clone()).get()?;
+            let region = &config
+                .projects
+                .get(project)
+                .context("unknown project")?
+                .region;
+            aws::Aws::new(false)?.put_secure_parameter(region, &parameter, &token, true)?;
+            println!("Service write token stored in SSM parameter {parameter}");
+        } else {
+            println!("{token}");
+        }
         return Ok(());
     }
-    if !positional.is_empty() || write || gc || until != "24h" {
+    if !positional.is_empty() || write || gc || until != "24h" || options.ssm_parameter.is_some() {
         bail!("invalid gateway server arguments");
     }
     if rustix::process::geteuid().is_root() {
         bail!("layr-gateway refuses to run as root; use a dedicated service user");
     }
     run(options)
+}
+
+fn invite_command(args: &[String]) -> Result<()> {
+    use server::Storage;
+    let login = args
+        .first()
+        .context("usage: layr-cloud invite <login> --ssm-parameter <name> [--config <file>]")?;
+    anyhow::ensure!(
+        layr_store::person::login_name(login),
+        "invalid person login"
+    );
+    anyhow::ensure!(
+        rustix::process::geteuid().is_root(),
+        "create invites as the gateway administrator through SSM"
+    );
+    let mut path = PathBuf::from("/etc/layr-gateway/config.json");
+    let mut parameter = None;
+    let mut flags = args[1..].chunks_exact(2);
+    for pair in &mut flags {
+        match pair[0].as_str() {
+            "--config" => path = pair[1].clone().into(),
+            "--ssm-parameter" if parameter.is_none() => parameter = Some(pair[1].clone()),
+            _ => bail!("invalid invite option"),
+        }
+    }
+    anyhow::ensure!(flags.remainder().is_empty(), "invite option needs a value");
+    let parameter = parameter.context("give --ssm-parameter; the invite is never printed")?;
+    anyhow::ensure!(
+        parameter.starts_with("/layr-store/invites/")
+            && parameter.len() < 512
+            && parameter
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b"_./-".contains(&b)),
+        "invalid invite parameter name"
+    );
+    let config = config::ConfigFile::new(path).get()?;
+    let people = config
+        .people
+        .as_ref()
+        .context("people storage is not configured")?;
+    let storage = aws::Aws::new(false)?;
+    let bucket = storage.people(people)?;
+    let token = session::invite(bucket.as_ref(), &people.prefix, login, auth::now())?;
+    storage.put_secure_parameter(&people.region, &parameter, &token, false)?;
+    println!("Invite stored in SSM parameter {parameter}; expires in 7 days");
+    Ok(())
 }
 
 fn run(options: Options) -> Result<()> {
@@ -170,154 +247,48 @@ fn allowed_address(ip: std::net::IpAddr) -> bool {
             let b = ip.octets();
             b[0] == 100 && (64..128).contains(&b[1])
         }
-        std::net::IpAddr::V6(ip) => ip.segments()[..3] == [0xfd7a, 0x115c, 0xa1e0],
-    }
-}
-
-trait Wire: std::io::Read + std::io::Write {
-    fn begin_response(&mut self, timeout: std::time::Duration);
-}
-impl Wire for layr_store::http::Socket {
-    fn begin_response(&mut self, timeout: std::time::Duration) {
-        self.begin_write(timeout);
-    }
-}
-impl Wire for rustls::StreamOwned<rustls::ServerConnection, layr_store::http::Socket> {
-    fn begin_response(&mut self, timeout: std::time::Duration) {
-        self.sock.begin_write(timeout);
-    }
-}
-
-fn answer<W: Wire>(
-    stream: &mut W,
-    gateway: &server::Gateway,
-    limits: &layr_store::http::Limits,
-    login: Option<&str>,
-    peer: std::net::IpAddr,
-) -> Result<()> {
-    let mut head = false;
-    let reply = match layr_store::http::request(stream, limits) {
-        Ok(request) => {
-            head = request.method == "HEAD";
-            gateway.handle_from(request, login, peer)
+        std::net::IpAddr::V6(ip) => {
+            (ip.segments()[0] & 0xe000) == 0x2000 || ip.segments()[..3] == [0xfd7a, 0x115c, 0xa1e0]
         }
-        Err(error) => server::Reply::error(error.status, error.message),
-    };
-    stream.begin_response(limits.write_timeout);
-    if head {
-        layr_store::http::headers(
-            stream,
-            reply.status,
-            reply.body.len() as u64,
-            &reply.headers,
-        )?;
-        stream.flush()?;
-    } else {
-        layr_store::http::response(stream, reply.status, &reply.headers, &reply.body)?;
     }
-    Ok(())
 }
 
-fn serve(options: Options, storage: std::sync::Arc<dyn server::Storage>) -> Result<()> {
-    use std::sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
-    };
-    use std::time::Duration;
+fn serve(options: Options, storage: std::sync::Arc<aws::Aws>) -> Result<()> {
+    use std::sync::Arc;
     let file = Arc::new(config::ConfigFile::new(options.config.clone()));
     let config = file.get()?;
     if !allowed_address(config.listen.ip()) {
-        bail!("gateway listen must use a tailnet or loopback address");
+        bail!("gateway listen must use IPv6 or a loopback address");
     }
     let tls = tls_config(&options, &config)?;
     if options.test_static && !config.listen.ip().is_loopback() {
         bail!("test credentials require loopback");
     }
-    let listener =
-        std::net::TcpListener::bind(config.listen).context("bind gateway listen address")?;
-    let limits = layr_store::http::Limits {
-        request_line: 4096,
-        header_count: 64,
-        header_bytes: 16 * 1024,
-        body_bytes: server::OBJECT_LIMIT,
-        header_timeout: Duration::from_secs(15),
-        body_timeout: Duration::from_secs(120),
-        write_timeout: Duration::from_secs(60),
+    let secret = if let Some(region) = config
+        .extra
+        .get("sessionSecretRegion")
+        .and_then(|v| v.as_str())
+    {
+        storage.session_secret(region)?
+    } else {
+        anyhow::ensure!(
+            config.listen.ip().is_loopback(),
+            "public gateway needs a persistent SSM session secret"
+        );
+        rand::random()
     };
     let gateway = Arc::new(server::Gateway {
         config: file,
         listen: config.listen,
         proof: auth::Proof::new(),
         storage,
-        person_secret: Arc::new(rand::random()),
+        person_secret: Arc::new(secret),
         person_writing: Arc::new(std::sync::Mutex::new(())),
         public_limit: public::Limiter::default(),
+        sessions: session::Sessions::default(),
+        bootstrap_limit: public::Limiter::default(),
     });
-    let active = Arc::new(AtomicUsize::new(0));
-    eprintln!("layr-gateway: listening on {}", config.listen);
-    for incoming in listener.incoming() {
-        let stream = match incoming {
-            Ok(stream) => stream,
-            Err(error) => {
-                eprintln!("layr-gateway: accept failed: {error}");
-                continue;
-            }
-        };
-        if active.load(Ordering::Acquire) >= 4 {
-            continue;
-        }
-        if let Err(error) = limits.configure(&stream) {
-            eprintln!("layr-gateway: socket setup failed: {error}");
-            continue;
-        }
-        active.fetch_add(1, Ordering::AcqRel);
-        let (active, gateway, tls) = (active.clone(), gateway.clone(), tls.clone());
-        let tailscale_socket = options.tailscale_socket.clone();
-        std::thread::spawn(move || {
-            struct Slot(Arc<AtomicUsize>);
-            impl Drop for Slot {
-                fn drop(&mut self) {
-                    self.0.fetch_sub(1, Ordering::AcqRel);
-                }
-            }
-            let _slot = Slot(active);
-            let _ = (|| -> Result<()> {
-                let peer = stream.peer_addr()?.ip();
-                let login = stream.peer_addr().ok().and_then(|address| {
-                    match whois::login(&tailscale_socket, address) {
-                        Ok(login) => login,
-                        Err(_) => {
-                            eprintln!("layr-gateway: tailscaled cannot identify caller");
-                            None
-                        }
-                    }
-                });
-                let mut socket = layr_store::http::Socket::new(stream, Duration::from_secs(10));
-                match tls {
-                    Some(tls) => {
-                        let mut connection = rustls::ServerConnection::new(tls)?;
-                        while connection.is_handshaking() {
-                            connection.complete_io(&mut socket)?;
-                        }
-                        socket.begin_read(
-                            limits.header_timeout + limits.body_timeout,
-                            limits.header_timeout,
-                        );
-                        let mut stream = rustls::StreamOwned::new(connection, socket);
-                        answer(&mut stream, &gateway, &limits, login.as_deref(), peer)
-                    }
-                    None => {
-                        socket.begin_read(
-                            limits.header_timeout + limits.body_timeout,
-                            limits.header_timeout,
-                        );
-                        answer(&mut socket, &gateway, &limits, login.as_deref(), peer)
-                    }
-                }
-            })();
-        });
-    }
-    Ok(())
+    transport::serve(config.listen, gateway, tls)
 }
 
 #[cfg(test)]
@@ -353,7 +324,8 @@ mod tests {
             key: None,
             tls_dir: "unused".into(),
             test_static: false,
-            tailscale_socket: whois::SOCKET.into(),
+            ssm_parameter: None,
+            tailscale_socket: "/var/run/tailscale/tailscaled.sock".into(),
         };
         assert!(tls_config(&options, &config).is_err());
     }
