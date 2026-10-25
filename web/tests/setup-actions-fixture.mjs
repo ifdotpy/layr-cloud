@@ -22,12 +22,12 @@ const source=`#!/bin/bash\nset -euo pipefail\nexport LAYR_ROOT=${quote(vmRoot+'/
 await writeFile(path.join(home,'executor.sh'),source,{mode:0o700});
 orb('cp','/mnt/mac'+path.join(home,'executor.sh'),executor);
 orb('chmod','+x',executor);
-orb('cp','-R','/mnt/mac'+path.join(home,'store/slots/.'),vmRoot+'/archive/slots/');
+orb('cp','-R','/mnt/mac'+path.join(home,'store/slots')+'/.',vmRoot+'/archive/slots/');
 const publicKey=(await readFile(path.join(home,'person/signing-public.txt'),'utf8')).trim();
 for(const args of [['access','person-key','owner@example.com',publicKey],['access','grant','person:owner@example.com','maintainer'],['config','check.browser-required','false'],['protect','main','--approvers','person:owner@example.com','--approvals','1','--check','browser-required'],['push','store','-q']]) orb(executor,...args);
 orb('cp','-R',vmRoot+'/archive/.','/mnt/mac'+path.join(home,'store/'));
 orb('mkdir','-p',vmRoot+'/archive/requests');
-const apply=`#!/bin/bash\nset -euo pipefail\norb -m layr-dev -u root cp -R ${quote('/mnt/mac'+path.join(home,'store/requests/.'))} ${quote(vmRoot+'/archive/requests/')}\norb -m layr-dev -u root ${quote(executor)} requests apply --remote store --json\norb -m layr-dev -u root ${quote(executor)} push store -q\norb -m layr-dev -u root cp -R ${quote(vmRoot+'/archive/.')} ${quote('/mnt/mac'+path.join(home,'store/'))}\n`;
+const apply=`#!/bin/bash\nset -euo pipefail\norb -m layr-dev -u root cp -R ${quote('/mnt/mac'+path.join(home,'store/requests')+'/.')} ${quote(vmRoot+'/archive/requests/')}\norb -m layr-dev -u root ${quote(executor)} requests apply --remote store --json\norb -m layr-dev -u root ${quote(executor)} push store -q\norb -m layr-dev -u root cp -R ${quote(vmRoot+'/archive/.')} ${quote('/mnt/mac'+path.join(home,'store/'))}\n`;
 await writeFile(path.join(home,'apply.sh'),apply,{mode:0o700});
 await writeFile(path.join(home,'executor.json'),JSON.stringify({vmRoot,binary}));
 await writeFile(path.join(home,'cleanup.sh'),`#!/bin/bash\nset -euo pipefail\norb -m layr-dev -u root umount ${quote(vmRoot+'/store')}\norb -m layr-dev -u root rm -rf ${quote(vmRoot)} ${quote(vmScript)} ${quote(vmScript+'.log')}\n`,{mode:0o700});
