@@ -1,6 +1,6 @@
 # AWS deployment of Layr Cloud
 
-Measured state: 2026-10-25, 12:56 UTC. The lead approved deployment; the three storage stacks are created. Tailnet host enrollment is pending.
+Measured state: 2026-10-25, 13:48 UTC. Three storage stacks are created. Host deployment awaits Tailscale enrollment keys and encrypted v2 person-request support.
 This file records the M8 deployment from `layr-cloud` base `e4fdf656a0cae5ada5e2e3c7ebaf2fbe372c5f8d`.
 The deployment branch is `cloud/m8-deploy`.
 
@@ -502,3 +502,47 @@ Both web workers received the published branch and route contracts.
 Further verified pushes to this branch are authorized; main pushes and merges remain excluded.
 Static ARM64 release builds for the final dependency pin have started. Host deployment still waits
 for the two Tailscale SSM parameter names, and the runner additionally needs its own tagged key.
+
+## Static ARM64 preparation artifacts at b337229
+
+Both release builds completed successfully from the pinned source and current gateway changes.
+The stripped Layr binary reports `layr version 0.2.0`. The real host archive validator accepted both archives;
+its static ELF checks verify AArch64 with no dynamic interpreter. `readelf` also confirmed those properties.
+Artifacts are in `/root/work/m8-release-b337229` in the trusted local `layr-dev` VM:
+
+| Kind | Binary SHA-256 | Archive SHA-256 | Validated files |
+| --- | --- | --- | ---: |
+| Gateway | `1bdbe10a98637451184bd06be7806c3d05f70cb3aa92303f9425aadfd9f1f8da` | `47dcf23c91fbd5109a1eaf29bf054067ab576dba902d5a043000e950fb07fca0` | 11 |
+| Executor | `80355507d7727490327fa27099eb60ed0d14b6733a6daac50537eb199ca563f7` | `c2e79779db81efaead96c7df170189193e1a95a2594f7d5772e9d0089dfe0136` | 3 |
+
+The gateway archive includes the site built with the b337229 shared dependencies.
+The executor archive includes the static CLI, sync script and host check/index loop.
+An actual HTTP smoke check of the stripped release gateway as `nobody` served the new production site:
+
+```text
+GET / => 200; 635 bytes; site CSP present
+HEAD / => 200; Content-Length=635; no body
+GET /assets/index-CO9mJLnI.js => 200; text/javascript; charset=utf-8; 2092661 bytes
+GET /assets/index-BWGCPk8t.css => 200; text/css; charset=utf-8; 32154 bytes
+GET WASM => 200; 4316443 bytes; wasm signature verified
+GET /api/missing => 404; no SPA fallback
+GET /v1/missing => 404; no SPA fallback
+GET /missing.js => 404; no SPA fallback
+GET /%2e%2e/etc/passwd => 400; no SPA fallback
+GET /assets%2f..%2findex.html => 400; no SPA fallback
+Wrong Host => 421; direct API/site host boundary preserved
+```
+
+## Deployment hold for encrypted person requests
+
+At 13:47 UTC the lead required a new v2 request object encrypted to the current project recipient.
+The outer person signature covers `layr/request/v2\0 || ciphertext`. The gateway will validate that
+signature and the person, project and path bindings without reading the request plaintext.
+The native shared v2 implementation is assigned separately. Gateway integration will follow its exact commit/API.
+The gateway must refuse v1 person request bodies once v2 is integrated. Claims keep the current contract.
+
+The b337229 archives above are preparation artifacts and contain the old v1 request route.
+**Do not deploy them.** Host deployment must wait for the v2 shared commit, matching gateway checks and tests,
+and rebuilt release artifacts. This hold also applies if the Tailscale keys arrive first.
+No v1 person request route has been deployed to AWS; both project stores remain uninitialized.
+The later epoch gateway extension also waits for its assigned merged main revision and client contract.

@@ -535,6 +535,15 @@ The Layr service and transfer operations wait until `/etc/layr-executor/ready` e
 First boot enables the transfer timer.
 Use the following profile to add the executor machine slot.
 
+## Person request release gate
+
+Use a release with encrypted v2 person requests before deploying the request route.
+The gateway must verify the outer person signature and refuse plaintext v1 request bodies.
+The prepared b337229 artifacts predate this change and must not be deployed.
+Wait for the shared v2 source commit, update the gateway validator and dependency pin, run the request tests,
+and rebuild the release artifacts. Claims keep their existing machine-writer contract.
+See [DEPLOYED.md](DEPLOYED.md) for the current hold and verified preparation artifacts.
+
 ## Configure the executor profile
 
 Issue the executor write token and send it directly to SSM from the administration machine.
