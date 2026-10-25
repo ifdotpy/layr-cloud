@@ -10,7 +10,7 @@ import {observePersistence,expectNoPersistence} from './storage.ts';
 export async function checkSignin({browser,site,words,invite,personLogin,root,nativeSession,port,person}){
  const output=path.join(root,'web/test-results/signin-live');await mkdir(output,{recursive:true});
  if(nativeSession){
-  execFileSync('orb',['-m','layr-dev','-u','root',nativeSession,`http://localhost:${port}`,personLogin,'/mnt/mac'+path.join(person,'recovery.txt')],{stdio:'pipe'});
+  execFileSync(path.join(root,'target/debug/examples/session_gateway'),[`http://localhost:${port}`,personLogin,path.join(person,'recovery.txt')],{stdio:'pipe'});
   console.log('PASS native Session against real gateway: shared proof, private index, replay and wrong signature refused');
  }
  // The gateway deliberately limits unauthenticated bootstrap attempts to twelve per minute.

@@ -13,7 +13,7 @@ const fixture=JSON.parse(await readFile(process.env.LAYR_WEB_LIVE_FIXTURE,'utf8'
 const words=(await readFile(fixture.words_file,'utf8')).trim();
 const dist=path.resolve(process.env.LAYR_WEB_LIVE_DIST || 'dist');
 const output=path.resolve(process.env.LAYR_WEB_LIVE_OUTPUT || 'test-results/signin-deployed');await mkdir(output,{recursive:true});
-const browser=await chromium.launch({headless:true,args:['--host-resolver-rules=MAP cloud.layr.ws 127.0.0.1']});
+const browser=await chromium.launch({headless:true,args:[`--host-resolver-rules=MAP cloud.layr.ws ${process.env.LAYR_WEB_LIVE_RELAY || '127.0.0.1:443'}`]});
 try{
  const context=await browser.newContext();
  await context.route(`${origin}/**`,async route=>{
