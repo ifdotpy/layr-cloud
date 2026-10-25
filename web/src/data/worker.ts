@@ -210,8 +210,7 @@ async function registerPerson(invite: string) {
   try { await gateway.signIn(login, challenge => session.sign_session(challenge)); }
   catch(error) { throw deliveryError ?? error; }
   session.refresh_person(JSON.stringify(await gateway.person()));
-  registration = undefined;
-  await loadProjects(); touch();
+  await loadProjects(); registration = undefined; touch();
 }
 // TODO(modes-rotation): resolve keys/ and project/epochs/ with shared readers and gateway epoch routes.
 async function openPublic(project: string, base: string) {
