@@ -17,14 +17,14 @@ GitHub stays only as an optional Git mirror (`layr git push github main`).
 
 ## Acceptance criteria
 
-- **M1 Hosting.** The three projects live in the deployed store. Clone, push, sync and the site work from igor's machines over the tailnet. A Git mirror to GitHub still works.
+- **M1 Hosting.** The three projects live in the deployed store. Clone, push, sync and the site work from igor's machines through the public gateway (docs/public-gateway-design.md). A Git mirror to GitHub still works.
 - **M2 Review in the browser.** A person can approve, withdraw an approval, comment on a change (on a file line too), add to and remove from the queue, and move a ref. Each action is a request signed by the person's key; the executor applies it or writes a signed refusal (design section 6).
 - **M3 Checks.** Each new change version and each new main state gets the configured checks on the executor. Results are attestations and show on the site. The two GitHub workflows have Layr equivalents (btrfs suite, OverlayFS ext4 and xfs).
-- **M4 Releases.** `release/<v>` refs show on the Releases page with their notes (changes since the previous release) and downloadable built files.
+- **M4 Releases.** `release/<v>` refs show on the Releases page with their notes (changes since the previous release) and downloadable built files (docs/release-files-design.md).
 - **M5 Site parity.** Every page of the prototype (layr.ws) that has data exists on the real site, including Releases and the Lines filters.
 - **M6 Agents.** Studio agents can open a change, see checks and comments, and merge through the queue with `layr` only.
 - **M7 Public read.** A project can be public: anyone can read it without a key. Writes still need access.
-- **M8 Deployed.** Gateway, executor and store run in AWS account `ifdotpy` (134250228509), reachable on the tailnet at `cloud.layr.ws`. The prototype stays at `layr.ws`.
+- **M8 Deployed.** Gateway, executor and store run in AWS account `ifdotpy` (134250228509), reachable over public IPv6 HTTPS at `cloud.layr.ws` (no tailnet). The prototype stays at `layr.ws`.
 
 ## Order
 
