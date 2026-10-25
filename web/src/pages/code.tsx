@@ -406,7 +406,7 @@ export function LinesPage({
 }) {
   const [filter, setFilter] = useState(""),
     [view, setView] = useState<LineFilter>("All"),
-    [expanded, setExpanded] = useState<string[]>([]),
+    [groupToggles, setGroupToggles] = useState<Record<string, boolean>>({}),
     [diskMode, setDiskMode] = useState("Layr");
   const { data, error } = useData(async () => {
     const [lines, machines, operations, you] = await Promise.all([
@@ -420,12 +420,13 @@ export function LinesPage({
   if (!data) return <LoadError error={error} />;
   const rows = filterLines(data.lines, data.operations, view, data.you.login)
     .filter((line) => line.name.toLowerCase().includes(filter.toLowerCase()));
-  const groups = groupLines(rows);
+  const groups = groupLines(rows, data.operations, project.default_line ?? "main");
+  const groupOpen = (prefix: string) => groupToggles[prefix] ?? (view !== "All" || Boolean(filter.trim()));
   const headers = ["Line", "Owner", "Head", "Machine", "Last activity"];
-  const renderLine = (line: typeof rows[number], prefix = "") => {
+  const renderLine = (line: typeof rows[number]) => {
     const activity = lineActivity(line, data.operations);
     return <tr key={line.id}>
-      <td class="first"><a title={line.name} href={queryUrl(projectUrl(project.id), { line: line.name })}>{prefix ? line.name.slice(prefix.length) : line.name}</a></td>
+      <td class="first"><a title={line.name} href={queryUrl(projectUrl(project.id), { line: line.name })}>{line.name}</a></td>
       <td data-l="Owner"><Who name={personLabel(String(line.owner), data.operations.filter((op) => op.machine === line.machine))} /></td>
       <td data-l="Head"><a href={projectUrl(project.id, "state/" + line.head)} class="mono">{short(line.head)}</a></td>
       <td data-l="Machine"><span title={short(line.machine)}>{machineLabel(line.machine, data.machines)}</span></td>
@@ -461,9 +462,9 @@ export function LinesPage({
           aria-label="Filter lines"
           placeholder="Filter lines"
           value={filter}
-          onInput={(e) => setFilter(e.currentTarget.value)}
+          onInput={(e) => { setFilter(e.currentTarget.value); setGroupToggles({}); }}
         />
-        <ToggleButtons label="Line filters" items={[...lineFilters]} value={view} onChange={(value) => setView(value as LineFilter)} />
+        <ToggleButtons label="Line filters" items={[...lineFilters]} value={view} onChange={(value) => { setView(value as LineFilter); setGroupToggles({}); }} />
       </div>
       {view === "Stale" && <p class="note">No save for 21 days. Deleting a line keeps its states in history.</p>}
       <div class="tbl-frame" tabIndex={0} role="region" aria-label="Lines">
@@ -471,12 +472,12 @@ export function LinesPage({
           <thead><tr>{headers.map((header) => <th scope="col" key={header}>{header}</th>)}</tr></thead>
           <tbody>{groups.flatMap((group) => group.prefix ? [
             <tr key={group.prefix} class="line-group"><td colSpan={headers.length}>
-              <button class="line-group-toggle" type="button" aria-expanded={expanded.includes(group.prefix)} onClick={() => setExpanded(expanded.includes(group.prefix) ? expanded.filter((prefix) => prefix !== group.prefix) : [...expanded, group.prefix])}>
-                <span aria-hidden="true">{expanded.includes(group.prefix) ? "▾" : "▸"}</span> {group.prefix}… <span class="muted">({plural(group.lines.length, "line")})</span>
+              <button class="line-group-toggle" type="button" aria-expanded={groupOpen(group.prefix)} onClick={() => setGroupToggles({ ...groupToggles, [group.prefix]: !groupOpen(group.prefix) })}>
+                <span aria-hidden="true">{groupOpen(group.prefix) ? "▾" : "▸"}</span> {group.prefix}… <span class="muted">({plural(group.lines.length, "line")})</span>
               </button>
               {madeTogether(group.lines, data.operations) && <p class="note">Made together</p>}
             </td></tr>,
-            ...(expanded.includes(group.prefix) ? group.lines.map((line) => renderLine(line, group.prefix)) : []),
+            ...(groupOpen(group.prefix) ? group.lines.map((line) => renderLine(line)) : []),
           ] : group.lines.map((line) => renderLine(line)))}</tbody>
         </table>
       </div>

@@ -1,4 +1,4 @@
-import type { Check, DataSource, Operation, Ref, State } from "./source";
+import type { Check, DataSource, Operation, Project, Ref, State } from "./source";
 import { object } from "../labels";
 
 export interface Release {
@@ -9,6 +9,15 @@ export interface Release {
   error?: string;
   checks: Check[];
   environments: Ref[];
+}
+
+/** A configured shell command has the model's exact sh -c argv. */
+export function checkNames(check: Check, config: Project["config"] = {}) {
+  return Object.entries(config).flatMap(([key, value]) => {
+    if (!key.startsWith("check.")) return [];
+    const argv = typeof value === "string" ? ["sh", "-c", value] : Array.isArray(value) ? value : [];
+    return argv.length > 0 && argv.length === check.argv.length && argv.every((arg, index) => arg === check.argv[index]) ? [key.slice(6)] : [];
+  });
 }
 
 /** Use the signed ref operation, never the target state's author or timestamp. */

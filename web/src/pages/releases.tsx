@@ -1,6 +1,6 @@
 import { useState } from "preact/hooks";
 import type { Check, DataSource, Project } from "../data/source";
-import { releases } from "../data/releases";
+import { checkNames, releases } from "../data/releases";
 import { machineLabel, personLabel, plural, shortText } from "../labels";
 import { projectUrl } from "../router";
 import { Badge, Cmd, Empty, LoadError, Mono, PageHead, ReadOnlyAction, Segments, Status, Table, Who, bytes, short, useData, when } from "../components/ui";
@@ -44,6 +44,8 @@ export function ReleasesPage({ source, project, reference }: { source: DataSourc
     {!data.rows.length && <Empty>No releases recorded.</Empty>}
   </>;
   const images = (project.images ?? []).filter((image) => image.state === row.ref.target || (!image.state && image.ref === row.ref.name));
+  const checks = row.checks.map((check) => ({ check, names: checkNames(check, project.config) }));
+  const hasCheckNames = checks.some(({ names }) => names.length > 0);
   return <>
     <DeployNav project={project.id} current="Releases" />
     <p class="note"><a href={projectUrl(project.id, "deploy/releases")}>Releases</a> /</p>
@@ -68,8 +70,8 @@ export function ReleasesPage({ source, project, reference }: { source: DataSourc
         </section>}
         <section class="sect">
           <h2>Checks on <Mono>{short(row.ref.target)}</Mono></h2>
-          <Table label="Release checks" headers={["Check", "Result", "Runner", "Command"]} rows={row.checks.map((check) => [
-            <Mono>{check.name}</Mono>,
+          <Table label="Release checks" headers={[...(hasCheckNames ? ["Check"] : []), "Result", "Runner", "Command"]} rows={checks.map(({ check, names }) => [
+            ...(hasCheckNames ? [names.length ? <Mono>{names.join(", ")}</Mono> : <span class="muted">·</span>] : []),
             <Status value={check.exit === undefined ? "not run" : check.exit === 0 ? "passed" : "failed"} />,
             check.machine ? machineLabel(check.machine, data.machines) : <span class="muted">Not recorded</span>,
             <Mono>{check.argv.join(" ")}</Mono>,

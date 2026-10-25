@@ -83,6 +83,8 @@ The model does not bind a person key to a local UID. If the names do not match, 
 
 Lines share a group when at least two names have the same prefix before the first hyphen, for example `exp-one` and `exp-two`.
 The group label is `exp-… (2 lines)`. A prefix with one line stays ungrouped.
+The default line appears first, then other single lines by last activity, then groups.
+Groups start closed. A filter or search opens the matching groups.
 The **Made together** note requires a verified operation that creates all lines in the group.
 The pinned CLI records each line separately, including lines from `line new --count`. These records do not prove a shared command.
 

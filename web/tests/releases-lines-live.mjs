@@ -55,6 +55,7 @@ export async function checkReleasesAndLines(page, site, project, fixture) {
   for (const state of notes) await expect(main).toContainText(state.message);
   await expect(main.getByRole('table', { name: 'Release checks', exact: true }).locator('tbody tr')).toHaveCount(checkCount);
   if (!checkCount) await expect(main).toContainText('No checks recorded for this state.');
+  else await expect(main.getByRole('table', { name: 'Release checks', exact: true }).locator('tbody tr').first().getByRole('cell').first()).toHaveText('release-smoke');
   await capture('release');
   await main.getByRole('button', { name: `Compare files with ${base.name}`, exact: true }).click();
   await expect(main.getByRole('complementary', { name: 'Compared files' })).toContainText('test.txt');
@@ -66,19 +67,24 @@ export async function checkReleasesAndLines(page, site, project, fixture) {
   for (const filter of ['All', 'Yours', 'Agents', 'Stale']) {
     await main.getByRole('group', { name: 'Line filters' }).getByRole('button', { name: filter, exact: true }).click();
     const groups = main.locator('.line-group-toggle');
-    for (const button of await groups.all()) if (await button.getAttribute('aria-expanded') === 'false') await button.click();
+    if (filter === 'All') {
+      await expect(main.getByRole('table', { name: 'Lines', exact: true }).locator('tbody tr').first()).toContainText('main');
+      for (const button of await groups.all()) {
+        await expect(button).toHaveAttribute('aria-expanded', 'false');
+        await button.click();
+      }
+    } else for (const button of await groups.all()) await expect(button).toHaveAttribute('aria-expanded', 'true');
     const visibleNames = main.getByRole('table', { name: 'Lines', exact: true }).locator('tbody tr:not(.line-group) td:first-child a');
     const expected = filter === 'All' ? lines : filter === 'Agents' ? lines.filter(line => line.name.startsWith('agent-')) : [];
     await expect(visibleNames).toHaveCount(expected.length);
-    for (const line of expected) await expect(main.locator(`a[href$="line=${encodeURIComponent(line.name)}"]`)).toBeVisible();
+    for (const line of expected) await expect(main.locator(`a[href$="line=${encodeURIComponent(line.name)}"]`)).toHaveText(line.name);
     await expect(main.getByRole('columnheader', { name: 'Cache', exact: true })).toHaveCount(0);
     if (filter === 'Stale') await expect(main).toContainText('No save for 21 days.');
+    if (filter === 'All') for (const button of await groups.all()) await button.click();
     await capture(`lines-${filter.toLowerCase()}`);
   }
   await main.getByRole('group', { name: 'Line filters' }).getByRole('button', { name: 'All', exact: true }).click();
   const exp = main.getByRole('button', { name: /exp-… \(2 lines\)/ });
-  await expect(exp).toHaveAttribute('aria-expanded', 'true');
-  await exp.click();
   await expect(exp).toHaveAttribute('aria-expanded', 'false');
   await expect(main.getByTitle('exp-one', { exact: true })).toHaveCount(0);
   await exp.click();
@@ -88,6 +94,11 @@ export async function checkReleasesAndLines(page, site, project, fixture) {
   await expect(main.getByRole('table', { name: 'Lines', exact: true }).locator('tbody tr')).toHaveCount(1);
   await main.getByRole('searchbox', { name: 'Filter lines' }).fill('');
   await expect(main.locator('.line-group-toggle')).toHaveCount(2);
+  for (const button of await main.locator('.line-group-toggle').all()) await expect(button).toHaveAttribute('aria-expanded', 'false');
+  await main.getByRole('searchbox', { name: 'Filter lines' }).fill('exp-');
+  await expect(exp).toHaveAttribute('aria-expanded', 'true');
+  await expect(main.getByTitle('exp-one', { exact: true })).toHaveText('exp-one');
+  await main.getByRole('searchbox', { name: 'Filter lines' }).fill('');
   // Advance only the page clock to test the age boundary on the real signed records.
   await page.clock.setFixedTime(new Date(Date.now() + 22 * 24 * 60 * 60 * 1000));
   await main.getByRole('group', { name: 'Line filters' }).getByRole('button', { name: 'Stale', exact: true }).click();

@@ -30,27 +30,31 @@ export function filterLines(lines: Line[], operations: Operation[], filter: Line
   });
 }
 
-export function groupLines(lines: Line[]) {
+export function groupLines(lines: Line[], operations: Operation[] = [], defaultLine = "main") {
+  const primary = lines.filter((line) => line.name === defaultLine);
+  const remaining = lines.filter((line) => line.name !== defaultLine);
   const groups = new Map<string, Line[]>();
   const prefixOf = (line: Line) => {
     const dash = line.name.indexOf("-");
     return dash > 0 && dash < line.name.length - 1 ? line.name.slice(0, dash + 1) : "";
   };
-  for (const line of lines) {
+  for (const line of remaining) {
     const prefix = prefixOf(line);
     if (!prefix) continue;
     if (!groups.has(prefix)) groups.set(prefix, []);
     groups.get(prefix)!.push(line);
   }
-  const emitted = new Set<string>();
-  return lines.flatMap((line) => {
-    const prefix = prefixOf(line);
-    const items = groups.get(prefix);
-    if (!items || items.length < 2) return [{ prefix: "", lines: [line] }];
-    if (emitted.has(prefix)) return [];
-    emitted.add(prefix);
-    return [{ prefix, lines: items }];
-  });
+  const activity = (line: Line) => {
+    const last = lineActivity(line, operations);
+    return last.saved ?? last.created ?? -Infinity;
+  };
+  const singles = remaining.filter((line) => (groups.get(prefixOf(line))?.length ?? 0) < 2)
+    .sort((a, b) => activity(b) - activity(a) || a.name.localeCompare(b.name));
+  return [
+    ...[...primary, ...singles].map((line) => ({ prefix: "", lines: [line] })),
+    ...[...groups].filter(([, items]) => items.length > 1).sort(([a], [b]) => a.localeCompare(b))
+      .map(([prefix, items]) => ({ prefix, lines: items })),
+  ];
 }
 
 /** A shared name prefix alone does not prove one creation command. */

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { DataSource, Line, Operation, Ref, State } from "../src/data/source";
-import { releaseNotes, releaseOperation, releases } from "../src/data/releases";
+import { checkNames, releaseNotes, releaseOperation, releases } from "../src/data/releases";
 import { filterLines, groupLines, lineActivity, madeTogether, staleAfter } from "../src/data/line-views";
 
 const state = (id: string, change_id = id, parents: string[] = []): State => ({ id, change_id, parents, kind: "commit", subvol: id, author: { name: "author", email: "" }, message: id, time: 1 });
@@ -67,8 +67,24 @@ test("Yours matches a recorded session name on the same machine and UID only", (
 
 test("hyphen groups require two names, use the first prefix and leave complete names and singletons alone", () => {
   const groups = groupLines([line("main"), line("exp"), line("exp-"), line("exp-one"), line("exp-two-nested"), line("solo-one"), line("agent-1"), line("agent-2")]);
-  assert.deepEqual(groups.map((g) => [g.prefix, g.lines.length]), [["", 1], ["", 1], ["", 1], ["exp-", 2], ["", 1], ["agent-", 2]]);
+  assert.deepEqual(groups.map((g) => g.prefix || g.lines[0].name), ["main", "exp", "exp-", "solo-one", "agent-", "exp-"]);
   assert.deepEqual(groupLines([line("exp-one")]), [{ prefix: "", lines: [line("exp-one")] }]);
+});
+
+test("the default line leads, then single lines by activity, then groups", () => {
+  const lines = [line("agent-1"), line("older"), line("agent-2"), line("newer"), line("trunk"), line("unknown")];
+  const operations = [op(1, { states: [{ ...state("a"), line: "older", time: 1 }] }), op(2, { states: [{ ...state("b"), line: "newer", time: 2 }] })];
+  assert.deepEqual(groupLines(lines, operations, "trunk").map((g) => g.prefix || g.lines[0].name), ["trunk", "newer", "older", "unknown", "agent-"]);
+  assert.deepEqual(groupLines([line("work-main"), line("work-one")], [], "work-main").map((g) => g.lines[0].name), ["work-main", "work-one"]);
+});
+
+test("check labels require the configured command's exact argv", () => {
+  const check = { name: "sh -c true", argv: ["sh", "-c", "true"] };
+  assert.deepEqual(checkNames(check, { "check.smoke": "true", "check.other": "false" }), ["smoke"]);
+  assert.deepEqual(checkNames(check, { "check.argv": ["sh", "-c", "true"] }), ["argv"]);
+  assert.deepEqual(checkNames(check, { "check.smoke": " true " }), []);
+  assert.deepEqual(checkNames(check), []);
+  assert.deepEqual(checkNames({ ...check, argv: [] }, { "check.invalid": null }), []);
 });
 
 test("made together requires one verified creation record, not matching names or adjacent records", () => {
