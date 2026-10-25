@@ -207,6 +207,8 @@ systemctl enable --now layr.service layr-transfer.timer
 
 Check the person's public key with them through a trusted channel. Their key pin and access policy
 are machine-local; a fetch cannot import them. Grant the needed `person:<login>` actions locally.
+The normal transfer timer fetches, applies the current signed requests once, pushes, and publishes the index.
+An apply or push failure stops that cycle before index publication. This path runs no checks.
 Keep `queue.run` empty and both check runner flags false on the small executor.
 After reviewed check policy setup, create `checks-ready` and enable the checks timer; in reporter mode
 this loop applies requests, reports pending checks, pushes results and writes the signed index.

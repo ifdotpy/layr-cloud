@@ -1,7 +1,10 @@
 """Check the IAM boundaries and the shell/Python programs embedded in the templates."""
 
 import re
+import json
+import os
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -47,6 +50,31 @@ def actions(resource):
 
 
 class TemplateTests(unittest.TestCase):
+    def test_fallback_transfer_applies_requests_and_stops_before_push_or_index_on_failure(self):
+        source = template("executor.yaml")["Resources"]["Instance"]["Properties"]["UserData"]["Fn::Base64"]["Fn::Sub"]
+        script = re.search(r"cat > /usr/local/sbin/layr-executor-transfer <<'EOF'\n(.*?)\nEOF", source, re.S)[1]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "profile").write_text("PROJECT=example\n")
+            binary = root / "layr"
+            binary.write_text("#!/usr/bin/env python3\nimport json,os,sys\na=sys.argv[3:]\nwith open(os.environ['TRACE'],'a') as f:f.write(json.dumps(a)+'\\n')\nsys.exit(31 if a[0]==os.environ.get('FAIL') else 0)\n")
+            binary.chmod(0o755)
+            for kind, failure, expected in [
+                ("executor", "", ["fetch", "requests", "push", "index"]),
+                ("executor", "requests", ["fetch", "requests"]),
+                ("executor", "push", ["fetch", "requests", "push"]),
+                ("runner", "", ["fetch", "push"]),
+            ]:
+                trace = root / "trace"
+                trace.unlink(missing_ok=True)
+                code = script.replace("${HostKind}", kind).replace("/etc/layr-executor/profile.env", str(root / "profile")).replace("/opt/layr-executor/current/layr", str(binary))
+                result = subprocess.run(["bash"], input=code, text=True, capture_output=True, env=dict(os.environ, TRACE=str(trace), FAIL=failure))
+                self.assertEqual(result.returncode, 31 if failure else 0, result.stderr)
+                calls = [json.loads(line) for line in trace.read_text().splitlines()]
+                self.assertEqual([call[0] for call in calls], expected)
+                if "requests" in expected:
+                    self.assertEqual(calls[1], ["requests", "apply", "--remote", "origin", "--json"])
+
     def test_project_iam(self):
         resources = template("template.yaml")["Resources"]
         self.assertEqual(actions(resources["Writer"]), {"s3:PutObject", "s3:AbortMultipartUpload", "s3:GetObject", "s3:ListBucket"})

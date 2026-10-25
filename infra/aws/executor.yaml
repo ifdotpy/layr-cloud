@@ -327,6 +327,9 @@ Resources:
           source /etc/layr-executor/profile.env
           export LAYR_ROOT=/var/lib/layr
           /opt/layr-executor/current/layr --project "$PROJECT" fetch origin
+          if [ '${HostKind}' = executor ]; then
+            /opt/layr-executor/current/layr --project "$PROJECT" requests apply --remote origin --json >/dev/null
+          fi
           /opt/layr-executor/current/layr --project "$PROJECT" push origin
           if [ '${HostKind}' = executor ]; then
             /opt/layr-executor/current/layr --project "$PROJECT" index write origin
