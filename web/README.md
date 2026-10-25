@@ -11,7 +11,7 @@ rustup target add wasm32-unknown-unknown
 cargo install wasm-pack --version 0.15.0 --locked
 ```
 
-The Rust model and store dependencies use Layr revision `2007480315e6bb48a06a686e8badaa4dc5266cbd`.
+The Rust model and store dependencies use Layr revision `45080bb53b4de5c84726ac85563c979374308024`.
 
 ```sh
 cd web
