@@ -32,7 +32,6 @@ const access = `web${randomBytes(8).toString('hex')}`;
 const secret = randomBytes(24).toString('hex');
 const children = [];
 let minio, gateway, vite, browser;
-const gatewayVmBinary=process.env.LAYR_WEB_GATEWAY_VM_BINARY;
 const logs = [];
 function start(command, args, options = {}) {
   const child = spawn(command, args, { ...options, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -103,11 +102,8 @@ try {
   const role = 'arn:aws:iam::123456789012:role/web-test';
   const config = { host: 'localhost', listen: `127.0.0.1:${port}`, projects: { example: { bucket, region: 'us-east-1', prefix: 'fixture', readerRoleArn: role, writerRoleArn: role, gcRoleArn: role, recipient: descriptor.recipient, writeTokenHashes: [], gcTokenHashes: [] } }, people: { bucket, region: 'us-east-1', prefix: 'people/' } };
   const configPath = path.join(home, 'gateway.json'); await writeFile(configPath, JSON.stringify(config), { mode: 0o600 });
-  if(gatewayVmBinary){
-    const gatewayLaunch=`echo $$ > '${vmHome}/gateway.pid'\nexec env AWS_ACCESS_KEY_ID='${access}' AWS_SECRET_ACCESS_KEY='${secret}' AWS_ENDPOINT_URL_S3='http://127.0.0.1:${vmPort}' '${gatewayVmBinary}' serve --config '/mnt/mac${configPath}' --tls none --test-static-credentials`;
-    start('orb',['-m','layr-dev','-u','root','bash','-c',`setsid nohup bash -c ${quote(gatewayLaunch)} </dev/null >'${vmHome}/gateway.log' 2>&1 & disown`]);
-    gateway=start('ssh',['-o','BatchMode=yes','-o','ExitOnForwardFailure=yes','-N','-L',`127.0.0.1:${port}:127.0.0.1:${port}`,'root@layr-dev@orb']);
-  }else gateway = start(path.join(root, 'target/debug/layr-gateway'), ['serve', '--config', configPath, '--tls', 'none', '--test-static-credentials'], { env });
+  gateway = start(path.join(root, 'target/debug/layr-gateway'), ['serve', '--config', configPath, '--tls', 'none', '--test-static-credentials'], { env });
+  if(nativeSession)start('ssh',['-o','BatchMode=yes','-o','ExitOnForwardFailure=yes','-N','-R',`127.0.0.1:${port}:127.0.0.1:${port}`,'root@layr-dev@orb']);
   await waitFor(`http://localhost:${port}/api/person/unlock?login=${encodeURIComponent(personLogin)}`, gateway);
   vite = await createVite({ configFile: false, root: path.join(root, 'web'), server: { host: '127.0.0.1', port: 0, watch: null, hmr: false, proxy: { '/p': { target: `http://localhost:${port}`, changeOrigin: true, headers: { origin: `http://localhost:${port}` } }, '/api': { target: `http://localhost:${port}`, changeOrigin: true, headers: { origin: `http://localhost:${port}` } }, '/v1': { target: `http://localhost:${port}`, changeOrigin: true, headers: { origin: `http://localhost:${port}` } } } }, worker: { format: 'es' } });
   await vite.listen(); const site = vite.resolvedUrls.local[0];
@@ -297,7 +293,6 @@ try {
   try {
     execFileSync('orb', ['-m', 'layr-dev', '-u', 'root', 'sh', '-c', `if test -f '${vmHome}/pid'; then pid=$(cat '${vmHome}/pid'); if test -r /proc/$pid/cmdline && tr '\\0' ' ' < /proc/$pid/cmdline | grep -Fq '${vmHome}/data'; then kill -TERM "$pid" 2>/dev/null || true; fi; fi`], { stdio: 'ignore' });
   } catch {}
-  if(gatewayVmBinary)try{execFileSync('orb',['-m','layr-dev','-u','root','sh','-c',`if test -f '${vmHome}/gateway.pid'; then kill -TERM "$(cat '${vmHome}/gateway.pid')" 2>/dev/null || true; fi`],{stdio:'ignore'});}catch{}
   await rm(home, { recursive: true, force: true });
   try { execFileSync('orb', ['-m', 'layr-dev', '-u', 'root', 'rm', '-rf', vmHome], { stdio: 'ignore' }); } catch {}
 }
