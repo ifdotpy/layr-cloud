@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { DataSource, RequestAction, RequestStatus } from '../data/source';
 import { Cmd, Mono, Status, useData, when } from './ui';
-import { projectUrl, queryUrl } from '../router';
+import { parseRoute, projectUrl, queryUrl } from '../router';
 import { personLabel } from '../labels';
 
 // Preserve pending identities when a page or a version selection is reopened.
@@ -63,7 +63,11 @@ export function CommentComposer({source, project, change, version, path, line, r
   const action: RequestAction = {kind:'comment', change_id:change, version, text, ...(path ? {path} : {}), ...(line ? {line} : {}), ...(replyTo ? {reply_to:replyTo} : {})};
   return <div class="comment-composer">
     <label>Comment<textarea class="input" aria-label={replyTo ? 'Reply' : line ? `Comment on line ${line}` : 'Comment'} rows={3} maxLength={65536} value={text} onInput={event => setText(event.currentTarget.value)} /></label>
-    {text.trim() ? <RequestActionButton source={source} project={project} action={action} label={replyTo ? 'Send reply' : 'Send comment'} command={command} onApplied={() => { setText(current => current === text ? '' : current); onApplied(); }} /> : <div class="action-row"><button type="button" class="btn" disabled>{replyTo ? 'Send reply' : 'Send comment'}</button><Cmd text={command} /></div>}
+    {text.trim() ? <RequestActionButton source={source} project={project} action={action} label={replyTo ? 'Send reply' : 'Send comment'} command={command} onApplied={() => {
+      const route = parseRoute(location.hash);
+      if (path && line && route.page === 'change' && route.id === 'files') location.hash = queryUrl(projectUrl(project,`change/${change}/files`),{state:version,path,line:String(line)});
+      setText(current => current === text ? '' : current); onApplied();
+    }} /> : <div class="action-row"><button type="button" class="btn" disabled>{replyTo ? 'Send reply' : 'Send comment'}</button><Cmd text={command} /></div>}
   </div>;
 }
 export function CommentThread({source, project, change, version, path, line, refresh = 0, versions}: {
