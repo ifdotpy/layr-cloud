@@ -3,12 +3,13 @@ import { useEffect, useState } from "preact/hooks";
 import { App } from "./app";
 import { FixtureSource } from "./data/fixture-source";
 import { ModelSource } from "./data/model-source";
-import { Card, Empty, PageHead } from "./components/ui";
+import { Card, Empty, PageHead, LoadError } from "./components/ui";
 
 const fixtureFiles = import.meta.glob("../fixtures/*.json", {
   eager: true,
   import: "default",
 });
+const publicAlias = new URLSearchParams(location.search).get("project");
 const fixtureMode =
   new URLSearchParams(location.search).get("source") === "fixture";
 function Root() {
@@ -24,6 +25,19 @@ function Root() {
           },
         }),
   );
+  const [publicError, setPublicError] = useState<Error>();
+  const [signIn, setSignIn] = useState(false);
+  useEffect(() => source.subscribe?.(() => setEpoch((e) => e + 1)), [source]);
+  useEffect(() => {
+    if (!publicAlias || !(source instanceof ModelSource)) return;
+    let active = true;
+    void source.openPublic(publicAlias).then((id) => {
+      if (!active) return;
+      if (!location.hash || location.hash === "#/") location.hash = `#/project/${id}/code`;
+      setUnlocked(true);
+    }).catch((error) => { if (active) setPublicError(error); });
+    return () => { active = false; };
+  }, [source]);
   useEffect(() => {
     const close = () => {
       void source.lock();
@@ -31,11 +45,16 @@ function Root() {
     addEventListener("pagehide", close);
     return () => removeEventListener("pagehide", close);
   }, [source]);
+  if (signIn && source instanceof ModelSource)
+    return <Unlock source={source} onUnlock={() => { setSignIn(false); setUnlocked(true); setEpoch((e)=>e+1); }} onCancel={() => setSignIn(false)} />;
+  if (!unlocked && publicAlias && !publicError) return <main class="page"><p class="note" role="status">Opening public project…</p></main>;
+  if (!unlocked && publicError) return <main class="page"><LoadError error={publicError} /></main>;
   if (unlocked)
     return (
       <App
         key={epoch}
         source={source}
+        onSignIn={() => setSignIn(true)}
         onLock={() => {
           setUnlocked(false);
           setEpoch((e) => e + 1);
@@ -54,9 +73,11 @@ function Root() {
 function Unlock({
   source,
   onUnlock,
+  onCancel,
 }: {
   source: ModelSource;
   onUnlock: () => void;
+  onCancel?: () => void;
 }) {
   const [words, setWords] = useState(""),
     [error, setError] = useState(""),
@@ -130,6 +151,7 @@ function Unlock({
                 Unlock with recovery words
               </button>
             </form>
+            {onCancel && <button class="btn" type="button" onClick={onCancel}>Back to public project</button>}
             {busy && (
               <p role="status" class="muted">
                 Opening your key…

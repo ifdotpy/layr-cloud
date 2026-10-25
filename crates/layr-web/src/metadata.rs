@@ -1,6 +1,12 @@
 use super::*;
 impl Session {
     pub(super) fn project_view(&self, name: &str, now: i64) -> Result<Value> {
+        let store = self.stores.get(name).context("store is locked")?;
+        if let Some(snapshot) = &store.cache.heads {
+            let layr_store::index::Data::Heads(heads) = &snapshot.data else { bail!("expected heads snapshot") };
+            let name = store.model.projects.get(&store.descriptor.project).and_then(|p| p.name.as_deref()).unwrap_or(name);
+            return Ok(json!({"id":store.descriptor.project,"name":name,"provisional":true,"public":store.cache.public.is_some(),"index_counts":heads.counts}));
+        }
         let p = self.project(name)?;
         let lines = p.line_list();
         let records = p.op_log(None, usize::MAX);
@@ -77,6 +83,7 @@ impl Session {
         if !p.machine.is_empty() {
             view["policy"] = json!(p.access_policy(now, false));
         }
+        view["public"] = json!(store.cache.public.is_some());
         Ok(view)
     }
 }

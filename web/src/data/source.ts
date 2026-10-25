@@ -152,6 +152,9 @@ export interface ProbeResult {
 export interface Project {
   id: Id;
   name: string;
+  public?: boolean;
+  provisional?: boolean;
+  index_counts?: { states:number; records:number; overlays:number };
   organization?: string;
   description?: string;
   default_line?: string;
@@ -410,6 +413,11 @@ export interface LogOptions {
   offset?: number;
 }
 export interface DataSource {
+  openChanges?(project:string):Promise<OpenChange[]>;
+  blame?(project:string,state:string,path:string):Promise<Blame>;
+  fileHistory?(project:string,state:string,path:string):Promise<State[]>;
+  loadStatus?(project:string):Promise<LoadStatus>;
+  subscribe?(listener:()=>void):()=>void;
   projects(): Promise<Project[]>;
   lines(project: Id): Promise<Line[]>;
   /** Selector is a line name, line ID, or exact state ID, as with the CLI. */
@@ -506,3 +514,9 @@ export interface ChangeDiff {
     interdiff?: string;
   }[];
 }
+
+/** Shared model output; no synthetic state metadata is added to an index summary. */
+export interface OpenChange { id:string; state:string; title:string; author:Author; time:number }
+export interface BlameLine { line:number; state:string|null; text:string; boundary:boolean; version:number }
+export interface Blame { lines:BlameLine[]; states:State[] }
+export interface LoadStatus { provisional:boolean; note?:string|null }

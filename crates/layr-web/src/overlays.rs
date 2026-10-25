@@ -202,7 +202,7 @@ impl Session {
         self.stores.insert(
             alias.clone(),
             Store {
-                identity,
+                cache: index::Cache::default(),                identity,
                 descriptor: format::Descriptor {
                     format: 2,
                     project: published.key.overlay.clone(),
@@ -289,7 +289,7 @@ impl Session {
         self.stores.insert(
             alias.clone(),
             Store {
-                identity,
+                cache: index::Cache::default(),                identity,
                 descriptor: format::Descriptor {
                     format: 2,
                     project: published.key.overlay.clone(),

@@ -59,7 +59,7 @@ export function CodePage({
       lines.find((l) => l.name === (project.default_line ?? "main")) ??
       lines[0];
     if (!line) return { lines, refs, copies };
-    const states = await source.log(project.id, line.name);
+    const states = project.provisional ? [] : await source.log(project.id, line.name);
     const state = route.state ?? line.head;
     let tree: Tree | undefined,
       file: FileContent | undefined,
@@ -158,10 +158,10 @@ export function CodePage({
             {plural(data.refs.length, "ref")}
           </a>
           <a class="btn ghost" href={projectUrl(project.id, "states")}>
-            {plural(data.states?.length ?? 0, "state")}
+            {plural(project.index_counts?.states ?? data.states?.length ?? 0, "state")}
           </a>
           <a class="btn ghost" href={projectUrl(project.id, "overlays")}>
-            {plural(project.overlays?.length ?? 0, "overlay")}
+            {project.index_counts ? plural(project.index_counts.overlays, "overlay") : plural(project.overlays?.length ?? 0, "overlay")}
           </a>
           <span class="spacer" />
           {data.tree && (
@@ -196,21 +196,7 @@ export function CodePage({
           {data.contentError ? (
             <Empty>{data.contentError}</Empty>
           ) : data.file ? (
-            <div class="frame">
-              <div class="fh">
-                {data.file.path}
-                <span class="spacer" />
-                {bytes(data.file.size)}
-              </div>
-              {data.file.text === undefined ? (
-                <Empty>
-                  File contents are not available. Size: {bytes(data.file.size)}
-                  .
-                </Empty>
-              ) : (
-                <CodeText text={data.file.text} />
-              )}
-            </div>
+            <FileView source={source} project={project} file={data.file} />
           ) : (
             data.tree && (
               <>
@@ -698,4 +684,29 @@ export function StatePage({
       )}
     </div>
   );
+}
+
+function FileView({source, project, file}:{source:DataSource;project:Project;file:FileContent}) {
+  const [view,setView] = useState("File");
+  const {data,error} = useData(async () => {
+    if (view === "Blame") {
+      if (!source.blame) throw new Error("Blame is unavailable for this capture.");
+      return {blame: await source.blame(project.id,file.state,file.path)};
+    }
+    if (view === "File history") {
+      if (!source.fileHistory) throw new Error("File history is unavailable for this capture.");
+      return {history:await source.fileHistory(project.id,file.state,file.path)};
+    }
+    return {};
+  },[source,project.id,file.state,file.path,view]);
+  return <div class="frame">
+    <div class="fh"><span>{file.path}</span><span class="spacer" />{bytes(file.size)}</div>
+    <div class="filters file-tools"><ToggleButtons label="File view" items={["File","Blame","File history"]} value={view} onChange={setView} /></div>
+    {view === "File" ? file.text === undefined ? <p class="note">File contents are unavailable.</p> : <CodeText text={file.text} /> : !data ? <LoadError error={error} /> : data.blame ? <div class="tbl-frame" tabIndex={0} role="region" aria-label="Blame"><table class="blame-table"><thead><tr><th scope="col">State</th><th scope="col">By</th><th scope="col">Line</th><th scope="col">Text</th></tr></thead><tbody>{data.blame.lines.map(line=>{
+      const state = data.blame.states.find(s=>s.id===line.state);
+      return <tr key={line.line}><td>{line.state ? <a class="mono" href={projectUrl(project.id,"state/"+line.state)}>{short(line.state)}</a> : <span class="muted">Not recorded</span>}</td><td>{state ? personLabel(state.author.name) : <span class="muted">Not recorded</span>}</td><td class="mono muted">{line.line}</td><td><code>{line.text || " "}</code></td></tr>;
+    })}</tbody></table></div> : data.history ? data.history.length ? <Table label="File history" headers={["State","Message","By","Time"]} rows={data.history.map(state=>[
+      <a class="mono" href={queryUrl(projectUrl(project.id,"code"),{state:state.id,path:file.path})}>{short(state.id)}</a>,state.message,<span>{personLabel(state.author.name)}</span>,when(state.time),
+    ])} /> : <p class="note">No file changes recorded.</p> : null}
+  </div>;
 }

@@ -12,33 +12,93 @@ const aliases = new Map<string, string>();
 const attempts = new Map<string, string>();
 const loaded = new Set<string>();
 let busy = Promise.resolve();
+let generation = 0;
+const refreshing = new Map<string, Promise<void>>();
+const publicProjects = new Set<string>();
 function lock() {
+  generation++; refreshing.clear();
   clearTimeout(timer);
   session?.lock(); session?.free(); session = undefined;
   gateway?.lock(); gateway = undefined;
-  routes.clear(); aliases.clear(); attempts.clear(); loaded.clear();
+  routes.clear(); aliases.clear(); attempts.clear(); loaded.clear(); publicProjects.clear();
 }
 function touch() { clearTimeout(timer); timer = setTimeout(() => { lock(); scope.postMessage({ locked: true }); scope.close(); }, idleMs); }
 function current() { if (!session || !gateway) throw new Error('Your session is locked.'); return { session, gateway }; }
 function route(name: string) { const route = routes.get(name); if (!route) throw new Error('The store route is absent.'); return route; }
 function proof(name: string) { return (bytes: Uint8Array) => current().session.challenge(route(name).gateway, bytes); }
-async function objectBytes(name: string, key: string) { const target = route(name); return current().gateway.object(target.gateway, target.prefix + key, proof(name)); }
+async function objectBytes(name: string, key: string) {
+  const target = route(name), {gateway} = current();
+  return publicProjects.has(target.gateway) ? gateway.publicObject(target.gateway, target.prefix + key) : gateway.object(target.gateway, target.prefix + key, proof(name));
+}
 async function listObjects(name: string, prefix: string) {
   const target = route(name);
-  return (await current().gateway.list(target.gateway, target.prefix + prefix, proof(name))).map(entry => ({...entry, key: entry.key.slice(target.prefix.length)}));
+  const {gateway} = current();
+  const entries = publicProjects.has(target.gateway) ? await gateway.publicList(target.gateway, target.prefix + prefix) : await gateway.list(target.gateway, target.prefix + prefix, proof(name));
+  return entries.map(entry => ({...entry, key: entry.key.slice(target.prefix.length)}));
 }
 async function loadStore(name: string) {
   const { session } = current();
-  for (const entry of await listObjects(name, 'records/')) session.add_segment(name, entry.key, await objectBytes(name, entry.key));
-  session.finish_records(name);
-  for (const entry of await listObjects(name, 'states/')) {
-    const match = /^states\/([^/]+)\/([a-f0-9]{8})\.tree\.age$/.exec(entry.key);
-    if (match && !attempts.has(`${name}/${match[1]}`)) attempts.set(`${name}/${match[1]}`, entry.key);
+  for (const entry of (await listObjects(name, 'records/')).sort((a,b) => b.key.localeCompare(a.key))) {
+    const bytes = await objectBytes(name, entry.key);
+    if (current().session !== session) throw new Error('Your session changed.');
+    session.add_segment(name, entry.key, bytes);
   }
+  session.finish_records(name);
+}
+async function loadStoreFast(name: string): Promise<boolean> {
+  const {session} = current();
+  let found;
+  try { found = await listObjects(name, 'index/heads/'); }
+  catch { await loadStore(name); return false; }
+  if (!found.length) { await loadStore(name); return false; }
+  try {
+    // Bootstrap complete prefixes from each writer, never an index-provided key.
+    const records = await listObjects(name, 'records/');
+    for (const entry of records.filter(entry => /\/0*1-[0-9]+\.age$/.test(entry.key)))
+      session.add_segment(name, entry.key, await objectBytes(name, entry.key));
+    session.finish_records(name);
+    const latest = new Map<string, string>();
+    for (const entry of found) {
+      const match = /^index\/heads\/([^/]+)\/(\d{20})\.age$/.exec(entry.key);
+      if (match && entry.key > (latest.get(match[1]) || '')) latest.set(match[1], entry.key);
+    }
+    for (const object of latest.values()) session.add_heads(name, object, await objectBytes(name, object));
+    if (session.use_heads(name)) return true;
+  } catch { session.discard_index(name); }
+  await loadStore(name); return false;
+}
+function reconcile(name: string, overlays: () => Promise<void>) {
+  const expected = generation;
+  const promise = (async () => {
+    // Yield so the unlock response and first-page requests can render the snapshot.
+    await new Promise(resolve => setTimeout(resolve, 0));
+    if (generation !== expected) return;
+    await loadStore(name);
+    if (generation !== expected) return;
+    await overlays();
+    if (generation === expected) scope.postMessage({updated: true});
+  })();
+  refreshing.set(name, promise);
+  void promise.catch(error => {
+    if (generation !== expected) return;
+    // A failed authoritative load must remove the provisional view, never bless it.
+    current().session.discard_index(name);
+    lock(); scope.postMessage({locked:true, error: error instanceof Error ? error.message : String(error)});
+  }).finally(() => { if (refreshing.get(name) === promise) refreshing.delete(name); });
+}
+async function complete(name: string) { await refreshing.get(name); }
+async function locateTree(name: string, state: string): Promise<string | undefined> {
+  const id = `${name}/${state}`;
+  if (!attempts.has(id)) {
+    for (const entry of await listObjects(name, `states/${state}/`)) {
+      if (/\/[a-f0-9]{8}\.tree\.age$/.test(entry.key)) { attempts.set(id, entry.key); break; }
+    }
+  }
+  return attempts.get(id);
 }
 function alias(project: string) { const name = aliases.get(project); if (!name) throw new Error('The project is unavailable.'); return name; }
 async function tree(name: string, state: string, seen = new Set<string>()): Promise<string> {
-  const object = attempts.get(`${name}/${state}`);
+  const object = await locateTree(name, state);
   if (!object) throw new Error('The state has no stored tree.');
   await loadTree(name, object, seen);
   const layers = JSON.parse(current().session.query(name, 'layers', JSON.stringify([state]), Date.now()));
@@ -83,7 +143,7 @@ async function unlock(method: string, args: unknown[], base: string) {
       const project = session.open_store(name, JSON.stringify(descriptor), await gateway.slot(name, slotName));
       aliases.set(project, name);
       routes.set(name, {gateway: name, prefix: ''});
-      await loadStore(name);
+      const loadOverlays = async () => {
       const overlayObjects = await gateway.list(name, 'overlays/', proof(name));
       const overlayKeys = new Set(overlayObjects.map(entry => entry.key));
       for (const entry of overlayObjects) {
@@ -107,16 +167,59 @@ async function unlock(method: string, args: unknown[], base: string) {
         routes.set(alias, {gateway: name, prefix: layer.prefix + '/'});
         await loadStore(alias);
       }
+      };
+      if (await loadStoreFast(name)) reconcile(name, loadOverlays);
+      else await loadOverlays();
     }
     touch();
   } catch (error) { lock(); throw error; }
 }
+async function openPublic(project: string, base: string) {
+  if (!session || !gateway) { await init(); gateway = new Gateway(base); session = new Session(); }
+  const descriptor = await gateway.publicDescriptor(project);
+  const id = session.open_public_store(project, JSON.stringify(descriptor), await gateway.publicManifest(project), await gateway.publicObject(project, 'slots/public.age'));
+  publicProjects.add(project); aliases.set(id, project); routes.set(project, {gateway:project,prefix:''});
+  try { await loadStore(project); touch(); return id; }
+  catch(error) { publicProjects.delete(project); aliases.delete(id); routes.delete(project); lock(); throw error; }
+}
+async function fileHistory(method: string, project: string, state: string, path: string) {
+  const name = alias(project);
+  await complete(name);
+  const {session} = current();
+  const states: string[] = JSON.parse(session.query(name, 'historyInputs', JSON.stringify([state]), Date.now()));
+  let cacheFailed = false;
+  for (const state of states) {
+    await tree(name, state);
+    if (!publicProjects.has(route(name).gateway) && !cacheFailed) {
+      for (const kind of ['paths','graph']) {
+        const key = `index/${kind}/${state}.age`;
+        // Missing optional objects are a normal cache miss; malformed ones discard it.
+        const objects = await listObjects(name, key);
+        if (!objects.some(object => object.key === key)) continue;
+        try { session.add_history_index(name, key, await objectBytes(name, key)); }
+        catch { session.discard_index(name); cacheFailed = true; break; }
+      }
+    }
+  }
+  const versions: {id:string}[] = JSON.parse(session.history_versions(name, state, path));
+  if (method === 'blame') for (const version of versions) {
+    const object = await tree(name, version.id);
+    const directory = path.split('/').slice(0,-1).join('/');
+    const entry = JSON.parse(session.tree(name, object, directory)).entries.find((entry: {path:string}) => entry.path === path);
+    if (!entry || entry.kind === 'symlink' || entry.size > 64 * 1024 * 1024) break;
+    await parts(name, object, path);
+  }
+  return JSON.parse(session.query(name, method, JSON.stringify([state,path]), Date.now()));
+}
 async function call(method: string, args: unknown[], base = ''): Promise<unknown> {
+  if (method === 'openPublic') return openPublic(args[0] as string, base);
   if (method === 'person') return new Gateway(base).person();
   if (method === 'unlockRecovery' || method === 'unlockPrf') return unlock(method, args, base);
   if (method === 'lock') { lock(); return; }
   touch();
   const { session } = current();
+  if (method === 'blame' || method === 'fileHistory') return fileHistory(method, ...(args as [string,string,string]));
+  if (args[0] && aliases.has(args[0] as string) && !['tree','file','lines','refs','openChanges','copies','log','opLog','loadStatus'].includes(method)) await complete(alias(args[0] as string));
   if (['tree', 'file', 'diff'].includes(method)) {
     const [project, state, path = ''] = args as string[];
     const name = alias(project); const object = await tree(name, state);
@@ -168,7 +271,7 @@ async function call(method: string, args: unknown[], base = ''): Promise<unknown
       await loadOutputs('');
     }
     for (const state of inputs.sources) {
-      if (!attempts.has(`${name}/${state}`)) continue;
+      if (!await locateTree(name, state)) continue;
       const object = await tree(name, state);
       const entries = JSON.parse(session.tree(name, object, '')).entries;
       if (entries.some((entry: {path: string}) => entry.path === 'layr.toml')) await parts(name, object, 'layr.toml');
@@ -178,7 +281,7 @@ async function call(method: string, args: unknown[], base = ''): Promise<unknown
     // Readable overlay listings use verified tree metadata, without file data parts.
     for (const name of new Set(aliases.values())) {
       const inputs: {name: string; state: string}[] = JSON.parse(session.overlay_inputs(name));
-      for (const input of inputs) if (attempts.has(`${input.name}/${input.state}`)) await tree(input.name, input.state);
+      for (const input of inputs) if (await locateTree(input.name, input.state)) await tree(input.name, input.state);
     }
   }
   const global = ['projects', 'people', 'machines', 'stores', 'you'].includes(method);
