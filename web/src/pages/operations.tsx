@@ -37,6 +37,7 @@ import {
 } from "../components/ui";
 import { BisectResults } from "../components/bisect";
 import { BehaviorCards } from "../components/behavior";
+import { DeployNav } from "./releases";
 
 export function ChecksPage({
   source,
@@ -323,16 +324,10 @@ export function DeployPage({
   if (!data) return <LoadError error={error} />;
   const images = project.images ?? [],
     envs = data.refs.filter((r) => r.name.startsWith("env/")),
-    others = data.refs.filter((r) => !r.name.startsWith("env/"));
+    others = data.refs.filter((r) => !r.name.startsWith("env/") && !r.name.startsWith("release/"));
   return (
     <>
-      <Segments
-        items={[
-          ["Environments", projectUrl(project.id, "deploy/environments")],
-          ["Images", projectUrl(project.id, "deploy/images")],
-        ]}
-        current={section === "images" ? "Images" : "Environments"}
-      />
+      <DeployNav project={project.id} current={section === "images" ? "Images" : "Environments"} />
       {section === "environment" ? (
         <div class="stack">
           <PageHead
@@ -451,6 +446,7 @@ export function DeployPage({
           />
           {!envs.length && <Empty>No environments recorded.</Empty>}
           <Section title="Other refs">
+            <p class="note">Named releases are on <a href={projectUrl(project.id, "deploy/releases")}>Releases</a>.</p>
             <Table
               headers={["Ref", "State", "Expires"]}
               rows={others.map((r) => [

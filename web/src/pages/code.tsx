@@ -34,7 +34,8 @@ import {
 } from "../components/ui";
 import { BisectResults } from "../components/bisect";
 import { DiffBrowser, DiffFiles } from "../components/diff";
-import { plural, shortText } from "../labels";
+import { age, machineLabel, personLabel, plural, shortText } from "../labels";
+import { filterLines, groupLines, lineActivity, lineFilters, madeTogether, type LineFilter } from "../data/line-views";
 
 export function CodePage({
   source,
@@ -404,21 +405,33 @@ export function LinesPage({
   project: Project;
 }) {
   const [filter, setFilter] = useState(""),
-    [agents, setAgents] = useState(false),
+    [view, setView] = useState<LineFilter>("All"),
+    [expanded, setExpanded] = useState<string[]>([]),
     [diskMode, setDiskMode] = useState("Layr");
   const { data, error } = useData(async () => {
-    const [lines, machines, operations] = await Promise.all([
+    const [lines, machines, operations, you] = await Promise.all([
       source.lines(project.id),
       source.machines().catch(() => []),
-      source.opLog(project.id).catch(() => []),
+      source.opLog(project.id),
+      source.you(),
     ]);
-    return { lines, machines, operations };
+    return { lines, machines, operations, you };
   }, [source, project.id]);
   if (!data) return <LoadError error={error} />;
-  const agentLines = data.lines.filter((l) => l.name.startsWith("agent-"));
-  const rows = data.lines.filter(
-    (l) => (agents || !l.name.startsWith("agent-")) && l.name.includes(filter),
-  );
+  const rows = filterLines(data.lines, data.operations, view, data.you.login)
+    .filter((line) => line.name.toLowerCase().includes(filter.toLowerCase()));
+  const groups = groupLines(rows);
+  const headers = ["Line", "Owner", "Head", "Machine", "Last activity"];
+  const renderLine = (line: typeof rows[number], prefix = "") => {
+    const activity = lineActivity(line, data.operations);
+    return <tr key={line.id}>
+      <td class="first"><a title={line.name} href={queryUrl(projectUrl(project.id), { line: line.name })}>{prefix ? line.name.slice(prefix.length) : line.name}</a></td>
+      <td data-l="Owner"><Who name={personLabel(String(line.owner), data.operations.filter((op) => op.machine === line.machine))} /></td>
+      <td data-l="Head"><a href={projectUrl(project.id, "state/" + line.head)} class="mono">{short(line.head)}</a></td>
+      <td data-l="Machine"><span title={short(line.machine)}>{machineLabel(line.machine, data.machines)}</span></td>
+      <td data-l="Last activity"><span class="muted" title={activity.saved === undefined ? undefined : when(activity.saved)}>{activity.saved === undefined ? "No saves recorded" : age(activity.saved)}</span>{view === "Stale" && <Cmd text={`layr line delete ${line.name}`} />}</td>
+    </tr>;
+  };
   const disk = project.disk ?? [],
     total = disk.reduce(
       (n, d) =>
@@ -450,47 +463,24 @@ export function LinesPage({
           value={filter}
           onInput={(e) => setFilter(e.currentTarget.value)}
         />
-        {agentLines.length > 0 && (
-          <button
-            class="btn"
-            type="button"
-            aria-expanded={agents}
-            onClick={() => setAgents(!agents)}
-          >
-            {agents ? "Hide" : "Show"} {plural(agentLines.length, "agent line")}
-          </button>
-        )}
+        <ToggleButtons label="Line filters" items={[...lineFilters]} value={view} onChange={(value) => setView(value as LineFilter)} />
       </div>
-      <Table
-        headers={["Line", "Owner", "Head", "Machine"]}
-        stacked
-        label="Lines"
-        rows={rows.map((l) => {
-          const owner = data.operations.find(
-            (operation) =>
-              operation.machine === l.machine &&
-              operation.actor.uid === l.owner &&
-              operation.actor.name,
-          )?.actor.name;
-          const machine = data.machines.find((item) => item.id === l.machine);
-          return [
-            <a href={queryUrl(projectUrl(project.id), { line: l.name })}>
-              {l.name}
-            </a>,
-            owner ? (
-              <Who name={owner} />
-            ) : (
-              <span class="muted">uid {l.owner}</span>
-            ),
-            <a href={projectUrl(project.id, "state/" + l.head)} class="mono">
-              {short(l.head)}
-            </a>,
-            <span title={short(l.machine)}>
-              {machine?.name || `machine ${short(l.machine).slice(0, 7)}`}
-            </span>,
-          ];
-        })}
-      />
+      {view === "Stale" && <p class="note">No save for 21 days. Deleting a line keeps its states in history.</p>}
+      <div class="tbl-frame" tabIndex={0} role="region" aria-label="Lines">
+        <table class="stacked" aria-label="Lines">
+          <thead><tr>{headers.map((header) => <th scope="col" key={header}>{header}</th>)}</tr></thead>
+          <tbody>{groups.flatMap((group) => group.prefix ? [
+            <tr key={group.prefix} class="line-group"><td colSpan={headers.length}>
+              <button class="line-group-toggle" type="button" aria-expanded={expanded.includes(group.prefix)} onClick={() => setExpanded(expanded.includes(group.prefix) ? expanded.filter((prefix) => prefix !== group.prefix) : [...expanded, group.prefix])}>
+                <span aria-hidden="true">{expanded.includes(group.prefix) ? "▾" : "▸"}</span> {group.prefix}… <span class="muted">({plural(group.lines.length, "line")})</span>
+              </button>
+              {madeTogether(group.lines, data.operations) && <p class="note">Made together</p>}
+            </td></tr>,
+            ...(expanded.includes(group.prefix) ? group.lines.map((line) => renderLine(line, group.prefix)) : []),
+          ] : group.lines.map((line) => renderLine(line)))}</tbody>
+        </table>
+      </div>
+      {!rows.length && <Empty>{view === "Yours" ? data.you.login ? "No lines match your session name." : "Your session does not record a line owner." : "No lines match this filter."}</Empty>}
       {disk.length ? (
         <Card title="Disk use">
           <div class="row">

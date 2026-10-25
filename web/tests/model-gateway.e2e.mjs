@@ -67,7 +67,8 @@ try {
   execFileSync('orb', ['-m', 'layr-dev', '-u', 'root', 'mkdir', '-m', '700', vmHome]);
   // The PID file belongs to this run. Cleanup sends a signal only to that process.
   const launch = `echo $$ > '${vmHome}/pid'\nexec env MINIO_ROOT_USER='${access}' MINIO_ROOT_PASSWORD='${secret}' /root/work/remote-store-tools/minio server '${vmHome}/data' --address '127.0.0.1:${vmPort}' --console-address '127.0.0.1:0' --quiet`;
-  minio = start('orb', ['-m', 'layr-dev', '-u', 'root', 'sh', '-c', launch]);
+  const quote = value => "'" + value.replaceAll("'", "'\\''") + "'";
+  minio = start('orb', ['-m', 'layr-dev', '-u', 'root', 'bash', '-c', `setsid nohup bash -c ${quote(launch)} </dev/null >'${vmHome}/minio.log' 2>&1 & disown`]);
   const reserveMinio = createServer(); const minioPort = await listen(reserveMinio);
   await new Promise(resolve => reserveMinio.close(resolve));
   const tunnel = start('ssh', ['-o', 'BatchMode=yes', '-o', 'ExitOnForwardFailure=yes', '-N', '-L', `127.0.0.1:${minioPort}:127.0.0.1:${vmPort}`, 'root@layr-dev@orb']);
@@ -75,8 +76,19 @@ try {
   await waitFor(`${endpoint}/minio/health/ready`, tunnel);
   const env = { ...process.env, AWS_ACCESS_KEY_ID: access, AWS_SECRET_ACCESS_KEY: secret, AWS_ENDPOINT_URL_S3: endpoint };
   const bucket = `layr-web-${runId}`;
-  try { execFileSync(path.join(root, 'target/debug/examples/upload_gateway'), [bucket, store, path.join(person, 'people')], { env, stdio: 'pipe' }); }
-  catch (error) { throw new Error(`Fixture upload: ${error.stderr?.toString().replaceAll(access, '[test access]').replaceAll(secret, '[test secret]').trim() || error.message}`); }
+  const uploadDeadline = Date.now() + 30000;
+  for (;;) {
+    try {
+      execFileSync(path.join(root, 'target/debug/examples/upload_gateway'), [bucket, store, path.join(person, 'people')], { env, stdio: 'pipe' });
+      break;
+    } catch (error) {
+      const message = error.stderr?.toString().replaceAll(access, '[test access]').replaceAll(secret, '[test secret]').trim() || error.message;
+      // MinIO can accept health requests before its first bucket can be created.
+      if (!message.includes('create fixture bucket failed: HTTP 503 Service Unavailable, XMinioServerNotInitialized') || Date.now() >= uploadDeadline)
+        throw new Error(`Fixture upload: ${message}`);
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
   whois = createServer(socket => {
     let request = '';
     socket.on('data', bytes => {
@@ -109,8 +121,14 @@ try {
   try { await page.locator('#main-content').getByRole('heading', { name: 'Projects', exact: true }).waitFor({ timeout: 30000 }); } catch { throw new Error('Browser unlock failed: ' + JSON.stringify({alerts:await page.getByRole('alert').allTextContents(), headings:await page.getByRole('heading').allTextContents(), url:page.url()})); }
   await page.goto(`${site}#/project/${descriptor.project}/lines`);
   await page.getByRole('heading', { name: 'Lines', exact: true }).waitFor();
-  for (const line of lines) await page.getByRole('link', { name: line.name, exact: true }).first().waitFor();
+  for (const group of await page.locator('main .line-group-toggle').all())
+    if (await group.getAttribute('aria-expanded') === 'false') await group.click();
+  for (const line of lines) await page.locator('main').getByTitle(line.name, { exact: true }).first().waitFor();
   assert.equal(dataRequests.length, 0, 'The lines page loads no file data parts.');
+  if (process.env.LAYR_WEB_TEST_M5) {
+    const { checkReleasesAndLines } = await import('./releases-lines-live.mjs');
+    await checkReleasesAndLines(page, site, descriptor.project, process.env.LAYR_WEB_TEST_M5, words);
+  }
   if (readerView) {
     const actual = await page.evaluate(async words => {
       const { ModelSource } = await import('/src/data/model-source.ts');

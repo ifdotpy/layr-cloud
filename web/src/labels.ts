@@ -7,6 +7,13 @@ export const shortText = (text: string) =>
   );
 export const plural = (count: number, noun: string, many = noun + "s") =>
   `${count} ${count === 1 ? noun : many}`;
+export function age(time: number, now = Date.now()) {
+  const elapsed = Math.max(0, now - time);
+  if (elapsed < 60000) return "less than a minute ago";
+  if (elapsed < 3600000) return `${plural(Math.floor(elapsed / 60000), "minute")} ago`;
+  if (elapsed < 86400000) return `${plural(Math.floor(elapsed / 3600000), "hour")} ago`;
+  return `${plural(Math.floor(elapsed / 86400000), "day")} ago`;
+}
 export const object = (value: Json | undefined): Record<string, Json> =>
   value && typeof value === "object" && !Array.isArray(value) ? value : {};
 export const machineLabel = (id: string, machines: Machine[]) =>

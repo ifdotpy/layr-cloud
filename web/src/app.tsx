@@ -15,6 +15,7 @@ import {
 import { CodePage, LinesPage, StatesPage, StatePage } from "./pages/code";
 import { ChangesPage, ChangePage } from "./pages/changes";
 import { ChecksPage, DeployPage, ActivityPage } from "./pages/operations";
+import { ReleasesPage } from "./pages/releases";
 import { OrgPage } from "./pages/org";
 import { SettingsPage } from "./pages/settings";
 import { OverlaysPage, OverlayPage } from "./pages/overlays";
@@ -387,6 +388,8 @@ function ProjectPage({
         />
       );
     case "deploy":
+      if (route.section === "releases" || route.section === "release")
+        return <ReleasesPage key={route.id ?? "releases"} source={source} project={project} reference={route.id} />;
       return (
         <DeployPage
           source={source}
