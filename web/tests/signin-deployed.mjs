@@ -40,6 +40,7 @@ try{
  await conversation.getByRole('button',{name:'Send comment',exact:true}).last().click();
  const response=await delivered;assert.equal(response.status(),201);wire=JSON.parse(response.request().postData());requestId=wire.id;
  assert.equal(wire.v,2);assert.equal(wire.r,undefined);assert.equal(wire.action,undefined);assert(!JSON.stringify(wire).includes(text));
+ await writeFile(path.join(output,'delivery.json'),JSON.stringify({origin,requestId,version:wire.v,comment:text,delivered:true,applied:false},null,2));
  await expect(conversation.locator('article.comment').filter({hasText:text})).toBeVisible({timeout:180000});
  for(const view of views){await page.setViewportSize({width:view.width,height:view.height});await page.emulateMedia({colorScheme:view.colorScheme});const axe=await new AxeBuilder({page}).analyze();assert.deepEqual(axe.violations,[]);await writeFile(path.join(output,`comment-${view.name}-axe.json`),JSON.stringify(axe,null,2));await page.screenshot({path:path.join(output,`comment-${view.name}.png`),fullPage:true});}
  await expectNoPersistence(page,'deployed signature sign-in and encrypted comment');assert.deepEqual(errors,[]);
