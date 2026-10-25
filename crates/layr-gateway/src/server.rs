@@ -274,6 +274,15 @@ impl Gateway {
             }
             return self.api(&request, &config, login, &parts[1..]);
         }
+        if parts.first().is_some_and(|p| p != "v1") {
+            if let Some(root) = config.extra.get("siteDir").and_then(|v| v.as_str()) {
+                return Ok(super::site::serve(
+                    std::path::Path::new(root),
+                    &request.method,
+                    &parts,
+                ));
+            }
+        }
         if parts.len() >= 3 && parts[0] == "v1" && parts[1] == "p" {
             let Some(project) = config.projects.get(&parts[2]) else {
                 return Ok(Reply::error(404, "no such project"));
@@ -892,6 +901,37 @@ mod tests {
 
     const OVERLAY: &str = "01a12290-0000-7000-8000-000000000001";
     const EPOCH: &str = "01a12290-0000-7000-8000-000000000002";
+
+    #[test]
+    fn site_routes_preserve_api_host_and_path_boundaries() {
+        let mut f = Fixture::new();
+        let root = f.path.with_extension("site");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("index.html"), "<title>Layr</title>").unwrap();
+        f.config.extra.insert("siteDir".into(), json!(root));
+        std::fs::write(&f.path, serde_json::to_vec(&f.config).unwrap()).unwrap();
+        assert_eq!(f.request("GET", "/", "", b"", None).status, 200);
+        assert_eq!(
+            f.request("GET", "/?source=fixture", "", b"", None).status,
+            200
+        );
+        assert_eq!(
+            f.request("GET", "/%2e%2e/etc/passwd", "", b"", None).status,
+            400
+        );
+        assert_eq!(f.request("GET", "/api/missing", "", b"", None).status, 404);
+        assert_eq!(f.request("GET", "/v1/missing", "", b"", None).status, 404);
+        assert_eq!(f.request("GET", "/missing.js", "", b"", None).status, 404);
+        assert_eq!(f.request("POST", "/", "", b"", None).status, 405);
+        let request = http::Request {
+            method: "GET".into(),
+            target: "/".into(),
+            headers: [("host".into(), "other.example".into())].into(),
+            body: vec![],
+        };
+        assert_eq!(f.gateway.handle(request, None).status, 421);
+        std::fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn hidden_manifest_requires_exact_opaque_path_and_bound_read_proof() {

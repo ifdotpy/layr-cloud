@@ -3,7 +3,7 @@
 These templates deploy a project store, a gateway, and an executor on Amazon Web Services (AWS).
 The gateway runs `layr-gateway`.
 The executor runs `layr`.
-No command in this runbook requires Node.js.
+The host setup needs no Node.js. Building the optional browser site needs Node.js and npm on the build machine.
 The [gateway README](../../README.md#store-gateway) describes the server contract.
 
 | File | Resources |
@@ -269,26 +269,35 @@ AWS Systems Manager Parameter Store (SSM) stores the keys as `SecureString` valu
 These commands use the default SSM encryption key.
 A customer KMS key requires a separate, restricted `kms:Decrypt` grant on each host role.
 
-Create two local files with mode `0600`.
-Put only the respective tailnet key in each file.
-Avoid a final newline.
+Enter each key through a hidden prompt. This example sends the value to the AWS CLI through standard input.
+It creates no local credential file and puts no key in the process arguments.
 
 ```sh
-aws ssm put-parameter --name /layr-store/gateway/tailscale-auth-key \
-  --type SecureString --value file:///absolute/path/gateway-auth-key --overwrite
-aws ssm put-parameter --name /layr-store/executor/tailscale-auth-key \
-  --type SecureString --value file:///absolute/path/executor-auth-key --overwrite
+python3 - <<'PY'
+import getpass, json, subprocess
+for kind in ('gateway', 'executor'):
+    value = getpass.getpass(f'{kind} Tailscale auth key: ')
+    if not value or '\n' in value:
+        raise SystemExit('expected one nonempty auth key')
+    request = {'Name': f'/layr-store/{kind}/tailscale-auth-key',
+               'Type': 'SecureString', 'Value': value, 'Overwrite': True}
+    result = subprocess.run(['aws', 'ssm', 'put-parameter', '--cli-input-json', 'file:///dev/stdin'],
+                            input=json.dumps(request), text=True, capture_output=True)
+    if result.returncode:
+        raise SystemExit(f'{kind} SSM write failed; check profile, region and permissions')
+    print(f'{kind} SSM parameter stored')
+PY
 ```
 
-Delete the local files after the SSM writes succeed.
 Do not put keys in CloudFormation parameters, outputs, shell history, or artifacts.
+The host passes its key from SSM through an inherited pipe to Tailscale.
 Rotate the SSM values before a replacement host joins the tailnet.
 An existing host keeps its Tailscale identity on its root disk.
 
 ## Publish a release
 
 Create one release for each host type.
-The gateway archive contains `./layr-gateway` and `./sync.py`.
+The gateway archive contains `./layr-gateway`, `./sync.py`, and optionally the built files under `./site/`.
 The executor archive contains `./layr` and `./sync.py`.
 Build `layr` from the [Layr repository](https://github.com/ifdotpy/layr).
 The host checks the SHA-256 digest and refuses links, extra files, and programs without static ARM64 code.
@@ -303,6 +312,29 @@ cargo build --release --locked --target aarch64-unknown-linux-musl
 export GATEWAY_BINARY="$PWD/target/aarch64-unknown-linux-musl/release/layr-gateway"
 export LAYR_BINARY=/path/to/layr/target/aarch64-unknown-linux-musl/release/layr
 ```
+
+On ARM64 Debian or Ubuntu, install `musl-tools` and set
+`CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=musl-gcc` and `CC_aarch64_unknown_linux_musl=musl-gcc` for the build.
+Confirm the output with `file` and `readelf -l`. It must be ARM64 ELF with no `INTERP` program header.
+Strip debug symbols on the ARM64 Linux build machine before packaging. Each release file is limited to 32 MiB.
+
+```sh
+strip -o /path/to/releases/layr-gateway "$GATEWAY_BINARY"
+strip -o /path/to/releases/layr "$LAYR_BINARY"
+export GATEWAY_BINARY=/path/to/releases/layr-gateway
+export LAYR_BINARY=/path/to/releases/layr
+```
+
+To serve the browser site from the gateway, build it before packaging:
+
+```sh
+npm ci --prefix web
+npm run build --prefix web
+export SITE_DIR="$PWD/web/dist"
+```
+
+The gateway serves these files on the same HTTPS origin as its API.
+The API keeps the direct tailnet peer address for Tailscale identity checks.
 
 Create and publish the archives:
 
@@ -319,7 +351,14 @@ for KIND in gateway executor; do
   fi
   install -m 0755 "$BINARY_PATH" "$RELEASE_DIR/$KIND/$BINARY_NAME"
   install -m 0644 infra/aws/sync.py "$RELEASE_DIR/$KIND/sync.py"
-  COPYFILE_DISABLE=1 tar -czf "$RELEASE_DIR/$KIND.tgz" -C "$RELEASE_DIR/$KIND" "./$BINARY_NAME" ./sync.py
+  if [ "$KIND" = gateway ] && [ -n "${SITE_DIR:-}" ]; then
+    mkdir "$RELEASE_DIR/$KIND/site"
+    cp -R "$SITE_DIR/." "$RELEASE_DIR/$KIND/site/"
+    COPYFILE_DISABLE=1 tar -czf "$RELEASE_DIR/$KIND.tgz" -C "$RELEASE_DIR/$KIND" \
+      "./$BINARY_NAME" ./sync.py ./site
+  else
+    COPYFILE_DISABLE=1 tar -czf "$RELEASE_DIR/$KIND.tgz" -C "$RELEASE_DIR/$KIND" "./$BINARY_NAME" ./sync.py
+  fi
   RELEASE_SHA=$(python3 -c \
     'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' \
     "$RELEASE_DIR/$KIND.tgz")
@@ -344,7 +383,20 @@ export ZONE_ID=''
 printf '%s\n' '{"tls":"tailscale"}' > "$RELEASE_DIR/gateway.json"
 ```
 
-For a custom domain, deploy the DNS zone instead:
+For a custom domain in an existing Route 53 zone, reuse that zone:
+
+```sh
+export GATEWAY_HOST=cloud.example.com
+export ZONE_ID=Z_REPLACE_WITH_EXISTING_ZONE
+jq -n --arg host "$GATEWAY_HOST" --arg zone "$ZONE_ID" \
+  '{host:$host,zone:$zone,tls:"files"}' > "$RELEASE_DIR/gateway.json"
+```
+
+The gateway role can change only this exact host name and its `_acme-challenge` name.
+It cannot change the zone apex or another host's records.
+Do not deploy a new DNS zone or change registrar delegation for this case.
+
+If the domain needs a new hosted zone, deploy it instead:
 
 ```sh
 export DOMAIN=example.com
@@ -379,6 +431,7 @@ aws s3 cp "$RELEASE_DIR/project.json" "s3://$ARTIFACTS_BUCKET/gateway/projects/$
 The project files contain only token hashes, never bearer tokens or store identities.
 The host writes `/etc/layr-gateway/config.json` with `host`, `listen`, and `projects`.
 The listen value is the tailnet address plus port 443.
+When the release contains `site/index.html`, the generated config also sets `siteDir` to the current release's site folder.
 Systemd passes the certificate and key through `LoadCredential=tls.crt` and `LoadCredential=tls.key`.
 The service runs as a dynamic user with a read-only system.
 It starts `layr-gateway serve --config /etc/layr-gateway/config.json`.

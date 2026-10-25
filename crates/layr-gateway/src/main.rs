@@ -8,6 +8,7 @@ mod minio;
 mod people;
 mod person_support;
 mod server;
+mod site;
 mod tls;
 mod whois;
 
@@ -191,12 +192,26 @@ fn answer<W: Wire>(
     limits: &layr_store::http::Limits,
     login: Option<&str>,
 ) -> Result<()> {
+    let mut head = false;
     let reply = match layr_store::http::request(stream, limits) {
-        Ok(request) => gateway.handle(request, login),
+        Ok(request) => {
+            head = request.method == "HEAD";
+            gateway.handle(request, login)
+        }
         Err(error) => server::Reply::error(error.status, error.message),
     };
     stream.begin_response(limits.write_timeout);
-    layr_store::http::response(stream, reply.status, &reply.headers, &reply.body)?;
+    if head {
+        layr_store::http::headers(
+            stream,
+            reply.status,
+            reply.body.len() as u64,
+            &reply.headers,
+        )?;
+        stream.flush()?;
+    } else {
+        layr_store::http::response(stream, reply.status, &reply.headers, &reply.body)?;
+    }
     Ok(())
 }
 

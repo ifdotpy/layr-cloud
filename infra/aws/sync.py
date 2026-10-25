@@ -30,8 +30,8 @@ UNITS = Path("/etc/systemd/system")
 ENV = "".join(f"Environment={name}={value}\n" for name, value in AWS_ENV.items())
 
 
-def run(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(args, check=check, text=True, capture_output=True)
+def run(*args: str, check: bool = True, pass_fds: tuple[int, ...] = ()) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(args, check=check, text=True, capture_output=True, pass_fds=pass_fds)
 
 
 def write_if_changed(path: Path, text: str, mode: int = 0o644) -> bool:
@@ -57,10 +57,17 @@ def release_files(data: bytes, digest: str, binary_name: str) -> dict[str, bytes
             if member.name == "." and member.isdir():
                 continue
             name = member.name.removeprefix("./")
-            if name not in (binary_name, "sync.py") or not member.isfile() or name in files:
+            site_file = (binary_name == "layr-gateway" and (name == "site" or name.startswith("site/"))
+                         and all(re.fullmatch(r"[A-Za-z0-9_-][A-Za-z0-9_.-]*", part)
+                                 for part in name.split("/")))
+            if site_file and member.isdir():
+                continue
+            if (name not in (binary_name, "sync.py") and not site_file) or not member.isfile() or name in files:
                 raise ValueError(f"release must contain only regular {binary_name} and sync.py files")
+            if member.size > 32 * 1024 * 1024 or sum(map(len, files.values())) + member.size > 128 * 1024 * 1024:
+                raise ValueError("release exceeds size limit")
             files[name] = archive.extractfile(member).read()
-    if set(files) != {binary_name, "sync.py"}:
+    if not {binary_name, "sync.py"}.issubset(files):
         raise ValueError(f"release lacks {binary_name} or sync.py")
     binary = files[binary_name]
     if (len(binary) < 64 or binary[:6] != b"\x7fELF\x02\x01"
@@ -100,14 +107,21 @@ class Sync:
         if state.get("BackendState") != "Running":
             ssm = boto3.client("ssm", region_name=self.source["region"])
             key = ssm.get_parameter(Name=self.source["authKeyParameter"], WithDecryption=True)
-            with tempfile.NamedTemporaryFile("w", dir="/run", delete=False) as tmp:
-                tmp.write(key["Parameter"]["Value"])
-            os.chmod(tmp.name, 0o600)
+            read_fd, write_fd = os.pipe()
             try:
-                run("tailscale", "up", f"--auth-key=file:{tmp.name}",
-                    f"--hostname={self.source.get('hostname', 'layr-' + self.kind)}", f"--advertise-tags=tag:layr-{self.kind}", "--ssh")
+                value = key["Parameter"]["Value"].encode()
+                if len(value) > 4096:
+                    raise ValueError("tailnet key exceeds size limit")
+                os.write(write_fd, value)
+                os.close(write_fd)
+                write_fd = -1
+                run("tailscale", "up", f"--auth-key=file:/proc/self/fd/{read_fd}",
+                    f"--hostname={self.source.get('hostname', 'layr-' + self.kind)}", f"--advertise-tags=tag:layr-{self.kind}", "--ssh",
+                    pass_fds=(read_fd,))
             finally:
-                os.unlink(tmp.name)
+                os.close(read_fd)
+                if write_fd >= 0:
+                    os.close(write_fd)
         address = run("tailscale", "ip", "-4").stdout.strip()
         # Never start a server without an explicit tailnet address.
         import ipaddress
@@ -132,6 +146,7 @@ class Sync:
             shutil.rmtree(target)
         target.mkdir(parents=True, mode=0o755)
         for name, content in files.items():
+            (target / name).parent.mkdir(parents=True, exist_ok=True)
             (target / name).write_bytes(content)
             (target / name).chmod(0o755 if name == binary_name else 0o644)
         (target / ".sha256").write_text(digest)
@@ -196,6 +211,9 @@ class Sync:
                             project[field] = old_projects[name][field]
             config = {"host": gateway["host"], "listen": f"{listen}:443", "projects": projects,
                       "people": {"bucket": self.bucket, "region": self.source["region"], "prefix": "people/"}}
+            app = getattr(self, "app", Path("/opt/layr-gateway"))
+            if (app / "current/site/index.html").is_file():
+                config["siteDir"] = str(app / "current/site")
             if write_if_changed(path, json.dumps(config, indent=2, sort_keys=True) + "\n"):
                 self.restart = True
             write_if_changed(marker, remote_digest)
