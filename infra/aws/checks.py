@@ -85,6 +85,8 @@ def tick(source: dict) -> None:
     subprocess.run([BINARY, '--project', project, 'push', 'origin'], env=env, check=True,
                    stdout=subprocess.DEVNULL)
     if source.get('hostKind') != 'runner':
+        subprocess.run([BINARY, '--project', project, 'index', 'write', 'origin'],
+                       env=env, check=True, stdout=subprocess.DEVNULL)
         wake_runner(source, value['pending'])
     print(json.dumps(value), flush=True)
 

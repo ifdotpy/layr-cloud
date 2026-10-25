@@ -66,6 +66,7 @@ Resources:
                   - !Sub '${Bucket.Arn}/${Prefix}/states/*'
                   - !Sub '${Bucket.Arn}/${Prefix}/slots/*'
                   - !Sub '${Bucket.Arn}/${Prefix}/requests/*'
+                  - !Sub '${Bucket.Arn}/${Prefix}/index/*'
                   - !Sub '${Bucket.Arn}/${Prefix}/overlays/*/keys/*'
                   - !Sub '${Bucket.Arn}/${Prefix}/overlays/*/epochs/*/records/*'
                   - !Sub '${Bucket.Arn}/${Prefix}/overlays/*/epochs/*/states/*'

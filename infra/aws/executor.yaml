@@ -332,6 +332,9 @@ Resources:
           export LAYR_ROOT=/var/lib/layr
           /opt/layr-executor/current/layr --project "$PROJECT" fetch origin
           /opt/layr-executor/current/layr --project "$PROJECT" push origin
+          if [ '${HostKind}' = executor ]; then
+            /opt/layr-executor/current/layr --project "$PROJECT" index write origin
+          fi
           EOF
           chmod 0755 /usr/local/sbin/layr-executor-transfer
           cat > /etc/systemd/system/layr-transfer.service <<'EOF'

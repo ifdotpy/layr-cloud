@@ -56,6 +56,7 @@ class TemplateTests(unittest.TestCase):
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/states/*"},
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/slots/*"},
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/requests/*"},
+            {"Fn::Sub": "${Bucket.Arn}/${Prefix}/index/*"},
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/overlays/*/keys/*"},
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/overlays/*/epochs/*/records/*"},
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/overlays/*/epochs/*/states/*"},

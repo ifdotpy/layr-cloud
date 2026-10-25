@@ -648,6 +648,8 @@ First boot creates the dedicated system account `layr-registry` without a home o
 The registry handler uses that unprivileged account.
 Do not use that account for ordinary Layr commands.
 The transfer timer fetches and pushes `origin` after each inactive minute until `checks-ready` exists.
+After a successful executor push, it runs `layr index write origin`. The check/apply loop does the same
+after its successful push. The runner does not publish indexes.
 The check loop then owns fetch/apply/scan/push, so the two timers do not duplicate transfers.
 Systemd permits only one transfer unit at a time.
 A fetch failure stops the push and appears in the unit journal.
@@ -775,6 +777,7 @@ The writer may make exactly one anonymous `GET /p/<project>/public.json` side re
 All object writes must use `/v1/p/` and the exact writer bearer. Other public routes are refused by the test.
 All disposable recovery and token material stays under `/run` on tmpfs and is removed on exit.
 TLS private keys stay in memory-backed file descriptors. The test creates no AWS resources.
+Set `LAYR_TEST_INDEX=1` to also run `layr index write gateway` and verify immutable index objects through the same gateway.
 A template lint result does not prove AWS deployment, first boot, or a live gateway request.
 
 ## Optional check runner

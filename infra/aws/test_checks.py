@@ -102,6 +102,25 @@ class ChecksTests(unittest.TestCase):
             self.assertIn(['--local','checks.runner','false'],[c[-3:] for c in calls])
             self.assertIn(['--local','checks.privileged-runner','false'],[c[-3:] for c in calls])
             self.assertFalse((root/'last-work').exists())
+            index = [checks.BINARY, '--project', 'layr', 'index', 'write', 'origin']
+            self.assertEqual(calls.count(index), 1)
+            self.assertEqual(calls[calls.index(index)-1][-2:], ['push','origin'])
+
+    def test_failed_push_never_publishes_an_index(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            profile=root/'profile.env'
+            profile.write_text('PROJECT=layr\n')
+            calls=[]
+            def run(args, **kwargs):
+                calls.append(args)
+                if args[-2:]==['push','origin']:
+                    raise checks.subprocess.CalledProcessError(128,args)
+                return result() if args[0]=='runuser' else Mock(returncode=0,stdout='')
+            with patch.object(checks,'ROOT',root), patch.object(checks,'PROFILE',profile), patch.object(checks.subprocess,'run',side_effect=run):
+                with self.assertRaises(checks.subprocess.CalledProcessError):
+                    checks.tick({'hostKind':'executor'})
+            self.assertNotIn(['index','write','origin'],[c[-3:] for c in calls])
 
 
 if __name__ == '__main__':

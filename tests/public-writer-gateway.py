@@ -209,6 +209,16 @@ def main():
         after = s3.list_objects_v2(Bucket=bucket, Prefix='project/states/').get('KeyCount', 0)
         assert after > before, 'gateway push added no state objects'
         print('PASS trusted writer pushed a new public-project state through authenticated gateway transport')
+        if os.environ.get('LAYR_TEST_INDEX') == '1':
+            trace.clear()
+            indexed = cli(['index', 'write', 'gateway'], aws=False, ok=False)
+            print(json.dumps({'index_exit': indexed.returncode, 'requests': trace}))
+            assert indexed.returncode == 0, 'executor index write through gateway failed'
+            writes = [row for row in trace if row['method'] == 'PUT']
+            assert writes and all(row['path'].startswith('/v1/p/public-test/objects/index/')
+                                  and row['write_bearer'] and row['status'] == 201 for row in writes)
+            assert s3.list_objects_v2(Bucket=bucket, Prefix='project/index/').get('KeyCount', 0) > 0
+            print('PASS executor index write published immutable signed index objects through gateway')
     finally:
         if proxy:
             proxy.shutdown()

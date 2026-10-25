@@ -452,3 +452,36 @@ CLEANUP all disposable recovery/token/test material removed from /run
 no bearer is expected on that bootstrap exchange. Subsequent reads use the resulting read proof.
 This resolves the earlier local M7 writer integration failure. AWS/tailnet deployment and browser
 verification remain pending; this test created no AWS resources and no real project keys.
+
+## Final shared dependency pin and executor index hook
+
+The GitHub main ref resolved to `b337229691083d2738ebc6db4bdd48c0b9ede3c5` at 13:33 UTC.
+All `layr-store` and `layr-model` dependencies now use that exact revision; the lockfile has one shared store package.
+This main includes M2, M3, the M7 writer fix and signed store indexes.
+
+Both executor transfer paths run `layr --project "$PROJECT" index write origin` after a successful push.
+The fetch/apply/check-report/push loop publishes the index only after the successful cycle.
+Failures propagate; a failed push does not write an index. The optional runner does not publish indexes.
+The gateway supports canonical immutable `index/heads/<machine>/<20-digit-seq>.age`,
+`index/paths/<state>.age` and `index/graph/<state>.age` object names on authenticated object routes.
+Reading indexes requires the normal read proof; creation requires the writer bearer; overwrite and GC delete are refused.
+Anonymous index routes remain excluded. The project IAM template adds create-only `index/*` writes;
+that policy update is prepared and has not yet been deployed to the storage stacks.
+
+Pinned-main verification on 2026-10-25 at 13:38 UTC:
+workspace all-target tests passed (50 passed, 5 environment-dependent tests ignored);
+the final gateway test run including the index grant boundary passed (27 passed, 1 ignored).
+`cfn-lint` exited 0 and all 30 Python infrastructure tests passed.
+The exact pinned-main CLI built successfully. The live public-writer and index regression exited 0:
+one anonymous public-manifest GET, all object writes authenticated, and new state bytes confirmed in MinIO.
+The index command then published five immutable objects and read them through normal read proofs:
+
+```text
+PUT /v1/p/public-test/objects/index/graph/01a17348-f050-7145-829d-b4ae6ac88937.age -> 201; exact writer bearer present
+PUT /v1/p/public-test/objects/index/graph/01a17348-f2a9-766c-8334-c7a0b9611ed5.age -> 201; exact writer bearer present
+PUT /v1/p/public-test/objects/index/paths/01a17348-f050-7145-829d-b4ae6ac88937.age -> 201; exact writer bearer present
+PUT /v1/p/public-test/objects/index/paths/01a17348-f2a9-766c-8334-c7a0b9611ed5.age -> 201; exact writer bearer present
+PUT /v1/p/public-test/objects/index/heads/01a17348-f026-7402-bb19-2b38907c07fe/00000000000000000001.age -> 201; exact writer bearer present
+PASS executor index write published immutable signed index objects through gateway
+CLEANUP all disposable recovery/token/test material removed from /run
+```
