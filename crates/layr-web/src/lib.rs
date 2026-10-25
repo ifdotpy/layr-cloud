@@ -10,6 +10,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use wasm_bindgen::prelude::*;
 use zeroize::Zeroizing;
 mod changes;
+mod index;
 mod metadata;
 mod overlays;
 mod screens;
@@ -26,6 +27,7 @@ fn unb64(value: &str) -> Result<Vec<u8>> {
 }
 
 struct Store {
+    cache: index::Cache,
     authorities: BTreeMap<String, layr_model::authority::Authority>,
     published: BTreeMap<String, overlays::Published>,
     parent: Option<overlays::Parent>,
@@ -285,6 +287,7 @@ impl Session {
         self.stores.insert(
             name.into(),
             Store {
+                cache: index::Cache::default(),
                 authorities: BTreeMap::new(),
                 published: BTreeMap::new(),
                 parent: None,
@@ -392,6 +395,26 @@ impl Session {
             ""
         };
         let model = Model::from_verified_lines(verified, perspective)?;
+        let trusted = if store.parent.is_none() {
+            match layr_store::public::trusted_writers(&store.descriptor.project, &exact) {
+                Ok(keys) => keys,
+                Err(error) if store.cache.public.is_some() => return Err(error),
+                Err(_) => BTreeMap::new(),
+            }
+        } else {
+            machine_keys.clone()
+        };
+        if let Some(manifest) = &store.cache.public {
+            manifest.verify_signer(&trusted)?;
+        }
+        if let Some(snapshot) = store.cache.heads.take() {
+            if layr_model::index::reconcile(&snapshot, &exact).is_err() {
+                store.cache.note = Some(index::DISCARDED.into());
+                store.cache.paths.clear();
+                store.cache.graphs.clear();
+            }
+        }
+        store.cache.trusted = trusted;
         store.authorities = authorities;
         store.keys = machine_keys;
         store.model = model;
@@ -596,7 +619,16 @@ impl Session {
             .context("project has no verified records")
     }
     fn answer(&self, name: &str, method: &str, args: &Value, now: i64) -> Result<Value> {
-        self.person.as_ref().context("locked")?;
+        if self.person.is_none() && !self.stores.values().any(|s| s.cache.public.is_some()) {
+            bail!("locked");
+        }
+        if method == "loadStatus" {
+            let store = self.stores.get(name).context("store is locked")?;
+            return Ok(json!({"provisional":store.cache.heads.is_some(),"note":store.cache.note}));
+        }
+        if let Some(value) = self.index_answer(name, method, args)? {
+            return Ok(value);
+        }
         if method == "layers" {
             return Ok(json!(
                 self.layers(name, args[0].as_str().context("state is absent")?)?
@@ -621,13 +653,15 @@ impl Session {
         }
         if method == "you" {
             return Ok(
-                json!({"login":self.login,"recipient":keys::recipient_of(self.person.as_ref().context("locked")?)?,"invites":self.invites.iter().map(|pin|json!({"project":pin.project})).collect::<Vec<_>>(),"invite_errors":self.invite_errors,"disk":self.stores.iter().filter(|(_,s)|s.parent.is_none()).map(|(n,_)|json!({"store":n,"locked":false})).collect::<Vec<_>>()}),
+                json!({"login":self.login,"recipient":self.person.as_ref().map(|p| keys::recipient_of(p)).transpose()?,"invites":self.invites.iter().map(|pin|json!({"project":pin.project})).collect::<Vec<_>>(),"invite_errors":self.invite_errors,"disk":self.stores.iter().filter(|(_,s)|s.parent.is_none()).map(|(n,_)|json!({"store":n,"locked":false})).collect::<Vec<_>>()}),
             );
         }
         if method == "people" {
-            return Ok(
-                json!([{"login":self.login,"recipient":keys::recipient_of(self.person.as_ref().context("locked")?)?}]),
-            );
+            return Ok(if let Some(person) = &self.person {
+                json!([{"login":self.login,"recipient":keys::recipient_of(person)?}])
+            } else {
+                json!([])
+            });
         }
         if method == "stores" {
             return Ok(json!(self
@@ -837,6 +871,10 @@ impl Session {
                     .skip(offset)
                     .collect::<Vec<_>>())
             }
+            "openChanges" => json!(p.open_changes().into_iter().map(|s| json!({"id":s.change_id,"state":s.id,"title":s.message.lines().next().unwrap_or(""),"author":s.author,"time":s.time})).collect::<Vec<_>>()),
+            "historyInputs" => json!(self.history_states(name, arg(0))?),
+            "fileHistory" => self.file_history_view(name, arg(0), arg(1), false)?,
+            "blame" => self.file_history_view(name, arg(0), arg(1), true)?,
             "changes" => json!(p
                 .changes()
                 .into_iter()
@@ -1277,6 +1315,7 @@ mod tree_tests {
         session.stores.insert(
             "test".into(),
             Store {
+                cache: index::Cache::default(),
                 authorities: BTreeMap::new(),
                 published: BTreeMap::new(),
                 parent: None,

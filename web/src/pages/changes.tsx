@@ -78,12 +78,22 @@ export function ChangesPage({
   const [revision, setRevision] = useState(0);
   const { data, error } = useData(
     async () => {
-      const [index, operations] = await Promise.all([loadChangeIndex(source,project),source.opLog(project.id)]);
+      const index = await loadChangeIndex(source,project);
+      const operations = index.summaries ? [] : await source.opLog(project.id);
       return {...index,operations};
     },
     [source, project.id, revision],
   );
   if (!data) return <LoadError error={error} />;
+  if (data.summaries) return <div class="stack">
+    <PageHead title="Changes" />
+    <p class="note">Open changes from the signed index. Checking full history…</p>
+    {data.summaries.length ? <Table label="Open changes" headers={["Change","By","Time","State"]} rows={data.summaries.map(change => [
+      <a href={projectUrl(project.id, "change/"+change.id)}>{change.title || short(change.id)}</a>,
+      <Who name={personLabel(change.author.name)} />, when(change.time),
+      <a class="mono" href={projectUrl(project.id,"state/"+change.state)}>{short(change.state)}</a>,
+    ])} /> : <p class="note">No open changes.</p>}
+  </div>;
   const base = projectUrl(project.id, "changes");
   const rows = data.changes
     .filter(

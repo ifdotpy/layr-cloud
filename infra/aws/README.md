@@ -535,6 +535,20 @@ The Layr service and transfer operations wait until `/etc/layr-executor/ready` e
 First boot enables the transfer timer.
 Use the following profile to add the executor machine slot.
 
+## Encrypted person requests
+
+Use the v2 gateway build pinned to Layr `466f120f0846da86f63028bbec9eabb2fa69581f`.
+Person request bodies are encrypted to the project recipient. The gateway verifies the outer
+person signature and binds the caller, project and object path. It stores the opaque envelope
+with a create-only write. It does not decrypt the action. Plaintext v1 request bodies are refused.
+The executor decrypts each request and checks the inner signature, matching metadata, expiry
+and machine-local person key and access policy before it acts.
+
+Claims require the executor write bearer and keep the signed claim contract.
+The temporary request-write HTTP 503 guard is removed in this v2 build.
+Project epoch requests remain disabled until the separate epoch gateway integration.
+See [DEPLOYED.md](DEPLOYED.md) for the measured release digests.
+
 ## Configure the executor profile
 
 Issue the executor write token and send it directly to SSM from the administration machine.

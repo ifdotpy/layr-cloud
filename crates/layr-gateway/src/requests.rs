@@ -1,4 +1,4 @@
-//! Create-only signed person requests and executor claims.
+//! Create-only encrypted person requests and signed executor claims.
 use crate::{
     auth,
     config::Project,
@@ -9,7 +9,7 @@ use base64::Engine;
 use layr_store::{
     format::Descriptor,
     http,
-    request::{Claim, Signed},
+    request::{Claim, Sealed, Signed},
 };
 
 pub fn path(name: &str) -> Option<(bool, &str)> {
@@ -31,7 +31,12 @@ impl Gateway {
         login: Option<&str>,
         write: bool,
     ) -> Result<Reply> {
-        if request.body.len() > layr_store::request::MAX_BYTES {
+        let maximum = if claim {
+            layr_store::request::MAX_BYTES
+        } else {
+            layr_store::request::MAX_SEALED_BYTES
+        };
+        if request.body.len() > maximum {
             return Ok(Reply::error(413, "request is too large"));
         }
         if !matches!(
@@ -43,10 +48,6 @@ impl Gateway {
         if request.header("content-length").is_none() {
             return Ok(Reply::error(411, "Content-Length is required"));
         }
-        let signed = match Signed::parse(&request.body) {
-            Ok(signed) => signed,
-            Err(_) => return Ok(Reply::error(400, "invalid signed request envelope")),
-        };
         let Some(descriptor) = self.storage.get(project, "store.json", None, JSON_LIMIT)? else {
             return Ok(Reply::error(404, "store is not initialized"));
         };
@@ -61,6 +62,10 @@ impl Gateway {
             if !write {
                 return Ok(Reply::error(403, "claims require an executor write token"));
             }
+            let signed = match Signed::parse(&request.body) {
+                Ok(signed) => signed,
+                Err(_) => return Ok(Reply::error(400, "invalid signed claim envelope")),
+            };
             let claim: Claim = match serde_json::from_str(signed.r.get()) {
                 Ok(claim) => claim,
                 Err(_) => return Ok(Reply::error(400, "invalid claim structure")),
@@ -83,6 +88,21 @@ impl Gateway {
                     "person requests require a tailnet person",
                 ));
             };
+            let value = match Sealed::parse(&request.body) {
+                Ok(value) => value,
+                Err(_) => {
+                    return Ok(Reply::error(
+                        400,
+                        "send an encrypted v2 person request; plaintext v1 is refused",
+                    ))
+                }
+            };
+            if value.epoch != "root" {
+                return Ok(Reply::error(
+                    400,
+                    "project epoch requests are not supported by this gateway yet",
+                ));
+            }
             let config = self.config.get()?;
             let Some(people_config) = &config.people else {
                 return Ok(Reply::error(404, "this gateway keeps no person keys"));
@@ -97,17 +117,17 @@ impl Gateway {
             let Some(public) = people.record(login)?.and_then(|record| record.signing_key) else {
                 return Ok(Reply::error(403, "register a person signing key first"));
             };
-            let value = match layr_store::person::verifying_key(&public)
-                .and_then(|key| signed.verify(&key))
+            if layr_store::person::verifying_key(&public)
+                .and_then(|key| value.verify(&key))
+                .is_err()
             {
-                Ok(value) => value,
-                Err(_) => {
-                    return Ok(Reply::error(
-                        403,
-                        "person request signature does not verify",
-                    ))
-                }
-            };
+                return Ok(Reply::error(
+                    403,
+                    "encrypted person request signature does not verify",
+                ));
+            }
+            // Only routing metadata and the outer signature are visible here. The executor
+            // decrypts and checks matching inner metadata, signature, expiry and local policy.
             if value.person != login || value.project != descriptor.project || value.id != id {
                 return Ok(Reply::error(
                     403,

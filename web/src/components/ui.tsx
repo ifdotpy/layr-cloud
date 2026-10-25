@@ -1,5 +1,6 @@
 import type { ComponentChildren } from "preact";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
+import { createContext } from "preact";
+import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import { operationLabel, plural } from "../labels";
 
 export const operationName = operationLabel;
@@ -387,8 +388,10 @@ export function CodeText({ text }: { text: string }) {
   );
 }
 /** Async results are cancelled when the route changes, preventing old project data from flashing. */
+export const DataRevision = createContext(0);
 export function useData<T>(load: () => Promise<T>, deps: unknown[]) {
-  const token = useMemo(() => ({}), deps);
+  const revision = useContext(DataRevision);
+  const token = useMemo(() => ({}), [...deps, revision]);
   const [result, setResult] = useState<{
     token?: object;
     data?: T;
@@ -412,7 +415,7 @@ export function useData<T>(load: () => Promise<T>, deps: unknown[]) {
     return () => {
       active = false;
     };
-  }, deps);
+  }, [token]);
   return result.token === token ? result : {};
 }
 export function LoadError({ error }: { error?: Error }) {

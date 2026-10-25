@@ -1,6 +1,6 @@
 # AWS deployment of Layr Cloud
 
-Measured state: 2026-10-25, 12:56 UTC. The lead approved deployment; the three storage stacks are created. Tailnet host enrollment is pending.
+Measured state: 2026-10-25, 15:13 UTC. Three storage stacks are created. Host deployment awaits Tailscale enrollment keys. The current source uses encrypted v2 person requests; earlier release gates below are historical.
 This file records the M8 deployment from `layr-cloud` base `e4fdf656a0cae5ada5e2e3c7ebaf2fbe372c5f8d`.
 The deployment branch is `cloud/m8-deploy`.
 
@@ -176,7 +176,7 @@ executor 3edbdcda0ee3b8b49a0beef1c7a893f68649c44a2f8b9289c1bef90219fdd244 2 vali
 The gateway archive contains the static binary, sync script, and nine built site files.
 The executor archive contains the pinned static Layr binary and sync script.
 The application changes and initial deployment record are in commit `d9ece2632c509981d69a8135af07ac051fbe4d76`.
-No push or merge was performed.
+Those preparation commits stayed local at that stage; later branch publication is recorded below.
 
 ## Executor and runner contract
 
@@ -488,5 +488,131 @@ CLEANUP all disposable recovery/token/test material removed from /run
 
 The browser production build with the final dependency pin also passed:
 `npm run build --prefix web` exited 0, including the WASM build, TypeScript check and Vite build.
-Vite built 62 modules and the 4,316,440-byte WASM module (size rounded in Vite output).
+Vite built 62 modules and the 4,316,443-byte WASM module (measured from the built file).
 The existing large-chunk warning remains.
+
+## Branch publication
+
+The lead confirmed that the initial no-push restriction was his and that the user authorized
+publication of verified work. At 13:40 UTC he pushed `cloud/m8-deploy` only.
+A readback with `git ls-remote origin refs/heads/cloud/m8-deploy` returned
+`b45d7c630ae0dbedcc13a7ff011cd23f50b42f1e`, matching the local HEAD at that time.
+The verified gateway, dependency pin and executor index changes are in `d52da3f`.
+Both web workers received the published branch and route contracts.
+Further verified pushes to this branch are authorized; main pushes and merges remain excluded.
+Static ARM64 release builds for the final dependency pin have started. Host deployment still waits
+for the two Tailscale SSM parameter names, and the runner additionally needs its own tagged key.
+
+## Static ARM64 preparation artifacts at b337229
+
+Both release builds completed successfully from the pinned source and current gateway changes.
+The stripped Layr binary reports `layr version 0.2.0`. The real host archive validator accepted both archives;
+its static ELF checks verify AArch64 with no dynamic interpreter. `readelf` also confirmed those properties.
+Artifacts are in `/root/work/m8-release-b337229` in the trusted local `layr-dev` VM:
+
+| Kind | Binary SHA-256 | Archive SHA-256 | Validated files |
+| --- | --- | --- | ---: |
+| Gateway | `1bdbe10a98637451184bd06be7806c3d05f70cb3aa92303f9425aadfd9f1f8da` | `47dcf23c91fbd5109a1eaf29bf054067ab576dba902d5a043000e950fb07fca0` | 11 |
+| Executor | `80355507d7727490327fa27099eb60ed0d14b6733a6daac50537eb199ca563f7` | `c2e79779db81efaead96c7df170189193e1a95a2594f7d5772e9d0089dfe0136` | 3 |
+
+The gateway archive includes the site built with the b337229 shared dependencies.
+The executor archive includes the static CLI, sync script and host check/index loop.
+An actual HTTP smoke check of the stripped release gateway as `nobody` served the new production site:
+
+```text
+GET / => 200; 635 bytes; site CSP present
+HEAD / => 200; Content-Length=635; no body
+GET /assets/index-CO9mJLnI.js => 200; text/javascript; charset=utf-8; 2092661 bytes
+GET /assets/index-BWGCPk8t.css => 200; text/css; charset=utf-8; 32154 bytes
+GET WASM => 200; 4316443 bytes; wasm signature verified
+GET /api/missing => 404; no SPA fallback
+GET /v1/missing => 404; no SPA fallback
+GET /missing.js => 404; no SPA fallback
+GET /%2e%2e/etc/passwd => 400; no SPA fallback
+GET /assets%2f..%2findex.html => 400; no SPA fallback
+Wrong Host => 421; direct API/site host boundary preserved
+```
+
+## Deployment hold for encrypted person requests
+
+At 13:47 UTC the lead required a new v2 request object encrypted to the current project recipient.
+The outer person signature covers `layr/request/v2\0 || ciphertext`. The gateway will validate that
+signature and the person, project and path bindings without reading the request plaintext.
+The native shared v2 implementation is assigned separately. Gateway integration will follow its exact commit/API.
+The gateway must refuse v1 person request bodies once v2 is integrated. Claims keep the current contract.
+
+The b337229 archives above are preparation artifacts and contain the old v1 request route.
+**Do not deploy those old gateway bytes.** The lead refined this hold at 13:49 UTC: hosting may deploy before v2
+with every person request and claim write disabled. The gateway must be rebuilt with the refusal guard below.
+No v1 person request route has been deployed to AWS; both project stores remain uninitialized.
+The later epoch gateway extension also waits for its assigned merged main revision and client contract.
+
+## Hosting release with request writes disabled
+
+The lead's 13:49 UTC refinement permits deployment at b337229 before v2 when the keys arrive first.
+The gateway now returns HTTP 503 for every non-read request below authenticated `objects/requests/`,
+including machine claims, malformed names and encoded namespace separators. The response is:
+
+```text
+Person requests and claims are disabled until encrypted request support is ready.
+```
+
+This guard has no runtime configuration override. It runs before request body parsing or the legacy v1 validator.
+A test checks PUT, POST, PATCH and DELETE with no bearer, a writer bearer, a GC bearer and a read proof,
+then confirms no request object was created and ordinary store writes still work.
+The old positive v1 request/claim test is explicitly ignored pending replacement by encrypted v2 tests.
+Person registration, hosting, public reads and authenticated index publication remain available.
+
+The gateway binary and archive must be rebuilt after this guard. The earlier gateway digest in the preparation table
+is superseded; the new digest and test output will be recorded when the rebuild completes.
+The executor binary and archive are unchanged. When shared v2 arrives, replace the legacy validator and refusal guard
+with v2 verification, reject v1, update tests and repin before enabling request writes.
+
+The disabled-write fallback release completed its checks at 13:55 UTC:
+`cargo test --locked -p layr-gateway` passed 27 tests with 2 explicit ignores
+(MinIO environment setup and the obsolete positive plaintext-v1 flow).
+Static ARM64 build exited 0. The replacement binary SHA-256 is
+`7ab8b9d77ae4e81b05d22502b241480615abfa4cc751f5a4d9e0907128de588a`.
+The replacement gateway archive SHA-256 is
+`4c772ce4837d7240e5c88f17da14a8db5c3ca98f6db4d4ac0e33c7c3be892f12`;
+the host validator accepted its 11 real files.
+
+An actual HTTP test of the stripped release binary as `nobody` confirmed:
+PUT, POST, PATCH and DELETE each return 503 on both person-request and claim paths.
+The same process served HTML, JavaScript, CSS and the 4,316,443-byte WASM with 200,
+HEAD with an empty body, traversal with 400 and wrong Host with 421.
+This guarded gateway archive can be used for hosting at b337229 if the keys arrive before v2.
+The earlier unguarded gateway archives must not be deployed.
+
+
+## Encrypted request v2 integration at 466f120
+
+At 15:12 UTC, `git ls-remote https://github.com/ifdotpy/layr main` returned
+`466f120f0846da86f63028bbec9eabb2fa69581f`, the lead-approved main with request v2.
+All shared `layr-store` and `layr-model` dependencies and the release CLI are pinned to that hash.
+The v2 build removes the temporary request-write HTTP 503 guard. Earlier guarded and unguarded
+b337229 artifacts are superseded by the verified v2 artifacts recorded below.
+
+The gateway accepts only the shared v2 sealed envelope for person request writes. It verifies
+`layr/request/v2\0 || decoded ciphertext` against the stored person signing key and binds the
+outer person, project and request UUID to the authenticated tailnet login, descriptor and path.
+It stores the opaque original body with a conditional create. It does not decrypt or parse the action.
+Signed plaintext v1 bodies, altered ciphertext, invalid signatures, wrong caller/project/path,
+unknown fields and oversized envelopes are refused. Root requests are supported; non-root epoch
+requests remain refused until the separately assigned gateway epoch integration.
+Claims retain the existing write-bearer, structural and project/path checks. The executor verifies
+machine trust and signatures. Its machine-local person-key pin and access policy remain mandatory.
+
+The regression test can run all three native caller phases with:
+
+```sh
+LAYR_TEST_REQUEST=1 LAYR_TEST_INDEX=1 \
+  LAYR_BIN=/root/work/m8-release-466f120/executor/layr \
+  LAYR_GATEWAY_BINARY=/root/work/m8-release-466f120/gateway/layr-gateway \
+  /opt/layr-cfn-lint/bin/python tests/public-writer-gateway.py
+```
+
+The disposable project, person recovery material, tokens and TLS test material stay in `/run`
+tmpfs on the trusted local VM. The test deletes them on completion. No real project keys are made.
+The local test uses MinIO and a Tailscale LocalAPI identity stand-in; it does not prove live AWS
+or real tailnet enrollment. Those M8 checks still require the Tailscale keys.

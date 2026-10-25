@@ -7,6 +7,8 @@ const outputIndex = process.argv.indexOf('--output');
 const output = outputOption ?? (outputIndex >= 0 ? process.argv[outputIndex + 1] : undefined);
 const reportDirectory = output ? resolve(output) : fileURLToPath(new URL('./test-results/', import.meta.url));
 
+const port = Number(process.env.LAYR_WEB_TEST_PORT || 4173);
+
 export default defineConfig({
   testDir: './tests',
   testMatch: '**/*.spec.ts',
@@ -17,7 +19,7 @@ export default defineConfig({
   workers: 2,
   reporter: [['list'], ['json', { outputFile: resolve(reportDirectory, 'results.json') }], ['./tests/screenshot-reporter.ts']],
   use: {
-    baseURL: 'http://127.0.0.1:4173',
+    baseURL: `http://127.0.0.1:${port}`,
     browserName: 'chromium',
     viewport: { width: 1280, height: 900 },
     colorScheme: 'light',
@@ -25,8 +27,8 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   webServer: {
-    command: 'npm run dev -- --host 127.0.0.1 --port 4173 --strictPort',
-    url: 'http://127.0.0.1:4173',
+    command: `npm run dev -- --host 127.0.0.1 --port ${port} --strictPort`,
+    url: `http://127.0.0.1:${port}`,
     reuseExistingServer: false,
     timeout: 30_000,
   },

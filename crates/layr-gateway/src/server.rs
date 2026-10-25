@@ -1318,7 +1318,7 @@ mod tests {
         use base64::engine::general_purpose::STANDARD as B64;
         use layr_store::{
             keys,
-            request::{Action, Claim, Request},
+            request::{self, Action, Claim, Request},
         };
         let mut f = Fixture::new();
         f.config.people = Some(super::super::config::People {
@@ -1383,22 +1383,38 @@ mod tests {
             project_id.into(),
             login.into(),
             auth::now() as i64,
-            Action::Approve {
-                state: project_id.into(),
-                into: "main".into(),
+            Action::Comment {
+                change_id: project_id.into(),
+                version: project_id.into(),
+                path: None,
+                line: None,
+                text: "private review text is visible only to project readers".into(),
+                reply_to: None,
             },
         )
         .unwrap();
-        let body = request.sign(&key).unwrap().to_bytes().unwrap();
+        let plaintext = request.sign(&key).unwrap().to_bytes().unwrap();
+        assert_eq!(
+            raw(Some(login), "PUT", &base, "", plaintext.clone()).status,
+            400
+        );
+        let body = request::seal(&plaintext, &project.recipient, &key).unwrap();
+        assert!(!String::from_utf8_lossy(&body).contains("private review text"));
+        let envelope = request::Sealed::parse(&body).unwrap();
+        assert_eq!(
+            keys::decrypt_with(&f.identity, &B64.decode(&envelope.ct).unwrap()).unwrap(),
+            plaintext
+        );
         assert_eq!(raw(None, "PUT", &base, &write, body.clone()).status, 403);
         assert_eq!(
             raw(Some("bob@example.com"), "PUT", &base, &write, body.clone()).status,
             403
         );
-        let altered = String::from_utf8(body.clone())
-            .unwrap()
-            .replace("main", "other")
-            .into_bytes();
+        let mut altered: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let mut ciphertext = B64.decode(altered["ct"].as_str().unwrap()).unwrap();
+        *ciphertext.last_mut().unwrap() ^= 1;
+        altered["ct"] = json!(B64.encode(ciphertext));
+        let altered = serde_json::to_vec(&altered).unwrap();
         assert_eq!(raw(Some(login), "PUT", &base, "", altered).status, 403);
         let mut wrong = request.clone();
         wrong.project = id.into();
@@ -1408,7 +1424,12 @@ mod tests {
                 "PUT",
                 &base,
                 "",
-                wrong.sign(&key).unwrap().to_bytes().unwrap()
+                request::seal(
+                    &wrong.sign(&key).unwrap().to_bytes().unwrap(),
+                    &project.recipient,
+                    &key
+                )
+                .unwrap()
             )
             .status,
             403
@@ -1417,6 +1438,40 @@ mod tests {
         assert_eq!(
             raw(Some(login), "PUT", &other_path, "", body.clone()).status,
             403
+        );
+        for (field, value, status) in [
+            ("person", json!("bob@example.com"), 403),
+            ("project", json!(id), 403),
+            ("epoch", json!(id), 400),
+            ("v", json!(1), 400),
+            ("sig", json!("00".repeat(64)), 403),
+            ("action", json!({"text":"plaintext"}), 400),
+        ] {
+            let mut changed: serde_json::Value = serde_json::from_slice(&body).unwrap();
+            changed[field] = value;
+            assert_eq!(
+                raw(
+                    Some(login),
+                    "PUT",
+                    &base,
+                    "",
+                    serde_json::to_vec(&changed).unwrap()
+                )
+                .status,
+                status,
+                "{field}"
+            );
+        }
+        assert_eq!(
+            raw(
+                Some(login),
+                "PUT",
+                &base,
+                "",
+                vec![b'x'; request::MAX_SEALED_BYTES + 1]
+            )
+            .status,
+            413
         );
         assert_eq!(raw(Some(login), "PUT", &base, "", body.clone()).status, 201);
         assert_eq!(raw(Some(login), "PUT", &base, "", body.clone()).status, 412);

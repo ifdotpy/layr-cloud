@@ -1,7 +1,7 @@
 import type {
   RequestAction, RequestStatus, ActionAccess, Comment, DataSource, Project, Line, State, Change, Ref, RefChange, QueueEntry, Attestation,
   Operation, Behavior, Tree, FileContent, Diff, Copy, Person, Machine, Store, You,
-  ScreenDiff, LogOptions, MergeStatus, ChangeDiff,
+  ScreenDiff, LogOptions, MergeStatus, ChangeDiff, OpenChange, Blame, LoadStatus,
 } from './source';
 import { passkeySecret } from './unlock';
 import type { PersonView } from './gateway';
@@ -10,6 +10,8 @@ export interface ModelSourceOptions { gateway?: string; worker?: () => Worker; o
 /** The page has no keys. Lock terminates the worker and releases its WASM memory. */
 export class ModelSource implements DataSource {
   private worker?: Worker;
+  private listeners = new Set<()=>void>();
+  private publicProject?: string;
   private nextId = 0;
   private active = false;
   private lastActivity = -Infinity;
@@ -30,6 +32,7 @@ export class ModelSource implements DataSource {
     if (this.worker) return this.worker;
     const worker = this.options.worker?.() ?? new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
     worker.onmessage = event => {
+      if (event.data.updated) { for (const listener of this.listeners) listener(); return; }
       if (event.data.locked) { void this.lock(); return; }
       const call = this.pending.get(event.data.id);
       if (!call) return;
@@ -58,12 +61,19 @@ export class ModelSource implements DataSource {
       worker.postMessage({ id, method, args, base: this.options.gateway || '' }, transfer);
     });
   }
+  subscribe(listener:()=>void):()=>void { this.listeners.add(listener); return () => this.listeners.delete(listener); }
+  async openPublic(project:string):Promise<string> { const id = await this.call<string>('openPublic',[project]); this.publicProject = project; this.active = true; return id; }
+  openChanges(project:string):Promise<OpenChange[]> { return this.call('openChanges',[project]); }
+  blame(project:string,state:string,path:string):Promise<Blame> { return this.call('blame',[project,state,path]); }
+  fileHistory(project:string,state:string,path:string):Promise<State[]> { return this.call('fileHistory',[project,state,path]); }
+  loadStatus(project:string):Promise<LoadStatus> { return this.call('loadStatus',[project]); }
+  private async restorePublic() { if (this.publicProject) await this.openPublic(this.publicProject); }
   person(): Promise<PersonView> { return this.call('person'); }
-  async unlockRecovery(words: string): Promise<void> { await this.call('unlockRecovery', [words]); this.active = true; }
+  async unlockRecovery(words: string): Promise<void> { await this.call('unlockRecovery', [words]); this.active = true; await this.restorePublic(); }
   async unlockPasskey(): Promise<void> {
     const person = await this.person();
     const { slot, secret } = await passkeySecret(person);
-    try { await this.call('unlockPrf', [secret, slot], [secret.buffer as ArrayBuffer]); this.active = true; }
+    try { await this.call('unlockPrf', [secret, slot], [secret.buffer as ArrayBuffer]); this.active = true; await this.restorePublic(); }
     finally { if (secret.byteLength) secret.fill(0); }
   }
   actionAccess(project: string): Promise<ActionAccess> { return this.call('actionAccess', [project]); }

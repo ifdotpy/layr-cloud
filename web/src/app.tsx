@@ -38,9 +38,11 @@ const ORG_TABS: [string, string][] = [
 export function App({
   source,
   onLock,
+  onSignIn,
 }: {
   source: DataSource;
   onLock?: () => void;
+  onSignIn?: () => void;
 }) {
   const [hash, setHash] = useState(location.hash);
   const [menu, setMenu] = useState("");
@@ -56,6 +58,7 @@ export function App({
     async () => (project ? source.copies(project.id) : undefined),
     [source, project?.id],
   );
+  const { data: status } = useData(() => project && source.loadStatus ? source.loadStatus(project.id) : Promise.resolve(undefined), [source, project?.id]);
   const { data: changeIndex, error: changeCountError } = useData(
     async () => (project ? loadChangeIndex(source, project) : undefined),
     [source, project?.id],
@@ -185,6 +188,7 @@ export function App({
               </button>
               <div class={`menu end ${menu === "account" ? "open" : ""}`}>
                 {you?.login && <div class="lbl">Signed in as {you.login}</div>}
+                {!you?.login && onSignIn && <button type="button" onClick={onSignIn}>Sign in</button>}
                 <a href="#/you">You: key, invites, disk</a>
                 <button type="button" onClick={() => setCli(!cli)}>
                   {cli ? "Hide" : "Show"} CLI commands
@@ -214,6 +218,7 @@ export function App({
               </>
             )}
           </h1>
+          {project?.public && <Badge>Public</Badge>}
           {project?.policy?.protect?.[project.default_line ?? "main"] && (
             <Badge>protected {project.default_line ?? "main"}</Badge>
           )}
@@ -268,12 +273,14 @@ export function App({
         </div>
       </header>
       <main class="page" id="main-content" key={hash}>
+        {status?.provisional && <p class="note" role="status">Provisional · checking signed records…</p>}
+        {status?.note && <p class="note" role="status">{status.note}</p>}
         {route.project && !project ? (
           <div class="callout bad" role="alert">
             Project not found.
           </div>
         ) : project ? (
-          <ProjectPage source={source} project={project} route={route} />
+          <ProjectPage source={source} project={project} route={route} indexNote={status?.note ?? undefined} />
         ) : (
           <OrgPage source={source} page={route.page} />
         )}
@@ -332,14 +339,16 @@ function ProjectPage({
   source,
   project,
   route,
+  indexNote,
 }: {
   source: DataSource;
   project: Project;
   route: ReturnType<typeof parseRoute>;
+  indexNote?: string;
 }) {
   switch (route.page) {
     case "code":
-      return <CodePage source={source} project={project} route={route} />;
+      return <CodePage source={source} project={project} route={route} indexNote={indexNote} />;
     case "overlays":
       return <OverlaysPage source={source} project={project} />;
     case "overlay":

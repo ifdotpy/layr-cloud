@@ -41,10 +41,12 @@ export function CodePage({
   source,
   project,
   route,
+  indexNote,
 }: {
   source: DataSource;
   project: Project;
   route: Route;
+  indexNote?: string;
 }) {
   const [switchTab, setSwitchTab] = useState("Lines"),
     [filter, setFilter] = useState("");
@@ -56,10 +58,11 @@ export function CodePage({
     ]);
     const line =
       lines.find((l) => l.name === route.line) ??
+      lines.find((l) => l.head === route.state) ??
       lines.find((l) => l.name === (project.default_line ?? "main")) ??
       lines[0];
     if (!line) return { lines, refs, copies };
-    const states = await source.log(project.id, line.name);
+    const states = project.provisional ? [] : await source.log(project.id, route.state ?? line.name);
     const state = route.state ?? line.head;
     let tree: Tree | undefined,
       file: FileContent | undefined,
@@ -158,10 +161,10 @@ export function CodePage({
             {plural(data.refs.length, "ref")}
           </a>
           <a class="btn ghost" href={projectUrl(project.id, "states")}>
-            {plural(data.states?.length ?? 0, "state")}
+            {plural(project.index_counts?.states ?? data.states?.length ?? 0, "state")}
           </a>
           <a class="btn ghost" href={projectUrl(project.id, "overlays")}>
-            {plural(project.overlays?.length ?? 0, "overlay")}
+            {project.index_counts ? plural(project.index_counts.overlays, "overlay") : plural(project.overlays?.length ?? 0, "overlay")}
           </a>
           <span class="spacer" />
           {data.tree && (
@@ -196,21 +199,7 @@ export function CodePage({
           {data.contentError ? (
             <Empty>{data.contentError}</Empty>
           ) : data.file ? (
-            <div class="frame">
-              <div class="fh">
-                {data.file.path}
-                <span class="spacer" />
-                {bytes(data.file.size)}
-              </div>
-              {data.file.text === undefined ? (
-                <Empty>
-                  File contents are not available. Size: {bytes(data.file.size)}
-                  .
-                </Empty>
-              ) : (
-                <CodeText text={data.file.text} />
-              )}
-            </div>
+            <FileView source={source} project={project} file={data.file} indexNote={indexNote} />
           ) : (
             data.tree && (
               <>
@@ -298,7 +287,7 @@ export function CodePage({
         <section>
           <h2 class="side-title">About</h2>
           <p class="note">
-            {project.description ?? "No project description recorded."}
+            {project.provisional ? "Checking project details…" : project.description ?? "No project description recorded."}
           </p>
         </section>
         <section>
@@ -318,7 +307,7 @@ export function CodePage({
               ))}
             </ul>
           ) : (
-            <p class="note">No overlays recorded.</p>
+            <p class="note">{project.provisional ? "Checking overlays…" : "No overlays recorded."}</p>
           )}
         </section>
         <section>
@@ -351,7 +340,7 @@ export function CodePage({
               ))}
             </ul>
           ) : (
-            <p class="note">No copies recorded.</p>
+            <p class="note">{project.provisional ? "Checking copies…" : "No copies recorded."}</p>
           )}
         </section>
         <section>
@@ -360,7 +349,7 @@ export function CodePage({
             <a href={projectUrl(project.id, "deploy/images")}>Images</a>
           </h2>
           <p class="note">
-            {project.images?.length
+            {project.provisional ? "Checking images…" : project.images?.length
               ? `${project.images.length} images recorded.`
               : "No images recorded."}
           </p>
@@ -412,7 +401,7 @@ export function LinesPage({
     const [lines, machines, operations, you] = await Promise.all([
       source.lines(project.id),
       source.machines().catch(() => []),
-      source.opLog(project.id),
+      project.provisional ? Promise.resolve([]) : source.opLog(project.id),
       source.you(),
     ]);
     return { lines, machines, operations, you };
@@ -430,7 +419,7 @@ export function LinesPage({
       <td data-l="Owner"><Who name={personLabel(String(line.owner), data.operations.filter((op) => op.machine === line.machine))} /></td>
       <td data-l="Head"><a href={projectUrl(project.id, "state/" + line.head)} class="mono">{short(line.head)}</a></td>
       <td data-l="Machine"><span title={short(line.machine)}>{machineLabel(line.machine, data.machines)}</span></td>
-      <td data-l="Last activity"><span class="muted" title={activity.saved === undefined ? undefined : when(activity.saved)}>{activity.saved === undefined ? "No saves recorded" : age(activity.saved)}</span>{view === "Stale" && <Cmd text={`layr line delete ${line.name}`} />}</td>
+      <td data-l="Last activity"><span class="muted" title={activity.saved === undefined ? undefined : when(activity.saved)}>{project.provisional ? "Checking history…" : activity.saved === undefined ? "No saves recorded" : age(activity.saved)}</span>{view === "Stale" && <Cmd text={`layr line delete ${line.name}`} />}</td>
     </tr>;
   };
   const disk = project.disk ?? [],
@@ -698,4 +687,32 @@ export function StatePage({
       )}
     </div>
   );
+}
+
+function FileView({source, project, file, indexNote}:{source:DataSource;project:Project;file:FileContent;indexNote?:string}) {
+  const [view,setView] = useState("File");
+  const {data,error} = useData(async () => {
+    if (view === "Blame") {
+      if (!source.blame) throw new Error("Blame is unavailable for this capture.");
+      const blame = await source.blame(project.id,file.state,file.path);
+      return {blame,status:await source.loadStatus?.(project.id)};
+    }
+    if (view === "File history") {
+      if (!source.fileHistory) throw new Error("File history is unavailable for this capture.");
+      const history = await source.fileHistory(project.id,file.state,file.path);
+      return {history,status:await source.loadStatus?.(project.id)};
+    }
+    return {};
+  },[source,project.id,file.state,file.path,view]);
+  return <div class="frame">
+    <div class="fh"><span>{file.path}</span><span class="spacer" />{bytes(file.size)}</div>
+    <div class="filters file-tools"><ToggleButtons label="File view" items={["File","Blame","File history"]} value={view} onChange={setView} /></div>
+    {data?.status?.note && !indexNote && <p class="note" role="status">{data.status.note}</p>}
+    {view === "File" ? file.text === undefined ? <p class="note">File contents are unavailable.</p> : <CodeText text={file.text} /> : !data ? <LoadError error={error} /> : data.blame ? <div class="tbl-frame" tabIndex={0} role="region" aria-label="Blame"><table class="blame-table"><thead><tr><th scope="col">State</th><th scope="col">By</th><th scope="col">Line</th><th scope="col">Text</th></tr></thead><tbody>{data.blame.lines.map(line=>{
+      const state = data.blame.states.find(s=>s.id===line.state);
+      return <tr key={line.line}><td>{line.state ? <a class="mono" href={projectUrl(project.id,"state/"+line.state)}>{short(line.state)}</a> : <span class="muted">Not recorded</span>}</td><td>{state ? personLabel(state.author.name) : <span class="muted">Not recorded</span>}</td><td class="mono muted">{line.line}</td><td><code>{line.text || " "}</code></td></tr>;
+    })}</tbody></table></div> : data.history ? data.history.length ? <Table label="File history" headers={["State","Message","By","Time"]} rows={data.history.map(state=>[
+      <a class="mono" href={queryUrl(projectUrl(project.id,"code"),{state:state.id,path:file.path})}>{short(state.id)}</a>,state.message,<span>{personLabel(state.author.name)}</span>,when(state.time),
+    ])} /> : <p class="note">No file changes recorded.</p> : null}
+  </div>;
 }

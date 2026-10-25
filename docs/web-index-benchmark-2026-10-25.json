@@ -1,0 +1,145 @@
+{
+  "date": "2026-10-25",
+  "layr_revision": "b337229691083d2738ebc6db4bdd48c0b9ede3c5",
+  "environment": "OrbStack layr-dev, root, aarch64, release Session adapter",
+  "command": "cargo run --release -p layr-web --example index_first_page -- 1000 100000 1000000",
+  "samples_note": "One full-load sample; median of three indexed samples. Shared VM under concurrent build/test load. Includes manifest/slot and 1000-record bootstrap verification; excludes gateway/network/listings. These are native adapter measurements, not browser latency.",
+  "results": [
+    {
+      "after_ms": 160.105697,
+      "after_samples_ms": [
+        112.77147699999999,
+        160.105697,
+        174.269772
+      ],
+      "before_ms": 108.744557,
+      "before_samples_ms": [
+        108.744557
+      ],
+      "measurement": "in-memory encrypted objects, release native reader, layr-web Session root public open + verified 1000-record writer bootstrap + authenticated snapshot; full verification is background work; excludes network/listing",
+      "record_bytes": 315719,
+      "records": 1000,
+      "snapshot_bytes": 957,
+      "speedup": 0.6792047943178438
+    },
+    {
+      "after_ms": 980.19149,
+      "after_samples_ms": [
+        534.886822,
+        980.19149,
+        1027.774774
+      ],
+      "before_ms": 20735.395706,
+      "before_samples_ms": [
+        20735.395706
+      ],
+      "measurement": "in-memory encrypted objects, release native reader, layr-web Session root public open + verified 1000-record writer bootstrap + authenticated snapshot; full verification is background work; excludes network/listing",
+      "record_bytes": 31914027,
+      "records": 100000,
+      "snapshot_bytes": 882,
+      "speedup": 21.15443351380249
+    },
+    {
+      "after_ms": 109.085906,
+      "after_samples_ms": [
+        106.75506899999999,
+        109.085906,
+        151.507858
+      ],
+      "before_ms": 145757.96049300002,
+      "before_samples_ms": [
+        145757.96049300002
+      ],
+      "measurement": "in-memory encrypted objects, release native reader, layr-web Session root public open + verified 1000-record writer bootstrap + authenticated snapshot; full verification is background work; excludes network/listing",
+      "record_bytes": 321137367,
+      "records": 1000000,
+      "snapshot_bytes": 1009,
+      "speedup": 1336.1759171070187
+    }
+  ],
+  "source_sha256": {
+    "crates/layr-web/src/lib.rs": "3066807fabfaa3dfef410aae71972448a025cbfe1d976465049c073830402c4b",
+    "crates/layr-web/src/index.rs": "3cb427f54bcbabb8fd8f9366632a672015dd04283cd67a51bed159e2775f9a11",
+    "crates/layr-web/examples/index_first_page.rs": "ea2b84553cbd7a6c72fd698fe0141e817920c21a6188853ce19c9c48856a540f"
+  },
+  "source_note": "Hashes identify the measured Linux source archive. Later local source changes only format Rust and add the signed wrong-head rejection test; benchmark runtime behavior is unchanged.",
+  "browser_live": {
+    "firstPageMs": 567.5,
+    "provisionalMs": 1089.424332999999,
+    "lines": 2,
+    "history": 2,
+    "blame": 1,
+    "open": 1,
+    "axe": 12,
+    "screenshots": [
+      "/tmp/layr-web-index-screenshots/provisional-first-page-1280-light.png",
+      "/tmp/layr-web-index-screenshots/provisional-first-page-1280-dark.png",
+      "/tmp/layr-web-index-screenshots/provisional-first-page-390-light.png",
+      "/tmp/layr-web-index-screenshots/blame-1280-light.png",
+      "/tmp/layr-web-index-screenshots/blame-1280-dark.png",
+      "/tmp/layr-web-index-screenshots/blame-390-light.png",
+      "/tmp/layr-web-index-screenshots/file-history-1280-light.png",
+      "/tmp/layr-web-index-screenshots/file-history-1280-dark.png",
+      "/tmp/layr-web-index-screenshots/file-history-390-light.png",
+      "/tmp/layr-web-index-screenshots/public-project-1280-light.png",
+      "/tmp/layr-web-index-screenshots/public-project-1280-dark.png",
+      "/tmp/layr-web-index-screenshots/public-project-390-light.png"
+    ],
+    "record_count": 11,
+    "measurement": "First API page after recovery unlock; rendered provisional page measured from clicking unlock through visible lines. Real CLI store -> MinIO -> gateway -> WASM worker; shared host load."
+  },
+  "checks": {
+    "native_unit": {
+      "passed": 12,
+      "ignored": 5,
+      "platforms": [
+        "macOS",
+        "OrbStack layr-dev Linux root"
+      ]
+    },
+    "native_cli_golden": {
+      "passed": 1,
+      "platforms": [
+        "macOS",
+        "OrbStack layr-dev Linux root"
+      ],
+      "contracts": [
+        "first-page lines",
+        "open changes",
+        "first-parent file history for main and feature",
+        "blame text and state attribution for main and feature",
+        "public anonymous first page"
+      ]
+    },
+    "typescript": [
+      "production",
+      "tests"
+    ],
+    "unit_tests": 67,
+    "playwright_full": {
+      "passed": 43,
+      "failed": 0,
+      "flaky": 0,
+      "screenshots": 114
+    },
+    "playwright_file_note_delta": {
+      "passed": 2
+    },
+    "live_minio": {
+      "passed": true,
+      "axe": 12,
+      "screenshots": 12,
+      "checks": [
+        "provisional Lines, Code, Changes with later records withheld",
+        "corrupt heads full fallback",
+        "corrupt paths full fallback, verified blame and one muted note",
+        "CLI history and blame",
+        "public anonymous bytes without person/session routes",
+        "invalid and absent root manifests fail closed with sign-in",
+        "personal sign-in retains Public badge",
+        "worker isolation and lock",
+        "no persistent secrets"
+      ]
+    }
+  }
+}
