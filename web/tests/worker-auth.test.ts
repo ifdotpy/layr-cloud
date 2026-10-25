@@ -16,9 +16,9 @@ function setup(){
  }
  class Gateway{
   unlock(login:string){calls.push(`bootstrap ${login}`);return {login,recipient:'recipient',signing:'sealed',signing_key:'public'};}
-  signIn(login:string,sign:(s:string)=>string){calls.push(`session ${login}`);assert.equal(sign('challenge'),'proof');}
+  signIn(login:string,sign:(s:string)=>string){if(refused)throw new HttpError(401,'wrong proof');calls.push(`session ${login}`);assert.equal(sign('challenge'),'proof');}
   person(){calls.push('person');return {login:'ann@example.com'};}projects(){calls.push('projects');return [];}
-  register(_login:string,_invite:string,body:string){bodies.push(body);throw new Error('reply lost');}
+  register(_login:string,invite:string,body:string){bodies.push(body);refused=invite==='invalid';if(refused)throw new HttpError(401,'invalid invite');throw new Error('reply lost');}
   putRequest(){if(refused)throw new HttpError(401,'sign in again');}lock(){}
  }
  const scope={onmessage:(_event:unknown)=>{},postMessage:(v:Parameters<typeof receive>[0])=>receive(v),close(){}};
@@ -34,4 +34,8 @@ test('registration returns only recovery words, clears entropy and recovers a lo
  const w=setup();const prepared=await w.call('prepareRegistration',['ann@example.com']);assert.equal(JSON.stringify(prepared.value),JSON.stringify({words:'recovery words'}));assert(w.buffers[0].every(b=>b===0));
  assert.equal((await w.call('registerPerson',['invite'])).error,undefined);assert.equal(w.bodies.length,1);assert(!w.bodies[0].includes('recovery words'));assert(w.calls.includes('private index'));
  await w.call('lock');assert.match((await w.call('registerPerson',['invite'])).error!,/locked/);
+});
+
+test('an invalid invite keeps the prepared key for an authorized retry',async()=>{
+ const w=setup();await w.call('prepareRegistration',['ann@example.com']);assert.match((await w.call('registerPerson',['invalid'])).error!,/invalid invite/);assert.equal((await w.call('registerPerson',['valid'])).error,undefined);assert.equal(w.bodies[0],w.bodies[1]);
 });

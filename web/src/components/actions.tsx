@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { DataSource, RequestAction, RequestStatus } from '../data/source';
-import { Cmd, Mono, Status, useData, when, short } from './ui';
+import { Cmd, Status, useData, when, short } from './ui';
 import { parseRoute, projectUrl, queryUrl } from '../router';
 import { personLabel } from '../labels';
 

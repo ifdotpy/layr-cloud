@@ -13,8 +13,10 @@ impl Session {
         self.refresh_person_view(&serde_json::from_str(view).map_err(|e| js(e.into()))?).map_err(js)
     }
     /// New person material is produced and retained in the worker; only recovery words and sealed fields leave this method.
-    pub fn prepare_person(&mut self, login: &str, entropy: &[u8]) -> std::result::Result<String, JsValue> {
-        self.new_person(login, entropy).map_err(js)
+    pub fn prepare_person(&mut self, login: &str, entropy: &mut [u8]) -> std::result::Result<String, JsValue> {
+        let result = self.new_person(login, entropy);
+        entropy.fill(0);
+        result.map_err(js)
     }
     pub fn open_signing_key(
         &mut self,
@@ -44,7 +46,7 @@ impl Session {
         let signing = SigningKey::from_bytes(&seed);
         let recipient = keys::recipient_of(&identity)?;
         let public = signing.verifying_key().to_bytes().iter().map(|b| format!("{b:02x}")).collect::<String>();
-        let result = encoded(json!({"recipient":recipient,"paper":B64.encode(keys::seal_slot(&identity,&keys::recipient_of(&paper)?)?),"signing_key":public,"signing":B64.encode(keys::encrypt(&recipient,&signing.to_bytes())?),"words":keys::words_of_identity(&paper)?}))?;
+        let result = encoded(json!({"recipient":recipient,"paper":B64.encode(keys::seal_slot(&identity,&keys::recipient_of(&paper)?)?),"signing_key":public,"signing":B64.encode(keys::encrypt(&recipient,seed.as_slice())?),"words":keys::words_of_identity(&paper)?}))?;
         self.person = Some(identity); self.login = login.into(); self.signing = Some(signing);
         Ok(result)
     }
