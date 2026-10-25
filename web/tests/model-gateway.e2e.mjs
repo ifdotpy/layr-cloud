@@ -141,17 +141,17 @@ try {
     await checkReleasesAndLines(page, site, descriptor.project, process.env.LAYR_WEB_TEST_M5, words);
   }
   if (readerView) {
-    const actual = await page.evaluate(async words => {
+    const actual = await page.evaluate(async ({words,login}) => {
       const { ModelSource } = await import('/src/data/model-source.ts');
       const source = new ModelSource();
       try {
-        await source.unlockRecovery(words,'owner@example.com');
+        await source.unlockRecovery(words,login);
         const [project] = await source.projects();
         const [main] = await source.lines(project.id);
         const file = await source.file(project.id, main.head, 'hidden.txt');
         return {overlays:project.overlays, file};
       } finally { await source.lock(); }
-    }, words);
+    }, {words,login:personLogin});
     assert.equal(actual.overlays.length, 1);
     assert.equal(actual.overlays[0].name, 'hidden-browser-secret');
     assert.equal(actual.overlays[0].hidden, true);
@@ -203,11 +203,11 @@ try {
     await page.getByRole('heading', {name:'Lines',exact:true}).waitFor();
     console.log('PASS live hidden reader: real CLI person, encrypted manifest, model layers, exact hidden file bytes, list and detail each show one neutral hidden badge, 6 screenshots and 6 axe passes');
   } else if (golden) {
-    const actual = await page.evaluate(async ({words, request}) => {
+    const actual = await page.evaluate(async ({words, request,login}) => {
       const { ModelSource } = await import('/src/data/model-source.ts');
       const source = new ModelSource();
       try {
-        await source.unlockRecovery(words,'owner@example.com');
+        await source.unlockRecovery(words,login);
         const [project] = await source.projects();
         const screens = await source.screens(project.id, request.probe_base, request.probe_head);
         const behavior = await source.probeDiff(project.id, request.probe_base, request.probe_head);
@@ -215,7 +215,7 @@ try {
         const change = await source.changeShow(project.id, request.change);
         return {screens, behavior, copies, bisect:project.bisect_results, versions:change.versions, overlays:project.overlays};
       } finally { await source.lock(); }
-    }, {words, request:golden.request});
+    }, {words, request:golden.request,login:personLogin});
     assert.deepEqual(actual.screens, golden.screens.screens);
     assert.deepEqual(actual.behavior, golden['probe-diff']);
     assert.deepEqual(actual.copies, golden.copies);
@@ -234,12 +234,12 @@ try {
     await page.getByRole('heading', {name:'Lines',exact:true}).waitFor();
     console.log(`PASS wave2 ModelSource: ${actual.screens.length} canonical screens and verified PNGs, structure page, ${actual.copies.length} copy records, ${actual.bisect.length} bisect runs, ${actual.versions.length} versions with provenance, hidden overlay isolation`);
   } else {
-  const content = await page.evaluate(async words => {
+  const content = await page.evaluate(async ({words,login}) => {
     const { ModelSource } = await import('/src/data/model-source.ts');
     const { loadChangeIndex } = await import('/src/data/change-index.ts');
     const source = new ModelSource();
     try {
-      await source.unlockRecovery(words,'owner@example.com');
+      await source.unlockRecovery(words,login);
       const [project] = await source.projects();
       const lines = await source.lines(project.id);
       const base = lines.find(line => line.name === 'main').head;
@@ -250,7 +250,7 @@ try {
       const index = await loadChangeIndex(source, project);
       return { summary, selected, file, open: index.open, changes: index.changes.length };
     } finally { await source.lock(); }
-  }, words);
+  }, {words,login:personLogin});
   assert(content.summary.files.some(file => file.path === 'test.txt'));
   assert(content.summary.files.every(file => file.before === undefined && file.after === undefined && file.added === undefined));
   assert.equal(content.selected.files[0].before, 'main bytes\n');
