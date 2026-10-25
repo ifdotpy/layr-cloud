@@ -33,7 +33,11 @@ fn main() -> Result<()> {
             .join(person::slot_name(login, &recipient)?),
         keys::seal_slot(&vault, &recipient)?,
     )?;
-    let signing = person::make_signing_keys(&recipient)?;
+    let signing_key = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    let signing = person::SigningKeys {
+        public_key: signing_key.verifying_key().to_bytes().iter().map(|byte| format!("{byte:02x}")).collect(),
+        sealed: keys::encrypt(&recipient, &signing_key.to_bytes())?,
+    };
     let person_root = output.join("people").join(login);
     fs::create_dir_all(person_root.join("slots"))?;
     fs::write(

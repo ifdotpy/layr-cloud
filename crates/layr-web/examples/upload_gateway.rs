@@ -14,10 +14,12 @@ fn upload(s3: &S3, root: &Path, at: &Path, prefix: &str) -> Result<()> {
                     .to_str()
                     .context("path is not UTF-8")?
             );
-            anyhow::ensure!(
-                s3.put_new(&key, fs::read(&path)?)?,
-                "fixture object already exists"
-            );
+            let bytes = fs::read(&path)?;
+            if !s3.put_new(&key, bytes.clone())? {
+                anyhow::ensure!(env::var_os("LAYR_WEB_APPEND").is_some(), "fixture object already exists");
+                let response = s3.request(reqwest::Method::GET, &key, &[], &[], Vec::new(), Duration::from_secs(10))?;
+                anyhow::ensure!(response.status().is_success() && response.bytes()?.as_ref() == bytes, "existing fixture object differs");
+            }
         }
     }
     Ok(())

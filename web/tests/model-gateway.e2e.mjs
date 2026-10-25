@@ -18,6 +18,7 @@ const storeInput = process.env.LAYR_WEB_TEST_STORE;
 const paperInput = process.env.LAYR_WEB_TEST_PAPER;
 const linesInput = process.env.LAYR_WEB_TEST_LINES;
 const goldenInput = process.env.LAYR_WEB_TEST_GOLDEN;
+const actionFixture = process.env.LAYR_WEB_ACTION_FIXTURE;
 const hiddenFixture = process.env.LAYR_WEB_TEST_HIDDEN_FIXTURE;
 const readerView = hiddenFixture ? JSON.parse(await readFile(path.join(hiddenFixture, "reader-view.json"), "utf8")) : undefined;
 const personLogin = readerView?.login ?? "owner@example.com";
@@ -52,7 +53,8 @@ async function waitFor(url, child) {
 try {
   const store = path.join(home, 'store'); const person = path.join(home, 'person');
   await cp(storeInput, store, { recursive: true });
-  if (readerView) {
+  if (actionFixture) await cp(path.join(actionFixture, 'person'), person, {recursive:true});
+  else if (readerView) {
     const personRoot = path.join(person, 'people', personLogin);
     await mkdir(path.join(personRoot, 'slots'), {recursive:true});
     await writeFile(path.join(personRoot, 'person.json'), JSON.stringify({format:1,recipient:readerView.recipient,created:0}));
@@ -125,6 +127,10 @@ try {
     if (await group.getAttribute('aria-expanded') === 'false') await group.click();
   for (const line of lines) await page.locator('main').getByTitle(line.name, { exact: true }).first().waitFor();
   assert.equal(dataRequests.length, 0, 'The lines page loads no file data parts.');
+  if (actionFixture) {
+    const { checkActions } = await import('./actions-live.mjs');
+    await checkActions({page, site, project:descriptor.project, actionFixture, store, person, root, bucket, env});
+  } else {
   if (process.env.LAYR_WEB_TEST_M5) {
     const { checkReleasesAndLines } = await import('./releases-lines-live.mjs');
     await checkReleasesAndLines(page, site, descriptor.project, process.env.LAYR_WEB_TEST_M5, words);
@@ -254,6 +260,7 @@ try {
   const gap = await page.getByRole('button', {name:'New line',exact:true}).evaluate(button => button.nextElementSibling.getBoundingClientRect().left - button.getBoundingClientRect().right);
   assert.equal(gap, 8, 'The disabled action and CLI chip use the normal 8px gap.');
   if (process.env.LAYR_WEB_TEST_SCREENSHOT) await page.screenshot({path: process.env.LAYR_WEB_TEST_SCREENSHOT, fullPage: true});
+  }
   const rows = await page.evaluate(async () => {
     const { ModelSource } = await import('/src/data/model-source.ts');
     // A separate locked worker cannot reuse the unlocked page's person identity.

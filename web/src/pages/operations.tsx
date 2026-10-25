@@ -314,6 +314,7 @@ export function DeployPage({
   section: string;
   reference?: string;
 }) {
+  const [revision, setRevision] = useState(0);
   const { data, error } = useData(async () => {
     const refs = await source.refs(project.id);
     const history =
@@ -321,7 +322,7 @@ export function DeployPage({
         ? await source.refLog(project.id, reference)
         : [];
     return { refs, history };
-  }, [source, project.id, section, reference]);
+  }, [source, project.id, section, reference, revision]);
   if (!data) return <LoadError error={error} />;
   const images = project.images ?? [],
     envs = data.refs.filter((r) => r.name.startsWith("env/")),
@@ -335,7 +336,7 @@ export function DeployPage({
             title={<Mono>{reference}</Mono>}
             description="An environment is a ref. Every position names an exact state."
             actions={
-              <RefMove source={source} project={project.id} name={reference!} expected={data.refs.find(ref => ref.name === reference)?.target ?? null} />
+              <RefMove source={source} project={project.id} name={reference!} expected={data.refs.find(ref => ref.name === reference)?.target ?? null} onApplied={() => setRevision(value => value + 1)} />
             }
           />
           <Section title="Position history">

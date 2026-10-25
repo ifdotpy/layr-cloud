@@ -68,6 +68,7 @@ export class ModelSource implements DataSource {
   }
   actionAccess(project: string): Promise<ActionAccess> { return this.call('actionAccess', [project]); }
   submitRequest(project: string, action: RequestAction): Promise<RequestStatus> { return this.call('submitRequest', [project, action]); }
+  retryRequest(project: string, id: string): Promise<RequestStatus> { return this.call('retryRequest', [project, id]); }
   requestStatus(project: string, id: string): Promise<RequestStatus> { return this.call('requestStatus', [project, id]); }
   comments(project: string, change: string): Promise<Comment[]> { return this.call('comments', [project, change]); }
   projects(): Promise<Project[]> { return this.call('projects'); }

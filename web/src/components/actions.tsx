@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import type { ActionAccess, Comment, DataSource, RequestAction, RequestStatus } from '../data/source';
+import type { DataSource, RequestAction, RequestStatus } from '../data/source';
 import { Cmd, Mono, Status, useData, when } from './ui';
 import { personLabel, shortText } from '../labels';
 
@@ -44,6 +44,11 @@ export function RequestActionButton({source, project, action, label, command, on
     <button type="button" class={`btn${primary ? ' primary' : ''}`} disabled={!access?.available || sending || request?.status === 'pending'} onClick={send}>{sending ? 'Sending…' : label}</button>
     {!access?.available && <p class="note">{access?.reason || accessError?.message || 'Checking your signing key…'}</p>}
     {request && <div class="request-outcome" role="status"><Status value={request.status} /> <span>{request.status === 'pending' ? 'Waiting for the executor.' : request.status === 'applied' ? 'Recorded by the executor.' : request.reason || 'The executor refused this request.'}</span><span class="note">Request <Mono>{request.id}</Mono></span>{request.status === 'pending' && request.reason && <p class="note">{request.reason}</p>}</div>}
+    {request?.status === 'pending' && request.reason && <button class="btn" type="button" disabled={sending} onClick={async () => {
+      setSending(true);
+      try { remember(await source.retryRequest(project,request.id)); } catch (error) { setError(error instanceof Error ? error.message : String(error)); }
+      finally { setSending(false); }
+    }}>Retry delivery</button>}
     {error && <p class="note" role="alert">{error}</p>}
     {command && <Cmd text={command} />}
   </div>;
@@ -57,7 +62,7 @@ export function CommentComposer({source, project, change, version, path, line, r
   const action: RequestAction = {kind:'comment', change_id:change, version, text, ...(path ? {path} : {}), ...(line ? {line} : {}), ...(replyTo ? {reply_to:replyTo} : {})};
   return <div class="comment-composer">
     <label>Comment<textarea class="input" aria-label={replyTo ? 'Reply' : line ? `Comment on line ${line}` : 'Comment'} rows={3} maxLength={65536} value={text} onInput={event => setText(event.currentTarget.value)} /></label>
-    {text.trim() ? <RequestActionButton source={source} project={project} action={action} label={replyTo ? 'Send reply' : 'Send comment'} onApplied={() => { setText(''); onApplied(); }} /> : <button type="button" class="btn" disabled>{replyTo ? 'Send reply' : 'Send comment'}</button>}
+    {text.trim() ? <RequestActionButton source={source} project={project} action={action} label={replyTo ? 'Send reply' : 'Send comment'} onApplied={() => { setText(current => current === text ? '' : current); onApplied(); }} /> : <button type="button" class="btn" disabled>{replyTo ? 'Send reply' : 'Send comment'}</button>}
     <Cmd text={`layr request comment ${change} <text> --person${path ? ` --path ${path}` : ''}${line ? ` --line ${line}` : ''}`} />
   </div>;
 }

@@ -54,3 +54,107 @@ impl Session {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn signing_requires_matching_person_and_project_pin_and_lock_discards_it() {
+        let (mut session, _, _, _) = crate::tests::fixture();
+        let identity = session.person.as_ref().unwrap().to_string();
+        let key = SigningKey::from_bytes(&[47;32]);
+        let public = key.verifying_key().to_bytes().iter().map(|byte| format!("{byte:02x}")).collect::<String>();
+        let sealed = keys::encrypt(&keys::recipient_of(&identity).unwrap(), &key.to_bytes()).unwrap();
+        session.open_signing(&sealed,&public).unwrap();
+        let name = session.stores.keys().next().unwrap().clone();
+        let action = json!({"kind":"approve","state":"01a12290-0000-7000-8000-000000000003","into":"main"}).to_string();
+        let id = "01a12290-0000-7000-8000-000000000004";
+        // The fixture has no records yet. A pin and an opened signing key are both required.
+        let project = session.stores.get(&name).unwrap().descriptor.project.clone();
+        let model = layr_model::Project::from_records(&project, [], "").unwrap();
+        session.stores.get_mut(&name).unwrap().model.projects.insert(project.clone(), model);
+        assert_eq!(session.action_access(&name).unwrap()["available"],false);
+        assert!(session.signed_request(&name,id,&action,1).is_err());
+        session.stores.get_mut(&name).unwrap().model.projects.get_mut(&project).unwrap().config.insert("person.keys".into(),json!({session.login.clone(): public}));
+        let signed = session.signed_request(&name,id,&action,1).unwrap();
+        let request = layr_store::request::Signed::parse(signed.as_bytes()).unwrap().verify(&key.verifying_key()).unwrap();
+        assert_eq!(request.person,session.login);
+        assert_eq!(request.project,project);
+        assert!(session.signed_request(&name,"bad",&action,1).is_err());
+        assert!(session.open_signing(&sealed,&"00".repeat(32)).is_err());
+        assert!(session.signing.is_none());
+        session.open_signing(&sealed,&public).unwrap();
+        session.lock();
+        assert!(session.signing.is_none());
+        assert!(session.person.is_none());
+    }
+}
+
+#[cfg(test)]
+mod executor_test {
+    use super::*;
+    use std::{env,fs,path::Path,process::Command,time::{SystemTime,UNIX_EPOCH}};
+    fn load(root: &Path, person: &Path) -> Session {
+        let view: Value = serde_json::from_slice(&fs::read(person.join("person-view.json")).unwrap()).unwrap();
+        let words = fs::read_to_string(person.join("recovery.txt")).unwrap();
+        let mut session = Session::new();
+        session.unlock(&keys::identity_from_paper(words.trim()).unwrap(),"paper",&view.to_string()).unwrap();
+        session.open_signing(&unb64(view["signing"].as_str().unwrap()).unwrap(),view["signing_key"].as_str().unwrap()).unwrap();
+        let slot = session.slot_name().unwrap();
+        session.add_store("test",&fs::read_to_string(root.join("store.json")).unwrap(),&fs::read(root.join("slots").join(slot)).unwrap()).unwrap();
+        fn records(session: &mut Session, root: &Path, at: &Path) {
+            for entry in fs::read_dir(at).unwrap() {
+                let path = entry.unwrap().path();
+                if path.is_dir() { records(session,root,&path); }
+                else { session.segment("test",path.strip_prefix(root).unwrap().to_str().unwrap(),&fs::read(&path).unwrap()).unwrap(); }
+            }
+        }
+        records(&mut session,root,&root.join("records"));
+        session.finish("test").unwrap();
+        session
+    }
+    #[test]
+    #[ignore = "requires a disposable real CLI executor; see README"]
+    fn real_executor_applies_browser_signatures_and_records_refusals() {
+        let home = env::var("LAYR_WEB_ACTION_FIXTURE").expect("LAYR_WEB_ACTION_FIXTURE");
+        let home = Path::new(&home);
+        let root = home.join("store"); let person = home.join("person");
+        let mut session = load(&root,&person);
+        let project = session.project("test").unwrap();
+        let feature = project.line_list().into_iter().find(|line|line.name=="feature").unwrap().head;
+        let change = project.states[&feature].state.change_id.clone().unwrap();
+        let mut count = 0;
+        let mut apply = |action: Value, status: &str| -> String {
+            count += 1;
+            let id = format!("01a1734c-0000-7000-8000-{count:012}");
+            let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as i64;
+            let envelope = session.signed_request("test",&id,&action.to_string(),now).unwrap();
+            fs::create_dir_all(root.join("requests")).unwrap();
+            fs::write(root.join("requests").join(format!("{id}.json")),&envelope).unwrap();
+            assert_eq!(session.request_status("test",&id).unwrap()["status"],"pending");
+            let result = Command::new(env::var("LAYR_WEB_ACTION_EXECUTOR").unwrap()).output().unwrap();
+            assert!(result.status.success(),"executor: {}",String::from_utf8_lossy(&result.stderr));
+            session = load(&root,&person);
+            let outcome = session.request_status("test",&id).unwrap();
+            assert_eq!(outcome["status"],status,"{outcome}");
+            assert!(outcome["record"].is_string());
+            if status == "refused" { assert!(outcome["reason"].as_str().is_some_and(|reason|!reason.is_empty())); }
+            id
+        };
+        apply(json!({"kind":"approve","state":feature,"into":"main"}),"applied");
+        apply(json!({"kind":"withdraw","state":feature,"into":"main"}),"applied");
+        let comment = apply(json!({"kind":"comment","change_id":change,"version":feature,"text":"Ready for review."}),"applied");
+        apply(json!({"kind":"comment","change_id":change,"version":feature,"text":"Reviewed this version.","reply_to":comment}),"applied");
+        apply(json!({"kind":"comment","change_id":change,"version":feature,"path":"test.txt","line":2,"text":"Keep this second line."}),"applied");
+        apply(json!({"kind":"ref_move","name":"env/native-test","target":feature,"expected":null}),"applied");
+        apply(json!({"kind":"ref_move","name":"env/native-test","target":feature,"expected":null}),"refused");
+        let entry = apply(json!({"kind":"queue_add","state":feature,"into":"main"}),"applied");
+        apply(json!({"kind":"queue_remove","entry":entry}),"applied");
+        drop(apply);
+        let comments = session.project("test").unwrap().comments(&change);
+        assert_eq!(comments.len(),3);
+        assert!(comments.iter().all(|comment|comment["actor"]["name"]=="person:owner@example.com"));
+        assert_eq!(comments[2]["line"],2);
+        println!("real executor: {count} signed browser requests, 8 applied, 1 refused, 3 folded comments");
+    }
+}

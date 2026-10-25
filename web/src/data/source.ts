@@ -424,6 +424,7 @@ export interface DataSource {
   actionAccess(project: Id): Promise<ActionAccess>;
   submitRequest(project: Id, action: RequestAction): Promise<RequestStatus>;
   requestStatus(project: Id, id: Id): Promise<RequestStatus>;
+  retryRequest(project: Id, id: Id): Promise<RequestStatus>;
   comments(project: Id, change: Id): Promise<Comment[]>;
   projects(): Promise<Project[]>;
   lines(project: Id): Promise<Line[]>;

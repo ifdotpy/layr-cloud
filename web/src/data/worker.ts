@@ -12,12 +12,13 @@ const routes = new Map<string, {gateway: string; prefix: string}>();
 const aliases = new Map<string, string>();
 const attempts = new Map<string, string>();
 const loaded = new Set<string>();
+const requestEnvelopes = new Map<string, {project: string; envelope: string; uncertain: boolean}>();
 let busy = Promise.resolve();
 function lock() {
   clearTimeout(timer);
   session?.lock(); session?.free(); session = undefined;
   gateway?.lock(); gateway = undefined;
-  routes.clear(); aliases.clear(); attempts.clear(); loaded.clear();
+  routes.clear(); aliases.clear(); attempts.clear(); loaded.clear(); requestEnvelopes.clear();
 }
 function touch() { clearTimeout(timer); timer = setTimeout(() => { lock(); scope.postMessage({ locked: true }); scope.close(); }, idleMs); }
 function current() { if (!session || !gateway) throw new Error('Your session is locked.'); return { session, gateway }; }
@@ -139,20 +140,29 @@ async function call(method: string, args: unknown[], base = ''): Promise<unknown
     }
     return JSON.parse(session.diff(name, object, other, filter));
   }
-  if (method === 'submitRequest') {
-    const name = alias(args[0] as string);
-    const id = uuidV7();
-    const envelope = session.sign_request(name, id, JSON.stringify(args[1]), Date.now());
+  if (method === 'submitRequest' || method === 'retryRequest') {
+    const project = args[0] as string;
+    const name = alias(project);
+    const id = method === 'submitRequest' ? uuidV7() : args[1] as string;
+    if (method === 'submitRequest') requestEnvelopes.set(id, {project, envelope:session.sign_request(name,id,JSON.stringify(args[1]),Date.now()), uncertain:false});
+    const saved = requestEnvelopes.get(id);
+    if (!saved || saved.project !== project) throw new Error('This request is unavailable in your session.');
     const target = route(name);
-    try { await current().gateway.putRequest(target.gateway, id, envelope); }
-    catch (error) {
-      // A lost success response must never cause a new request identity.
-      try { if (await current().gateway.requestObject(target.gateway, id, proof(name)) !== envelope) throw error; }
-      catch { return {id, status:'pending', reason:'Delivery could not be confirmed. Keep this request ID and check its status before trying again.'}; }
+    try { await current().gateway.putRequest(target.gateway,id,saved.envelope); saved.uncertain = false; }
+    catch {
+      try { saved.uncertain = await current().gateway.requestObject(target.gateway,id,proof(name)) !== saved.envelope; }
+      catch { saved.uncertain = true; }
     }
-    return {id, status: 'pending'};
+    return {id,status:'pending',...(saved.uncertain ? {reason:'Delivery could not be confirmed. Retry delivery with the same request ID.'} : {})};
   }
-  if (method === 'requestStatus') await loadStore(alias(args[0] as string));
+  if (method === 'requestStatus') {
+    const name = alias(args[0] as string), id = args[1] as string;
+    await loadStore(name);
+    const result = JSON.parse(session.query(name,method,JSON.stringify([id]),Date.now()));
+    const saved = requestEnvelopes.get(id);
+    if (result.status === 'pending' && saved?.uncertain) result.reason = 'Delivery could not be confirmed. Retry delivery with the same request ID.';
+    return result;
+  }
   if (method === 'changeDiff') {
     const name = alias(args[0] as string);
     const states: string[] = JSON.parse(session.query(name, 'changeInputs', JSON.stringify(args.slice(1)), Date.now()));
