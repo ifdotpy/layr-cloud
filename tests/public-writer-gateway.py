@@ -191,6 +191,14 @@ def main():
         threading.Thread(target=proxy.serve_forever, daemon=True).start()
         url = f'layr+https://localhost:{proxy.server_port}/public-test'
         cli(['remote', 'add', 'gateway', url], aws=False)
+        private = os.environ.get('LAYR_TEST_PRIVATE') == '1'
+        if private:
+            # Exercise a fresh writer process against the same private discovery
+            # boundary as production, with a real encrypted slot and no manifest.
+            paper_slot = s3.get_object(Bucket=bucket, Key='project/slots/paper.age')['Body'].read()
+            s3.put_object(Bucket=bucket, Key='project/slots/person-hidden@example.test-0123456789abcdef.age',
+                          Body=paper_slot)
+            s3.delete_object(Bucket=bucket, Key='project/public.json')
         (line / 'notes.txt').write_text('writer edit after publication\n')
         cli(['save', '-am', 'Writer change after publication', '-q'], aws=False)
         before = s3.list_objects_v2(Bucket=bucket, Prefix='project/states/').get('KeyCount', 0)
@@ -204,14 +212,21 @@ def main():
             ('GET', '/p/public-test/public.json')], 'writer may read only the public manifest anonymously, once'
         assert not public_requests[0]['credential_present'], 'public manifest probe must not carry a bearer'
         assert all(row['path'].startswith(('/v1/p/', '/p/')) for row in trace)
-        assert pushed.returncode == 0, 'trusted writer push to a public project failed'
+        assert pushed.returncode == 0, 'trusted writer push through gateway failed'
+        if private:
+            assert not any(row['path'] == '/v1/p/public-test/slots' for row in trace), \
+                'machine writer must never enumerate aggregate slots'
+            proof = next(i for i, row in enumerate(trace) if row['path'] == '/v1/p/public-test/token')
+            listing = next(i for i, row in enumerate(trace) if row['path'].startswith('/v1/p/public-test/objects?'))
+            assert proof < listing, 'private writer must prove its identity before listing data'
         writes = [row for row in trace if row['method'] in ('PUT', 'DELETE', 'PATCH')]
         assert writes and all(row['path'].startswith('/v1/p/') and row['write_bearer'] for row in writes), \
             'every object write must use the authenticated route and exact writer bearer'
         assert any(row['method'] == 'PUT' and row['status'] == 201 for row in writes)
         after = s3.list_objects_v2(Bucket=bucket, Prefix='project/states/').get('KeyCount', 0)
         assert after > before, 'gateway push added no state objects'
-        print('PASS trusted writer pushed a new public-project state through authenticated gateway transport')
+        print('PASS trusted writer pushed a new ' + ('private' if private else 'public')
+              + '-project state through authenticated gateway transport')
         if os.environ.get('LAYR_TEST_INDEX') == '1':
             trace.clear()
             indexed = cli(['index', 'write', 'gateway'], aws=False, ok=False)
