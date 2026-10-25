@@ -9,7 +9,7 @@ name = "layr-cloud"
 path = "src/main.rs"
 
 [dependencies]
-layr-store = { git = "https://github.com/ifdotpy/layr", rev = "45080bb53b4de5c84726ac85563c979374308024" }
+layr-store = { git = "https://github.com/ifdotpy/layr", rev = "34ad8c0e9e31b4898ec3b98cbbd33ad6f30c41bf" }
 anyhow = "1"
 hex = "0.4"
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }

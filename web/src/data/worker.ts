@@ -55,6 +55,7 @@ async function loadStoreFast(name: string): Promise<boolean> {
   try { found = await listObjects(name, 'index/heads/'); }
   catch { await loadStore(name); return false; }
   if (!found.length) { await loadStore(name); return false; }
+  let completeRecords = false;
   try {
     // Bootstrap complete prefixes from each writer, never an index-provided key.
     const records = await listObjects(name, 'records/');
@@ -66,10 +67,27 @@ async function loadStoreFast(name: string): Promise<boolean> {
       const match = /^index\/heads\/([^/]+)\/(\d{20})\.age$/.exec(entry.key);
       if (match && entry.key > (latest.get(match[1]) || '')) latest.set(match[1], entry.key);
     }
-    for (const object of latest.values()) session.add_heads(name, object, await objectBytes(name, object));
-    if (session.use_heads(name)) return true;
+    for (const object of latest.values()) {
+      const bytes = await objectBytes(name, object);
+      try { session.add_heads(name, object, bytes); }
+      catch (error) {
+        if (completeRecords) throw error;
+        // A later signed machine.trust record can authorize a new index writer.
+        // Authenticate complete history before deciding that its cache is invalid.
+        await loadStore(name); completeRecords = true;
+        session.add_heads(name, object, bytes);
+      }
+    }
+    if (session.use_heads(name)) {
+      if (!completeRecords) return true;
+      // This path already fetched the full history; reconcile before returning it.
+      // TODO: reuse authenticated source watermarks here. finish_records currently
+      // drops exact signed segment bytes, which reconciliation still needs.
+      await loadStore(name); return false;
+    }
   } catch { session.discard_index(name); }
-  await loadStore(name); return false;
+  if (!completeRecords) await loadStore(name);
+  return false;
 }
 function reconcile(name: string, overlays: () => Promise<void>) {
   const expected = generation;

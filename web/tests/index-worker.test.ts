@@ -8,7 +8,7 @@ const machine='01a12290-0000-7000-8000-000000000002';
 const first=`records/${machine}/00000000000000000001-00000000000000000002.age`;
 const second=`records/${machine}/00000000000000000003-00000000000000000004.age`;
 const head=`index/heads/${machine}/00000000000000000001.age`;
-function worker(tamper=false) {
+function worker(tamper:boolean|'laterTrust'=false) {
   const calls:string[]=[];let provisional=false;let finishes=0;let release:()=>void=()=>{};
   const reconcile=new Promise<void>(resolve=>release=resolve);
   let onReply:(message:{id?:number;value?:unknown;error?:string;updated?:boolean})=>void=()=>{};
@@ -21,7 +21,7 @@ function worker(tamper=false) {
     }
     add_segment(_name:string,key:string){calls.push(key)}
     finish_records(){finishes++;if(finishes>1)provisional=false;calls.push('finish')}
-    add_heads(){calls.push('heads');if(tamper)throw Error('untrusted signer')}
+    add_heads(){calls.push('heads');if(tamper===true || (tamper==='laterTrust'&&!calls.includes(second)))throw Error('untrusted signer')}
     use_heads(){provisional=true;return true} discard_index(){provisional=false;calls.push('discard')}
     overlay_slots(){return '[]'}overlay_inputs(){return '[]'}
   }
@@ -50,4 +50,12 @@ test('untrusted snapshot discards index and completes full verified loading befo
   const w=worker(true);assert.equal((await w.request('unlockRecovery',['words'])).error,undefined);
   assert.equal(w.finishes(),2);assert(w.calls.includes('discard'));assert(w.calls.includes(second));
   assert.equal(((await w.request('loadStatus',['project'])).value as {provisional:boolean}).provisional,false);await w.request('lock');
+});
+
+test('a later creator trust record authorizes the executor index before any discard',async()=>{
+  const w=worker('laterTrust');assert.equal((await w.request('unlockRecovery',['words'])).error,undefined);
+  assert.equal(w.finishes(),3);assert(w.calls.includes(second));assert(!w.calls.includes('discard'));
+  assert.equal(w.calls.filter(call=>call==='heads').length,2);
+  assert.equal(((await w.request('loadStatus',['project'])).value as {provisional:boolean}).provisional,false);
+  await w.request('lock');
 });

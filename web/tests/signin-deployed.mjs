@@ -40,6 +40,8 @@ try{
   const conversation=page.getByRole('heading',{name:'Conversation',exact:true}).locator('..');
   await conversation.getByLabel('Comment',{exact:true}).last().fill(`Unsent diagnostic draft (${phase})`);
   await expect(conversation.getByRole('button',{name:'Send comment',exact:true}).last()).toBeEnabled({timeout:15000});
+  await expect(page.getByText('protected main',{exact:true})).toBeVisible();
+  await expect(page.getByText('Index discarded. Showing verified records.',{exact:true})).toHaveCount(0);
  }
  if(!readOnly){
  assert.equal(await stat(path.join(output,'delivery.json')).catch(()=>null),null,'This output already records a delivered request; inspect it before submitting again.');

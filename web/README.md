@@ -157,3 +157,7 @@ For the deployed gateway, run `tests/signin-deployed.mjs` in layr-dev. Keep the 
 Set `LAYR_WEB_LIVE_READ_ONLY=1` to verify sign-in, project reads, screenshots and lock before the executor is ready, without submitting a request.
 
 The full deployed check waits for the executor's signed comment record, saves three screenshots and axe reports, checks storage isolation, then locks the key. Only encrypted request bytes and public proofs cross the relay.
+
+Person and public readers use the verified project creator's policy perspective. Configuration from other machines retains its machine namespace. A missing or ambiguous creator leaves policy unavailable and disables actions with an explanatory note. The CLI retains its local machine perspective.
+
+`tests/index-worker.test.ts` also covers an executor index whose trust record appears after the creator's first segment. The worker verifies complete history and retries the index before marking it invalid. To check an encrypted snapshot from a real two-writer store, run the ignored Rust test `actual_two_writer_indexes_reconcile` with `LAYR_WEB_INDEX_FIXTURE` set to the exported store and `LAYR_WEB_INDEX_PERSON` set to the disposable person folder. Keep the person folder and its recovery file in VM tmpfs.

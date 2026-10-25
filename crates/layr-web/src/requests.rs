@@ -67,6 +67,9 @@ impl Session {
         Ok(())
     }
     pub(super) fn action_access(&self, name: &str) -> Result<Value> {
+        if let Some(reason) = &self.stores.get(name).context("store is locked")?.cache.policy_note {
+            return Ok(json!({"available":false,"reason":reason}));
+        }
         let project = self.project(name)?;
         let public = project
             .config
