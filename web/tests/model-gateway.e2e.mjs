@@ -45,7 +45,7 @@ async function waitFor(url, child) {
   let last = 'no response';
   while (Date.now() < end) {
     if (child?.exitCode != null) throw new Error(`Server exit ${child.exitCode}`);
-    try { const response = await fetch(url, {signal: AbortSignal.timeout(2000)}); if (response.ok) return; last = `HTTP ${response.status}: ${(await response.text()).slice(0,120)}`; } catch (error) { last = error.cause?.code || error.message; }
+    try { const response = await fetch(url, {signal: AbortSignal.timeout(2000)}); if (response.ok) { await response.arrayBuffer(); return; } last = `HTTP ${response.status}: ${(await response.text()).slice(0,120)}`; } catch (error) { last = error.cause?.code || error.message; }
     await new Promise(resolve => setTimeout(resolve, 100));
   }
   throw new Error(`Server timeout: ${new URL(url).pathname}: ${last}`);
@@ -104,7 +104,7 @@ try {
   const configPath = path.join(home, 'gateway.json'); await writeFile(configPath, JSON.stringify(config), { mode: 0o600 });
   gateway = start(path.join(root, 'target/debug/layr-gateway'), ['serve', '--config', configPath, '--tls', 'none', '--test-static-credentials'], { env });
   if(nativeSession)start('ssh',['-o','BatchMode=yes','-o','ExitOnForwardFailure=yes','-N','-R',`127.0.0.1:${port}:127.0.0.1:${port}`,'root@layr-dev@orb']);
-  await waitFor(`http://localhost:${port}/api/person/unlock?login=${encodeURIComponent(personLogin)}`, gateway);
+  await waitFor(`http://localhost:${port}/api/projects`, gateway);
   vite = await createVite({ configFile: false, root: path.join(root, 'web'), server: { host: '127.0.0.1', port: 0, watch: null, hmr: false, proxy: { '/p': { target: `http://localhost:${port}`, changeOrigin: true, headers: { origin: `http://localhost:${port}` } }, '/api': { target: `http://localhost:${port}`, changeOrigin: true, headers: { origin: `http://localhost:${port}` } }, '/v1': { target: `http://localhost:${port}`, changeOrigin: true, headers: { origin: `http://localhost:${port}` } } } }, worker: { format: 'es' } });
   await vite.listen(); const site = vite.resolvedUrls.local[0];
   browser = await chromium.launch({ headless: true });
