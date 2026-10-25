@@ -11,7 +11,7 @@ rustup target add wasm32-unknown-unknown
 cargo install wasm-pack --version 0.15.0 --locked
 ```
 
-The Rust model and store dependencies use Layr revision `1a91cd32555a878e87d63d6311520ecca3be7173`.
+The Rust model and store dependencies use Layr revision `b337229691083d2738ebc6db4bdd48c0b9ede3c5`.
 
 ```sh
 cd web
@@ -88,6 +88,26 @@ Groups start closed. A filter or search opens the matching groups.
 The **Made together** note requires a verified operation that creates all lines in the group.
 The pinned CLI records each line separately, including lines from `line new --count`. These records do not prove a shared command.
 
-Unlock verifies all record metadata before the first page. The lines and refs first load for stores above 100,000 records (design section 4) is not built and not benchmarked. The lead accepted this limit for phase 1. A follow-up task will add this load path and a store index.
+Unlock authenticates the newest heads index after verifying the writers' initial record prefixes. Lines, Code and open Changes render provisionally while the remaining records load backwards. Reconciliation uses the exact watermark and the shared model; any mismatch discards the index and shows one muted note. Missing indexes use the full verified load. History pages wait for reconciliation.
+
+The initial record segment must be opened to establish writer trust. A store with a single large initial segment pays that verification cost before its first page. File history reconciles path and ancestry objects against signed states and trees. Blame loads only versions of the selected file, within the shared model's size limits.
+
+Open a public project with `/?project=<gateway-project-name>`. The worker uses the root public manifest and slot, and checks its signer against authenticated writer history before exposing data. Invalid or absent public manifests show “This project is not public” and offer sign-in. Signing in adds personal access and preserves the Public badge. Epoch discovery is a later integration with the shared readers and gateway epoch routes.
 
 Passkey tests check the salt and PRF bytes. A live authenticator has not been tested.
+
+
+## Index and public checks
+
+`crates/layr-web/tests/make-index-cli-fixture.sh` creates a disposable real CLI store with two record segments, encrypted heads/paths/graph indexes, public access, and independent CLI history/blame output. Run it as root in `layr-dev` using the detached launch pattern above. Copy the emitted archive and oracle files into a private local test folder.
+
+```sh
+cargo run -p layr-web --example prepare_gateway -- /path/fixture/archive /path/fixture/paper /path/fixture/person
+LAYR_WEB_INDEX_FIXTURE=/path/fixture LAYR_WEB_INDEX_PERSON=/path/fixture/person cargo test -p layr-web --test index-cli-store -- --ignored
+cd web
+LAYR_WEB_TEST_STORE=/path/fixture/archive LAYR_WEB_TEST_PAPER=/path/fixture/paper LAYR_WEB_TEST_LINES=/path/fixture/lines.json LAYR_WEB_TEST_INDEX=/path/fixture node --experimental-strip-types tests/model-gateway.e2e.mjs
+```
+
+The live check uses MinIO, the real gateway and WASM worker. It withholds a later record segment while opening Lines, Code and Changes, checks corrupted-index fallback, compares history/blame with the CLI, and opens the public project in a fresh anonymous browser session. It also checks missing/invalid public manifests and personal sign-in. Screenshots cover provisional first page, blame, file history and public project at all three display settings, with axe and AA badge contrast checks.
+
+`cargo run --release -p layr-web --example index_first_page -- 1000 100000 1000000` measures the native Session adapter, including manifest/slot opening, writer-prefix verification and index authentication. It excludes network and listing time. Generation and encryption are outside each measured interval.

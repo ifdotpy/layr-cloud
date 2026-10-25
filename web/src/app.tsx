@@ -280,7 +280,7 @@ export function App({
             Project not found.
           </div>
         ) : project ? (
-          <ProjectPage source={source} project={project} route={route} />
+          <ProjectPage source={source} project={project} route={route} indexNote={status?.note ?? undefined} />
         ) : (
           <OrgPage source={source} page={route.page} />
         )}
@@ -339,14 +339,16 @@ function ProjectPage({
   source,
   project,
   route,
+  indexNote,
 }: {
   source: DataSource;
   project: Project;
   route: ReturnType<typeof parseRoute>;
+  indexNote?: string;
 }) {
   switch (route.page) {
     case "code":
-      return <CodePage source={source} project={project} route={route} />;
+      return <CodePage source={source} project={project} route={route} indexNote={indexNote} />;
     case "overlays":
       return <OverlaysPage source={source} project={project} />;
     case "overlay":

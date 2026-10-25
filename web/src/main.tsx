@@ -3,7 +3,7 @@ import { useEffect, useState } from "preact/hooks";
 import { App } from "./app";
 import { FixtureSource } from "./data/fixture-source";
 import { ModelSource } from "./data/model-source";
-import { Card, Empty, PageHead, LoadError } from "./components/ui";
+import { Card, Empty, PageHead, LoadError, DataRevision } from "./components/ui";
 
 const fixtureFiles = import.meta.glob("../fixtures/*.json", {
   eager: true,
@@ -26,8 +26,9 @@ function Root() {
         }),
   );
   const [publicError, setPublicError] = useState<Error>();
+  const [openingPublic,setOpeningPublic] = useState(Boolean(publicAlias));
   const [signIn, setSignIn] = useState(false);
-  useEffect(() => source.subscribe?.(() => setEpoch((e) => e + 1)), [source]);
+  useEffect(() => source instanceof ModelSource ? source.subscribe(() => setEpoch((e) => e + 1)) : undefined, [source]);
   useEffect(() => {
     if (!publicAlias || !(source instanceof ModelSource)) return;
     let active = true;
@@ -35,7 +36,7 @@ function Root() {
       if (!active) return;
       if (!location.hash || location.hash === "#/") location.hash = `#/project/${id}/code`;
       setUnlocked(true);
-    }).catch((error) => { if (active) setPublicError(error); });
+    }).catch((error) => { if (active) setPublicError(error); }).finally(() => { if(active) setOpeningPublic(false); });
     return () => { active = false; };
   }, [source]);
   useEffect(() => {
@@ -47,19 +48,18 @@ function Root() {
   }, [source]);
   if (signIn && source instanceof ModelSource)
     return <Unlock source={source} onUnlock={() => { setSignIn(false); setUnlocked(true); setEpoch((e)=>e+1); }} onCancel={() => setSignIn(false)} />;
-  if (!unlocked && publicAlias && !publicError) return <main class="page"><p class="note" role="status">Opening public project…</p></main>;
-  if (!unlocked && publicError) return <main class="page"><LoadError error={publicError} /></main>;
+  if (!unlocked && openingPublic) return <main class="page"><p class="note" role="status">Opening public project…</p></main>;
+  if (!unlocked && publicError) return <main class="page"><PageHead title="This project is not public" /><button class="btn" type="button" onClick={() => setSignIn(true)}>Sign in</button></main>;
   if (unlocked)
     return (
-      <App
-        key={epoch}
+      <DataRevision.Provider value={epoch}><App
         source={source}
         onSignIn={() => setSignIn(true)}
         onLock={() => {
           setUnlocked(false);
           setEpoch((e) => e + 1);
         }}
-      />
+      /></DataRevision.Provider>
     );
   return source instanceof ModelSource ? (
     <Unlock source={source} onUnlock={() => setUnlocked(true)} />

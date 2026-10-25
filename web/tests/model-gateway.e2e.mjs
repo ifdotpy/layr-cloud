@@ -107,7 +107,7 @@ try {
   const configPath = path.join(home, 'gateway.json'); await writeFile(configPath, JSON.stringify(config), { mode: 0o600 });
   gateway = start(path.join(root, 'target/debug/layr-gateway'), ['serve', '--config', configPath, '--tls', 'none', '--test-static-credentials', '--tailscale-socket', socketPath], { env });
   await waitFor(`http://localhost:${port}/api/person`, gateway);
-  vite = await createVite({ configFile: false, root: path.join(root, 'web'), server: { host: '127.0.0.1', port: 0, watch: null, hmr: false, proxy: { '/api': { target: `http://localhost:${port}`, changeOrigin: true, headers: { origin: `http://localhost:${port}` } }, '/v1': { target: `http://localhost:${port}`, changeOrigin: true, headers: { origin: `http://localhost:${port}` } } } }, worker: { format: 'es' } });
+  vite = await createVite({ configFile: false, root: path.join(root, 'web'), server: { host: '127.0.0.1', port: 0, watch: null, hmr: false, proxy: { '/p': { target: `http://localhost:${port}`, changeOrigin: true, headers: { origin: `http://localhost:${port}` } }, '/api': { target: `http://localhost:${port}`, changeOrigin: true, headers: { origin: `http://localhost:${port}` } }, '/v1': { target: `http://localhost:${port}`, changeOrigin: true, headers: { origin: `http://localhost:${port}` } } } }, worker: { format: 'es' } });
   await vite.listen(); const site = vite.resolvedUrls.local[0];
   browser = await chromium.launch({ headless: true });
   const context = await browser.newContext();
@@ -120,11 +120,15 @@ try {
   await page.getByRole('button', { name: 'Unlock with recovery words', exact: true }).click();
   try { await page.locator('#main-content').getByRole('heading', { name: 'Projects', exact: true }).waitFor({ timeout: 30000 }); } catch { throw new Error('Browser unlock failed: ' + JSON.stringify({alerts:await page.getByRole('alert').allTextContents(), headings:await page.getByRole('heading').allTextContents(), url:page.url()})); }
   await page.goto(`${site}#/project/${descriptor.project}/lines`);
-  await page.getByRole('heading', { name: 'Lines', exact: true }).waitFor();
+  try { await page.getByRole('heading', { name: 'Lines', exact: true }).waitFor(); } catch { throw new Error('Lines page failed: '+JSON.stringify({alerts:await page.getByRole('alert').allTextContents(),headings:await page.getByRole('heading').allTextContents(),body:await page.locator('body').innerText(),errors,url:page.url()})); }
   for (const group of await page.locator('main .line-group-toggle').all())
     if (await group.getAttribute('aria-expanded') === 'false') await group.click();
   for (const line of lines) await page.locator('main').getByTitle(line.name, { exact: true }).first().waitFor();
   assert.equal(dataRequests.length, 0, 'The lines page loads no file data parts.');
+  if (process.env.LAYR_WEB_TEST_INDEX) {
+    const {checkIndexPublic} = await import('./index-public-live.mjs');
+    await checkIndexPublic({browser,page,site,project:descriptor.project,fixture:process.env.LAYR_WEB_TEST_INDEX,words,output:process.env.LAYR_WEB_TEST_SCREENSHOT_DIR || path.join(root,'web/test-results/index-public')});
+  }
   if (process.env.LAYR_WEB_TEST_M5) {
     const { checkReleasesAndLines } = await import('./releases-lines-live.mjs');
     await checkReleasesAndLines(page, site, descriptor.project, process.env.LAYR_WEB_TEST_M5, words);

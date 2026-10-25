@@ -127,6 +127,7 @@ async function unlock(method: string, args: unknown[], base: string) {
   await init();
   gateway = new Gateway(base); session = new Session();
   try {
+    const {session, gateway} = current();
     const person = await gateway.person();
     if (!person.recipient) throw new Error('Your person key is absent from this gateway.');
     if (method === 'unlockRecovery') session.unlock_recovery(args[0] as string, JSON.stringify(person));
@@ -174,9 +175,17 @@ async function unlock(method: string, args: unknown[], base: string) {
     touch();
   } catch (error) { lock(); throw error; }
 }
+// TODO(modes-rotation): resolve keys/ and project/epochs/ with shared readers and gateway epoch routes.
 async function openPublic(project: string, base: string) {
   if (!session || !gateway) { await init(); gateway = new Gateway(base); session = new Session(); }
   const descriptor = await gateway.publicDescriptor(project);
+  const existing = aliases.get(descriptor.project);
+  if (existing && publicProjects.has(route(existing).gateway)) return descriptor.project;
+  if (existing) {
+    await complete(existing);
+    session.mark_public(existing, await gateway.publicManifest(project));
+    return descriptor.project;
+  }
   const id = session.open_public_store(project, JSON.stringify(descriptor), await gateway.publicManifest(project), await gateway.publicObject(project, 'slots/public.age'));
   publicProjects.add(project); aliases.set(id, project); routes.set(project, {gateway:project,prefix:''});
   try { await loadStore(project); touch(); return id; }
@@ -201,12 +210,10 @@ async function fileHistory(method: string, project: string, state: string, path:
       }
     }
   }
-  const versions: {id:string}[] = JSON.parse(session.history_versions(name, state, path));
-  if (method === 'blame') for (const version of versions) {
-    const object = await tree(name, version.id);
-    const directory = path.split('/').slice(0,-1).join('/');
-    const entry = JSON.parse(session.tree(name, object, directory)).entries.find((entry: {path:string}) => entry.path === path);
-    if (!entry || entry.kind === 'symlink' || entry.size > 64 * 1024 * 1024) break;
+  const versions = session.history_versions(name, state, path);
+  if (method === 'fileHistory') return JSON.parse(versions);
+  if (method === 'blame') for (const selected of JSON.parse(session.blame_inputs(name, state, path))) {
+    const object = await tree(name, selected);
     await parts(name, object, path);
   }
   return JSON.parse(session.query(name, method, JSON.stringify([state,path]), Date.now()));
@@ -219,7 +226,7 @@ async function call(method: string, args: unknown[], base = ''): Promise<unknown
   touch();
   const { session } = current();
   if (method === 'blame' || method === 'fileHistory') return fileHistory(method, ...(args as [string,string,string]));
-  if (args[0] && aliases.has(args[0] as string) && !['tree','file','lines','refs','openChanges','copies','log','opLog','loadStatus'].includes(method)) await complete(alias(args[0] as string));
+  if (args[0] && aliases.has(args[0] as string) && !['tree','file','lines','refs','openChanges','copies','loadStatus'].includes(method)) await complete(alias(args[0] as string));
   if (['tree', 'file', 'diff'].includes(method)) {
     const [project, state, path = ''] = args as string[];
     const name = alias(project); const object = await tree(name, state);

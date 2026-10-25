@@ -284,7 +284,8 @@ impl Session {
         self.stores.insert(
             name.into(),
             Store {
-                cache: index::Cache::default(),                authorities: BTreeMap::new(),
+                cache: index::Cache::default(),
+                authorities: BTreeMap::new(),
                 published: BTreeMap::new(),
                 parent: None,
                 identity,
@@ -397,7 +398,9 @@ impl Session {
                 Err(error) if store.cache.public.is_some() => return Err(error),
                 Err(_) => BTreeMap::new(),
             }
-        } else { machine_keys.clone() };
+        } else {
+            machine_keys.clone()
+        };
         if let Some(manifest) = &store.cache.public {
             manifest.verify_signer(&trusted)?;
         }
@@ -620,7 +623,9 @@ impl Session {
             let store = self.stores.get(name).context("store is locked")?;
             return Ok(json!({"provisional":store.cache.heads.is_some(),"note":store.cache.note}));
         }
-        if let Some(value) = self.index_answer(name, method, args)? { return Ok(value); }
+        if let Some(value) = self.index_answer(name, method, args)? {
+            return Ok(value);
+        }
         if method == "layers" {
             return Ok(json!(
                 self.layers(name, args[0].as_str().context("state is absent")?)?
@@ -651,7 +656,9 @@ impl Session {
         if method == "people" {
             return Ok(if let Some(person) = &self.person {
                 json!([{"login":self.login,"recipient":keys::recipient_of(person)?}])
-            } else { json!([]) });
+            } else {
+                json!([])
+            });
         }
         if method == "stores" {
             return Ok(json!(self
@@ -1302,7 +1309,8 @@ mod tree_tests {
         session.stores.insert(
             "test".into(),
             Store {
-                cache: index::Cache::default(),                authorities: BTreeMap::new(),
+                cache: index::Cache::default(),
+                authorities: BTreeMap::new(),
                 published: BTreeMap::new(),
                 parent: None,
                 identity: Zeroizing::new(identity),

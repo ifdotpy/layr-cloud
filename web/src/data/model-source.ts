@@ -67,7 +67,7 @@ export class ModelSource implements DataSource {
   blame(project:string,state:string,path:string):Promise<Blame> { return this.call('blame',[project,state,path]); }
   fileHistory(project:string,state:string,path:string):Promise<State[]> { return this.call('fileHistory',[project,state,path]); }
   loadStatus(project:string):Promise<LoadStatus> { return this.call('loadStatus',[project]); }
-  private async restorePublic() { if (this.publicProject) { const projects = await this.projects(); if (!projects.length) await this.openPublic(this.publicProject); } }
+  private async restorePublic() { if (this.publicProject) await this.openPublic(this.publicProject); }
   person(): Promise<PersonView> { return this.call('person'); }
   async unlockRecovery(words: string): Promise<void> { await this.call('unlockRecovery', [words]); this.active = true; await this.restorePublic(); }
   async unlockPasskey(): Promise<void> {

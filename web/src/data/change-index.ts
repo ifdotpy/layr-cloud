@@ -30,7 +30,8 @@ export function changeStatus(
 }
 
 export async function loadChangeIndex(source: DataSource, project: Project) {
-  if (project.provisional && source.openChanges) {
+  const provisional = source.loadStatus ? (await source.loadStatus(project.id)).provisional : project.provisional;
+  if (provisional && source.openChanges) {
     const summaries = await source.openChanges(project.id);
     return { changes:[] as Change[], queue:[] as QueueEntry[], statuses:{} as Record<string,MergeStatus|undefined>, open:summaries.length, summaries };
   }
