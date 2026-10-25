@@ -125,6 +125,12 @@ fn store_object(name: &str) -> bool {
             .all(|part| safe_part(part) || person_slot_part(part))
 }
 
+fn machine_slot(name: &str) -> bool {
+    name.strip_prefix("machine-")
+        .and_then(|name| name.strip_suffix(".age"))
+        .is_some_and(layr_store::format::is_uuid)
+}
+
 fn overlay_key(name: &str) -> bool {
     let parts: Vec<_> = name.split('/').collect();
     parts.len() == 4
@@ -353,10 +359,14 @@ impl Gateway {
             let read = self
                 .proof
                 .valid("read", &project.binding(&parts[2]), token, auth::now());
-            let public = parts
-                .get(3)
-                .is_some_and(|p| matches!(p.as_str(), "store.json" | "slots" | "challenge"));
-            if (public || !read) && !self.visible(project, login)? {
+            let bootstrap = (parts.len() == 4
+                && parts
+                    .get(3)
+                    .is_some_and(|p| matches!(p.as_str(), "store.json" | "challenge" | "token")))
+                || (parts.len() == 5 && parts[3] == "slots" && machine_slot(&parts[4]));
+            let create = request.method == "PUT" && parts.get(3).is_some_and(|p| p == "objects");
+            let grant = auth::grant(token, project, false, auth::now());
+            if !read && !(grant && (bootstrap || create)) && !self.visible(project, login)? {
                 return Ok(Reply::error(404, "no such project"));
             }
         }
@@ -396,6 +406,17 @@ impl Gateway {
         }
         if request.method == "GET" && action == "slots" && parts.len() == 5 {
             let name = &parts[4];
+            if machine_slot(name) && (write || read) {
+                return Ok(
+                    match self
+                        .storage
+                        .get(project, &format!("slots/{name}"), None, SLOT_LIMIT)?
+                    {
+                        Some(object) => Reply::bytes(200, object.body, "application/octet-stream"),
+                        None => Reply::error(404, "no such object"),
+                    },
+                );
+            }
             if layr_store::person::slot_login(name) != login || login.is_none() {
                 return Ok(Reply::error(404, "no such object"));
             }
@@ -2281,10 +2302,160 @@ mod tests {
         );
     }
     #[test]
-    fn hidden_and_unknown_store_routes_have_the_same_404() {
+    fn machine_grants_bootstrap_only_their_private_project_without_listing() {
         let mut f = Fixture::new();
         let read = f.read_token();
         let write = f.token(false);
+        let other = auth::issue(false, 60_000, auth::now()).unwrap();
+        let expired = auth::issue(false, 1, auth::now() - 10_000).unwrap();
+        f.config
+            .projects
+            .get_mut("example")
+            .unwrap()
+            .write_token_hashes
+            .push(auth::hash(&expired));
+        let mut q = f.config.projects["example"].clone();
+        q.prefix = "other".into();
+        q.write_token_hashes = vec![auth::hash(&other)];
+        f.config.projects.insert("other".into(), q);
+        std::fs::write(&f.path, serde_json::to_vec(&f.config).unwrap()).unwrap();
+        let machine = "machine-01a12290-0000-7000-8000-000000000001.age";
+        for project in f.config.projects.values() {
+            f.gateway
+                .storage
+                .put(
+                    project,
+                    "slots/person-ann@example.com-0123456789abcdef.age",
+                    b"person-slot".to_vec(),
+                )
+                .unwrap();
+            f.gateway
+                .storage
+                .put(project, "store.json", b"descriptor".to_vec())
+                .unwrap();
+            f.gateway
+                .storage
+                .put(
+                    project,
+                    &format!("slots/{machine}"),
+                    b"encrypted-machine-slot".to_vec(),
+                )
+                .unwrap();
+        }
+        for token in [&write, &read] {
+            assert_eq!(
+                f.request("GET", "/v1/p/example/store.json", token, b"", None)
+                    .status,
+                200
+            );
+            assert_eq!(
+                f.request(
+                    "GET",
+                    &format!("/v1/p/example/slots/{machine}"),
+                    token,
+                    b"",
+                    None
+                )
+                .body,
+                b"encrypted-machine-slot"
+            );
+            assert_eq!(
+                f.request("GET", "/v1/p/example/challenge", token, b"", None)
+                    .status,
+                200
+            );
+        }
+        let challenge = value(f.request("GET", "/v1/p/example/challenge", &write, b"", None));
+        let sealed = base64::engine::general_purpose::STANDARD
+            .decode(challenge["challenge"].as_str().unwrap())
+            .unwrap();
+        let proof = String::from_utf8(age::decrypt(&f.identity, &sealed).unwrap()).unwrap();
+        assert_eq!(
+            f.request(
+                "POST",
+                "/v1/p/example/token",
+                &write,
+                json!({"challenge":proof}).to_string().as_bytes(),
+                None
+            )
+            .status,
+            200
+        );
+        assert_eq!(
+            f.request("GET", "/v1/p/example/slots", &write, b"", None)
+                .status,
+            404
+        );
+        assert_eq!(
+            f.request(
+                "GET",
+                "/v1/p/example/objects?prefix=records/",
+                &write,
+                b"",
+                None
+            )
+            .status,
+            404
+        );
+        assert_eq!(
+            f.request(
+                "GET",
+                "/v1/p/example/slots/person-ann%40example.com-0123456789abcdef.age",
+                &write,
+                b"",
+                None
+            )
+            .status,
+            404
+        );
+        assert_eq!(
+            value(f.request("GET", "/api/projects", &write, b"", None))["projects"],
+            json!([])
+        );
+        let object = "/v1/p/example/objects/states/state/attempt.0000.data.age";
+        assert_eq!(
+            f.request("PUT", object, &write, b"ciphertext", None).status,
+            201
+        );
+        assert_eq!(f.request("GET", object, &write, b"", None).status, 404);
+        assert_eq!(
+            f.request("GET", object, &read, b"", None).body,
+            b"ciphertext"
+        );
+        for token in ["", "invalid", other.as_str(), expired.as_str()] {
+            for action in [
+                "store.json",
+                "challenge",
+                "token",
+                &format!("slots/{machine}"),
+            ] {
+                let method = if action == "token" { "POST" } else { "GET" };
+                let hidden = f.request(
+                    method,
+                    &format!("/v1/p/example/{action}"),
+                    token,
+                    b"{}",
+                    None,
+                );
+                let unknown = f.request(
+                    method,
+                    &format!("/v1/p/nonexistent/{action}"),
+                    token,
+                    b"{}",
+                    None,
+                );
+                assert_eq!(hidden.status, 404);
+                assert_eq!(hidden.body, unknown.body);
+                assert_eq!(hidden.headers, unknown.headers);
+            }
+        }
+    }
+
+    #[test]
+    fn hidden_and_unknown_store_routes_have_the_same_404() {
+        let f = Fixture::new();
+        let read = f.read_token();
+        let write = auth::issue(false, 60_000, auth::now()).unwrap(); // Unrecognized grant remains hidden.
         let path = "/v1/p/example/objects/slots/person-ann%40example.com-0123456789abcdef.age";
         assert_eq!(
             f.request("PUT", path, &read, b"person-slot", None).status,
