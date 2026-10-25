@@ -401,3 +401,54 @@ one anonymous `GET /p/<project>/public.json` side request is allowed for the pub
 The rest of the push must use authenticated `/v1/p/` routes; every object write must carry the writer bearer.
 The regression now checks this exact sequence and compares write bearers only in memory.
 No authenticated public-manifest route was added. Rerun awaits the replacement M7 commit.
+
+## Live public-writer rerun: passed with M7 fix
+
+At 2026-10-25 13:25 UTC, the same committed regression (`c410290`) passed with the CLI
+built from exact local M7 commit `88e3e227d30af7125b489e34ad343a7c775489ed`.
+The commit was fetched from the local M7 worktree, not GitHub. The CLI build exited 0.
+The live regression exited 0, verified new state objects in MinIO, and confirmed all three object writes
+carried the exact issued writer bearer. The one public side request carried no bearer.
+There was no public-only record, state, slot, list, write or token request.
+
+Tested debug binary SHA-256 values:
+
+```text
+layr d94de1d040c9790d7e84fb60bba161a529884dd0ab69151bdb0dd0151d767f0a
+layr-gateway fc734b376a0b3f963ac3df9471b0251eaf8bff874f36e09ef7fa3715033a734f
+```
+
+Exact push request sequence (`auth` shows only a comparison result, never credential bytes):
+
+```text
+1. GET /v1/p/public-test/store.json -> 200; auth=none
+2. GET /v1/p/public-test/store.json -> 200; auth=none
+3. GET /v1/p/public-test/store.json -> 200; auth=none
+4. GET /v1/p/public-test/store.json -> 200; auth=none
+5. GET /p/public-test/public.json -> 200; auth=none
+6. GET /v1/p/public-test/slots -> 200; auth=none
+7. GET /v1/p/public-test/challenge -> 200; auth=none
+8. POST /v1/p/public-test/token -> 200; auth=none
+9. GET /v1/p/public-test/objects?prefix=records%2F -> 200; auth=read-proof
+10. GET /v1/p/public-test/objects/records/01a1733c-fc13-708c-815a-1b33c56d30e9/00000000000000000001-00000000000000000006.age -> 200; auth=read-proof
+11. GET /v1/p/public-test/store.json -> 200; auth=none
+12. GET /v1/p/public-test/objects?prefix=records%2F01a1733c-fc13-708c-815a-1b33c56d30e9%2F -> 200; auth=read-proof
+13. PUT /v1/p/public-test/objects/records/01a1733c-fc13-708c-815a-1b33c56d30e9/00000000000000000007-00000000000000000010.age -> 201; auth=writer
+14. GET /v1/p/public-test/objects?prefix=states%2F -> 200; auth=read-proof
+15. GET /v1/p/public-test/objects?prefix=states%2F -> 200; auth=read-proof
+16. GET /v1/p/public-test/slots -> 200; auth=none
+17. GET /v1/p/public-test/objects?prefix=records%2F -> 200; auth=read-proof
+18. GET /v1/p/public-test/objects/records/01a1733c-fc13-708c-815a-1b33c56d30e9/00000000000000000001-00000000000000000006.age -> 200; auth=read-proof
+19. GET /v1/p/public-test/objects/records/01a1733c-fc13-708c-815a-1b33c56d30e9/00000000000000000007-00000000000000000010.age -> 200; auth=read-proof
+20. GET /v1/p/public-test/objects/states/01a1733c-fc82-75ff-b8dc-a460de6efb49/f2e34c48.tree.age -> 200; auth=read-proof
+21. PUT /v1/p/public-test/objects/states/01a1733c-ff90-7119-899e-d1b338b35c4f/e8ec84b2.0000.data.age -> 201; auth=writer
+22. PUT /v1/p/public-test/objects/states/01a1733c-ff90-7119-899e-d1b338b35c4f/e8ec84b2.tree.age -> 201; auth=writer
+23. GET /v1/p/public-test/store.json -> 200; auth=none
+PASS trusted writer pushed a new public-project state through authenticated gateway transport
+CLEANUP all disposable recovery/token/test material removed from /run
+```
+
+`POST /v1/p/public-test/token` exchanges the encrypted challenge proof in its request body;
+no bearer is expected on that bootstrap exchange. Subsequent reads use the resulting read proof.
+This resolves the earlier local M7 writer integration failure. AWS/tailnet deployment and browser
+verification remain pending; this test created no AWS resources and no real project keys.
