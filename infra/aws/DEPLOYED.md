@@ -176,7 +176,7 @@ executor 3edbdcda0ee3b8b49a0beef1c7a893f68649c44a2f8b9289c1bef90219fdd244 2 vali
 The gateway archive contains the static binary, sync script, and nine built site files.
 The executor archive contains the pinned static Layr binary and sync script.
 The application changes and initial deployment record are in commit `d9ece2632c509981d69a8135af07ac051fbe4d76`.
-No push or merge was performed.
+Those preparation commits stayed local at that stage; later branch publication is recorded below.
 
 ## Executor and runner contract
 
@@ -488,5 +488,17 @@ CLEANUP all disposable recovery/token/test material removed from /run
 
 The browser production build with the final dependency pin also passed:
 `npm run build --prefix web` exited 0, including the WASM build, TypeScript check and Vite build.
-Vite built 62 modules and the 4,316,440-byte WASM module (size rounded in Vite output).
+Vite built 62 modules and the 4,316,443-byte WASM module (measured from the built file).
 The existing large-chunk warning remains.
+
+## Branch publication
+
+The lead confirmed that the initial no-push restriction was his and that the user authorized
+publication of verified work. At 13:40 UTC he pushed `cloud/m8-deploy` only.
+A readback with `git ls-remote origin refs/heads/cloud/m8-deploy` returned
+`b45d7c630ae0dbedcc13a7ff011cd23f50b42f1e`, matching the local HEAD at that time.
+The verified gateway, dependency pin and executor index changes are in `d52da3f`.
+Both web workers received the published branch and route contracts.
+Further verified pushes to this branch are authorized; main pushes and merges remain excluded.
+Static ARM64 release builds for the final dependency pin have started. Host deployment still waits
+for the two Tailscale SSM parameter names, and the runner additionally needs its own tagged key.
