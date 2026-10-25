@@ -141,8 +141,9 @@ mod tests {
     #[test]
     fn new_person_recovers_and_signs_the_shared_session_proof() {
         let mut session = Session::new();
-        let entropy = (0..96).collect::<Vec<u8>>();
-        let prepared: Value = serde_json::from_str(&session.new_person("ann@example.com", &entropy).unwrap()).unwrap();
+        let mut entropy = (0..96).collect::<Vec<u8>>();
+        let prepared: Value = serde_json::from_str(&session.prepare_person("ann@example.com", &mut entropy).unwrap()).unwrap();
+        assert!(entropy.iter().all(|byte| *byte == 0));
         let view = json!({"login":"ann@example.com","recipient":prepared["recipient"],"signing_key":prepared["signing_key"],"signing":prepared["signing"],"slots":[{"name":"paper","data":prepared["paper"]}],"index":null,"inbox":[]});
         let key = session.signing.as_ref().unwrap().verifying_key();
         session.lock();
