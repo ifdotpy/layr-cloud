@@ -89,9 +89,10 @@ pub struct Gateway {
     pub listen: std::net::SocketAddr,
     pub person_secret: Arc<[u8; 32]>,
     pub person_writing: Arc<std::sync::Mutex<()>>,
+    pub public_limit: super::public::Limiter,
 }
 
-fn decode(raw: &str) -> Option<String> {
+pub(super) fn decode(raw: &str) -> Option<String> {
     let mut bytes = Vec::new();
     let mut input = raw.as_bytes().iter().copied();
     while let Some(b) = input.next() {
@@ -106,7 +107,7 @@ fn decode(raw: &str) -> Option<String> {
     String::from_utf8(bytes).ok()
 }
 
-fn safe_part(part: &str) -> bool {
+pub(super) fn safe_part(part: &str) -> bool {
     !part.is_empty()
         && !matches!(part, "." | "..")
         && part
@@ -151,6 +152,24 @@ fn overlay_keys_prefix(prefix: &str) -> bool {
         && parts[3].is_empty()
 }
 
+fn index_object(name: &str) -> bool {
+    if layr_store::index::parse_heads_name(name).is_some_and(|(_, seq)| seq > 0) {
+        return true;
+    }
+    let parts: Vec<_> = name.split('/').collect();
+    matches!(parts.as_slice(), ["index", "paths" | "graph", file]
+        if file.strip_suffix(".age").is_some_and(layr_store::format::is_uuid))
+}
+
+fn index_prefix(name: &str) -> bool {
+    let parts: Vec<_> = name.strip_suffix('/').unwrap_or(name).split('/').collect();
+    matches!(
+        parts.as_slice(),
+        ["index"] | ["index", "heads" | "paths" | "graph"]
+    ) || matches!(parts.as_slice(), ["index", "heads", id] if layr_store::format::is_uuid(id))
+        || index_object(name)
+}
+
 fn overlay_epoch(name: &str) -> Option<&str> {
     let mut parts = name.splitn(5, '/');
     if parts.next()? != "overlays"
@@ -166,6 +185,8 @@ fn overlay_epoch(name: &str) -> Option<&str> {
 pub fn object_name(name: &str) -> bool {
     name.len() <= 1024
         && (store_object(name)
+            || index_object(name)
+            || super::requests::path(name).is_some()
             || overlay_key(name)
             || hidden_overlay_key(name)
             || overlay_epoch(name).is_some_and(store_object))
@@ -193,7 +214,15 @@ fn list_prefix(prefix: &str) -> bool {
     if prefix.len() > 1024 {
         return false;
     }
-    if prefix.is_empty() || store_prefix(prefix) {
+    if prefix.is_empty()
+        || store_prefix(prefix)
+        || index_prefix(prefix)
+        || matches!(
+            prefix,
+            "requests" | "requests/" | "requests/claims" | "requests/claims/"
+        )
+        || super::requests::path(prefix).is_some()
+    {
         return true;
     }
     let parts: Vec<_> = prefix
@@ -217,8 +246,18 @@ fn list_prefix(prefix: &str) -> bool {
 }
 
 impl Gateway {
+    #[cfg(test)]
     pub fn handle(&self, request: http::Request, login: Option<&str>) -> Reply {
-        match self.route(request, login) {
+        self.handle_from(request, login, std::net::Ipv4Addr::LOCALHOST.into())
+    }
+
+    pub fn handle_from(
+        &self,
+        request: http::Request,
+        login: Option<&str>,
+        peer: std::net::IpAddr,
+    ) -> Reply {
+        match self.route(request, login, peer) {
             Ok(reply) => reply,
             Err(error) => {
                 if let Some(error) = error.downcast_ref::<http::Error>() {
@@ -230,7 +269,12 @@ impl Gateway {
         }
     }
 
-    fn route(&self, request: http::Request, login: Option<&str>) -> Result<Reply> {
+    fn route(
+        &self,
+        request: http::Request,
+        login: Option<&str>,
+        peer: std::net::IpAddr,
+    ) -> Result<Reply> {
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
         let config = self.config.get()?;
         if config.listen != self.listen {
@@ -266,6 +310,9 @@ impl Gateway {
         let Some(parts) = parts else {
             return Ok(Reply::error(400, "invalid path encoding"));
         };
+        if parts.first().is_some_and(|p| p == "p") {
+            return self.public_read(&request, &config, &parts, query, peer);
+        }
         if parts.first().is_some_and(|p| p == "api") {
             if request.method != "GET" && request.method != "HEAD" {
                 if let Some(reply) = other_site(&request, true) {
@@ -273,6 +320,15 @@ impl Gateway {
                 }
             }
             return self.api(&request, &config, login, &parts[1..]);
+        }
+        if parts.first().is_some_and(|p| p != "v1") {
+            if let Some(root) = config.extra.get("siteDir").and_then(|v| v.as_str()) {
+                return Ok(super::site::serve(
+                    std::path::Path::new(root),
+                    &request.method,
+                    &parts,
+                ));
+            }
         }
         if parts.len() >= 3 && parts[0] == "v1" && parts[1] == "p" {
             let Some(project) = config.projects.get(&parts[2]) else {
@@ -417,7 +473,8 @@ impl Gateway {
                 } else if write
                     && (prefix.starts_with("records/")
                         || prefix.starts_with("states/")
-                        || overlay_keys_prefix(&prefix))
+                        || overlay_keys_prefix(&prefix)
+                        || prefix.starts_with("requests/"))
                 {
                     Role::Writer
                 } else {
@@ -474,6 +531,9 @@ impl Gateway {
                 )
             }
             "PUT" => {
+                if let Some((claim, id)) = super::requests::path(&key) {
+                    return self.put_request(&request, project, &key, claim, id, login, write);
+                }
                 if key.starts_with("slots/") {
                     if !read {
                         return Ok(Reply::error(
@@ -641,10 +701,19 @@ impl Gateway {
             ("GET", None, None) => return Ok(Reply::json(200, people.view(login)?)),
             ("PUT", None, None) => {
                 let body = read_json(request, 16 * 1024)?;
+                if ["signing_key", "signing"].iter().any(|key| {
+                    body.get(key)
+                        .is_some_and(|v| !v.is_string() && !v.is_null())
+                }) {
+                    return Ok(Reply::error(400, "person signing fields must be strings"));
+                }
                 let new = people.register(
                     login,
                     body["recipient"].as_str().unwrap_or(""),
                     body["paper"].as_str().unwrap_or(""),
+                    body["signing_key"].as_str(),
+                    body["signing"].as_str(),
+                    bearer(request),
                 )?;
                 return Ok(Reply::json(200, json!({"login":login,"new":new})));
             }
@@ -811,6 +880,7 @@ mod tests {
                 storage: Arc::new(Memory::default()),
                 person_secret: Arc::new(rand::random()),
                 person_writing: Arc::new(Mutex::new(())),
+                public_limit: super::super::public::Limiter::default(),
             };
             Self {
                 gateway,
@@ -892,6 +962,585 @@ mod tests {
 
     const OVERLAY: &str = "01a12290-0000-7000-8000-000000000001";
     const EPOCH: &str = "01a12290-0000-7000-8000-000000000002";
+
+    #[test]
+    fn signed_index_objects_require_writer_create_and_reader_proof_and_refuse_gc() {
+        let mut f = Fixture::new();
+        let write = f.token(false);
+        let gc = f.token(true);
+        let read = f.read_token();
+        for name in [
+            layr_store::index::heads_name(OVERLAY, 1),
+            layr_store::index::paths_name(EPOCH),
+            layr_store::index::graph_name(EPOCH),
+        ] {
+            let path = format!("/v1/p/example/objects/{name}");
+            assert_eq!(
+                f.request("PUT", &path, "", b"encrypted index", None).status,
+                403
+            );
+            assert_eq!(
+                f.request("PUT", &path, &write, b"encrypted index", None)
+                    .status,
+                201
+            );
+            assert_eq!(
+                f.request("PUT", &path, &write, b"overwrite", None).status,
+                412
+            );
+            assert_eq!(f.request("GET", &path, &write, b"", None).status, 401);
+            assert_eq!(
+                f.request("GET", &path, &read, b"", None).body,
+                b"encrypted index"
+            );
+            assert_eq!(f.request("DELETE", &path, &gc, b"", None).status, 403);
+            assert_eq!(
+                f.request("GET", &format!("/p/example/{name}"), "", b"", None)
+                    .status,
+                404
+            );
+        }
+        let list = f.request(
+            "GET",
+            "/v1/p/example/objects?prefix=index%2Fheads%2F",
+            &read,
+            b"",
+            None,
+        );
+        assert_eq!(list.status, 200);
+        let listed: serde_json::Value = serde_json::from_slice(&list.body).unwrap();
+        assert_eq!(listed["objects"].as_array().unwrap().len(), 1);
+        for name in [
+            format!("index/heads/{OVERLAY}/00000000000000000000.age"),
+            format!("index/heads/{OVERLAY}/1.age"),
+            format!("index/graph/{EPOCH}.age/extra"),
+            "index/paths/../key.age".into(),
+            format!("index/paths/{EPOCH}.age\n"),
+        ] {
+            assert!(!object_name(&name), "{name}");
+        }
+    }
+
+    #[test]
+    fn public_reads_require_publication_and_exclude_private_routes_and_writes() {
+        use layr_store::{format, keys, person, public::Manifest};
+        let f = Fixture::new();
+        let project = &f.config.projects["example"];
+        let descriptor = format::Descriptor {
+            format: 2,
+            project: OVERLAY.into(),
+            recipient: project.recipient.clone(),
+        };
+        f.gateway
+            .storage
+            .put(
+                project,
+                "store.json",
+                serde_json::to_vec(&descriptor).unwrap(),
+            )
+            .unwrap();
+        let record = format::segment_name(OVERLAY, 1, 5);
+        let tree = format::tree_name(EPOCH, "0123abcd");
+        let data = format::data_name(EPOCH, "0123abcd", 0);
+        for key in [
+            &record,
+            &tree,
+            &data,
+            "slots/public.age",
+            "records/private-name",
+            "people/ann/person.json",
+        ] {
+            f.gateway
+                .storage
+                .put(project, key, b"encrypted".to_vec())
+                .unwrap();
+        }
+        for path in [
+            "/p/example/store.json",
+            "/p/example/public.json",
+            "/p/example/objects?prefix=records/",
+            "/p/example/slots/public.age",
+        ] {
+            assert_eq!(f.request("GET", path, "", b"", None).status, 404, "{path}");
+        }
+        let identity = keys::generate_identity();
+        let signing = person::make_signing_keys(&keys::recipient_of(&identity).unwrap()).unwrap();
+        let key =
+            person::open_signing_key(&identity, &signing.sealed, &signing.public_key).unwrap();
+        let manifest =
+            Manifest::new(&descriptor, keys::generate_identity(), EPOCH.into(), &key).unwrap();
+        f.gateway
+            .storage
+            .put(
+                project,
+                "public.json",
+                serde_json::to_vec(&manifest).unwrap(),
+            )
+            .unwrap();
+        for name in [
+            "store.json",
+            "public.json",
+            "slots/public.age",
+            &record,
+            &tree,
+            &data,
+        ] {
+            let reply = f.request("GET", &format!("/p/example/{name}"), "", b"", None);
+            assert_eq!(reply.status, 200, "{name}");
+        }
+        let reply = f.request(
+            "GET",
+            &format!("/p/example/{data}"),
+            "",
+            b"",
+            Some("bytes=1-3"),
+        );
+        assert_eq!(reply.status, 206);
+        assert_eq!(reply.body, b"ncr");
+        for (prefix, expected) in [
+            ("records%2F", vec![record.as_str()]),
+            ("states/", vec![data.as_str(), tree.as_str()]),
+            (
+                &format!("states/{EPOCH}/"),
+                vec![data.as_str(), tree.as_str()],
+            ),
+        ] {
+            let reply = f.request(
+                "GET",
+                &format!("/p/example/objects?prefix={prefix}"),
+                "",
+                b"",
+                None,
+            );
+            assert_eq!(reply.status, 200);
+            let value: serde_json::Value = serde_json::from_slice(&reply.body).unwrap();
+            let names: Vec<_> = value["objects"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|o| o["key"].as_str().unwrap())
+                .collect();
+            assert_eq!(names, expected);
+            assert!(value["objects"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|o| o["modified"] == 0));
+        }
+        for path in [
+            "overlays/id/keys/key.json",
+            "people/ann/person.json",
+            "slots/paper.age",
+            "requests/id.json",
+            "../store.json",
+            "%2e%2e/store.json",
+            "records%2f..%2fstore.json",
+            "public.json%0a",
+            "objects/records/x",
+            "token",
+            "challenge",
+        ] {
+            assert_eq!(
+                f.request("GET", &format!("/p/example/{path}"), "", b"", None)
+                    .status,
+                404,
+                "{path}"
+            );
+        }
+        for prefix in [
+            "",
+            "people/",
+            "overlays/",
+            "slots/",
+            "requests/",
+            "records/../",
+            "records/&prefix=people/",
+        ] {
+            assert_eq!(
+                f.request(
+                    "GET",
+                    &format!("/p/example/objects?prefix={prefix}"),
+                    "",
+                    b"",
+                    None
+                )
+                .status,
+                400
+            );
+        }
+        for method in ["PUT", "POST", "DELETE", "PATCH", "HEAD"] {
+            for path in ["store.json", "token", "objects", &record] {
+                assert_eq!(
+                    f.request(method, &format!("/p/example/{path}"), "", b"", None)
+                        .status,
+                    405
+                );
+            }
+        }
+        assert_eq!(
+            f.request(
+                "PUT",
+                &format!("/v1/p/example/objects/{record}"),
+                "",
+                b"new",
+                None
+            )
+            .status,
+            403
+        );
+        assert_eq!(
+            f.request(
+                "DELETE",
+                &format!("/v1/p/example/objects/{data}"),
+                "",
+                b"",
+                None
+            )
+            .status,
+            403
+        );
+        assert_eq!(
+            f.request("POST", "/v1/p/example/token", "", b"{}", None)
+                .status,
+            401
+        );
+        // A corrupted or descriptor-mismatched publication cannot open anonymous access.
+        f.gateway.storage.delete(project, "public.json").unwrap();
+        let mut invalid = serde_json::to_value(&manifest).unwrap();
+        invalid["project"] = json!(EPOCH);
+        f.gateway
+            .storage
+            .put(
+                project,
+                "public.json",
+                serde_json::to_vec(&invalid).unwrap(),
+            )
+            .unwrap();
+        assert_eq!(
+            f.request("GET", "/p/example/store.json", "", b"", None)
+                .status,
+            404
+        );
+    }
+
+    #[test]
+    fn site_routes_preserve_api_host_and_path_boundaries() {
+        let mut f = Fixture::new();
+        let root = f.path.with_extension("site");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("index.html"), "<title>Layr</title>").unwrap();
+        f.config.extra.insert("siteDir".into(), json!(root));
+        std::fs::write(&f.path, serde_json::to_vec(&f.config).unwrap()).unwrap();
+        assert_eq!(f.request("GET", "/", "", b"", None).status, 200);
+        assert_eq!(
+            f.request("GET", "/?source=fixture", "", b"", None).status,
+            200
+        );
+        assert_eq!(
+            f.request("GET", "/%2e%2e/etc/passwd", "", b"", None).status,
+            400
+        );
+        assert_eq!(f.request("GET", "/api/missing", "", b"", None).status, 404);
+        assert_eq!(f.request("GET", "/v1/missing", "", b"", None).status, 404);
+        assert_eq!(f.request("GET", "/missing.js", "", b"", None).status, 404);
+        assert_eq!(f.request("POST", "/", "", b"", None).status, 405);
+        let request = http::Request {
+            method: "GET".into(),
+            target: "/".into(),
+            headers: [("host".into(), "other.example".into())].into(),
+            body: vec![],
+        };
+        assert_eq!(f.gateway.handle(request, None).status, 421);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn legacy_person_signing_upgrade_requires_its_existing_key_proof() {
+        use base64::engine::general_purpose::STANDARD as B64;
+        use layr_store::{keys, person};
+        let mut f = Fixture::new();
+        f.config.people = Some(super::super::config::People {
+            bucket: "artifacts".into(),
+            region: "eu-north-1".into(),
+            prefix: "people/".into(),
+        });
+        std::fs::write(&f.path, serde_json::to_vec(&f.config).unwrap()).unwrap();
+        let login = Some("ann@example.com");
+        let identity = keys::generate_identity();
+        let recipient = keys::recipient_of(&identity).unwrap();
+        let mut body = json!({"recipient":recipient,"paper":B64.encode(b"paper")});
+        assert_eq!(
+            api(&f, login, "PUT", "/api/person", "", body.clone()).status,
+            200
+        );
+        let signing = person::make_signing_keys(&recipient).unwrap();
+        body["signing_key"] = json!(signing.public_key);
+        body["signing"] = json!(B64.encode(&signing.sealed));
+        assert_eq!(
+            api(&f, login, "PUT", "/api/person", "", body.clone()).status,
+            403
+        );
+        let challenge = value(api(
+            &f,
+            login,
+            "GET",
+            "/api/person/challenge",
+            "",
+            json!({}),
+        ));
+        let sealed = B64
+            .decode(challenge["challenge"].as_str().unwrap())
+            .unwrap();
+        let token = String::from_utf8(keys::decrypt(&identity, &sealed).unwrap()).unwrap();
+        assert_eq!(
+            api(&f, login, "PUT", "/api/person", &token, body.clone()).status,
+            200
+        );
+        let view = value(api(&f, login, "GET", "/api/person", "", json!({})));
+        assert_eq!(view["signing_key"], signing.public_key);
+        assert_eq!(view["signing"], B64.encode(&signing.sealed));
+        let other = person::make_signing_keys(&recipient).unwrap();
+        body["signing_key"] = json!(other.public_key);
+        body["signing"] = json!(B64.encode(&other.sealed));
+        assert_eq!(
+            api(&f, login, "PUT", "/api/person", &token, body.clone()).status,
+            409
+        );
+        body["signing_key"] = json!(123);
+        assert_eq!(
+            api(&f, login, "PUT", "/api/person", &token, body).status,
+            400
+        );
+    }
+
+    #[test]
+    fn person_requests_and_machine_claims_are_bound_and_create_only() {
+        use base64::engine::general_purpose::STANDARD as B64;
+        use layr_store::{
+            keys,
+            request::{self, Action, Claim, Request},
+        };
+        let mut f = Fixture::new();
+        f.config.people = Some(super::super::config::People {
+            bucket: "artifacts".into(),
+            region: "eu-north-1".into(),
+            prefix: "people/".into(),
+        });
+        std::fs::write(&f.path, serde_json::to_vec(&f.config).unwrap()).unwrap();
+        let project = f.config.projects["example"].clone();
+        let project_id = "01a12290-0000-7000-8000-000000000002";
+        f.gateway
+            .storage
+            .put(
+                &project,
+                "store.json",
+                serde_json::to_vec(&json!({
+            "format":2,"project":project_id,"recipient":project.recipient}))
+                .unwrap(),
+            )
+            .unwrap();
+        let login = "ann@example.com";
+        let identity = keys::generate_identity();
+        let recipient = keys::recipient_of(&identity).unwrap();
+        let signing = layr_store::person::make_signing_keys(&recipient).unwrap();
+        let key =
+            layr_store::person::open_signing_key(&identity, &signing.sealed, &signing.public_key)
+                .unwrap();
+        let registration = json!({"recipient":recipient,"paper":B64.encode(b"test paper slot"),
+            "signing_key":signing.public_key,"signing":B64.encode(&signing.sealed)});
+        assert_eq!(
+            api(&f, Some(login), "PUT", "/api/person", "", registration).status,
+            200
+        );
+        let view = value(api(&f, Some(login), "GET", "/api/person", "", json!({})));
+        assert_eq!(view["signing_key"], signing.public_key);
+        assert_eq!(view["signing"], B64.encode(&signing.sealed));
+        let write = f.token(false);
+        let gc = f.token(true);
+        let read = f.read_token();
+        let id = "01a12290-0000-7000-8000-000000000001";
+        let base = format!("/v1/p/example/objects/requests/{id}.json");
+        let claim_path = format!("/v1/p/example/objects/requests/claims/{id}.json");
+        let raw = |who: Option<&str>, method: &str, path: &str, token: &str, body: Vec<u8>| {
+            f.gateway.handle(
+                http::Request {
+                    method: method.into(),
+                    target: path.into(),
+                    headers: [
+                        ("host".into(), "localhost".into()),
+                        ("content-type".into(), "application/json".into()),
+                        ("content-length".into(), body.len().to_string()),
+                        ("authorization".into(), format!("Bearer {token}")),
+                    ]
+                    .into(),
+                    body,
+                },
+                who,
+            )
+        };
+        let request = Request::new(
+            id.into(),
+            project_id.into(),
+            login.into(),
+            auth::now() as i64,
+            Action::Comment {
+                change_id: project_id.into(),
+                version: project_id.into(),
+                path: None,
+                line: None,
+                text: "private review text is visible only to project readers".into(),
+                reply_to: None,
+            },
+        )
+        .unwrap();
+        let plaintext = request.sign(&key).unwrap().to_bytes().unwrap();
+        assert_eq!(
+            raw(Some(login), "PUT", &base, "", plaintext.clone()).status,
+            400
+        );
+        let body = request::seal(&plaintext, &project.recipient, &key).unwrap();
+        assert!(!String::from_utf8_lossy(&body).contains("private review text"));
+        let envelope = request::Sealed::parse(&body).unwrap();
+        assert_eq!(
+            keys::decrypt_with(&f.identity, &B64.decode(&envelope.ct).unwrap()).unwrap(),
+            plaintext
+        );
+        assert_eq!(raw(None, "PUT", &base, &write, body.clone()).status, 403);
+        assert_eq!(
+            raw(Some("bob@example.com"), "PUT", &base, &write, body.clone()).status,
+            403
+        );
+        let mut altered: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let mut ciphertext = B64.decode(altered["ct"].as_str().unwrap()).unwrap();
+        *ciphertext.last_mut().unwrap() ^= 1;
+        altered["ct"] = json!(B64.encode(ciphertext));
+        let altered = serde_json::to_vec(&altered).unwrap();
+        assert_eq!(raw(Some(login), "PUT", &base, "", altered).status, 403);
+        let mut wrong = request.clone();
+        wrong.project = id.into();
+        assert_eq!(
+            raw(
+                Some(login),
+                "PUT",
+                &base,
+                "",
+                request::seal(
+                    &wrong.sign(&key).unwrap().to_bytes().unwrap(),
+                    &project.recipient,
+                    &key
+                )
+                .unwrap()
+            )
+            .status,
+            403
+        );
+        let other_path = base.replace(id, project_id);
+        assert_eq!(
+            raw(Some(login), "PUT", &other_path, "", body.clone()).status,
+            403
+        );
+        for (field, value, status) in [
+            ("person", json!("bob@example.com"), 403),
+            ("project", json!(id), 403),
+            ("epoch", json!(id), 400),
+            ("v", json!(1), 400),
+            ("sig", json!("00".repeat(64)), 403),
+            ("action", json!({"text":"plaintext"}), 400),
+        ] {
+            let mut changed: serde_json::Value = serde_json::from_slice(&body).unwrap();
+            changed[field] = value;
+            assert_eq!(
+                raw(
+                    Some(login),
+                    "PUT",
+                    &base,
+                    "",
+                    serde_json::to_vec(&changed).unwrap()
+                )
+                .status,
+                status,
+                "{field}"
+            );
+        }
+        assert_eq!(
+            raw(
+                Some(login),
+                "PUT",
+                &base,
+                "",
+                vec![b'x'; request::MAX_SEALED_BYTES + 1]
+            )
+            .status,
+            413
+        );
+        assert_eq!(raw(Some(login), "PUT", &base, "", body.clone()).status, 201);
+        assert_eq!(raw(Some(login), "PUT", &base, "", body.clone()).status, 412);
+        assert_eq!(raw(Some(login), "GET", &base, &write, vec![]).status, 401);
+        assert_eq!(raw(Some(login), "GET", &base, &read, vec![]).body, body);
+        assert_eq!(raw(Some(login), "DELETE", &base, &gc, vec![]).status, 403);
+        let claim = Claim {
+            format: 1,
+            project: project_id.into(),
+            request: id.into(),
+            machine: project_id.into(),
+        };
+        let claim_body = claim.sign(&key).unwrap().to_bytes().unwrap();
+        assert_eq!(
+            raw(None, "PUT", &claim_path, &read, claim_body.clone()).status,
+            403
+        );
+        assert_eq!(
+            raw(None, "PUT", &claim_path, "", claim_body.clone()).status,
+            403
+        );
+        let mut wrong = claim.clone();
+        wrong.project = id.into();
+        assert_eq!(
+            raw(
+                None,
+                "PUT",
+                &claim_path,
+                &write,
+                wrong.sign(&key).unwrap().to_bytes().unwrap()
+            )
+            .status,
+            400
+        );
+        assert_eq!(
+            raw(
+                None,
+                "PUT",
+                &claim_path.replace(id, project_id),
+                &write,
+                claim_body.clone()
+            )
+            .status,
+            400
+        );
+        // The gateway checks the writer bearer; encrypted canonical machine trust stays at the executor.
+        assert_eq!(
+            raw(None, "PUT", &claim_path, &write, claim_body.clone()).status,
+            201
+        );
+        assert_eq!(
+            raw(None, "PUT", &claim_path, &write, claim_body).status,
+            412
+        );
+        assert_eq!(raw(None, "DELETE", &claim_path, &gc, vec![]).status, 403);
+        for suffix in ["/extra", ".extra", "\n"] {
+            assert_eq!(
+                raw(
+                    Some(login),
+                    "PUT",
+                    &format!("{base}{suffix}"),
+                    &write,
+                    body.clone()
+                )
+                .status,
+                400
+            );
+        }
+    }
 
     #[test]
     fn hidden_manifest_requires_exact_opaque_path_and_bound_read_proof() {

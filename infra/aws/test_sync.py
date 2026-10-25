@@ -54,6 +54,19 @@ class ReleaseTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "only regular"):
             sync.release_files(data, digest, "layr")
 
+    def test_gateway_site_assets_and_archive_escape(self):
+        data, digest = release(extra={"./site/index.html": b"<title>Layr</title>",
+                                      "./site/assets/model.wasm": b"\0asm"})
+        files = sync.release_files(data, digest, "layr-gateway")
+        self.assertEqual(files["site/assets/model.wasm"], b"\0asm")
+        for name in ("./site/../escape", "./site/.hidden", "./site//file", "./site/link/../../escape"):
+            data, digest = release(extra={name: b"bad"})
+            with self.assertRaises(ValueError):
+                sync.release_files(data, digest, "layr-gateway")
+        data, digest = release(name="layr", extra={"./site/index.html": b"bad"})
+        with self.assertRaises(ValueError):
+            sync.release_files(data, digest, "layr")
+
     def test_corrupt_release(self):
         data, digest = release()
         with self.assertRaisesRegex(ValueError, "SHA-256 mismatch"):
@@ -136,6 +149,24 @@ class ReleaseTests(unittest.TestCase):
 
 
 class ConfigTests(unittest.TestCase):
+    def test_tailnet_key_passes_only_through_inherited_pipe(self):
+        host = sync.Sync.__new__(sync.Sync)
+        host.source = {"region": "eu-north-1", "authKeyParameter": "/test/key"}
+        host.kind = "gateway"
+        import os
+        def runner(*args, **kwargs):
+            if args[:2] == ("tailscale", "status"):
+                return Mock(stdout='{"BackendState":"NeedsLogin"}')
+            if args[:2] == ("tailscale", "up"):
+                fd, = kwargs["pass_fds"]
+                self.assertEqual(os.read(fd, 4096), b"disposable-test-value")
+                self.assertNotIn("disposable-test-value", " ".join(args))
+                return Mock(stdout="")
+            return Mock(stdout="100.64.0.1")
+        with patch.object(sync.boto3, "client") as client, patch.object(sync, "run", side_effect=runner):
+            client.return_value.get_parameter.return_value = {"Parameter": {"Value": "disposable-test-value"}}
+            self.assertEqual(host.tailnet(), "100.64.0.1")
+
     def test_config_schema_and_local_token_changes(self):
         with tempfile.TemporaryDirectory() as temporary:
             host = sync.Sync.__new__(sync.Sync)

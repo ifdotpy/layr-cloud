@@ -41,6 +41,7 @@ fn main() -> Result<()> {
             format: 1,
             recipient: recipient.clone(),
             created: 0,
+            signing_key: None,
         })?,
     )?;
     fs::write(person_root.join("slots/paper.age"), &slot)?;
