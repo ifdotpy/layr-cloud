@@ -25,4 +25,4 @@ No new cryptography and no unencrypted objects. A public project has one extra r
 
 - A clone with only the public identity reads lines, states and files, and cannot push (the refusal is tested).
 - Overlay files are absent for the public reader, and a hidden overlay leaves no trace (the rule 8 test with the public identity).
-- `off` stops new data from going to the public slot; old data is still readable.
+- `off` refuses without any change, names the missing key rotation, and the project stays public.
