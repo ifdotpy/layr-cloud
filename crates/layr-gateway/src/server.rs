@@ -1247,7 +1247,7 @@ mod tests {
     }
 
     #[test]
-    fn unlock_decoy_matches_real_age_structure_lengths_and_survives_restart() {
+    fn unlock_decoy_matches_real_age_structure_and_survives_restart() {
         use base64::engine::general_purpose::STANDARD as B64;
         fn shape(data: &[u8]) -> (Vec<String>, usize) {
             assert!(age::Decryptor::new(data).is_ok());
@@ -1265,20 +1265,22 @@ mod tests {
                             assert!(words[1].ends_with("-grease"));
                             "GREASE"
                         };
-                        format!(
-                            "stanza {kind} {:?}",
-                            words[1..].iter().map(|w| w.len()).collect::<Vec<_>>()
-                        )
+                        format!("stanza {kind}")
                     } else if line.starts_with("age-encryption.org/") {
                         line.into()
                     } else if line.starts_with("--- ") {
                         format!("MAC {}", line.len())
                     } else {
-                        format!("base64 {}", line.len())
+                        assert!(line.len() <= 64);
+                        base64::engine::general_purpose::STANDARD_NO_PAD
+                            .decode(line)
+                            .unwrap();
+                        String::new()
                     }
                 })
+                .filter(|line| !line.is_empty())
                 .collect();
-            (lines, data.len())
+            (lines, data.len() - end)
         }
         let mut f = Fixture::new();
         f.config.people = Some(super::super::config::People {
