@@ -73,7 +73,7 @@ impl Sessions {
         if tokens.len() >= CAPACITY {
             return None;
         }
-        let token = random();
+        let token = hex::encode(rand::random::<[u8; 32]>());
         let expires = now + SESSION_LIFE;
         tokens.insert(auth::hash(&token), (login.clone(), expires));
         Some(json!({"login":login,"token":token,"expires":expires}))

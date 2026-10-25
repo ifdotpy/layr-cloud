@@ -10,6 +10,7 @@ import contextlib
 import http.client
 import http.server
 import json
+import hashlib
 import os
 from pathlib import Path
 import re
