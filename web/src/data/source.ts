@@ -415,8 +415,8 @@ export type RequestAction =
   | { kind: 'queue_remove'; entry: Id }
   | { kind: 'ref_move'; name: string; target: Id; expected: Id | null }
   | { kind: 'comment'; change_id: Id; version: Id; path?: string; line?: number; text: string; reply_to?: Id };
-export interface ActionAccess { available: boolean; reason?: string }
-export interface RequestStatus { id: Id; status: 'pending' | 'applied' | 'refused'; record?: Id; reason?: string }
+export interface ActionAccess { available: boolean; reason?: string | null }
+export interface RequestStatus { id: Id; status: 'pending' | 'applied' | 'refused'; record?: Id; reason?: string | null }
 export interface Comment {
   id: Id; change_id: Id; version: Id; path?: string; line?: number;
   text: string; reply_to?: Id; actor: { uid: number; name: string }; time: number;
