@@ -7,7 +7,7 @@ Goal: anyone can read a public project (like a public GitHub repository) without
 No new cryptography and no unencrypted objects. A public project has one extra reader slot whose identity is published.
 
 1. `layr remote public <remote> on` (owner only, asks to type the project name) makes a new age identity, seals the project vault identity to it as a slot `slots/public.age` (existing `seal_slot`), and writes that public identity into `public.json` in the store (create once, signed by the owner machine). Anyone can then open the vault, so all current and future data of the project is readable. The command says so in one line.
-2. There is no `off` in version 1. Making a project private again needs a new vault key for new data, and the store has no project key rotation yet. `layr remote public <remote> off` refuses and names that limit. Old data stays readable to anyone who copied it.
+2. `off` (closing to `private` or `service`) is a project key rotation, defined in docs/access-modes-design.md. Until that ships, `off` refuses and names the limit. Old data stays readable to anyone who copied it.
 3. Overlays never get the public slot. Their files stay with their readers. A hidden overlay stays hidden.
 4. A reader with only the public identity can clone, browse, diff and build, but cannot push: the writer role and the record signatures still decide writes.
 
