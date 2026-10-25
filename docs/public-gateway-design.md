@@ -81,3 +81,15 @@ and end with a short line, including an empty final line when required. The payl
 a 75-byte paper-slot identity and a 32-byte signing seed. Thus decoy lengths follow the real GREASE
 distribution instead of using one fixed median length. The persistent SSM secret keeps each response
 stable across requests and restarts. The outer padded unlock buffer remains 64 KiB.
+
+## Machine bootstrap for private projects
+
+A valid project write grant also permits its machine bootstrap metadata: `GET /v1/p/P/store.json`,
+`GET /v1/p/P/slots/machine-<UUID>.age`, `GET /v1/p/P/challenge`, and `POST /v1/p/P/token`.
+The machine sends the project grant as Bearer on those requests and opens only its encrypted slot.
+It then exchanges the decrypted challenge for the usual project read token. Machines do not use
+the aggregate slot listing. A valid read token also permits these metadata routes.
+Data reads and object listings still require the read token; object creation still requires the write grant.
+The grant reveals no other project and adds no entry to `/api/projects`.
+For a private project, a missing, wrong, expired or other-project bearer gets the same
+404 `no such project` body and headers as an unknown project. Person sessions keep their existing visibility rules.
