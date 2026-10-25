@@ -36,6 +36,11 @@ try{
  await expect(page.locator('#main-content').getByRole('heading',{name:'Projects',exact:true})).toBeVisible({timeout:60000});assert.equal(exchanges,1);
  await page.goto(`${origin}/#/project/${fixture.project}/change/${fixture.change}/overview`);
  await expect(page.getByRole('heading',{name:'Conversation',exact:true})).toBeVisible({timeout:60000});
+ if(readOnly && process.env.LAYR_WEB_LIVE_DRAFT==='1'){
+  const conversation=page.getByRole('heading',{name:'Conversation',exact:true}).locator('..');
+  await conversation.getByLabel('Comment',{exact:true}).last().fill(`Unsent diagnostic draft (${phase})`);
+  await expect(conversation.getByRole('button',{name:'Send comment',exact:true}).last()).toBeEnabled({timeout:15000});
+ }
  if(!readOnly){
  assert.equal(await stat(path.join(output,'delivery.json')).catch(()=>null),null,'This output already records a delivered request; inspect it before submitting again.');
  const text=`Deployed browser review (${phase}) ${new Date().toISOString()}`;
