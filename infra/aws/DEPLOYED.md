@@ -159,3 +159,20 @@ Wrong Host => 421; direct API/site host boundary preserved
 
 The stripped gateway is 5,904,080 bytes, AArch64 ELF64 EXEC, with no INTERP header.
 SHA-256: `b458d17c8eb2540086e1c374e62b8caa4b278a103dd9bc80d05e5346072461bc`.
+
+## Prepared release artifacts
+
+The archives are ready in `/root/work/m8-release` in `layr-dev`.
+They contain no AWS credentials or Tailscale auth keys.
+They were created with sorted entries, zero timestamps, and numeric root ownership.
+The host's `release_files` validator accepted both real archives:
+
+```text
+gateway a6c76a64f998662875b0a6d7d38656521521ac33c7a1937e5aada598e92cdd79 11 validated files
+executor 3edbdcda0ee3b8b49a0beef1c7a893f68649c44a2f8b9289c1bef90219fdd244 2 validated files
+```
+
+The gateway archive contains the static binary, sync script, and nine built site files.
+The executor archive contains the pinned static Layr binary and sync script.
+The application changes and initial deployment record are in commit `d9ece2632c509981d69a8135af07ac051fbe4d76`.
+No push or merge was performed.
