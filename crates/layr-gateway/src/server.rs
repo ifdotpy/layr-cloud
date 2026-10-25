@@ -310,6 +310,21 @@ impl Gateway {
         let Some(parts) = parts else {
             return Ok(Reply::error(400, "invalid path encoding"));
         };
+        // Keep every request/claim write closed in shipping builds until the shared encrypted
+        // v2 envelope and its outer-signature validator replace the plaintext v1 validator.
+        // This has no runtime config override. Hosting and other storage routes remain usable.
+        if parts.len() >= 5
+            && parts[0] == "v1"
+            && parts[1] == "p"
+            && parts[3] == "objects"
+            && (parts[4] == "requests" || parts[4].starts_with("requests/"))
+            && !matches!(request.method.as_str(), "GET" | "HEAD")
+        {
+            return Ok(Reply::error(
+                503,
+                "Person requests and claims are disabled until encrypted request support is ready.",
+            ));
+        }
         if parts.first().is_some_and(|p| p == "p") {
             return self.public_read(&request, &config, &parts, query, peer);
         }
@@ -1314,6 +1329,50 @@ mod tests {
     }
 
     #[test]
+    fn request_and_claim_writes_are_disabled_for_every_method_and_credential() {
+        let mut f = Fixture::new();
+        let write = f.token(false);
+        let gc = f.token(true);
+        let read = f.read_token();
+        for method in ["PUT", "POST", "PATCH", "DELETE"] {
+            for name in [
+                format!("requests/{OVERLAY}.json"),
+                format!("requests/claims/{OVERLAY}.json"),
+                "requests/not-a-uuid.json".into(),
+                format!("requests%2fclaims/{OVERLAY}.json"),
+            ] {
+                for token in ["", write.as_str(), gc.as_str(), read.as_str()] {
+                    let path = format!("/v1/p/example/objects/{name}");
+                    let reply =
+                        f.request(method, &path, token, b"{plaintext v1 or other data}", None);
+                    assert_eq!(reply.status, 503, "{method} {path}");
+                    let error: serde_json::Value = serde_json::from_slice(&reply.body).unwrap();
+                    assert_eq!(error["error"], "Person requests and claims are disabled until encrypted request support is ready.");
+                }
+            }
+        }
+        assert!(f
+            .gateway
+            .storage
+            .list(&f.config.projects["example"], "requests/", Role::Reader)
+            .unwrap()
+            .is_empty());
+        // A normal signed-store object still uses the ordinary writer route.
+        assert_eq!(
+            f.request(
+                "PUT",
+                "/v1/p/example/objects/records/machine/segment.age",
+                &write,
+                b"encrypted",
+                None
+            )
+            .status,
+            201
+        );
+    }
+
+    #[test]
+    #[ignore = "plaintext v1 request writes are disabled pending the encrypted v2 validator"]
     fn person_requests_and_machine_claims_are_bound_and_create_only() {
         use base64::engine::general_purpose::STANDARD as B64;
         use layr_store::{

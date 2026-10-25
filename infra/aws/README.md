@@ -537,12 +537,14 @@ Use the following profile to add the executor machine slot.
 
 ## Person request release gate
 
-Use a release with encrypted v2 person requests before deploying the request route.
-The gateway must verify the outer person signature and refuse plaintext v1 request bodies.
-The prepared b337229 artifacts predate this change and must not be deployed.
-Wait for the shared v2 source commit, update the gateway validator and dependency pin, run the request tests,
-and rebuild the release artifacts. Claims keep their existing machine-writer contract.
-See [DEPLOYED.md](DEPLOYED.md) for the current hold and verified preparation artifacts.
+Hosting can deploy before encrypted v2 requests are ready only with request and claim writes disabled.
+Use a gateway build with the unconditional HTTP 503 guard for every `requests/` write.
+The old b337229 gateway archive without that guard must not be deployed.
+Person registration, site reads, public routes and authenticated index writes remain available.
+
+When the shared v2 source commit exists, replace the guard and plaintext validator with encrypted v2 verification,
+repin the dependencies, refuse v1 bodies, run the request tests and rebuild the release artifacts.
+Claims stay disabled while requests are disabled. See [DEPLOYED.md](DEPLOYED.md) for measured release digests.
 
 ## Configure the executor profile
 

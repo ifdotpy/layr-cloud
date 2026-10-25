@@ -1,6 +1,6 @@
 # AWS deployment of Layr Cloud
 
-Measured state: 2026-10-25, 13:48 UTC. Three storage stacks are created. Host deployment awaits Tailscale enrollment keys and encrypted v2 person-request support.
+Measured state: 2026-10-25, 13:48 UTC. Three storage stacks are created. Host deployment awaits Tailscale enrollment keys. Until encrypted v2 is ready, request and claim writes must be disabled.
 This file records the M8 deployment from `layr-cloud` base `e4fdf656a0cae5ada5e2e3c7ebaf2fbe372c5f8d`.
 The deployment branch is `cloud/m8-deploy`.
 
@@ -542,7 +542,44 @@ The native shared v2 implementation is assigned separately. Gateway integration 
 The gateway must refuse v1 person request bodies once v2 is integrated. Claims keep the current contract.
 
 The b337229 archives above are preparation artifacts and contain the old v1 request route.
-**Do not deploy them.** Host deployment must wait for the v2 shared commit, matching gateway checks and tests,
-and rebuilt release artifacts. This hold also applies if the Tailscale keys arrive first.
+**Do not deploy those old gateway bytes.** The lead refined this hold at 13:49 UTC: hosting may deploy before v2
+with every person request and claim write disabled. The gateway must be rebuilt with the refusal guard below.
 No v1 person request route has been deployed to AWS; both project stores remain uninitialized.
 The later epoch gateway extension also waits for its assigned merged main revision and client contract.
+
+## Hosting release with request writes disabled
+
+The lead's 13:49 UTC refinement permits deployment at b337229 before v2 when the keys arrive first.
+The gateway now returns HTTP 503 for every non-read request below authenticated `objects/requests/`,
+including machine claims, malformed names and encoded namespace separators. The response is:
+
+```text
+Person requests and claims are disabled until encrypted request support is ready.
+```
+
+This guard has no runtime configuration override. It runs before request body parsing or the legacy v1 validator.
+A test checks PUT, POST, PATCH and DELETE with no bearer, a writer bearer, a GC bearer and a read proof,
+then confirms no request object was created and ordinary store writes still work.
+The old positive v1 request/claim test is explicitly ignored pending replacement by encrypted v2 tests.
+Person registration, hosting, public reads and authenticated index publication remain available.
+
+The gateway binary and archive must be rebuilt after this guard. The earlier gateway digest in the preparation table
+is superseded; the new digest and test output will be recorded when the rebuild completes.
+The executor binary and archive are unchanged. When shared v2 arrives, replace the legacy validator and refusal guard
+with v2 verification, reject v1, update tests and repin before enabling request writes.
+
+The disabled-write fallback release completed its checks at 13:55 UTC:
+`cargo test --locked -p layr-gateway` passed 27 tests with 2 explicit ignores
+(MinIO environment setup and the obsolete positive plaintext-v1 flow).
+Static ARM64 build exited 0. The replacement binary SHA-256 is
+`7ab8b9d77ae4e81b05d22502b241480615abfa4cc751f5a4d9e0907128de588a`.
+The replacement gateway archive SHA-256 is
+`4c772ce4837d7240e5c88f17da14a8db5c3ca98f6db4d4ac0e33c7c3be892f12`;
+the host validator accepted its 11 real files.
+
+An actual HTTP test of the stripped release binary as `nobody` confirmed:
+PUT, POST, PATCH and DELETE each return 503 on both person-request and claim paths.
+The same process served HTML, JavaScript, CSS and the 4,316,443-byte WASM with 200,
+HEAD with an empty body, traversal with 400 and wrong Host with 421.
+This guarded gateway archive can be used for hosting at b337229 if the keys arrive before v2.
+The earlier unguarded gateway archives must not be deployed.
