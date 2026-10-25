@@ -30,7 +30,7 @@ try{
  page.on('response',response=>{const request=response.request();if(new URL(response.url()).pathname==='/api/session'&&request.method()==='POST'&&response.status()===200)exchanges++;});
  await page.goto(origin);await page.getByLabel('Login',{exact:true}).fill(fixture.login);
  await page.getByLabel('24 recovery words',{exact:true}).fill(words);await page.getByRole('button',{name:'Unlock with recovery words',exact:true}).click();
- await expect(page.getByRole('heading',{name:'Projects',exact:true})).toBeVisible({timeout:60000});assert.equal(exchanges,1);
+ await expect(page.locator('#main-content').getByRole('heading',{name:'Projects',exact:true})).toBeVisible({timeout:60000});assert.equal(exchanges,1);
  await page.goto(`${origin}/#/project/${fixture.project}/change/${fixture.change}/overview`);
  await expect(page.getByRole('heading',{name:'Conversation',exact:true})).toBeVisible({timeout:60000});
  const text=`Deployed browser review ${new Date().toISOString()}`;

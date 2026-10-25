@@ -124,8 +124,10 @@ try {
   for (const line of lines) await page.locator('main').getByTitle(line.name, { exact: true }).first().waitFor();
   assert.equal(dataRequests.length, 0, 'The lines page loads no file data parts.');
   if (actionFixture) {
-    const { checkActions } = await import('./actions-live.mjs');
-    await checkActions({page, site, project:descriptor.project, actionFixture, store, person, root, bucket, env});
+    if(!process.env.LAYR_WEB_TEST_SIGNIN_ONLY){
+      const { checkActions } = await import('./actions-live.mjs');
+      await checkActions({page, site, project:descriptor.project, actionFixture, store, person, root, bucket, env});
+    }
   } else {
   if (process.env.LAYR_WEB_TEST_INDEX) {
     const {checkIndexPublic} = await import('./index-public-live.mjs');
