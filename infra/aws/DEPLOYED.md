@@ -356,3 +356,42 @@ Stop parent service -> PartOf stopped token unit; token and runtime directory re
 The parent stop can return while the dependent token stop job is still finishing.
 The check waited for that job and verified that both the file and runtime directory were absent.
 This proves the local service lifecycle; live instance-role access to SSM remains unverified.
+
+## Live public-writer regression: failed before slot opening
+
+On 2026-10-25 at 13:13 UTC, `tests/public-writer-gateway.py` ran the exact Layr CLI
+from M7 commit `75b4111` against the running debug gateway and a real local MinIO server.
+An HTTPS trace proxy logged methods, paths, status codes and credential presence only.
+It retained no headers or bodies. The gateway itself ran as `nobody` on loopback.
+
+The test initialized a disposable project, pushed it with owner credentials, and published it with
+`remote public owner on`. It verified that the signed manifest named this trusted machine and
+that its existing machine slot was present. It issued a gateway write token into a mode `0600`
+file on `/run` tmpfs, saved a new local state, removed AWS credentials from the client environment,
+and invoked `layr push gateway -q`. The setup completed; the push failed with exit 128.
+
+Exact push request sequence, after clearing the setup trace:
+
+```text
+GET /v1/p/public-test/store.json -> 200; Authorization absent
+GET /v1/p/public-test/store.json -> 200; Authorization absent
+GET /v1/p/public-test/store.json -> 200; Authorization absent
+CLI error: gateway reads require a machine slot or paper key
+```
+
+There was no `/p/` request and no slot, challenge, token or PUT request.
+The source calls `backend.get("public.json")` before opening the writer's slot;
+with a write token, the M7 gateway client selects `read_request`, whose proof needs an identity
+that has not opened yet. The lead received this reproduction and exact trace to decide where the fix belongs.
+No client fix was made in this deployment task.
+
+The test removed its disposable store, recovery material, write token, test server data and public certificate.
+The TLS private key existed only in a memory-backed file descriptor, which was closed.
+Cleanup output:
+
+```text
+CLEANUP all disposable recovery/token/test material removed from /run
+```
+
+This local live test exposes an M7 client integration failure. It does not replace the pending
+AWS/tailnet clone, push and browser recovery verification for M8.

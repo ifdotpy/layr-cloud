@@ -758,6 +758,21 @@ Install `python3-venv` in the VM first if its Python installation lacks `ensurep
 The volume tests create temporary loop devices and test btrfs mounts as root.
 They reject ext4 and preserve data across repeat mounts.
 The release tests use synthetic ELF headers. They do not execute either release binary.
+
+The public-writer regression starts a real MinIO server, an unprivileged gateway, and a
+local HTTPS trace proxy. It initializes and publishes a disposable project, confirms the
+writer's machine slot, and pushes a new state without AWS credentials in the client.
+It requires root, MinIO, OpenSSL, boto3, and a debug gateway binary in the Linux VM:
+
+```sh
+LAYR_BIN=/absolute/path/to/layr \
+LAYR_GATEWAY_BINARY=/absolute/path/to/debug/layr-gateway \
+  /opt/layr-cfn-lint/bin/python tests/public-writer-gateway.py
+```
+
+The trace contains only method, path, status and credential presence. It never prints headers or bodies.
+All disposable recovery and token material stays under `/run` on tmpfs and is removed on exit.
+TLS private keys stay in memory-backed file descriptors. The test creates no AWS resources.
 A template lint result does not prove AWS deployment, first boot, or a live gateway request.
 
 ## Optional check runner
