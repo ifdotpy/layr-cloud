@@ -386,6 +386,9 @@ function ProjectPage({
           project={project}
           id={route.section ?? ""}
           section={route.id ?? "overview"}
+          filePath={route.path}
+          fileLine={Number(route.line) || undefined}
+          stateVersion={route.state}
         />
       );
     case "checks":

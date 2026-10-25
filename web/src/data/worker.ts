@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 import init, { Session } from '../../wasm/layr_web';
-import { Gateway } from './gateway';
+import { uuidV7 } from './requests';
+import { Gateway, fromBase64 } from './gateway';
 
 const scope = self as unknown as DedicatedWorkerGlobalScope;
 const idleMs = 30 * 60 * 1000;
@@ -11,6 +12,8 @@ const routes = new Map<string, {gateway: string; prefix: string}>();
 const aliases = new Map<string, string>();
 const attempts = new Map<string, string>();
 const loaded = new Set<string>();
+const requestOutcomes = new Map<string,string>();
+const requestEnvelopes = new Map<string, {project: string; envelope: string; uncertain: boolean}>();
 let busy = Promise.resolve();
 let generation = 0;
 const refreshing = new Map<string, Promise<void>>();
@@ -20,7 +23,7 @@ function lock() {
   clearTimeout(timer);
   session?.lock(); session?.free(); session = undefined;
   gateway?.lock(); gateway = undefined;
-  routes.clear(); aliases.clear(); attempts.clear(); loaded.clear(); publicProjects.clear();
+  routes.clear(); aliases.clear(); attempts.clear(); loaded.clear(); requestEnvelopes.clear(); requestOutcomes.clear(); publicProjects.clear();
 }
 function touch() { clearTimeout(timer); timer = setTimeout(() => { lock(); scope.postMessage({ locked: true }); scope.close(); }, idleMs); }
 function current() { if (!session || !gateway) throw new Error('Your session is locked.'); return { session, gateway }; }
@@ -136,6 +139,10 @@ async function unlock(method: string, args: unknown[], base: string) {
       try { session.unlock_prf(secret, args[1] as string, JSON.stringify(person)); }
       finally { secret.fill(0); }
     }
+    if (person.signing && person.signing_key) {
+      const sealed = fromBase64(person.signing);
+      try { session.open_signing_key(sealed, person.signing_key); } finally { sealed.fill(0); }
+    }
     const slotName = session.slot_name();
     const pins: string[] = JSON.parse(session.query('', 'pins', '[]', Date.now()));
     for (const name of await gateway.projects()) {
@@ -244,6 +251,30 @@ async function call(method: string, args: unknown[], base = ''): Promise<unknown
     }
     return JSON.parse(session.diff(name, object, other, filter));
   }
+  if (method === 'submitRequest' || method === 'retryRequest') {
+    const project = args[0] as string;
+    const name = alias(project);
+    const id = method === 'submitRequest' ? uuidV7() : args[1] as string;
+    if (method === 'submitRequest') requestEnvelopes.set(id, {project, envelope:session.sign_request(name,id,JSON.stringify(args[1]),Date.now()), uncertain:false});
+    const saved = requestEnvelopes.get(id);
+    if (!saved || saved.project !== project) throw new Error('This request is unavailable in your session.');
+    const target = route(name);
+    try { await current().gateway.putRequest(target.gateway,id,saved.envelope); saved.uncertain = false; }
+    catch {
+      try { saved.uncertain = await current().gateway.requestObject(target.gateway,id,proof(name)) !== saved.envelope; }
+      catch { saved.uncertain = true; }
+    }
+    return {id,status:'pending',...(saved.uncertain ? {reason:'Delivery could not be confirmed. Retry delivery with the same request ID.'} : {})};
+  }
+  if (method === 'requestStatus') {
+    const name = alias(args[0] as string), id = args[1] as string;
+    await complete(name);
+    await loadStore(name);
+    const result = JSON.parse(session.query(name,method,JSON.stringify([id]),Date.now()));
+    const saved = requestEnvelopes.get(id);
+    if (result.status === 'pending' && saved?.uncertain) result.reason = 'Delivery could not be confirmed. Retry delivery with the same request ID.';
+    return result;
+  }
   if (method === 'changeDiff') {
     const name = alias(args[0] as string);
     const states: string[] = JSON.parse(session.query(name, 'changeInputs', JSON.stringify(args.slice(1)), Date.now()));
@@ -304,7 +335,14 @@ scope.onmessage = event => {
   }
   // Serialize calls so a lock or unlock cannot race an in-flight fetch.
   busy = busy.then(async () => {
-    try { const value = await call(method, args, base); scope.postMessage({ id, value }); }
+    try {
+      const value = await call(method, args, base);
+      scope.postMessage({ id, value });
+      if (method === 'requestStatus' && value && typeof value === 'object' && 'status' in value && value.status !== 'pending') {
+        const key = `${args[0]}/${args[1]}`;
+        if (requestOutcomes.get(key) !== value.status) { requestOutcomes.set(key,String(value.status)); scope.postMessage({updated:true}); }
+      }
+    }
     catch (error) { scope.postMessage({ id, error: error instanceof Error ? error.message : String(error) }); }
   });
 };

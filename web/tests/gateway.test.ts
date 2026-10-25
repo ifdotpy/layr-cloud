@@ -34,3 +34,20 @@ test('gateway refuses another origin and refreshes a refused read token once', a
     assert.equal(requests.filter(request => request.init.method === 'POST').length, 3);
   } finally { globalThis.fetch = previous; }
 });
+
+test('person request delivery uses its existing identity and never asks for a machine bearer', async () => {
+  const previous = globalThis.fetch;
+  const calls: {path:string;init:RequestInit}[]=[];
+  globalThis.fetch = async (input,init={}) => { calls.push({path:String(input),init}); return new Response(null,{status:201}); };
+  try {
+    const gateway=new Gateway();
+    const id='01a1734c-0000-7000-8000-000000000001';
+    await gateway.putRequest('example',id,'signed envelope');
+    assert.equal(calls.length,1);
+    assert.equal(calls[0].path,`/v1/p/example/objects/requests/${id}.json`);
+    assert.equal(calls[0].init.method,'PUT');
+    assert.equal(calls[0].init.body,'signed envelope');
+    assert.equal(new Headers(calls[0].init.headers).get('authorization'),null);
+    assert.equal(calls[0].init.credentials,'same-origin');
+  } finally { globalThis.fetch=previous; }
+});

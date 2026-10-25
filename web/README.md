@@ -1,6 +1,6 @@
 # Layr Cloud web
 
-The read-only site uses TypeScript, Preact and Vite. The stylesheet comes from the approved mockup. No CSS framework or external runtime library is used. Geist and Geist Mono load from the site. Their OFL license and source revision are in `public/fonts/`.
+The site uses TypeScript, Preact and Vite. The stylesheet comes from the approved mockup. No CSS framework or external runtime library is used. Geist and Geist Mono load from the site. Their OFL license and source revision are in `public/fonts/`.
 
 ## Run
 
@@ -11,7 +11,7 @@ rustup target add wasm32-unknown-unknown
 cargo install wasm-pack --version 0.15.0 --locked
 ```
 
-The Rust model and store dependencies use Layr revision `b337229691083d2738ebc6db4bdd48c0b9ede3c5`.
+The Rust model and store dependencies use Layr revision `466f120f0846da86f63028bbec9eabb2fa69581f`.
 
 ```sh
 cd web
@@ -96,6 +96,42 @@ Open a public project with `/?project=<gateway-project-name>`. The worker uses t
 
 Passkey tests check the salt and PRF bytes. A live authenticator has not been tested.
 
+## Person actions and comments
+
+The worker opens `people/<login>/signing.age` from the person response and checks the public key.
+The project must pin the same key with `layr access person-key`.
+Approve, withdraw, queue changes, ref moves, comments and replies all use `DataSource.submitRequest`.
+The shared `layr_store::request::seal` encrypts the signed request to the current project recipient.
+Only the v2 ciphertext envelope reaches the gateway and store.
+Each submission has one UUIDv7 ID. The UI waits for the verified operation or signed refusal record.
+An uncertain delivery can retry the same envelope and ID. It does not create another action.
+Comments use the model's folded records; line comments name an exact change state, path and line.
+
+The executor smoke test uses a disposable btrfs project in `layr-dev` and a disposable MinIO bucket.
+Build the gateway and fixture tools as described in `crates/layr-web/README.md`, then run:
+
+```sh
+cd web
+node tests/setup-actions-fixture.mjs
+```
+
+Use the printed folder as `ACTION_FIXTURE`:
+
+```sh
+LAYR_WEB_ACTION_FIXTURE="$ACTION_FIXTURE" \
+LAYR_WEB_ACTION_EXECUTOR="$ACTION_FIXTURE/apply.sh" \
+cargo test --manifest-path ../Cargo.toml -p layr-web real_executor_applies_browser_signatures -- --ignored --nocapture
+
+LAYR_WEB_ACTION_FIXTURE="$ACTION_FIXTURE" \
+LAYR_WEB_TEST_STORE="$ACTION_FIXTURE/store" \
+LAYR_WEB_TEST_PAPER="$ACTION_FIXTURE/paper" \
+LAYR_WEB_TEST_LINES="$ACTION_FIXTURE/lines.json" \
+node --experimental-strip-types tests/model-gateway.e2e.mjs
+```
+
+The browser check writes approval before and after, withdrawal, queue add, thread, inline comment, refusal and queue screenshots,
+with axe reports, to `web/test-results/actions-live/` in three display modes.
+After both checks, run `$ACTION_FIXTURE/cleanup.sh` to unmount and remove its Linux project.
 
 ## Index and public checks
 

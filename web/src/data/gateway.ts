@@ -2,6 +2,8 @@
 export interface PersonView {
   login: string;
   recipient: string | null;
+  signing_key?: string | null;
+  signing?: string | null;
   slots: { name: string; data: string }[];
   index: string | null;
   inbox: { id: string; from: string; time: number; data: string }[];
@@ -32,6 +34,14 @@ export class Gateway {
     return response;
   }
   async person(): Promise<PersonView> { return (await this.request('/api/person')).json(); }
+  async putRequest(project: string, id: string, envelope: string): Promise<void> {
+    await this.request(this.route(project, `objects/requests/${encodeURIComponent(id)}.json`), {
+      method: 'PUT', headers: {'content-type': 'application/json'}, body: envelope,
+    });
+  }
+  async requestObject(project: string, id: string, decrypt: (bytes: Uint8Array) => string): Promise<string> {
+    return (await this.authorized(project, `objects/requests/${encodeURIComponent(id)}.json`, decrypt)).text();
+  }
   async projects(): Promise<string[]> { return (await (await this.request('/api/projects')).json()).projects; }
   private route(project: string, path: string): string { return `/v1/p/${encodeURIComponent(project)}/${path}`; }
   async descriptor(project: string): Promise<Descriptor> {

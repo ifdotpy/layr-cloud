@@ -1,19 +1,27 @@
+import { Fragment } from "preact";
+import { CommentThread } from "./actions";
 import { useEffect, useState } from "preact/hooks";
 import type { DataSource, FileDiff } from "../data/source";
 import { CodeText, Empty, Icon, LoadError, ToggleButtons, useData } from "./ui";
 import { textDiff } from "../text-diff";
 import { plural } from "../labels";
+export type DiffComments = {source: DataSource; project: string; change: string; version: string; versions:{version:string;state:{id:string}}[]; focusPath?:string;focusLine?:number};
+function InlineThread({comments,path,line}: {comments: DiffComments;path:string;line:number}) {
+  return <CommentThread {...comments} path={path} line={line} />;
+}
 /** Text arrives from DataSource. It is always escaped by Preact. */
 export function DiffFiles({
   files,
   total = files.length,
   mode: controlledMode,
   toolbar = true,
+  comments,
 }: {
   files: FileDiff[];
   total?: number;
   mode?: string;
   toolbar?: boolean;
+  comments?: DiffComments;
 }) {
   const [localMode, setMode] = useState("Unified");
   const mode = controlledMode ?? localMode;
@@ -33,7 +41,7 @@ export function DiffFiles({
       )}
       {files.length ? (
         files.map((file) => (
-          <DiffFile key={file.path} file={file} mode={mode} />
+          <DiffFile key={file.path} file={file} mode={mode} comments={comments} />
         ))
       ) : (
         <Empty>No file differences.</Empty>
@@ -41,7 +49,14 @@ export function DiffFiles({
     </div>
   );
 }
-function DiffFile({ file, mode }: { file: FileDiff; mode: string }) {
+function DiffFile({ file, mode, comments }: { file: FileDiff; mode: string; comments?: DiffComments }) {
+  const [commentLine, setCommentLine] = useState(comments?.focusPath === file.path ? comments.focusLine ?? 0 : 0);
+  useEffect(() => {
+    if (comments?.focusPath === file.path && comments.focusLine) {
+      setCommentLine(comments.focusLine);
+      requestAnimationFrame(() => document.getElementById(`diff-line-${comments.focusLine}`)?.scrollIntoView({block:'center'}));
+    }
+  },[comments?.focusPath,comments?.focusLine,file.path]);
   const [show, setShow] = useState(!file.derived);
   const lines = textDiff(file.before ?? "", file.after ?? "");
   const modeLabel =
@@ -84,7 +99,7 @@ function DiffFile({ file, mode }: { file: FileDiff; mode: string }) {
           </div>
           <div>
             <div class="muted small diff-label">Head</div>
-            <CodeText text={file.after ?? ""} />
+            {comments ? <><pre class="code" tabIndex={0}>{(file.after ?? '').split('\n').map((text,index) => <span class="l"><button class="comment-line" aria-label={`Comment on ${file.path} line ${index+1}`} onClick={() => setCommentLine(commentLine === index+1 ? 0 : index+1)}>+</button> {text || ' '}</span>)}</pre>{commentLine > 0 && <InlineThread comments={comments} path={file.path} line={commentLine} />}</> : <CodeText text={file.after ?? ""} />}
           </div>
         </div>
       ) : (
@@ -97,7 +112,8 @@ function DiffFile({ file, mode }: { file: FileDiff; mode: string }) {
           <table class="diff" aria-label={`Diff of ${file.path}`}>
             <tbody>
               {lines.map((line) => (
-                <tr
+                <Fragment>
+                <tr id={line.after ? `diff-line-${line.after}` : undefined}
                   class={
                     line.kind === "add"
                       ? "a"
@@ -107,7 +123,7 @@ function DiffFile({ file, mode }: { file: FileDiff; mode: string }) {
                   }
                 >
                   <td class="ln">{line.before ?? ""}</td>
-                  <td class="ln">{line.after ?? ""}</td>
+                  <td class="ln">{comments && line.after ? <button class="comment-line" aria-label={`Comment on ${file.path} line ${line.after}`} onClick={() => setCommentLine(commentLine === line.after ? 0 : line.after!)}>{line.after}</button> : line.after ?? ""}</td>
                   <td class="sg">
                     {line.kind === "add"
                       ? "+"
@@ -117,6 +133,8 @@ function DiffFile({ file, mode }: { file: FileDiff; mode: string }) {
                   </td>
                   <td class="tx">{line.text || " "}</td>
                 </tr>
+                {comments && line.after && commentLine === line.after && <tr class="inline-comment"><td colSpan={4}><InlineThread comments={comments} path={file.path} line={line.after} /></td></tr>}
+                </Fragment>
               ))}
             </tbody>
           </table>
@@ -134,6 +152,7 @@ export function DiffBrowser({
   head,
   files,
   mode,
+  comments,
 }: {
   source: DataSource;
   project: string;
@@ -141,8 +160,9 @@ export function DiffBrowser({
   head: string;
   files: FileDiff[];
   mode?: string;
+  comments?: DiffComments;
 }) {
-  const [selected, setSelected] = useState("");
+  const [selected, setSelected] = useState(comments?.focusPath ?? "");
   const path = files.some((f) => f.path === selected)
     ? selected
     : files[0]?.path;
@@ -182,6 +202,7 @@ export function DiffBrowser({
             total={files.length}
             mode={mode}
             toolbar={mode === undefined}
+            comments={comments}
           />
         ) : (
           <LoadError error={error} />
@@ -198,6 +219,7 @@ export function InterdiffBrowser({
   to,
   files,
   mode,
+  comments,
 }: {
   source: DataSource;
   project: string;
@@ -206,9 +228,11 @@ export function InterdiffBrowser({
   to: string;
   files: import("../data/source").ChangeDiff["files"];
   mode: string;
+  comments?: DiffComments;
 }) {
+  const [commentLine, setCommentLine] = useState(0);
   // The canonical from_trees comparison uses exact paths and does not detect renames.
-  const [selected, setSelected] = useState("");
+  const [selected, setSelected] = useState(comments?.focusPath ?? "");
   const [unchanged, setUnchanged] = useState<Set<string>>(new Set());
   const path = files.some((file) => file.path === selected)
     ? selected
@@ -227,6 +251,13 @@ export function InterdiffBrowser({
   if (!files.length)
     return <Empty>No code changes between these versions.</Empty>;
   const file = data?.files[0];
+  let nextLine = 0;
+  const patchLines = (file?.interdiff ?? '').split('\n').map(text => {
+    const hunk = /^@@ -\d+(?:,\d+)? \+(\d+)/.exec(text);
+    if (hunk) { nextLine = Number(hunk[1]); return {text}; }
+    if (!nextLine || text.startsWith('---') || text.startsWith('+++') || text.startsWith('-') || text.startsWith('\\')) return {text};
+    return {text, line: nextLine++};
+  });
   return (
     <div class="files-grid">
       <aside class="side" aria-label="Compared files">
@@ -271,8 +302,8 @@ export function InterdiffBrowser({
             >
               <table class="diff" aria-label={`Diff of ${file.path}`}>
                 <tbody>
-                  {(file.interdiff ?? "").split("\n").map((line) =>
-                    mode === "Split" ? (
+                  {patchLines.map(({text: line, line: number}) => <Fragment>
+                    {mode === "Split" ? (
                       line.startsWith("@@") ? (
                         <tr class="h">
                           <td colspan={2}>{line}</td>
@@ -287,6 +318,7 @@ export function InterdiffBrowser({
                                 : line || " "}
                           </td>
                           <td class={line.startsWith("+") ? "tx add" : "tx"}>
+                            {comments && number && <button class="comment-line" aria-label={`Comment on ${file.path} line ${number}`} onClick={() => setCommentLine(commentLine === number ? 0 : number)}>+</button>}
                             {line.startsWith("-")
                               ? " "
                               : line.startsWith("+")
@@ -307,9 +339,11 @@ export function InterdiffBrowser({
                                 : ""
                         }
                       >
-                        <td class="tx">{line || " "}</td>
+                        <td class="tx">{comments && number && <button class="comment-line" aria-label={`Comment on ${file.path} line ${number}`} onClick={() => setCommentLine(commentLine === number ? 0 : number)}>+</button>} {line || " "}</td>
                       </tr>
-                    ),
+                    )}
+                    {comments && number && commentLine === number && <tr class="inline-comment"><td colSpan={mode === 'Split' ? 2 : 1}><InlineThread comments={comments} path={file.path} line={number} /></td></tr>}
+                    </Fragment>
                   )}
                 </tbody>
               </table>
