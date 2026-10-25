@@ -1,5 +1,5 @@
 /** VM-only browser caller against the deployed HTTPS gateway through an AWS SSM relay.
- * The reviewed client build is served from local files; every API call retains real Host/SNI/TLS.
+ * An explicit staging option serves local static files; the default uses the published site.
  */
 import assert from 'node:assert/strict';
 import {readFile,writeFile,mkdir,stat} from 'node:fs/promises';
@@ -16,7 +16,7 @@ const output=path.resolve(process.env.LAYR_WEB_LIVE_OUTPUT || 'test-results/sign
 const browser=await chromium.launch({headless:true,...(process.env.LAYR_WEB_LIVE_PROXY ? {proxy:{server:process.env.LAYR_WEB_LIVE_PROXY}} : {args:[`--host-resolver-rules=MAP cloud.layr.ws ${process.env.LAYR_WEB_LIVE_RELAY || '127.0.0.1:443'}`]})});
 try{
  const context=await browser.newContext();
- await context.route(`${origin}/**`,async route=>{
+ if(process.env.LAYR_WEB_LIVE_STAGED_CLIENT)await context.route(`${origin}/**`,async route=>{
   const request=route.request(),url=new URL(request.url());
   if(request.method()!=='GET' || /^\/(api|v1|p)\//.test(url.pathname)){await route.continue();return;}
   const relative=url.pathname==='/'?'index.html':decodeURIComponent(url.pathname.slice(1));
@@ -44,6 +44,6 @@ try{
  for(const view of views){await page.setViewportSize({width:view.width,height:view.height});await page.emulateMedia({colorScheme:view.colorScheme});const axe=await new AxeBuilder({page}).analyze();assert.deepEqual(axe.violations,[]);await writeFile(path.join(output,`comment-${view.name}-axe.json`),JSON.stringify(axe,null,2));await page.screenshot({path:path.join(output,`comment-${view.name}.png`),fullPage:true});}
  await expectNoPersistence(page,'deployed signature sign-in and encrypted comment');assert.deepEqual(errors,[]);
  await page.getByRole('button',{name:/Account/}).click();await page.getByRole('button',{name:'Lock',exact:true}).click();await expect(page.getByRole('heading',{name:'Sign in',exact:true})).toBeVisible();
- await writeFile(path.join(output,'result.json'),JSON.stringify({origin,transport:'VM browser to SSM relay through AWS executor, then public IPv6 TLS gateway',client:'reviewed local build in VM; API calls use deployed HTTPS',requestId,version:wire.v,applied:true,exchanges,screenshots:3,axeViolations:0,persistentSecrets:false},null,2));
+ await writeFile(path.join(output,'result.json'),JSON.stringify({origin,transport:'VM browser to SSM relay through AWS executor, then public IPv6 TLS gateway',client:process.env.LAYR_WEB_LIVE_STAGED_CLIENT?'reviewed local build in VM; API calls use deployed HTTPS':'published site and deployed HTTPS gateway',requestId,version:wire.v,applied:true,exchanges,screenshots:3,axeViolations:0,persistentSecrets:false},null,2));
  console.log(`PASS deployed HTTPS browser: recovery, shared signature session, encrypted v2 comment applied, lock, no persistent secrets; ${requestId}`);
 }finally{await browser.close();}
