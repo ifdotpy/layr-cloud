@@ -176,3 +176,17 @@ The gateway archive contains the static binary, sync script, and nine built site
 The executor archive contains the pinned static Layr binary and sync script.
 The application changes and initial deployment record are in commit `d9ece2632c509981d69a8135af07ac051fbe4d76`.
 No push or merge was performed.
+
+## Executor checks handoff
+
+The M3 worker supplied these requirements after the preparation commit:
+
+- Normal checks use an unprivileged account, bubblewrap, and no network.
+- Privileged suites require a maintainer entry in `checks.privileged` and local `checks.privileged-runner` opt-in.
+- Additional tools: `bubblewrap`, `xfsprogs`, `e2fsprogs`, `python3`, `docker-registry`, `skopeo`,
+  `apache2-utils`, Helm, and a pinned MinIO binary. The base template already installs `btrfs-progs`, `git`, and `zstd`.
+- The worker estimated at least 4 GiB RAM and about 40 GiB disk for full cargo and loop-filesystem suites.
+  This is an estimate, not a measured minimum. The proposed M8 sizes cover the initial smoke flow only.
+- M3 also needs its newer Layr runtime. The assigned `1a91cd3` binary does not contain that implementation.
+
+These requirements have not been installed or enabled. The lead must select the runtime and resource plan before deployment.
