@@ -1,6 +1,6 @@
 import { CommentThread, RequestActionButton } from "../components/actions";
 import type { ComponentChildren } from "preact";
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import type { Change, DataSource, Project, QueueEntry } from "../data/source";
 import { projectUrl } from "../router";
 import {
@@ -26,7 +26,7 @@ import {
 import { BehaviorCards } from "../components/behavior";
 import { DiffBrowser, DiffFiles, InterdiffBrowser } from "../components/diff";
 import { changeStatus, loadChangeIndex } from "../data/change-index";
-import { object, plural, shortText } from "../labels";
+import { object, plural, shortText, personLabel } from "../labels";
 
 type EvidenceRow = { revoked: boolean; cells: ComponentChildren[] };
 function EvidenceTable({
@@ -77,7 +77,10 @@ export function ChangesPage({
   const [filter, setFilter] = useState("");
   const [revision, setRevision] = useState(0);
   const { data, error } = useData(
-    () => loadChangeIndex(source, project),
+    async () => {
+      const [index, operations] = await Promise.all([loadChangeIndex(source,project),source.opLog(project.id)]);
+      return {...index,operations};
+    },
     [source, project.id, revision],
   );
   if (!data) return <LoadError error={error} />;
@@ -182,7 +185,7 @@ export function ChangesPage({
                       : undefined
                   }
                 />,
-                <Mono>{q.added_by}</Mono>,
+                <span>{personLabel(data.operations.find(operation => operation.op === 'queue.add' && object(operation.data).queue_change && object(object(operation.data).queue_change).id === q.id)?.actor.name ?? String(q.added_by), data.operations)}</span>,
                 when(q.time),
                 <RequestActionButton source={source} project={project.id} label="Remove from queue" action={{kind:'queue_remove',entry:q.id}} command={`layr request queue-remove ${q.id} --person`} onApplied={() => setRevision(value => value + 1)} />,
               ])}
@@ -268,11 +271,13 @@ export function ChangePage({
   project,
   id,
   section,
+  filePath, fileLine, stateVersion,
 }: {
   source: DataSource;
   project: Project;
   id: string;
   section: string;
+  filePath?: string; fileLine?: number; stateVersion?: string;
 }) {
   const [revision, setRevision] = useState(0);
   const refresh = () => setRevision(value => value + 1);
@@ -291,6 +296,10 @@ export function ChangePage({
     return { change, queue, operations, lines };
   }, [source, project.id, id, revision]);
   const change = data?.change;
+  useEffect(() => {
+    const linked = change?.versions.find(version => version.state.id === stateVersion);
+    if (linked) { setVersion(linked.version); setTo(linked.version); setFrom('base'); }
+  },[stateVersion,change?.change_id]);
   const { data: viewer } = useData(() => source.you(), [source]);
   const latest = change?.versions.at(-1);
   const reviewed = [...(change?.versions.slice(0, -1) ?? [])]
@@ -467,16 +476,17 @@ export function ChangePage({
             <Status value={result} />,
             <span title={attestation.subject.id}>{attestedVersion}</span>,
             <span title={attestation.signer}>
-              {operation?.actor.name ||
-                (attestation.signer.startsWith("person:")
-                  ? attestation.signer.slice(7)
-                  : "Name not recorded")}
+              {personLabel(operation?.actor.name || attestation.signer, data.operations)}
             </span>,
             when(attestation.time),
           ],
         };
       });
-  const currentStep = history ? 4 : merge?.allowed === true ? 3 : 1;
+  const revoked = new Set(data.operations.flatMap(operation => Array.isArray(object(operation.data).revokes) ? object(operation.data).revokes as string[] : []));
+  const viewerApproved = Boolean(viewer?.login && selected.attestations.some(attestation => attestation.kind === 'approval' && attestation.signer === `person:${viewer.login}` && !revoked.has(attestation.attestation_id)));
+  const checksMet = Boolean(merge && merge.checks.every(check => check.result === 'passed'));
+  const approvalsMet = Boolean(merge && merge.approvals.filter(approval => approval.met === true).length >= merge.approvals_needed);
+  const stepStates = ['done', checksMet ? 'done' : 'now', approvalsMet ? 'done' : checksMet ? 'now' : '', status === 'merged' ? 'done' : entry || (checksMet && approvalsMet) ? 'now' : '', status === 'merged' ? 'done' : ''];
   return (
     <>
       <div class="chead">
@@ -518,7 +528,8 @@ export function ChangePage({
                   v.attestations.some(
                     (a) =>
                       a.kind === "approval" &&
-                      a.signer === `person:${viewer.login}`,
+                      a.signer === `person:${viewer.login}` &&
+                      !data.operations.some(operation => Array.isArray(object(operation.data).revokes) && (object(operation.data).revokes as string[]).includes(a.attestation_id)),
                   )
                     ? " · you approved"
                     : ""}
@@ -565,7 +576,7 @@ export function ChangePage({
                 />
               </Section>
               <Section title="Conversation">
-                <CommentThread source={source} project={project.id} change={id} version={selected.state.id} refresh={revision} />
+                <CommentThread source={source} project={project.id} change={id} version={selected.state.id} versions={c.versions} refresh={revision} />
               </Section>
             </>
           ) : section === "files" ? (
@@ -750,7 +761,7 @@ export function ChangePage({
                   to={last.version}
                   files={files.files}
                   mode={diffMode}
-                  comments={{source,project:project.id,change:id,version:last!.state.id}}
+                  comments={{source,project:project.id,change:id,version:last!.state.id,versions:c.versions,focusPath:filePath,focusLine:fileLine}}
                 />
               ) : files ? (
                 <DiffBrowser
@@ -760,7 +771,7 @@ export function ChangePage({
                   head={files.head}
                   files={files.files}
                   mode={diffMode}
-                  comments={{source,project:project.id,change:id,version:last!.state.id}}
+                  comments={{source,project:project.id,change:id,version:last!.state.id,versions:c.versions,focusPath:filePath,focusLine:fileLine}}
                 />
               ) : (
                 <LoadError error={diffError} />
@@ -819,7 +830,7 @@ export function ChangePage({
                 status === "closed" ? "Closed" : "Merged",
               ].map((label, i) => (
                 <div
-                  class={`step ${i < currentStep ? "done" : i === currentStep ? "now" : ""}`}
+                  class={`step ${stepStates[i]}`}
                   role="listitem"
                 >
                   <i />
@@ -876,7 +887,7 @@ export function ChangePage({
                                 .length
                             }{" "}
                             of {plural(merge.approvals_needed, "approval")} from{" "}
-                            {merge.approvers.join(", ") || "maintainers"} on{" "}
+                            {merge.approvers.map(approver => personLabel(approver,data.operations)).join(", ") || "maintainers"} on{" "}
                             {latest!.version}
                           </>
                         )}
@@ -927,9 +938,11 @@ export function ChangePage({
                   </li>
                 </ul>
                 <div class="stack-s">
-                  <RequestActionButton key={`approve-${s.id}`} source={source} project={project.id} label={`Approve ${selected.version}`} action={{kind:'approve',state:s.id,into:project.default_line ?? 'main'}} command={`layr request approve ${s.id} --person`} onApplied={refresh} primary />
-                  <RequestActionButton key={`withdraw-${s.id}`} source={source} project={project.id} label="Withdraw approval" action={{kind:'withdraw',state:s.id,into:project.default_line ?? 'main'}} command={`layr request withdraw ${s.id} --person`} onApplied={refresh} />
-                  {entry ? <RequestActionButton source={source} project={project.id} label="Remove from queue" action={{kind:'queue_remove',entry:entry.id}} command={`layr request queue-remove ${entry.id} --person`} onApplied={refresh} /> : <RequestActionButton source={source} project={project.id} label="Add to queue" action={{kind:'queue_add',state:latest!.state.id,into:project.default_line ?? 'main'}} command={`layr request queue-add ${latest!.state.id} --person`} onApplied={refresh} />}
+                  {viewerApproved ? <>
+                    <p class="note approval-confirmation">You approved {selected.version}</p>
+                    <RequestActionButton key={`withdraw-${s.id}`} source={source} project={project.id} label="Withdraw approval" action={{kind:'withdraw',state:s.id,into:project.default_line ?? 'main'}} command={`layr request withdraw ${s.id} --into ${project.default_line ?? 'main'} --person`} onApplied={refresh} />
+                  </> : <RequestActionButton key={`approve-${s.id}`} source={source} project={project.id} label={`Approve ${selected.version}`} action={{kind:'approve',state:s.id,into:project.default_line ?? 'main'}} command={`layr request approve ${s.id} --into ${project.default_line ?? 'main'} --person`} onApplied={refresh} primary />}
+                  {entry ? <RequestActionButton source={source} project={project.id} label="Remove from queue" action={{kind:'queue_remove',entry:entry.id}} command={`layr request queue-remove ${entry.id} --person`} onApplied={refresh} /> : <RequestActionButton source={source} project={project.id} label="Add to queue" action={{kind:'queue_add',state:latest!.state.id,into:project.default_line ?? 'main'}} command={`layr request queue-add ${latest!.state.id} --into ${project.default_line ?? 'main'} --person`} onApplied={refresh} />}
                 </div>
               </>
             )}

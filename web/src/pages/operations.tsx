@@ -334,6 +334,7 @@ export function DeployPage({
         <div class="stack">
           <PageHead
             title={<Mono>{reference}</Mono>}
+            readOnly={false}
             description="An environment is a ref. Every position names an exact state."
             actions={
               <RefMove source={source} project={project.id} name={reference!} expected={data.refs.find(ref => ref.name === reference)?.target ?? null} onApplied={() => setRevision(value => value + 1)} />

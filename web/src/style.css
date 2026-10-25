@@ -614,3 +614,14 @@ html:not(.cli) .cmd { display: inline-flex; margin-right: 10px; }
 .inline-comment td { padding:16px; white-space:normal; }
 .inline-comment .conversation { max-width:760px; font-family:var(--sans); }
 .comment-line { background:var(--bg-100); color:var(--text); border:1px solid var(--border); border-radius:4px; cursor:pointer; min-width:24px; }
+
+.comment .meta { display:flex; flex-wrap:wrap; gap:8px; align-items:baseline; color:var(--text-2); font-size:12px; }
+.comment .meta b { color:var(--text); }
+.comment-line { min-height:24px; }
+
+.action-row { display:flex; gap:8px; align-items:center; min-width:0; }
+.action-row > .btn { flex:1; min-width:0; }
+.action-row > .cmd { margin:0; flex:none; }
+html.cli .action-row { flex-wrap:wrap; }
+html.cli .action-row > .cmd { flex:1 1 100%; }
+.approval-confirmation { color:var(--text); margin:0; }

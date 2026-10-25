@@ -1,6 +1,6 @@
 # Layr Cloud web
 
-The read-only site uses TypeScript, Preact and Vite. The stylesheet comes from the approved mockup. No CSS framework or external runtime library is used. Geist and Geist Mono load from the site. Their OFL license and source revision are in `public/fonts/`.
+The site uses TypeScript, Preact and Vite. The stylesheet comes from the approved mockup. No CSS framework or external runtime library is used. Geist and Geist Mono load from the site. Their OFL license and source revision are in `public/fonts/`.
 
 ## Run
 
@@ -11,7 +11,7 @@ rustup target add wasm32-unknown-unknown
 cargo install wasm-pack --version 0.15.0 --locked
 ```
 
-The Rust model and store dependencies use Layr revision `1a91cd32555a878e87d63d6311520ecca3be7173`.
+The Rust model and store dependencies use Layr revision `466f120f0846da86f63028bbec9eabb2fa69581f`.
 
 ```sh
 cd web
@@ -97,6 +97,8 @@ Passkey tests check the salt and PRF bytes. A live authenticator has not been te
 The worker opens `people/<login>/signing.age` from the person response and checks the public key.
 The project must pin the same key with `layr access person-key`.
 Approve, withdraw, queue changes, ref moves, comments and replies all use `DataSource.submitRequest`.
+The shared `layr_store::request::seal` encrypts the signed request to the current project recipient.
+Only the v2 ciphertext envelope reaches the gateway and store.
 Each submission has one UUIDv7 ID. The UI waits for the verified operation or signed refusal record.
 An uncertain delivery can retry the same envelope and ID. It does not create another action.
 Comments use the model's folded records; line comments name an exact change state, path and line.
@@ -123,6 +125,6 @@ LAYR_WEB_TEST_LINES="$ACTION_FIXTURE/lines.json" \
 node --experimental-strip-types tests/model-gateway.e2e.mjs
 ```
 
-The browser check writes approve, thread, inline comment, refusal and queue screenshots,
+The browser check writes approval before and after, withdrawal, queue add, thread, inline comment, refusal and queue screenshots,
 with axe reports, to `web/test-results/actions-live/` in three display modes.
 After both checks, run `$ACTION_FIXTURE/cleanup.sh` to unmount and remove its Linux project.

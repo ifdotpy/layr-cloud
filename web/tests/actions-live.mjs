@@ -10,19 +10,31 @@ import {measureContrast} from './contrast.ts';
 export async function checkActions({page,site,project,actionFixture,store,person,root,bucket,env}) {
   const shots = path.join(root,'web/test-results/actions-live'); await mkdir(shots,{recursive:true});
   const {vmRoot}=JSON.parse(await readFile(path.join(actionFixture,'executor.json'),'utf8'));
-  const submitted=[];
+  const submitted=[]; const delivered=new Map(); let appliedCount=0;
   page.on('request',request => {
     if (request.method()==='PUT' && /\/requests\/[^/]+\.json$/.test(new URL(request.url()).pathname)) submitted.push(JSON.parse(request.postData()));
   });
+  page.on('response',response => {
+    const request=response.request();
+    if(request.method()==='PUT' && /\/requests\/[^/]+\.json$/.test(new URL(request.url()).pathname)) delivered.set(JSON.parse(request.postData()).id,response.status());
+  });
   async function publish() {
     await cp(path.join(actionFixture,'store'),store,{recursive:true});
-    execFileSync(path.join(root,'target/debug/examples/upload_gateway'),[bucket,store,path.join(person,'people')],{env:{...env,LAYR_WEB_APPEND:'1'},stdio:'pipe'});
+    for (let attempt=0;;attempt++) {
+      try { execFileSync(path.join(root,'target/debug/examples/upload_gateway'),[bucket,store,path.join(person,'people')],{env:{...env,LAYR_WEB_APPEND:'1'},stdio:'pipe'}); break; }
+      catch(error) { if(attempt>=2 || !String(error.stderr).includes('connection closed before message completed')) throw error; }
+    }
   }
   async function apply() {
-    const envelope=submitted.at(-1); assert(envelope,'browser sent a request');
-    assert.equal(envelope.r.person,'owner@example.com'); assert.equal(envelope.r.project,project);
+    await expect.poll(()=>submitted.length).toBe(appliedCount+1);
+    const envelope=submitted[appliedCount]; assert(envelope,'browser sent a request');
+    await expect.poll(()=>delivered.get(envelope.id)).toBe(201);
+    appliedCount++;
+    assert.equal(envelope.person,'owner@example.com'); assert.equal(envelope.project,project);
+    assert.equal(envelope.v,2); assert.equal(envelope.r,undefined); assert.equal(envelope.action,undefined);
+    assert(envelope.ct && envelope.sig, 'Only ciphertext and outer proof cross the gateway');
     await mkdir(path.join(actionFixture,'store/requests'),{recursive:true});
-    await writeFile(path.join(actionFixture,'store/requests',envelope.r.id+'.json'),JSON.stringify(envelope));
+    await writeFile(path.join(actionFixture,'store/requests',envelope.id+'.json'),JSON.stringify(envelope));
     execFileSync(path.join(actionFixture,'apply.sh'),[],{stdio:'pipe'});
     await publish();
   }
@@ -44,15 +56,22 @@ export async function checkActions({page,site,project,actionFixture,store,person
   const base=`${site}#/project/${project}`;
   await page.goto(`${base}/change/${feature.change_id}/overview`);
   const approve=page.getByRole('button',{name:'Approve v1',exact:true});
-  await expect(approve).toBeEnabled(); await capture('change-approve');
+  await expect(approve).toBeEnabled(); await capture('approve-before');
   async function action(button,status='applied') {
-    await button.click(); const block=button.locator('..');
+    await button.click(); const block=button.locator('../..');
     await expect(block).toContainText('Waiting for the executor.');
     await apply();
     await expect(block.locator('.request-outcome')).toContainText(status,{timeout:30000});
   }
-  await action(approve);
-  await action(page.getByRole('button',{name:'Withdraw approval',exact:true}));
+  await approve.click(); await expect(approve.locator('../..')).toContainText('Waiting for the executor.'); await apply();
+  await expect(page.locator('.approval-confirmation')).toHaveText('You approved v1',{timeout:30000});
+  await expect(approve).toHaveCount(0);
+  await expect(page.locator('[aria-label="Merge progress"] .step').nth(2)).toHaveClass(/done/);
+  await capture('approve-after');
+  const withdraw=page.getByRole('button',{name:'Withdraw approval',exact:true});
+  await withdraw.click(); await apply(); await expect(approve).toBeEnabled({timeout:30000});
+  await expect(page.locator('.approval-confirmation')).toHaveCount(0);
+  await capture('withdraw');
   const conversation=page.getByRole('heading',{name:'Conversation',exact:true}).locator('..');
   await conversation.getByLabel('Comment',{exact:true}).last().fill('Browser review: this version is ready.');
   await conversation.getByRole('button',{name:'Send comment',exact:true}).last().click(); await apply();
@@ -71,7 +90,13 @@ export async function checkActions({page,site,project,actionFixture,store,person
   await expect(page.locator('.inline-comment')).toContainText('Browser inline review on the second line.',{timeout:30000});
   await capture('inline-comment');
   await page.goto(`${base}/change/${feature.change_id}/overview`);
-  await action(page.getByRole('button',{name:'Add to queue',exact:true}));
+  await page.getByRole('link',{name:'test.txt:2',exact:true}).last().click();
+  await expect(page.locator('.inline-comment')).toContainText('Browser inline review on the second line.');
+  await expect(page.getByRole('combobox',{name:'Version',exact:true})).toHaveValue('v1');
+  await page.goto(`${base}/change/${feature.change_id}/overview`);
+  await page.getByRole('button',{name:'Add to queue',exact:true}).click(); await apply();
+  await expect(page.getByRole('button',{name:'Remove from queue',exact:true})).toBeEnabled({timeout:30000});
+  await capture('queue-add');
   await page.goto(`${base}/changes/queue`);
   await expect(page.getByRole('button',{name:'Remove from queue',exact:true})).toBeEnabled();
   await capture('queue');
@@ -88,10 +113,11 @@ export async function checkActions({page,site,project,actionFixture,store,person
   await action(page.getByRole('button',{name:'Move env/native-test',exact:true}),'refused');
   await expect(page.locator('.request-outcome')).toContainText('expected value does not match');
   await capture('refusal');
-  await page.reload();
+  await page.goto(`${base}/deploy/environments`);
+  await page.goto(`${base}/deploy/environment/${encodeURIComponent('env/native-test')}`);
   await page.getByLabel('Target state',{exact:true}).fill(feature.state);
   await action(page.getByRole('button',{name:'Move env/native-test',exact:true}));
   assert.equal(submitted.length,9);
-  assert.deepEqual(new Set(submitted.map(row=>row.r.action.kind)),new Set(['approve','withdraw','comment','queue_add','queue_remove','ref_move']));
-  console.log(`PASS browser actions: ${submitted.length} real signed requests, 8 applied, 1 refused; 5 screens x ${views.length} views, axe and contrast; ${shots}`);
+  assert(submitted.every(row=>row.v===2 && !('r' in row) && !('action' in row)));
+  console.log(`PASS browser actions: ${submitted.length} real signed requests, 8 applied, 1 refused; 8 screens x ${views.length} views, axe and contrast; ${shots}`);
 }

@@ -5,7 +5,7 @@ import type { DataSource, FileDiff } from "../data/source";
 import { CodeText, Empty, Icon, LoadError, ToggleButtons, useData } from "./ui";
 import { textDiff } from "../text-diff";
 import { plural } from "../labels";
-export type DiffComments = {source: DataSource; project: string; change: string; version: string};
+export type DiffComments = {source: DataSource; project: string; change: string; version: string; versions:{version:string;state:{id:string}}[]; focusPath?:string;focusLine?:number};
 function InlineThread({comments,path,line}: {comments: DiffComments;path:string;line:number}) {
   return <CommentThread {...comments} path={path} line={line} />;
 }
@@ -50,7 +50,13 @@ export function DiffFiles({
   );
 }
 function DiffFile({ file, mode, comments }: { file: FileDiff; mode: string; comments?: DiffComments }) {
-  const [commentLine, setCommentLine] = useState(0);
+  const [commentLine, setCommentLine] = useState(comments?.focusPath === file.path ? comments.focusLine ?? 0 : 0);
+  useEffect(() => {
+    if (comments?.focusPath === file.path && comments.focusLine) {
+      setCommentLine(comments.focusLine);
+      requestAnimationFrame(() => document.getElementById(`diff-line-${comments.focusLine}`)?.scrollIntoView({block:'center'}));
+    }
+  },[comments?.focusPath,comments?.focusLine,file.path]);
   const [show, setShow] = useState(!file.derived);
   const lines = textDiff(file.before ?? "", file.after ?? "");
   const modeLabel =
@@ -107,7 +113,7 @@ function DiffFile({ file, mode, comments }: { file: FileDiff; mode: string; comm
             <tbody>
               {lines.map((line) => (
                 <Fragment>
-                <tr
+                <tr id={line.after ? `diff-line-${line.after}` : undefined}
                   class={
                     line.kind === "add"
                       ? "a"
@@ -156,7 +162,7 @@ export function DiffBrowser({
   mode?: string;
   comments?: DiffComments;
 }) {
-  const [selected, setSelected] = useState("");
+  const [selected, setSelected] = useState(comments?.focusPath ?? "");
   const path = files.some((f) => f.path === selected)
     ? selected
     : files[0]?.path;
@@ -226,7 +232,7 @@ export function InterdiffBrowser({
 }) {
   const [commentLine, setCommentLine] = useState(0);
   // The canonical from_trees comparison uses exact paths and does not detect renames.
-  const [selected, setSelected] = useState("");
+  const [selected, setSelected] = useState(comments?.focusPath ?? "");
   const [unchanged, setUnchanged] = useState<Set<string>>(new Set());
   const path = files.some((file) => file.path === selected)
     ? selected

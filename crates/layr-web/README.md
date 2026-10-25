@@ -15,7 +15,7 @@ wasm-pack build crates/layr-web --target web --out-dir ../../web/wasm --release 
 
 The web build can run the same command through `node scripts/build-model-wasm.mjs`.
 Do not commit the generated `web/wasm` package.
-`Cargo.toml` pins the model and store to Layr revision `1a91cd32555a878e87d63d6311520ecca3be7173`.
+`Cargo.toml` pins the model and store to Layr revision `466f120f0846da86f63028bbec9eabb2fa69581f`.
 
 Run the native checks:
 
