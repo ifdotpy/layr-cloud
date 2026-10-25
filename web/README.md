@@ -147,3 +147,11 @@ LAYR_WEB_TEST_STORE=/path/fixture/archive LAYR_WEB_TEST_PAPER=/path/fixture/pape
 The live check uses MinIO, the real gateway and WASM worker. It withholds a later record segment while opening Lines, Code and Changes, checks corrupted-index fallback, compares history/blame with the CLI, and opens the public project in a fresh anonymous browser session. It also checks missing/invalid public manifests and personal sign-in. Screenshots cover provisional first page, blame, file history and public project at all three display settings, with axe and AA badge contrast checks.
 
 `cargo run --release -p layr-web --example index_first_page -- 1000 100000 1000000` measures the native Session adapter, including manifest/slot opening, writer-prefix verification and index authentication. It excludes network and listing time. Generation and encryption are outside each measured interval.
+
+## Signature sign-in checks
+
+`tests/signin.spec.ts` covers the sign-in and invite forms in all three screenshot views. Recovery words are masked in screenshots. `tests/signin-live.mjs` adds a real gateway, native Session proof, passkey PRF caller, invite registration, recovery sign-in and one session renewal after a 401 to the disposable MinIO run.
+
+For the deployed gateway, run `tests/signin-deployed.mjs` in layr-dev. Keep the live fixture, owner store image and recovery files under `/run` tmpfs. Set `LAYR_WEB_LIVE_FIXTURE` to a JSON file with `login`, `words_file`, `project` and `change`; set `LAYR_WEB_LIVE_DIST` to the reviewed browser build. `LAYR_WEB_LIVE_PROXY` selects the restricted CONNECT proxy through the AWS executor. The page uses `https://cloud.layr.ws`, with its real Host, SNI and certificate verification. The test serves the reviewed static client files inside the VM and sends API calls to the deployed gateway. It does not establish public IPv4 reachability.
+
+The deployed check waits for the executor's signed comment record, saves three screenshots and axe reports, checks storage isolation, then locks the key. Only encrypted request bytes and public proofs cross the relay.
