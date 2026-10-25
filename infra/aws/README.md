@@ -80,7 +80,7 @@ The host requirements and tailnet grants above still apply.
 
 Prepare `gateway.tgz` and `executor.tgz` as [Publish a release](#publish-a-release) describes.
 The gateway archive holds `./layr-gateway` and `./sync.py`.
-The executor archive holds `./layr` and `./sync.py`.
+The executor archive holds `./layr`, `./sync.py`, and `./checks.py` for the host check loop.
 Place both archives and this `deploy.json` in one release folder:
 
 ```json
@@ -298,7 +298,7 @@ An existing host keeps its Tailscale identity on its root disk.
 
 Create one release for each host type.
 The gateway archive contains `./layr-gateway`, `./sync.py`, and optionally the built files under `./site/`.
-The executor archive contains `./layr` and `./sync.py`.
+The executor archive contains `./layr`, `./sync.py`, and optional `./checks.py` for check automation.
 Build `layr` from the [Layr repository](https://github.com/ifdotpy/layr).
 The host checks the SHA-256 digest and refuses links, extra files, and programs without static ARM64 code.
 Limit write access to the artifacts bucket to administrators.
@@ -351,13 +351,20 @@ for KIND in gateway executor; do
   fi
   install -m 0755 "$BINARY_PATH" "$RELEASE_DIR/$KIND/$BINARY_NAME"
   install -m 0644 infra/aws/sync.py "$RELEASE_DIR/$KIND/sync.py"
+  if [ "$KIND" = executor ]; then
+    install -m 0644 infra/aws/checks.py "$RELEASE_DIR/$KIND/checks.py"
+  fi
   if [ "$KIND" = gateway ] && [ -n "${SITE_DIR:-}" ]; then
     mkdir "$RELEASE_DIR/$KIND/site"
     cp -R "$SITE_DIR/." "$RELEASE_DIR/$KIND/site/"
     COPYFILE_DISABLE=1 tar -czf "$RELEASE_DIR/$KIND.tgz" -C "$RELEASE_DIR/$KIND" \
       "./$BINARY_NAME" ./sync.py ./site
   else
-    COPYFILE_DISABLE=1 tar -czf "$RELEASE_DIR/$KIND.tgz" -C "$RELEASE_DIR/$KIND" "./$BINARY_NAME" ./sync.py
+    if [ "$KIND" = executor ]; then
+      COPYFILE_DISABLE=1 tar -czf "$RELEASE_DIR/$KIND.tgz" -C "$RELEASE_DIR/$KIND" "./$BINARY_NAME" ./sync.py ./checks.py
+    else
+      COPYFILE_DISABLE=1 tar -czf "$RELEASE_DIR/$KIND.tgz" -C "$RELEASE_DIR/$KIND" "./$BINARY_NAME" ./sync.py
+    fi
   fi
   RELEASE_SHA=$(python3 -c \
     'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' \
@@ -530,19 +537,31 @@ Use the following profile to add the executor machine slot.
 
 ## Configure the executor profile
 
-Issue a write token for the executor from the local administration machine.
-Store it in a file with mode `0600`:
+Issue the executor write token and send it directly to SSM from the administration machine.
+Keep the token out of local files, terminal output, and command arguments:
 
 ```sh
-umask 077
-tailscale ssh root@layr-gateway \
-  "/opt/layr-gateway/current/layr-gateway token $PROJECT --write --until 720h" \
-  > "$RELEASE_DIR/executor-token"
-tailscale ssh root@"$EXECUTOR_ROLE_NAME" \
-  'install -m 0600 /dev/null /etc/layr-executor/write-token; cat > /etc/layr-executor/write-token' \
-  < "$RELEASE_DIR/executor-token"
-rm "$RELEASE_DIR/executor-token"
+python3 - <<'PYTOKEN'
+import json, os, subprocess
+project = os.environ['PROJECT']
+issued = subprocess.run(['tailscale', 'ssh', 'root@layr-gateway',
+    f'/opt/layr-gateway/current/layr-gateway token {project} --write --until 720h'],
+    text=True, capture_output=True, check=True)
+request = {'Name':'/layr-store/executor/write-token','Type':'SecureString',
+           'Value':issued.stdout.strip(),'Overwrite':True}
+stored = subprocess.run(['aws','ssm','put-parameter','--cli-input-json','file:///dev/stdin'],
+    input=json.dumps(request),text=True,capture_output=True)
+if stored.returncode:
+    raise SystemExit('executor token SSM write failed')
+print('executor write token stored in SSM')
+PYTOKEN
 ```
+
+The instance role can read only its exact auth-key and write-token parameters.
+The token service creates `/run/layr-executor-token/write-token` with mode `0600`, owned by the Layr service user (root).
+It verifies that this directory is on tmpfs before writing.
+Stopping `layr.service` stops the token service and removes the file and runtime directory.
+The transfer service refreshes the token before each transfer.
 
 First boot runs `layr remote self --json` after the data mount.
 It writes `/etc/layr-executor/machine.json` and prints its public fields to the service journal.
@@ -577,11 +596,12 @@ set -euo pipefail
 export LAYR_ROOT=/var/lib/layr
 export PROJECT=example
 export GATEWAY_HOST=layr-gateway.YOUR-TAILNET.ts.net
-export LAYR_GATEWAY_TOKEN_FILE=/etc/layr-executor/write-token
+export LAYR_GATEWAY_TOKEN_FILE=/run/layr-executor-token/write-token
+systemctl start layr-executor-token.service
 ln -sfn /opt/layr-executor/current/layr /usr/local/bin/layr
 layr clone "layr+https://$GATEWAY_HOST/$PROJECT" "$PROJECT"
 layr --project "$PROJECT" fetch origin
-layr --project "$PROJECT" config queue.run main
+layr --project "$PROJECT" config queue.run ''
 layr --project "$PROJECT" config registry.listen "$(tailscale ip -4):5000"
 layr --project "$PROJECT" config registry.user layr-registry
 printf 'PROJECT=%q\n' "$PROJECT" > /etc/layr-executor/profile.env
@@ -602,17 +622,18 @@ For an existing copy of the same project without `origin`, add the gateway remot
 layr --project "$PROJECT" remote add origin "layr+https://$GATEWAY_HOST/$PROJECT"
 ```
 
-The units set `LAYR_GATEWAY_TOKEN_FILE=/etc/layr-executor/write-token`.
+The units set `LAYR_GATEWAY_TOKEN_FILE=/run/layr-executor-token/write-token`.
 The client refuses token files with another owner or a mode other than `0600`.
 Read requests use the machine slot and challenge; they need no stored bearer token.
-Replace the token file before the token expires.
+Replace the SSM value before the token expires. Restart the token service to refresh an active daemon token.
 Keep bearer tokens out of command arguments, project config, records, and logs.
 
 The root daemon runs the queue and project checks.
 First boot creates the dedicated system account `layr-registry` without a home or login shell.
 The registry handler uses that unprivileged account.
 Do not use that account for ordinary Layr commands.
-The timer fetches and pushes `origin` after each inactive minute.
+The transfer timer fetches and pushes `origin` after each inactive minute until `checks-ready` exists.
+The check loop then owns fetch/apply/scan/push, so the two timers do not duplicate transfers.
 Systemd permits only one transfer unit at a time.
 A fetch failure stops the push and appears in the unit journal.
 The executor never runs remote GC automatically.
@@ -712,3 +733,46 @@ The volume tests create temporary loop devices and test btrfs mounts as root.
 They reject ext4 and preserve data across repeat mounts.
 The release tests use synthetic ELF headers. They do not execute either release binary.
 A template lint result does not prove AWS deployment, first boot, or a live gateway request.
+
+## Separate privileged check runner
+
+Reuse `executor.yaml` for the runner. Set `HostKind=runner`, `InstanceType=t4g.large`,
+`DataVolumeSize=60`, `RootVolumeSize=8`, a distinct role and hostname, and separate runner SSM parameter names.
+The extra root disk is separate from the 60 GiB btrfs data disk.
+The template installs the runner tools and enables its idle timer.
+The runner has no EC2 start grant. Its project roles include reader and writer, with no GC role.
+
+Deploy this host only after the local M3 watcher is merged into the selected Layr main revision.
+Enroll its own machine slot through the trusted owner, as for the executor.
+The token is project-scoped and follows the same SSM-to-tmpfs rule.
+Use `/layr-store/runner/tailscale-auth-key` and `/layr-store/runner/write-token` on this host.
+
+After both machines are enrolled, provision each host's local reviewed check policy.
+Imported policy is namespaced by its source machine and does not become effective automatically.
+Run the following as root on each host, using that host's project:
+
+```sh
+export LAYR_ROOT=/var/lib/layr
+layr --project "$PROJECT" access grant layr-checks reader
+# Run the reviewed tools/checks/configure.sh from the checked-out project on this host.
+# On the runner only:
+layr --project "$PROJECT" config --local checks.runner true
+layr --project "$PROJECT" config --local checks.privileged-runner true
+test -S /run/layr.sock
+runuser -u layr-checks -- env LAYR_ROOT=/var/lib/layr LAYR_SOCKET=/run/layr.sock \
+  layr --project "$PROJECT" change list --json
+touch /etc/layr-executor/checks-ready
+systemctl enable --now layr-checks.timer
+```
+
+The executor runs the watcher only in reporter mode, with both local runner flags false. It needs no Rust.
+Keep its `queue.run` empty; applying a person queue request must not launch checks on this small host.
+After check setup, enable `queue.run=main` on the runner only.
+Set `RunnerInstanceId` on the executor stack to the exact runner instance ID.
+Its IAM policy can describe instance state and start only that instance with `layr:kind=runner`.
+A positive read-only pending count wakes the runner. The executor runs no checks. No SSH connection is used between the hosts.
+The runner independently fetches, scans all configured checks, and pushes the signed results.
+A host lock prevents shutdown during a scan or tool setup.
+After 30 minutes with no check work, its idle timer powers off the host. EC2 stops it and retains both disks.
+
+See [DEPLOYED.md](DEPLOYED.md) for the policy snippet, cost formula, measured resources, and current deployment limits.

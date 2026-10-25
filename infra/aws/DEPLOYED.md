@@ -1,6 +1,6 @@
 # AWS deployment of Layr Cloud
 
-Measured state: 2026-10-25, 11:23 UTC. Deployment is pending approval and tailnet enrollment.
+Measured state: 2026-10-25, 12:18 UTC. The lead approved deployment; the three storage stacks are created. Tailnet host enrollment is pending.
 This file records the M8 deployment from `layr-cloud` base `e4fdf656a0cae5ada5e2e3c7ebaf2fbe372c5f8d`.
 The deployment branch is `cloud/m8-deploy`.
 
@@ -12,12 +12,13 @@ The deployment branch is `cloud/m8-deploy`.
 - Allowed DNS changes: `cloud.layr.ws` and `_acme-challenge.cloud.layr.ws` only.
 - The `layr.ws` apex, `desk.layr.ws`, and the existing ACM validation record must stay unchanged.
 - Real projects remain unimported. Verification will use a disposable test project.
-- Planned executor source: Layr `1a91cd32555a878e87d63d6311520ecca3be7173`.
+- Deployment executor source: the newest Layr main that contains all merged work when hosts deploy.
+  Earlier local preparation used `1a91cd32555a878e87d63d6311520ecca3be7173`; that build is not the final deployment pin.
 
 ## Resources
 
-No AWS resources were created as of the measured time.
-The following stacks await the lead's explicit approval:
+The storage stacks below reached `CREATE_COMPLETE`. Gateway and executor deployment awaits both auth-key parameter names.
+The five-stack plan was approved by the lead on 2026-10-25 at 12:04 UTC:
 
 | Stack | Planned resources |
 | --- | --- |
@@ -87,14 +88,13 @@ It contains no `cloud.layr.ws` record.
 
 ## Pending requirements and live verification
 
-1. Lead approval of stacks, sizes, and cost before the first CloudFormation deployment.
+1. Lead stack/size/cost approval received before the first CloudFormation deployment. Storage deployment completed.
 2. Separate reusable, pre-approved Tailscale auth keys in the two SSM SecureStrings:
    `/layr-store/gateway/tailscale-auth-key` and `/layr-store/executor/tailscale-auth-key`.
    Each key needs its respective `tag:layr-gateway` or `tag:layr-executor` tag.
 3. Tailnet grants: members to gateway TCP 443; executor to gateway TCP 443;
    members to executor TCP 5000; administrators to root through Tailscale SSH.
-4. Resolve executor write-token input. Pinned Layr requires a regular private token file and rejects symlinks.
-   This conflicts with the task's rule against credential files. No token file has been created.
+4. Executor write-token input is resolved by the approved tmpfs exception documented below.
 5. Deploy and inventory stack resources, then verify host setup, certificate and protected DNS records.
 6. Clone and push a disposable project from the administration Mac, open the deployed site,
    unlock with recovery words, and verify its lines. These live checks have not run.
@@ -190,3 +190,126 @@ The M3 worker supplied these requirements after the preparation commit:
 - M3 also needs its newer Layr runtime. The assigned `1a91cd3` binary does not contain that implementation.
 
 These requirements have not been installed or enabled. The lead must select the runtime and resource plan before deployment.
+
+## Tailnet policy to add
+
+Merge these entries into the existing policy's `tagOwners`, `grants`, and `ssh` sections.
+Keep unrelated policy entries. The runner entries prepare the later M3 runner.
+Both network grants and SSH rules are required for Tailscale SSH.
+
+```json
+{
+  "tagOwners": {
+    "tag:layr-gateway": ["autogroup:admin", "autogroup:owner"],
+    "tag:layr-executor": ["autogroup:admin", "autogroup:owner"],
+    "tag:layr-runner": ["autogroup:admin", "autogroup:owner"]
+  },
+  "grants": [
+    {"src": ["autogroup:member"], "dst": ["tag:layr-gateway"], "ip": ["tcp:443"]},
+    {"src": ["tag:layr-executor", "tag:layr-runner"], "dst": ["tag:layr-gateway"], "ip": ["tcp:443"]},
+    {"src": ["autogroup:member"], "dst": ["tag:layr-executor"], "ip": ["tcp:5000"]},
+    {"src": ["autogroup:admin", "autogroup:owner"], "dst": ["tag:layr-gateway", "tag:layr-executor", "tag:layr-runner"], "ip": ["tcp:22"]}
+  ],
+  "ssh": [
+    {"action": "accept", "src": ["autogroup:admin", "autogroup:owner"], "dst": ["tag:layr-gateway", "tag:layr-executor", "tag:layr-runner"], "users": ["root"]}
+  ]
+}
+```
+
+Syntax references: [Tailscale grants](https://tailscale.com/docs/reference/syntax/grants) and
+[Tailscale SSH](https://tailscale.com/docs/features/tailscale-ssh).
+The policy grants no runner or executor access to other tailnet devices.
+
+Igor creates separate tagged, reusable, pre-approved auth keys and puts them directly into SSM SecureStrings.
+The initial hosts use `/layr-store/gateway/tailscale-auth-key` and `/layr-store/executor/tailscale-auth-key`.
+The later runner also needs `/layr-store/runner/tailscale-auth-key`, tagged `tag:layr-runner`.
+Do not send any key in a message.
+
+## Approved runtime credential exception
+
+The lead approved a service-owned mode `0600` regular file under `/run` on tmpfs for gateway write tokens.
+The executor token is stored in SSM at `/layr-store/executor/write-token` and loaded into
+`/run/layr-executor-token/write-token` by a systemd oneshot service.
+Its service user is root, matching the existing privileged Layr daemon.
+The runtime directory is mode `0700`. Stopping `layr.service` stops the token service and removes the token and runtime directory.
+The transfer service refreshes the token from SSM before each fetch/push.
+No token is written to a persistent disk, artifact, command argument, or log.
+This exception does not apply to Tailscale auth keys, which still pass through an inherited pipe.
+
+The runner will also receive a project-scoped write token in tmpfs.
+It needs the store writer role to publish its own signed attestations and derived outputs through existing signed sync.
+Its grant therefore permits new records; it is not read-only.
+The bucket policy still forbids overwrites. The writer role has no delete grant.
+The lead explicitly selected this existing sync path instead of a new result-return protocol.
+
+The lead removed all executor-to-runner SSH grants. The executor only calls EC2 StartInstances.
+The runner performs its own sync/check loop and idle stop. No root SSH is allowed between these machines.
+
+## Created storage resource inventory
+
+All rows below were read back with `aws cloudformation list-stack-resources` after stack completion.
+
+| Stack | Logical ID | AWS type | Physical ID | State |
+| --- | --- | --- | --- | --- |
+| `layr-bootstrap` | `Artifacts` | `AWS::S3::Bucket` | `layr-bootstrap-artifacts-ik3kxdaezcnd` | `CREATE_COMPLETE` |
+| `layr-store-layr` | `Bucket` | `AWS::S3::Bucket` | `layr-store-layr-bucket-mg1n1j6rlomt` | `CREATE_COMPLETE` |
+| `layr-store-layr` | `BucketPolicy` | `AWS::S3::BucketPolicy` | `layr-store-layr-bucket-mg1n1j6rlomt` | `CREATE_COMPLETE` |
+| `layr-store-layr` | `Gc` | `AWS::IAM::Role` | `layr-store-gc-layr` | `CREATE_COMPLETE` |
+| `layr-store-layr` | `Reader` | `AWS::IAM::Role` | `layr-store-reader-layr` | `CREATE_COMPLETE` |
+| `layr-store-layr` | `Writer` | `AWS::IAM::Role` | `layr-store-writer-layr` | `CREATE_COMPLETE` |
+| `layr-store-m8-smoke` | `Bucket` | `AWS::S3::Bucket` | `layr-store-m8-smoke-bucket-ainpgseboqyh` | `CREATE_COMPLETE` |
+| `layr-store-m8-smoke` | `BucketPolicy` | `AWS::S3::BucketPolicy` | `layr-store-m8-smoke-bucket-ainpgseboqyh` | `CREATE_COMPLETE` |
+| `layr-store-m8-smoke` | `Gc` | `AWS::IAM::Role` | `layr-store-gc-m8-smoke` | `CREATE_COMPLETE` |
+| `layr-store-m8-smoke` | `Reader` | `AWS::IAM::Role` | `layr-store-reader-m8-smoke` | `CREATE_COMPLETE` |
+| `layr-store-m8-smoke` | `Writer` | `AWS::IAM::Role` | `layr-store-writer-m8-smoke` | `CREATE_COMPLETE` |
+
+No EC2 instance, public IP, or new hosted zone exists yet. The three empty buckets incur usage-based S3 charges only.
+
+## Later privileged runner plan and duty-cycle cost
+
+The sixth stack is `layr-runner-layr`. It reuses `executor.yaml` with `HostKind=runner`,
+`InstanceType=t4g.large`, `DataVolumeSize=60`, `RootVolumeSize=8`, its own role and tailnet hostname,
+and runner-specific SSM auth-key and write-token parameter names.
+It will deploy only after M3 is merged into Layr main. The executor remains `t4g.small`.
+The 60 GiB btrfs data volume holds the project, build caches, Rust toolchain, and loop-filesystem test data.
+An additional 8 GiB gp3 root volume holds Debian and host packages.
+
+AWS Price List reports `t4g.large` at $0.0688/hour in Stockholm.
+Both disks remain billable while the runner is stopped: 68 × $0.0836 = $5.68/month.
+Compute costs $0.0688 × running hours. Running hours include boot/setup, check execution,
+and each isolated session's trailing 30-minute idle window.
+
+| Example monthly use | Running hours including idle tails | Runner estimate | Total with $18.21 base |
+| --- | ---: | ---: | ---: |
+| Provisioned but stopped | 0 | $5.68 | $23.89 |
+| 20 check-hours in 20 isolated sessions | 30 | $7.75 | $25.96 |
+| 60 check-hours in 30 isolated sessions | 75 | $10.84 | $29.05 |
+| Running all month | 730 | $55.91 | $74.12 |
+
+These examples exclude usage-dependent S3 and traffic charges. Standard CPU credits avoid surplus-credit charges.
+A host lock prevents idle shutdown during a scan or tool setup. Work, including a failed check,
+updates the monotonic last-work time; empty scans do not. A timer requests poweroff after 1,800 idle seconds.
+EC2 uses `InstanceInitiatedShutdownBehavior=stop`, retaining both disks and the machine identity.
+The executor's grant can start only the configured instance ARN carrying `layr:kind=runner`.
+It receives no stop, terminate, or SSH authority over the runner.
+
+The executor runs no checks. Its read-only pending scan wakes the optional runner for normal or privileged work.
+The runner syncs, invokes `checks watch --once --json` as the local `layr-checks` reader,
+and pushes its signed results. Exit 0 means a completed scan without new failures, 1 means newly failed checks,
+and 128 means an operational error. Only a successful JSON scan contributes work/idle evidence.
+
+Policies must be provisioned locally on both hosts: imported config is namespaced by the source machine.
+After cloning, grant `layr-checks` reader access and run the project's reviewed `tools/checks/configure.sh` locally.
+Set `checks.runner=true` and `checks.privileged-runner=true` locally as root on the runner only. The executor does not run the watcher and needs no Rust toolchain.
+
+The final split keeps every check on the runner, including sandboxed unit checks.
+The executor syncs, applies person requests, scans pending work without executing it, and optionally starts the runner.
+The runner stack can be omitted; a laptop VM may supply the runner role later.
+The offline cargo/rustup seed is bind-mounted at `/usr/local/share/layr-checks`, not symlinked out of `/usr`.
+A symlink to a hidden `/var` path would not resolve inside the normal sandbox.
+The runner bind-mounts its data-volume scratch directory at `/var/tmp`, so check builds and loop files use the 60 GiB disk.
+Prewarm locked dependencies from the verified project source with `cargo fetch --locked` before enabling checks.
+
+The reporter uses `checks watch --once --json` with both machine-local runner flags false.
+The host loop explicitly enforces both false on the executor before each report scan.
+It wakes on the total `pending` count, which includes normal checks.

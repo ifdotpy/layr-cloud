@@ -62,7 +62,8 @@ def release_files(data: bytes, digest: str, binary_name: str) -> dict[str, bytes
                                  for part in name.split("/")))
             if site_file and member.isdir():
                 continue
-            if (name not in (binary_name, "sync.py") and not site_file) or not member.isfile() or name in files:
+            host_script = binary_name == "layr" and name == "checks.py"
+            if (name not in (binary_name, "sync.py") and not site_file and not host_script) or not member.isfile() or name in files:
                 raise ValueError(f"release must contain only regular {binary_name} and sync.py files")
             if member.size > 32 * 1024 * 1024 or sum(map(len, files.values())) + member.size > 128 * 1024 * 1024:
                 raise ValueError("release exceeds size limit")
@@ -83,6 +84,8 @@ def release_files(data: bytes, digest: str, binary_name: str) -> dict[str, bytes
         if int.from_bytes(binary[at:at + 4], "little") == 3:
             raise ValueError("layr must be static (no ELF interpreter)")
     compile(files["sync.py"], "sync.py", "exec")
+    if "checks.py" in files:
+        compile(files["checks.py"], "checks.py", "exec")
     return files
 
 
@@ -116,7 +119,7 @@ class Sync:
                 os.close(write_fd)
                 write_fd = -1
                 run("tailscale", "up", f"--auth-key=file:/proc/self/fd/{read_fd}",
-                    f"--hostname={self.source.get('hostname', 'layr-' + self.kind)}", f"--advertise-tags=tag:layr-{self.kind}", "--ssh",
+                    f"--hostname={self.source.get('hostname', 'layr-' + self.kind)}", f"--advertise-tags={self.source.get('tailnetTag', 'tag:layr-' + self.kind)}", "--ssh",
                     pass_fds=(read_fd,))
             finally:
                 os.close(read_fd)
