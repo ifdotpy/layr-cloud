@@ -9,6 +9,7 @@ import AxeBuilder from '@axe-core/playwright';
 import {observePersistence,expectNoPersistence} from './storage.ts';
 import {views} from './views.ts';
 const origin='https://cloud.layr.ws';
+const readOnly=process.env.LAYR_WEB_LIVE_READ_ONLY==='1';
 const fixture=JSON.parse(await readFile(process.env.LAYR_WEB_LIVE_FIXTURE,'utf8'));
 const words=(await readFile(fixture.words_file,'utf8')).trim();
 const dist=path.resolve(process.env.LAYR_WEB_LIVE_DIST || 'dist');
@@ -33,6 +34,7 @@ try{
  await expect(page.locator('#main-content').getByRole('heading',{name:'Projects',exact:true})).toBeVisible({timeout:60000});assert.equal(exchanges,1);
  await page.goto(`${origin}/#/project/${fixture.project}/change/${fixture.change}/overview`);
  await expect(page.getByRole('heading',{name:'Conversation',exact:true})).toBeVisible({timeout:60000});
+ if(!readOnly){
  const text=`Deployed browser review ${new Date().toISOString()}`;
  const conversation=page.getByRole('heading',{name:'Conversation',exact:true}).locator('..');
  await conversation.getByLabel('Comment',{exact:true}).last().fill(text);
@@ -42,9 +44,11 @@ try{
  assert.equal(wire.v,2);assert.equal(wire.r,undefined);assert.equal(wire.action,undefined);assert(!JSON.stringify(wire).includes(text));
  await writeFile(path.join(output,'delivery.json'),JSON.stringify({origin,requestId,version:wire.v,comment:text,delivered:true,applied:false},null,2));
  await expect(conversation.locator('article.comment').filter({hasText:text})).toBeVisible({timeout:180000});
- for(const view of views){await page.setViewportSize({width:view.width,height:view.height});await page.emulateMedia({colorScheme:view.colorScheme});const axe=await new AxeBuilder({page}).analyze();assert.deepEqual(axe.violations,[]);await writeFile(path.join(output,`comment-${view.name}-axe.json`),JSON.stringify(axe,null,2));await page.screenshot({path:path.join(output,`comment-${view.name}.png`),fullPage:true});}
- await expectNoPersistence(page,'deployed signature sign-in and encrypted comment');assert.deepEqual(errors,[]);
+ }
+ const screen=readOnly?'project-read':'comment';
+ for(const view of views){await page.setViewportSize({width:view.width,height:view.height});await page.emulateMedia({colorScheme:view.colorScheme});const axe=await new AxeBuilder({page}).analyze();assert.deepEqual(axe.violations,[]);await writeFile(path.join(output,`${screen}-${view.name}-axe.json`),JSON.stringify(axe,null,2));await page.screenshot({path:path.join(output,`${screen}-${view.name}.png`),fullPage:true});}
+ await expectNoPersistence(page,readOnly?'deployed signature sign-in and project read':'deployed signature sign-in and encrypted comment');assert.deepEqual(errors,[]);
  await page.getByRole('button',{name:/Account/}).click();await page.getByRole('button',{name:'Lock',exact:true}).click();await expect(page.getByRole('heading',{name:'Sign in',exact:true})).toBeVisible();
- await writeFile(path.join(output,'result.json'),JSON.stringify({origin,transport:'VM browser to SSM relay through AWS executor, then public IPv6 TLS gateway',client:process.env.LAYR_WEB_LIVE_STAGED_CLIENT?'reviewed local build in VM; API calls use deployed HTTPS':'published site and deployed HTTPS gateway',requestId,version:wire.v,applied:true,exchanges,screenshots:3,axeViolations:0,persistentSecrets:false},null,2));
- console.log(`PASS deployed HTTPS browser: recovery, shared signature session, encrypted v2 comment applied, lock, no persistent secrets; ${requestId}`);
+ await writeFile(path.join(output,'result.json'),JSON.stringify({origin,transport:'VM browser to SSM relay through AWS executor, then public IPv6 TLS gateway',client:process.env.LAYR_WEB_LIVE_STAGED_CLIENT?'reviewed local build in VM; API calls use deployed HTTPS':'published site and deployed HTTPS gateway',mode:readOnly?'read-only':'comment',requestId,version:wire?.v,applied:readOnly?undefined:true,exchanges,screenshots:3,axeViolations:0,persistentSecrets:false},null,2));
+ console.log(`PASS deployed HTTPS browser: recovery, shared signature session, ${readOnly?'project read':'encrypted v2 comment applied'}, lock, no persistent secrets${requestId?`; ${requestId}`:''}`);
 }finally{await browser.close();}
