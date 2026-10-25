@@ -154,4 +154,6 @@ The live check uses MinIO, the real gateway and WASM worker. It withholds a late
 
 For the deployed gateway, run `tests/signin-deployed.mjs` in layr-dev. Keep the live fixture, owner store image and recovery files under `/run` tmpfs. Set `LAYR_WEB_LIVE_FIXTURE` to a JSON file with `login`, `words_file`, `project` and `change`; set `LAYR_WEB_LIVE_DIST` to the reviewed browser build. `LAYR_WEB_LIVE_PROXY` selects the restricted CONNECT proxy through the AWS executor. The page uses `https://cloud.layr.ws`, with its real Host, SNI and certificate verification. The test uses the published site by default. `LAYR_WEB_LIVE_STAGED_CLIENT=1` serves the reviewed static client files inside the VM while API calls still use the deployed gateway. It does not establish public IPv4 reachability.
 
-The deployed check waits for the executor's signed comment record, saves three screenshots and axe reports, checks storage isolation, then locks the key. Only encrypted request bytes and public proofs cross the relay.
+Set `LAYR_WEB_LIVE_READ_ONLY=1` to verify sign-in, project reads, screenshots and lock before the executor is ready, without submitting a request.
+
+The full deployed check waits for the executor's signed comment record, saves three screenshots and axe reports, checks storage isolation, then locks the key. Only encrypted request bytes and public proofs cross the relay.
