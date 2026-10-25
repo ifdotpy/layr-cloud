@@ -515,10 +515,10 @@ fn static_key_profile_uses_standard_credentials_file() {
 }
 
 #[test]
-fn dry_run_supports_new_or_existing_dns_zone_and_ssm_names() {
+fn dry_run_supports_new_or_existing_dns_zone_without_tailnet_keys() {
     let release = Release::new();
     for zone in [None, Some("Z12345")] {
-        let mut config = json!({"imageId":"ami-0123456789abcdef0", "gatewayHost":"demo.tail.test", "domain":"cloud.example.test", "gatewayAuthKeyParameter":"/demo/gateway", "executorAuthKeyParameter":"/demo/executor"});
+        let mut config = json!({"imageId":"ami-0123456789abcdef0", "gatewayHost":"demo.tail.test", "domain":"cloud.example.test"});
         if let Some(zone) = zone {
             config["zoneId"] = zone.into();
         }
@@ -534,7 +534,7 @@ fn dry_run_supports_new_or_existing_dns_zone_and_ssm_names() {
         assert_eq!(stacks.len(), if zone.is_some() { 4 } else { 5 });
         let gateway = stacks.iter().find(|v| v["name"] == "demo-gateway").unwrap();
         assert_eq!(gateway["parameters"]["Host"], "cloud.example.test");
-        assert_eq!(gateway["parameters"]["AuthKeyParameter"], "/demo/gateway");
+        assert!(gateway["parameters"].get("AuthKeyParameter").is_none());
         assert_eq!(
             gateway["parameters"]["ZoneId"],
             zone.unwrap_or("<demo-dns.ZoneId>")

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install a Layr release and converge a tailnet host. See infra/aws/README.md."""
+"""Install a Layr release and converge an IPv6 host. See infra/aws/README.md."""
 
 from __future__ import annotations
 
@@ -226,6 +226,8 @@ class Sync:
                             project[field] = old_projects[name][field]
             config = {"host": gateway["host"], "listen": f"[{listen}]:443" if ":" in listen else f"{listen}:443", "projects": projects,
                       "people": {"bucket": self.bucket, "region": self.source["region"], "prefix": "people/"}}
+            if self.source.get("network") == "public-ipv6":
+                config["sessionSecretRegion"] = self.source["region"]
             app = getattr(self, "app", Path("/opt/layr-gateway"))
             if (app / "current/site/index.html").is_file():
                 config["siteDir"] = str(app / "current/site")
@@ -233,6 +235,21 @@ class Sync:
                 self.restart = True
             write_if_changed(marker, remote_digest)
         return gateway
+
+    def session_secret(self) -> None:
+        ssm = boto3.client("ssm", region_name=self.source["region"])
+        name = "/layr-store/gateway/session-secret"
+        try:
+            value = ssm.get_parameter(Name=name, WithDecryption=True)["Parameter"]["Value"]
+        except ssm.exceptions.ParameterNotFound:
+            import secrets
+            try:
+                ssm.put_parameter(Name=name, Type="SecureString", Value=secrets.token_hex(32), Overwrite=False)
+            except ssm.exceptions.ParameterAlreadyExists:
+                pass
+            value = ssm.get_parameter(Name=name, WithDecryption=True)["Parameter"]["Value"]
+        if not re.fullmatch(r"[0-9a-f]{64}", value):
+            raise ValueError("invalid gateway session secret")
 
     def tailscale_certificate(self, host: str) -> tuple[str, str]:
         tls = self.home / "tls"
@@ -340,6 +357,8 @@ WantedBy=multi-user.target
         self.release()
         pair = None
         if self.kind == "gateway":
+            if self.source.get("network") == "public-ipv6":
+                self.session_secret()
             gateway = self.configure(listen)
             if gateway.get("tls") == "tailscale":
                 pair = self.tailscale_certificate(gateway["host"])

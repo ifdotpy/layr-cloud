@@ -101,7 +101,7 @@ pub fn server(resolver: Arc<Reloading>) -> Result<Arc<rustls::ServerConfig>> {
         .with_safe_default_protocol_versions()?
         .with_no_client_auth()
         .with_cert_resolver(resolver);
-    config.alpn_protocols = vec![b"http/1.1".to_vec()];
+    config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
     Ok(Arc::new(config))
 }
 

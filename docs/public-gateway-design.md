@@ -30,3 +30,44 @@ Unchanged: read proof by machine key challenge, writes by write token.
 - Request v2 with a session for login A cannot write as login B.
 - No route reads Tailscale identity when the gateway runs without the Tailscale socket.
 - Live: site unlock, sign-in and an encrypted comment over public IPv6 HTTPS from the VM.
+
+
+## Wire contract
+
+The signature bytes are defined once in `layr_store::session::message(login, challenge)`.
+The challenge is canonical padded STANDARD base64 for 32 random bytes. Decode it before signing:
+`b"layr/session/v1\0" || login UTF-8 || b"\0" || decoded challenge bytes`.
+`session::sign` returns a lowercase hexadecimal Ed25519 signature (64 bytes, 128 characters).
+
+- `GET /api/session/challenge?login=<percent-encoded login>` returns 200 with `{challenge, expires}`.
+  Expiry is Unix milliseconds. Unknown logins get the same response type. A challenge lasts 60 seconds
+  and is consumed on the first exchange attempt, including an invalid signature.
+- `POST /api/session` takes JSON `{login, challenge, signature}` and returns 200 with
+  `{login, token, expires}`. Invalid, expired or used proofs return 401. Tokens last 12 hours;
+  only their hashes and login bindings are kept in gateway memory. A restart ends existing sessions.
+- `GET /api/person/unlock?login=<login>` is the unlock bootstrap exception to session authentication.
+  It returns 200 with `{unlock: <STANDARD base64>}`. Decode the field and parse the JSON, including
+  trailing ASCII space padding. The decoded value is exactly 65536 bytes, containing
+  `{login, recipient, slots, signing_key, signing}` and no index or inbox.
+  An unknown login returns a stable HMAC-derived paper-slot decoy with the same outer shape and size.
+  Its HMAC key is an exact SSM SecureString loaded into memory, so decoys stay stable across restarts.
+  The gateway permits at most eight person slots, each at most 4096 bytes, plus a sealed signing key
+  of at most 4096 bytes. These bounds fit the fixed bootstrap response.
+- First registration is `PUT /api/person?login=<login>`, with an invite bearer and JSON
+  `{recipient, paper, signing_key, signing}`. Success is 200 `{login, new:true}`. The invite is
+  single use and bound to that login. An existing person returns 409 and is never overwritten.
+  Registration grants no session: the client must then prove the newly registered signing key.
+- Every other person API and person request write uses `Authorization: Bearer <session>`.
+  A person session does not replace the project read proof, machine identity or machine write grant.
+  There are no authentication cookies and no Tailscale identity lookup.
+
+The global socket-address rate limit is 600 requests per minute. Unlock, challenge and session exchange
+share a stricter limit of 12 requests per minute per socket address. Forwarding headers are ignored.
+A 429 response has `Retry-After: 60`. Sessions and outstanding challenges are each bounded to 4096 entries.
+
+An administrator creates an invite on the gateway through SSM:
+`layr-cloud invite <login> --ssm-parameter /layr-store/invites/<name>/token`.
+The command stores only the token hash, login and seven-day expiry in the gateway bucket. It sends the
+raw token directly to a new SSM SecureString in memory and prints only the parameter name.
+The token must never be included in Run Command text, command arguments, output or logs.
+Registration consumption uses a conditional create in S3 so it survives process restarts and races.

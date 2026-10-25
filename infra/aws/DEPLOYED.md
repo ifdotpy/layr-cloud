@@ -673,3 +673,33 @@ are active; an HTTPS request using `curl -6` to the regional S3 dualstack endpoi
 Cloud-init reported a scripts-user error and early recoverable IPv6 metadata route warnings.
 The final release and gateway configuration have not yet been published, so service readiness and
 ACME are not claimed. The failing bootstrap step will be inspected and the sync rerun after publication.
+
+
+## Public signature gateway implementation
+
+The shared signature helper is now on merged Layr main `2007480315e6bb48a06a686e8badaa4dc5266cbd`.
+The cloud crates are repinned to it. The gateway imports its canonical session message format;
+there is no independent signature-byte implementation in the gateway or browser.
+
+The gateway uses a random 32-byte, one-minute, single-use challenge and a login-bound 12-hour session.
+Only token hashes are retained in RAM. Session identity replaces the network login on every person
+route. Registration requires an unused seven-day invite for that login and does not grant a session
+until the new key proves a fresh challenge. Existing registrations cannot be overwritten.
+Unlock and sign-in routes share a 12/minute socket-address limit; all routes have a 600/minute limit.
+The bootstrap has one fixed-size base64 field (65536 decoded bytes), with no person index or inbox.
+Known and unknown logins return the same status, outer keys and response size. Unknown decoys use a
+persistent HMAC key in `/layr-store/gateway/session-secret`, fetched only into gateway memory.
+No secret or raw token goes in source, a configuration file, a log or a command argument.
+
+The administrator's invite command sends the raw invite directly to a new SecureString and prints
+only its parameter name. Service write-token issuance supports the same memory-to-SSM path.
+The gateway role can read only the decoy secret and can write only invite and the exact service-token
+parameters. The executor can read only its own service write token; explicit IAM denies narrow the
+broader parameter-read grant in the SSM managed agent policy.
+
+The last workspace test with the development source override passed 52 tests, 0 failed, 5 ignored;
+the gateway portion passed 28 tests, 0 failed, 1 ignored. Template lint and all 32 then-current Python
+tests passed. The exact-main locked gateway check then passed 28 tests, 0 failed, 1 ignored; cfn-lint exited 0
+and all 33 infrastructure tests passed, including persisted-secret handling.
+SSM bootstrap inspection confirmed the gateway sync failure is `NoSuchKey` for the not-yet-published
+release manifest, not an IPv6 or SSM connectivity failure. Timer retry remains active.

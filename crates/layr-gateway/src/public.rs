@@ -21,7 +21,10 @@ const CLIENTS: usize = 4096;
 pub struct Limiter(Mutex<HashMap<IpAddr, (Instant, u32)>>);
 
 impl Limiter {
-    fn allow(&self, peer: IpAddr, now: Instant) -> bool {
+    pub fn allow(&self, peer: IpAddr, now: Instant) -> bool {
+        self.allow_count(peer, now, REQUESTS)
+    }
+    pub fn allow_count(&self, peer: IpAddr, now: Instant, requests: u32) -> bool {
         let Ok(mut clients) = self.0.lock() else {
             return false;
         };
@@ -36,7 +39,7 @@ impl Limiter {
             *start = now;
             *count = 0;
         }
-        if *count >= REQUESTS {
+        if *count >= requests {
             return false;
         }
         *count += 1;
@@ -69,15 +72,8 @@ impl Gateway {
         config: &Config,
         parts: &[String],
         query: &str,
-        peer: IpAddr,
+        _peer: IpAddr,
     ) -> Result<Reply> {
-        // Use the socket peer, never a caller-provided forwarding header. Limit before S3 work,
-        // including refused requests, with bounded memory for clients that stop making requests.
-        if !self.public_limit.allow(peer, Instant::now()) {
-            let mut reply = Reply::error(429, "public read rate exceeded");
-            reply.headers.push(("Retry-After".into(), "60".into()));
-            return Ok(reply);
-        }
         if request.method != "GET" {
             return Ok(Reply::error(405, "public routes are read only"));
         }
@@ -109,7 +105,8 @@ impl Gateway {
         let Some(manifest) = self.storage.get(project, "public.json", None, JSON_LIMIT)? else {
             return Ok(Reply::error(404, "no such public project"));
         };
-        let Some(descriptor_object) = self.storage.get(project, "store.json", None, JSON_LIMIT)? else {
+        let Some(descriptor_object) = self.storage.get(project, "store.json", None, JSON_LIMIT)?
+        else {
             return Ok(Reply::error(404, "no such public project"));
         };
         let descriptor: format::Descriptor = serde_json::from_slice(&descriptor_object.body)?;

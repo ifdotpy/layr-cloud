@@ -182,6 +182,25 @@ class ConfigTests(unittest.TestCase):
             record=client.return_value.change_resource_record_sets.call_args.kwargs["ChangeBatch"]["Changes"][0]["ResourceRecordSet"]
             self.assertEqual(record,{"Name":"cloud.layr.ws.","Type":"AAAA","TTL":300,"ResourceRecords":[{"Value":"2001:4860:4860::8888"}]})
 
+    def test_session_decoy_secret_uses_only_exact_securestring_and_no_file(self):
+        host=sync.Sync.__new__(sync.Sync)
+        host.source={"region":"eu-north-1"}
+        class Missing(Exception): pass
+        class Exists(Exception): pass
+        client=Mock()
+        client.exceptions.ParameterNotFound=Missing
+        client.exceptions.ParameterAlreadyExists=Exists
+        client.get_parameter.side_effect=[Missing(),{"Parameter":{"Value":"a"*64}}]
+        with patch.object(sync.boto3,"client",return_value=client):
+            host.session_secret()
+        self.assertEqual(client.get_parameter.call_count,2)
+        client.get_parameter.assert_called_with(Name="/layr-store/gateway/session-secret",WithDecryption=True)
+        args=client.put_parameter.call_args.kwargs
+        self.assertEqual(args["Name"],"/layr-store/gateway/session-secret")
+        self.assertEqual(args["Type"],"SecureString")
+        self.assertFalse(args["Overwrite"])
+        self.assertRegex(args["Value"],r"^[0-9a-f]{64}$")
+
     def test_config_schema_and_local_token_changes(self):
         with tempfile.TemporaryDirectory() as temporary:
             host = sync.Sync.__new__(sync.Sync)

@@ -16,7 +16,6 @@ import re
 import secrets
 import shutil
 import socket
-import socketserver
 import ssl
 import subprocess
 import tempfile
@@ -47,7 +46,6 @@ def main():
     home.chmod(0o755)
     children, mounts, descriptors = [], [], []
     proxy = None
-    whois = None
     trace = []
     try:
         root = home / 'owner'
@@ -117,19 +115,8 @@ def main():
         config = {'host': 'localhost', 'listen': f'127.0.0.1:{gateway_port}', 'projects': {'public-test': {
             'bucket': bucket, 'prefix': 'project', 'region': 'us-east-1', 'recipient': descriptor['recipient'],
             'readerRoleArn': role, 'writerRoleArn': role, 'gcRoleArn': role}}}
-        whois_path = home / 'whois.sock'
         if os.environ.get('LAYR_TEST_REQUEST') == '1':
             config['people'] = {'bucket': bucket, 'region': 'us-east-1', 'prefix': 'people/'}
-            class Whois(socketserver.StreamRequestHandler):
-                def handle(self):
-                    while self.rfile.readline() not in (b'\r\n', b''):
-                        pass
-                    body = json.dumps({'Node': {}, 'UserProfile': {'LoginName': 'owner@example.test'}}).encode()
-                    self.wfile.write(b'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: '
-                                     + str(len(body)).encode() + b'\r\n\r\n' + body)
-            whois = socketserver.UnixStreamServer(str(whois_path), Whois)
-            whois_path.chmod(0o777)
-            threading.Thread(target=whois.serve_forever, daemon=True).start()
         config_path = home / 'gateway.json'
         config_path.write_text(json.dumps(config))
         config_path.chmod(0o644)
@@ -143,7 +130,7 @@ def main():
         env['LAYR_GATEWAY_TOKEN_FILE'] = str(token)
         children.append(subprocess.Popen(['setpriv', '--reuid=nobody', '--regid=nogroup', '--clear-groups',
             gateway, 'serve', '--tls', 'none', '--test-static-credentials', '--config', str(config_path),
-            '--tailscale-socket', str(whois_path)], env=env,
+            ], env=env,
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
         deadline = time.monotonic() + 30
         while True:
@@ -236,9 +223,14 @@ def main():
             print('PASS executor index write published immutable signed index objects through gateway')
         if os.environ.get('LAYR_TEST_REQUEST') == '1':
             env['LAYR_PERSON_DIR'] = str(home / 'person')
+            env['LAYR_PERSON_LOGIN'] = 'owner@example.test'
+            invite = secrets.token_urlsafe(32)
+            redactions.append(invite)
+            s3.put_object(Bucket=bucket, Key='people/_registration/' + hashlib.sha256(invite.encode()).hexdigest(),
+                          Body=json.dumps({'login': 'owner@example.test', 'expires': int(time.time()*1000)+7*24*60*60*1000}).encode())
             person_paper = home / 'person-paper'
             site = url.removeprefix('layr+')
-            cli(['person', 'keys', '--site', site, '--paper-key-out', str(person_paper)], aws=False)
+            cli(['person', 'keys', '--site', site, '--invite', invite, '--paper-key-out', str(person_paper)], aws=False)
             redactions.append(person_paper.read_text().strip())
             env['LAYR_PERSON_KEY_FILE'] = str(person_paper)
             changes = json.loads(cli(['change', 'list', '--json'], aws=False).stdout)
@@ -253,7 +245,7 @@ def main():
             assert envelope['person'] == 'owner@example.test' and envelope['project'] == descriptor['project']
             assert review_text.encode() not in stored and 'action' not in envelope and 'r' not in envelope
             writes = [row for row in trace if row['method'] == 'PUT']
-            assert len(writes) == 1 and writes[0]['status'] == 201 and not writes[0]['credential_present']
+            assert len(writes) == 1 and writes[0]['status'] == 201 and writes[0]['credential_present'] and not writes[0]['write_bearer']
             assert writes[0]['path'] == f'/v1/p/public-test/objects/requests/{request_id}.json'
             print(json.dumps({'encrypted_request': request_id, 'v': 2, 'plaintext_absent': True, 'requests': trace}))
             print('PASS real CLI submitted an encrypted signed person comment; gateway stored no plaintext action')
@@ -261,9 +253,6 @@ def main():
         if proxy:
             proxy.shutdown()
             proxy.server_close()
-        if whois:
-            whois.shutdown()
-            whois.server_close()
         for child in reversed(children):
             child.terminate()
             with contextlib.suppress(subprocess.TimeoutExpired):

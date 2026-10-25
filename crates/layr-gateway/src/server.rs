@@ -90,6 +90,8 @@ pub struct Gateway {
     pub person_secret: Arc<[u8; 32]>,
     pub person_writing: Arc<std::sync::Mutex<()>>,
     pub public_limit: super::public::Limiter,
+    pub sessions: super::session::Sessions,
+    pub bootstrap_limit: super::public::Limiter,
 }
 
 pub(super) fn decode(raw: &str) -> Option<String> {
@@ -272,11 +274,18 @@ impl Gateway {
     fn route(
         &self,
         request: http::Request,
-        login: Option<&str>,
+        _login: Option<&str>,
         peer: std::net::IpAddr,
     ) -> Result<Reply> {
+        let authenticated = self.sessions.login(bearer(&request), auth::now());
+        let login = authenticated.as_deref();
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
         let config = self.config.get()?;
+        if !self.public_limit.allow(peer, std::time::Instant::now()) {
+            let mut reply = Reply::error(429, "request rate exceeded");
+            reply.headers.push(("Retry-After".into(), "60".into()));
+            return Ok(reply);
+        }
         if config.listen != self.listen {
             return Ok(Reply::error(
                 503,
@@ -318,6 +327,12 @@ impl Gateway {
                 if let Some(reply) = other_site(&request, true) {
                     return Ok(reply);
                 }
+            }
+            if let Some(reply) = self.session_api(&request, &config, &parts[1..], query, peer)? {
+                return Ok(reply);
+            }
+            if !query.is_empty() {
+                return Ok(Reply::error(400, "unexpected query"));
             }
             return self.api(&request, &config, login, &parts[1..]);
         }
@@ -671,7 +686,7 @@ impl Gateway {
             return Ok(Reply::error(404, "this gateway keeps no person keys"));
         };
         let Some(login) = login.filter(|login| layr_store::person::login_name(login)) else {
-            return Ok(Reply::error(403, "the gateway cannot tell who you are"));
+            return Ok(Reply::error(401, "sign in to the gateway"));
         };
         let people = super::people::People::new(
             self.storage.people(person_config)?,
@@ -697,35 +712,10 @@ impl Gateway {
         }
         let action = parts.get(1).map(String::as_str);
         let name = parts.get(2).map(String::as_str);
-        match (request.method.as_str(), action, name) {
-            ("GET", None, None) => return Ok(Reply::json(200, people.view(login)?)),
-            ("PUT", None, None) => {
-                let body = read_json(request, 16 * 1024)?;
-                if ["signing_key", "signing"].iter().any(|key| {
-                    body.get(key)
-                        .is_some_and(|v| !v.is_string() && !v.is_null())
-                }) {
-                    return Ok(Reply::error(400, "person signing fields must be strings"));
-                }
-                let new = people.register(
-                    login,
-                    body["recipient"].as_str().unwrap_or(""),
-                    body["paper"].as_str().unwrap_or(""),
-                    body["signing_key"].as_str(),
-                    body["signing"].as_str(),
-                    bearer(request),
-                )?;
-                return Ok(Reply::json(200, json!({"login":login,"new":new})));
-            }
-            ("GET", Some("challenge"), None) => {
-                return Ok(Reply::json(
-                    200,
-                    json!({"challenge":people.challenge(login)?}),
-                ))
-            }
-            _ => (),
+        if request.method == "GET" && action.is_none() && name.is_none() {
+            return Ok(Reply::json(200, people.view(login)?));
         }
-        if !people.valid(login, bearer(request)) {
+        if self.sessions.login(bearer(request), auth::now()).as_deref() != Some(login) {
             return Ok(Reply::error(401, "the token is missing, wrong or expired"));
         }
         let body = read_json(request, 68 * 1024)?;
@@ -881,6 +871,8 @@ mod tests {
                 person_secret: Arc::new(rand::random()),
                 person_writing: Arc::new(Mutex::new(())),
                 public_limit: super::super::public::Limiter::default(),
+                sessions: super::super::session::Sessions::default(),
+                bootstrap_limit: super::super::public::Limiter::default(),
             };
             Self {
                 gateway,
@@ -1255,9 +1247,8 @@ mod tests {
     }
 
     #[test]
-    fn legacy_person_signing_upgrade_requires_its_existing_key_proof() {
+    fn public_sign_in_registration_decoys_and_session_identity() {
         use base64::engine::general_purpose::STANDARD as B64;
-        use layr_store::{keys, person};
         let mut f = Fixture::new();
         f.config.people = Some(super::super::config::People {
             bucket: "artifacts".into(),
@@ -1265,51 +1256,127 @@ mod tests {
             prefix: "people/".into(),
         });
         std::fs::write(&f.path, serde_json::to_vec(&f.config).unwrap()).unwrap();
-        let login = Some("ann@example.com");
-        let identity = keys::generate_identity();
-        let recipient = keys::recipient_of(&identity).unwrap();
-        let mut body = json!({"recipient":recipient,"paper":B64.encode(b"paper")});
-        assert_eq!(
-            api(&f, login, "PUT", "/api/person", "", body.clone()).status,
-            200
-        );
-        let signing = person::make_signing_keys(&recipient).unwrap();
-        body["signing_key"] = json!(signing.public_key);
-        body["signing"] = json!(B64.encode(&signing.sealed));
-        assert_eq!(
-            api(&f, login, "PUT", "/api/person", "", body.clone()).status,
-            403
-        );
-        let challenge = value(api(
-            &f,
-            login,
-            "GET",
-            "/api/person/challenge",
-            "",
-            json!({}),
-        ));
-        let sealed = B64
-            .decode(challenge["challenge"].as_str().unwrap())
+        let login = "ann@example.com";
+        let identity = layr_store::keys::generate_identity();
+        let recipient = layr_store::keys::recipient_of(&identity).unwrap();
+        let keys = layr_store::person::make_signing_keys(&recipient).unwrap();
+        let signing =
+            layr_store::person::open_signing_key(&identity, &keys.sealed, &keys.public_key)
+                .unwrap();
+        let body = serde_json::to_vec(&json!({"recipient":recipient,"paper":B64.encode(b"encrypted paper slot"),"signing_key":keys.public_key,"signing":B64.encode(&keys.sealed)})).unwrap();
+        let path = "/api/person?login=ann%40example.com";
+        assert_eq!(f.request("PUT", path, "", &body, None).status, 401);
+        let bucket = f
+            .gateway
+            .storage
+            .people(f.config.people.as_ref().unwrap())
             .unwrap();
-        let token = String::from_utf8(keys::decrypt(&identity, &sealed).unwrap()).unwrap();
+        let invite =
+            super::super::session::invite(bucket.as_ref(), "people/", login, auth::now()).unwrap();
         assert_eq!(
-            api(&f, login, "PUT", "/api/person", &token, body.clone()).status,
+            f.request(
+                "PUT",
+                "/api/person?login=bob%40example.com",
+                &invite,
+                &body,
+                None
+            )
+            .status,
+            401
+        );
+        assert_eq!(f.request("PUT", path, &invite, &body, None).status, 200);
+        assert_eq!(f.request("PUT", path, &invite, &body, None).status, 409);
+        assert_eq!(
+            f.request("GET", "/api/person", &invite, b"", None).status,
+            401
+        );
+        let known = f.request(
+            "GET",
+            "/api/person/unlock?login=ann%40example.com",
+            "",
+            b"",
+            None,
+        );
+        let missing = f.request(
+            "GET",
+            "/api/person/unlock?login=missing%40example.com",
+            "",
+            b"",
+            None,
+        );
+        assert_eq!(known.status, 200);
+        assert_eq!(missing.status, 200);
+        assert_eq!(known.body.len(), missing.body.len());
+        let k: serde_json::Value = serde_json::from_slice(&known.body).unwrap();
+        let m: serde_json::Value = serde_json::from_slice(&missing.body).unwrap();
+        assert_eq!(
+            k.as_object().unwrap().keys().collect::<Vec<_>>(),
+            m.as_object().unwrap().keys().collect::<Vec<_>>()
+        );
+        let unlock: serde_json::Value =
+            serde_json::from_slice(&B64.decode(k["unlock"].as_str().unwrap()).unwrap()).unwrap();
+        assert!(unlock.get("index").is_none() && unlock.get("inbox").is_none());
+        assert_eq!(unlock["signing_key"], keys.public_key);
+        assert_eq!(
+            missing.body,
+            f.request(
+                "GET",
+                "/api/person/unlock?login=missing%40example.com",
+                "",
+                b"",
+                None
+            )
+            .body
+        );
+        let challenge = value(f.request(
+            "GET",
+            "/api/session/challenge?login=ann%40example.com",
+            "",
+            b"",
+            None,
+        ));
+        let challenge = challenge["challenge"].as_str().unwrap();
+        let exchange=serde_json::to_vec(&json!({"login":login,"challenge":challenge,"signature":layr_store::session::sign(login,challenge,&signing).unwrap()})).unwrap();
+        let signed = value(f.request("POST", "/api/session", "", &exchange, None));
+        let token = signed["token"].as_str().unwrap();
+        assert_eq!(
+            f.request("GET", "/api/person", token, b"", None).status,
             200
         );
-        let view = value(api(&f, login, "GET", "/api/person", "", json!({})));
-        assert_eq!(view["signing_key"], signing.public_key);
-        assert_eq!(view["signing"], B64.encode(&signing.sealed));
-        let other = person::make_signing_keys(&recipient).unwrap();
-        body["signing_key"] = json!(other.public_key);
-        body["signing"] = json!(B64.encode(&other.sealed));
         assert_eq!(
-            api(&f, login, "PUT", "/api/person", &token, body.clone()).status,
-            409
+            f.request("POST", "/api/session", "", &exchange, None)
+                .status,
+            401
         );
-        body["signing_key"] = json!(123);
+        // A session identity comes from its token, never an injected network login.
+        let wrong = api(
+            &f,
+            Some("bob@example.com"),
+            "GET",
+            "/api/person",
+            token,
+            json!({}),
+        );
+        assert_eq!(value(wrong)["login"], login);
+        for _ in 0..12 {
+            f.request(
+                "GET",
+                "/api/session/challenge?login=ann%40example.com",
+                "",
+                b"",
+                None,
+            );
+        }
         assert_eq!(
-            api(&f, login, "PUT", "/api/person", &token, body).status,
-            400
+            f.request(
+                "GET",
+                "/api/person/unlock?login=ann%40example.com",
+                "",
+                b"",
+                None
+            )
+            .status,
+            429
         );
     }
 
@@ -1362,6 +1429,10 @@ mod tests {
         let base = format!("/v1/p/example/objects/requests/{id}.json");
         let claim_path = format!("/v1/p/example/objects/requests/claims/{id}.json");
         let raw = |who: Option<&str>, method: &str, path: &str, token: &str, body: Vec<u8>| {
+            let person_token = who
+                .filter(|_| token.is_empty())
+                .map(|login| f.gateway.sessions.test_token(login));
+            let token = person_token.as_deref().unwrap_or(token);
             f.gateway.handle(
                 http::Request {
                     method: method.into(),
@@ -1836,10 +1907,31 @@ mod tests {
         token: &str,
         body: serde_json::Value,
     ) -> Reply {
+        let mut path = path.to_string();
+        let mut token = token.to_string();
+        if let Some(login) = login {
+            if method == "PUT" && path == "/api/person" {
+                let people_config = f.config.people.as_ref().unwrap();
+                let bucket = f.gateway.storage.people(people_config).unwrap();
+                token = super::super::session::invite(
+                    bucket.as_ref(),
+                    &people_config.prefix,
+                    login,
+                    auth::now(),
+                )
+                .unwrap();
+                path.push_str(&format!(
+                    "?login={}",
+                    layr_store::aws::uri_encode(login, false)
+                ));
+            } else if token.is_empty() && (method == "GET" || path.starts_with("/api/people/")) {
+                token = f.gateway.sessions.test_token(login);
+            }
+        }
         f.gateway.handle(
             http::Request {
                 method: method.into(),
-                target: path.into(),
+                target: path.clone(),
                 body: if method == "GET" || method == "DELETE" {
                     Vec::new()
                 } else {
@@ -1889,7 +1981,7 @@ mod tests {
             |who: Option<&str>, method: &str, path: &str, token: &str, body: serde_json::Value| {
                 api(&f, who, method, path, token, body)
             };
-        assert_eq!(call(None, "GET", "/api/person", "", json!({})).status, 403);
+        assert_eq!(call(None, "GET", "/api/person", "", json!({})).status, 401);
         assert_eq!(
             value(call(ann, "GET", "/api/person", "", json!({})))["recipient"],
             serde_json::Value::Null
@@ -1898,18 +1990,19 @@ mod tests {
         let recipient = keys::recipient_of(&identity).unwrap();
         let paper = keys::generate_identity();
         let paper_slot = keys::seal_slot(&identity, &keys::recipient_of(&paper).unwrap()).unwrap();
-        let body = json!({"recipient":recipient,"paper":B64.encode(&paper_slot)});
+        let signing = person::make_signing_keys(&recipient).unwrap();
+        let body = json!({"recipient":recipient,"paper":B64.encode(&paper_slot),"signing_key":signing.public_key,"signing":B64.encode(signing.sealed)});
         assert_eq!(
             value(call(ann, "PUT", "/api/person", "", body.clone()))["new"],
             true
         );
         assert_eq!(
-            value(call(ann, "PUT", "/api/person", "", body.clone()))["new"],
-            false
+            call(ann, "PUT", "/api/person", "", body.clone()).status,
+            409
         );
         let mut retry = body.clone();
         retry["paper"] = json!(B64.encode(b"other slot"));
-        assert_eq!(call(ann, "PUT", "/api/person", "", retry).status, 200);
+        assert_eq!(call(ann, "PUT", "/api/person", "", retry).status, 409);
         let record = value(call(ann, "GET", "/api/person", "", json!({})));
         assert_eq!(record["slots"][0]["data"], body["paper"]);
         let other = keys::recipient_of(&keys::generate_identity()).unwrap();
@@ -1924,16 +2017,7 @@ mod tests {
             .status,
             409
         );
-        let challenge = value(call(ann, "GET", "/api/person/challenge", "", json!({})));
-        let token = String::from_utf8(
-            keys::decrypt(
-                &identity,
-                &B64.decode(challenge["challenge"].as_str().unwrap())
-                    .unwrap(),
-            )
-            .unwrap(),
-        )
-        .unwrap();
+        let token = f.gateway.sessions.test_token(ann.unwrap());
         let index = person::seal_index(&identity, &person::Index::default()).unwrap();
         let data = json!({"data":B64.encode(&index),"previous":null});
         assert_eq!(
@@ -1941,7 +2025,7 @@ mod tests {
             401
         );
         assert_eq!(
-            call(bob, "PUT", "/api/person/index", &token, data.clone()).status,
+            call(bob, "PUT", "/api/person/index", "invalid", data.clone()).status,
             401
         );
         assert_eq!(
@@ -2031,7 +2115,7 @@ mod tests {
                 json!({"data":B64.encode(b"invite")})
             )
             .status,
-            403
+            401
         );
         let invite = value(call(
             bob,

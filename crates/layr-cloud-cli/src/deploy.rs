@@ -317,12 +317,6 @@ pub fn run(args: Args) -> Result<()> {
             ("StoreRoleArns", format!("{reader},{writer},{gc}")),
             ("Host", host),
             ("ZoneId", zone),
-            (
-                "AuthKeyParameter",
-                config
-                    .gateway_auth_key_parameter
-                    .unwrap_or_else(|| "/layr-store/gateway/tailscale-auth-key".into()),
-            ),
         ]),
         &["RoleArn", "InstanceId", "SubnetId", "VpcId", "RouteTableId"],
     )?;
@@ -358,12 +352,6 @@ pub fn run(args: Args) -> Result<()> {
             ("TailnetHostname", executor_role),
             ("ReaderRoleArn", reader),
             ("WriterRoleArn", writer),
-            (
-                "AuthKeyParameter",
-                config
-                    .executor_auth_key_parameter
-                    .unwrap_or_else(|| "/layr-store/executor/tailscale-auth-key".into()),
-            ),
             ("InstanceType", "t4g.small".into()),
             ("DataVolumeSize", "100".into()),
         ]),

@@ -146,11 +146,12 @@ Resources:
                 Action: ssm:PutParameter
                 Resource:
                   - !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/layr-store/invites/*"
+                  - !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/layr-store/gateway/session-secret"
                   - !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/layr-store/executor/write-token"
                   - !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/layr-store/runner/write-token"
               - Effect: Deny
                 Action: [ssm:GetParameter, ssm:GetParameters, ssm:GetParametersByPath]
-                Resource: "*"
+                NotResource: !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/layr-store/gateway/session-secret"
               # Only the host's address and its ACME challenge.
               - !If
                 - HasZone
