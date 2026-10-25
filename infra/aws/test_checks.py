@@ -73,14 +73,15 @@ class ChecksTests(unittest.TestCase):
             calls=[]
             def run(args, **kwargs):
                 calls.append((args,kwargs))
-                return result(1,work_done=True,count=1,checks=[{'status':'failed'}]) if args[0]=='runuser' else Mock(returncode=0,stdout="")
+                return result(1,work_done=True,count=1,checks=[{'status':'failed'}]) if args[0]==checks.RUNUSER else Mock(returncode=0,stdout="")
             with patch.object(checks,'ROOT',root), patch.object(checks,'PROFILE',profile), patch.object(checks.subprocess,'run',side_effect=run), patch.object(checks.time,'monotonic',return_value=42), patch('sys.stdout',new_callable=io.StringIO):
                 checks.tick({'hostKind':'runner'})
             self.assertEqual((root/'last-work').read_text(),'42')
-            watcher=next((args,kw) for args,kw in calls if args[0]=='runuser')
+            watcher=next((args,kw) for args,kw in calls if args[0]==checks.RUNUSER)
             self.assertNotIn('--privileged-only',watcher[0])
             self.assertIn('layr-checks',watcher[0])
             self.assertEqual(watcher[1]['env']['LAYR_SOCKET'],'/run/layr.sock')
+            self.assertEqual(watcher[0][0], '/usr/sbin/runuser')
             self.assertNotIn('LAYR_GATEWAY_TOKEN_FILE',watcher[1]['env'])
             self.assertNotIn('AWS_ACCESS_KEY_ID',watcher[1]['env'])
             self.assertEqual(calls[-1][0][-2:],['push','origin'])
@@ -93,7 +94,7 @@ class ChecksTests(unittest.TestCase):
             calls=[]
             def run(args, **kwargs):
                 calls.append(args)
-                return result(pending=2,pending_privileged=1) if args[0]=='runuser' else Mock(returncode=0,stdout="")
+                return result(pending=2,pending_privileged=1) if args[0]==checks.RUNUSER else Mock(returncode=0,stdout="")
             with patch.object(checks,'ROOT',root), patch.object(checks,'PROFILE',profile), patch.object(checks.subprocess,'run',side_effect=run), patch.object(checks,'wake_runner') as wake, patch('sys.stdout',new_callable=io.StringIO):
                 source={'hostKind':'executor','runnerInstanceId':'i-0123456789abcdef0'}
                 checks.tick(source)
@@ -116,11 +117,20 @@ class ChecksTests(unittest.TestCase):
                 calls.append(args)
                 if args[-2:]==['push','origin']:
                     raise checks.subprocess.CalledProcessError(128,args)
-                return result() if args[0]=='runuser' else Mock(returncode=0,stdout='')
+                return result() if args[0]==checks.RUNUSER else Mock(returncode=0,stdout='')
             with patch.object(checks,'ROOT',root), patch.object(checks,'PROFILE',profile), patch.object(checks.subprocess,'run',side_effect=run):
                 with self.assertRaises(checks.subprocess.CalledProcessError):
                     checks.tick({'hostKind':'executor'})
             self.assertNotIn(['index','write','origin'],[c[-3:] for c in calls])
+
+    @unittest.skipUnless(Path('/usr/sbin/runuser').is_file(), 'requires Linux runuser')
+    def test_reader_launcher_runs_with_the_restricted_path(self):
+        # The reader deliberately excludes sbin. Resolve its launcher before
+        # entering that environment, as on the deployed Debian executor.
+        env = {'PATH': '/usr/local/bin:/usr/bin:/bin'}
+        process = checks.subprocess.run([checks.RUNUSER, '--version'], env=env,
+                                        text=True, capture_output=True, check=True)
+        self.assertIn('runuser', process.stdout)
 
 
 if __name__ == '__main__':

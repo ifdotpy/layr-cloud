@@ -12,6 +12,7 @@ from pathlib import Path
 
 ROOT = Path('/run/layr-checks')
 BINARY = '/opt/layr-executor/current/layr'
+RUNUSER = '/usr/sbin/runuser'
 SOURCE = Path('/etc/layr-executor/source.json')
 PROFILE = Path('/etc/layr-executor/profile.env')
 IDLE_SECONDS = 1800
@@ -71,7 +72,7 @@ def tick(source: dict) -> None:
         for flag in ('checks.runner', 'checks.privileged-runner'):
             subprocess.run([BINARY, '--project', project, 'config', '--local', flag, 'false'],
                            env=env, check=True, stdout=subprocess.DEVNULL)
-    args = ['runuser', '-u', 'layr-checks', '--', BINARY, '--project', project,
+    args = [RUNUSER, '-u', 'layr-checks', '--', BINARY, '--project', project,
             'checks', 'watch', '--once', '--json']
     # The reader uses daemon IPC. It receives no gateway token or AWS credentials.
     reader_env = {'PATH': '/usr/local/bin:/usr/bin:/bin', 'LAYR_ROOT': '/var/lib/layr',
