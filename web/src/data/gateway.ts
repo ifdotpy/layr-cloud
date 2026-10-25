@@ -81,5 +81,15 @@ export class Gateway {
     if (result.byteLength <= 64 * 1024 * 1024) { this.ciphertext.set(id, result); this.bytes += result.byteLength; }
     return result;
   }
+  private publicRoute(project: string, path: string): string { return `/p/${encodeURIComponent(project)}/${path}`; }
+  async publicDescriptor(project: string): Promise<Descriptor> { return (await this.request(this.publicRoute(project, 'store.json'))).json(); }
+  async publicManifest(project: string): Promise<Uint8Array> { return new Uint8Array(await (await this.request(this.publicRoute(project, 'public.json'))).arrayBuffer()); }
+  async publicList(project: string, prefix: string): Promise<ObjectEntry[]> {
+    return (await (await this.request(this.publicRoute(project, `objects?prefix=${encodeURIComponent(prefix)}`))).json()).objects;
+  }
+  async publicObject(project: string, key: string): Promise<Uint8Array> {
+    if (!key.endsWith('.age') || key.split('/').some(part => !part || part === '.' || part === '..')) throw new Error('Invalid ciphertext object.');
+    return new Uint8Array(await (await this.request(this.publicRoute(project, key.split('/').map(encodeURIComponent).join('/')))).arrayBuffer());
+  }
   lock(): void { this.tokens.clear(); this.ciphertext.clear(); this.bytes = 0; }
 }

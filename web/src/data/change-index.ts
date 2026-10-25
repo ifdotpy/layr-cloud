@@ -30,6 +30,11 @@ export function changeStatus(
 }
 
 export async function loadChangeIndex(source: DataSource, project: Project) {
+  const provisional = source.loadStatus ? (await source.loadStatus(project.id)).provisional : project.provisional;
+  if (provisional && source.openChanges) {
+    const summaries = await source.openChanges(project.id);
+    return { changes:[] as Change[], queue:[] as QueueEntry[], statuses:{} as Record<string,MergeStatus|undefined>, open:summaries.length, summaries };
+  }
   const [changes, queue] = await Promise.all([
     source.changes(project.id),
     source.queue(project.id),
@@ -52,11 +57,13 @@ export async function loadChangeIndex(source: DataSource, project: Project) {
       }),
     ),
   );
+  const open = source.openChanges ? (await source.openChanges(project.id)).length : undefined;
   return {
     changes,
     queue,
     statuses,
-    open: changes.filter(
+    summaries: undefined as import("./source").OpenChange[] | undefined,
+    open: open ?? changes.filter(
       (change) =>
         changeStatus(change, queue, statuses[change.change_id]) === "open",
     ).length,

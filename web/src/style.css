@@ -601,3 +601,9 @@ html:not(.cli) .cmd { display: inline-flex; margin-right: 10px; }
 .line-group-toggle { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; background: none; border: 0; padding: 2px 0; color: var(--text); font: inherit; cursor: pointer; }
 .line-group td { background: var(--surface); }
 .pagehead h1 .release-name { font-size: inherit; }
+
+.file-tools { padding: 12px 16px; border-bottom: 1px solid var(--border-subtle); margin: 0; }
+.blame-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.blame-table th, .blame-table td { padding: 6px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--border-subtle); }
+.blame-table td:last-child { width: 100%; white-space: pre; }
+.blame-table td:first-child, .blame-table td:nth-child(2) { white-space: nowrap; }
