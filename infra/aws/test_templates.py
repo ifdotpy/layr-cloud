@@ -55,6 +55,8 @@ class TemplateTests(unittest.TestCase):
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/records/*"},
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/states/*"},
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/slots/*"},
+            {"Fn::Sub": "${Bucket.Arn}/${Prefix}/requests/*"},
+            {"Fn::Sub": "${Bucket.Arn}/${Prefix}/index/*"},
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/overlays/*/keys/*"},
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/overlays/*/epochs/*/records/*"},
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/overlays/*/epochs/*/states/*"},
@@ -68,7 +70,7 @@ class TemplateTests(unittest.TestCase):
         self.assertEqual(writer_list["Action"], "s3:ListBucket")
         self.assertEqual(writer_list["Resource"], {"Fn::GetAtt": "Bucket.Arn"})
         self.assertEqual(writer_list["Condition"], {"StringLike": {"s3:prefix": [
-            {"Fn::Sub": "${Prefix}/records/*"}, {"Fn::Sub": "${Prefix}/states/*"},
+            {"Fn::Sub": "${Prefix}/records/*"}, {"Fn::Sub": "${Prefix}/states/*"}, {"Fn::Sub": "${Prefix}/requests/*"},
             {"Fn::Sub": "${Prefix}/overlays/*/keys/"},
         ]}})
         self.assertEqual(actions(resources["Reader"]), {"s3:GetObject", "s3:ListBucket"})
@@ -125,12 +127,30 @@ class TemplateTests(unittest.TestCase):
         executor = template("executor.yaml")["Resources"]["Instance"]["Properties"]["UserData"]["Fn::Base64"]["Fn::Sub"]
         self.assertIn("useradd --system --user-group --no-create-home --home-dir /nonexistent", executor)
         self.assertIn("--shell /usr/sbin/nologin layr-registry", executor)
-        self.assertIn("Environment=LAYR_GATEWAY_TOKEN_FILE=/etc/layr-executor/write-token", executor)
+        self.assertIn("Environment=LAYR_GATEWAY_TOKEN_FILE=/run/layr-executor-token/write-token", executor)
         volume = template("executor.yaml")["Resources"]["DataVolume"]
         self.assertEqual(volume["Properties"]["VolumeType"], "gp3")
         self.assertTrue(volume["Properties"]["Encrypted"])
         self.assertEqual(volume["DeletionPolicy"], "Retain")
         self.assertEqual(volume["UpdateReplacePolicy"], "Retain")
+
+    def test_executor_runtime_token_and_runner_wake_boundary(self):
+        host = template("executor.yaml")
+        instance = host["Resources"]["Instance"]["Properties"]
+        self.assertEqual(instance["InstanceInitiatedShutdownBehavior"], "stop")
+        data = instance["UserData"]["Fn::Base64"]["Fn::Sub"]
+        self.assertIn("RuntimeDirectory=layr-executor-token", data)
+        self.assertIn("RuntimeDirectoryMode=0700", data)
+        self.assertIn("PartOf=layr.service", data)
+        self.assertIn("ExecStop=/bin/rm -f /run/layr-executor-token/write-token", data)
+        self.assertIn("!= 'tmpfs'", data)
+        self.assertNotIn("LAYR_GATEWAY_TOKEN_FILE=/etc/", data)
+        role = host["Resources"]["Role"]
+        wake = next(item["Fn::If"][1] for item in statements(role)
+                    if "Fn::If" in item and item["Fn::If"][1]["Action"] == "ec2:StartInstances")
+        self.assertEqual(wake["Resource"], {"Fn::Sub": "arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/${RunnerInstanceId}"})
+        self.assertEqual(wake["Condition"], {"StringEquals": {"ec2:ResourceTag/layr:kind": "runner"}})
+        self.assertLess(len(data.encode()), 16 * 1024)
 
     def test_user_data_programs(self):
         for name in ("gateway.yaml", "executor.yaml"):

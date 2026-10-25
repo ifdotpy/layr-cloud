@@ -1325,7 +1325,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "hex",
- "layr-store 0.1.0 (git+https://github.com/ifdotpy/layr?rev=6c2386e6e9ec5fdc3a2676c1529b66b9c0c5edbd)",
+ "layr-store",
  "reqwest",
  "serde",
  "serde_json",
@@ -1342,7 +1342,7 @@ dependencies = [
  "chrono",
  "hex",
  "hmac",
- "layr-store 0.1.0 (git+https://github.com/ifdotpy/layr?rev=6c2386e6e9ec5fdc3a2676c1529b66b9c0c5edbd)",
+ "layr-store",
  "libc",
  "rand 0.8.8",
  "regex",
@@ -1365,38 +1365,13 @@ dependencies = [
  "hex",
  "html5gum",
  "image",
- "layr-store 0.1.0 (git+https://github.com/ifdotpy/layr?rev=b337229691083d2738ebc6db4bdd48c0b9ede3c5)",
+ "layr-store",
  "quick-xml",
  "serde",
  "serde_json",
  "sha1",
  "sha2 0.10.9",
  "similar",
-]
-
-[[package]]
-name = "layr-store"
-version = "0.1.0"
-source = "git+https://github.com/ifdotpy/layr?rev=6c2386e6e9ec5fdc3a2676c1529b66b9c0c5edbd#6c2386e6e9ec5fdc3a2676c1529b66b9c0c5edbd"
-dependencies = [
- "age",
- "anyhow",
- "base64 0.22.1",
- "bech32 0.11.1",
- "bip39",
- "chrono",
- "ed25519-dalek",
- "hex",
- "hmac",
- "rand 0.8.8",
- "reqwest",
- "serde",
- "serde_json",
- "sha1",
- "sha2 0.10.9",
- "ssh-key",
- "uuid",
- "zstd-safe",
 ]
 
 [[package]]
@@ -1434,7 +1409,7 @@ dependencies = [
  "base64 0.22.1",
  "ed25519-dalek",
  "layr-model",
- "layr-store 0.1.0 (git+https://github.com/ifdotpy/layr?rev=b337229691083d2738ebc6db4bdd48c0b9ede3c5)",
+ "layr-store",
  "reqwest",
  "serde",
  "serde_json",

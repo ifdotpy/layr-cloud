@@ -132,22 +132,42 @@ impl<B: Bucket> People<B> {
         }
         Ok(
             json!({"login": login, "recipient": record.recipient, "slots": slots,
-                  "index": index, "inbox": inbox}),
+                  "index": index, "inbox": inbox, "signing_key":record.signing_key,
+                  "signing":self.read(&self.key(login, "signing.age"))?.map(|data| STANDARD.encode(data))}),
         )
     }
 
     /// Register a person key: its recipient and its paper slot. Once only; the same recipient
     /// again is fine (true when it is new).
-    pub fn register(&self, login: &str, recipient: &str, paper: &str) -> Result<bool> {
+    pub fn register(
+        &self,
+        login: &str,
+        recipient: &str,
+        paper: &str,
+        signing_key: Option<&str>,
+        signing: Option<&str>,
+        token: &str,
+    ) -> Result<bool> {
         let recipient = recipient.trim();
         if !layr_store::keys::valid_recipient(recipient) {
             return fail(400, "the recipient is not an age recipient");
         }
         let slot = slot_bytes(paper)?;
+        let signing = match (signing_key, signing) {
+            (None, None) => None,
+            (Some(public), Some(sealed)) => {
+                if layr_store::person::verifying_key(public).is_err() {
+                    return fail(400, "invalid person signing key");
+                }
+                Some(slot_bytes(sealed)?)
+            }
+            _ => return fail(400, "send both signing_key and signing"),
+        };
         let record = Record {
             format: 1,
             recipient: recipient.to_string(),
             created: (self.now)() / 1000,
+            signing_key: signing_key.map(str::to_string),
         };
         let paper_key = self.key(login, "slots/paper.age");
         let _writing = self
@@ -162,10 +182,39 @@ impl<B: Bucket> People<B> {
             serde_json::to_vec(&record)?,
         )? {
             self.bucket.put(&paper_key, slot)?;
+            if let Some(sealed) = signing {
+                self.bucket
+                    .put_new(&self.key(login, "signing.age"), sealed)?;
+            }
             return Ok(true);
         }
         match self.record(login)? {
-            Some(found) if found.recipient == recipient => {
+            Some(mut found) if found.recipient == recipient => {
+                if let Some(public) = signing_key {
+                    match found.signing_key.as_deref() {
+                        Some(old) if old != public => {
+                            return fail(409, "you have another person signing key")
+                        }
+                        None => {
+                            if !self.valid(login, token) {
+                                return fail(
+                                    403,
+                                    "upgrading a person key requires its challenge proof",
+                                );
+                            }
+                            found.signing_key = Some(public.to_string());
+                            self.bucket.put(
+                                &self.key(login, "person.json"),
+                                serde_json::to_vec(&found)?,
+                            )?;
+                        }
+                        _ => (),
+                    }
+                    if let Some(sealed) = signing {
+                        self.bucket
+                            .put_new(&self.key(login, "signing.age"), sealed)?;
+                    }
+                }
                 // The same key again: a registration that stopped before its paper slot ends now.
                 self.bucket.put_new(&paper_key, slot)?;
                 Ok(false)

@@ -7,7 +7,10 @@ mod config;
 mod minio;
 mod people;
 mod person_support;
+mod public;
+mod requests;
 mod server;
+mod site;
 mod tls;
 mod whois;
 
@@ -190,13 +193,28 @@ fn answer<W: Wire>(
     gateway: &server::Gateway,
     limits: &layr_store::http::Limits,
     login: Option<&str>,
+    peer: std::net::IpAddr,
 ) -> Result<()> {
+    let mut head = false;
     let reply = match layr_store::http::request(stream, limits) {
-        Ok(request) => gateway.handle(request, login),
+        Ok(request) => {
+            head = request.method == "HEAD";
+            gateway.handle_from(request, login, peer)
+        }
         Err(error) => server::Reply::error(error.status, error.message),
     };
     stream.begin_response(limits.write_timeout);
-    layr_store::http::response(stream, reply.status, &reply.headers, &reply.body)?;
+    if head {
+        layr_store::http::headers(
+            stream,
+            reply.status,
+            reply.body.len() as u64,
+            &reply.headers,
+        )?;
+        stream.flush()?;
+    } else {
+        layr_store::http::response(stream, reply.status, &reply.headers, &reply.body)?;
+    }
     Ok(())
 }
 
@@ -233,6 +251,7 @@ fn serve(options: Options, storage: std::sync::Arc<dyn server::Storage>) -> Resu
         storage,
         person_secret: Arc::new(rand::random()),
         person_writing: Arc::new(std::sync::Mutex::new(())),
+        public_limit: public::Limiter::default(),
     });
     let active = Arc::new(AtomicUsize::new(0));
     eprintln!("layr-gateway: listening on {}", config.listen);
@@ -263,6 +282,7 @@ fn serve(options: Options, storage: std::sync::Arc<dyn server::Storage>) -> Resu
             }
             let _slot = Slot(active);
             let _ = (|| -> Result<()> {
+                let peer = stream.peer_addr()?.ip();
                 let login = stream.peer_addr().ok().and_then(|address| {
                     match whois::login(&tailscale_socket, address) {
                         Ok(login) => login,
@@ -284,14 +304,14 @@ fn serve(options: Options, storage: std::sync::Arc<dyn server::Storage>) -> Resu
                             limits.header_timeout,
                         );
                         let mut stream = rustls::StreamOwned::new(connection, socket);
-                        answer(&mut stream, &gateway, &limits, login.as_deref())
+                        answer(&mut stream, &gateway, &limits, login.as_deref(), peer)
                     }
                     None => {
                         socket.begin_read(
                             limits.header_timeout + limits.body_timeout,
                             limits.header_timeout,
                         );
-                        answer(&mut socket, &gateway, &limits, login.as_deref())
+                        answer(&mut socket, &gateway, &limits, login.as_deref(), peer)
                     }
                 }
             })();

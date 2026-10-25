@@ -3,7 +3,7 @@
 These templates deploy a project store, a gateway, and an executor on Amazon Web Services (AWS).
 The gateway runs `layr-gateway`.
 The executor runs `layr`.
-No command in this runbook requires Node.js.
+The host setup needs no Node.js. Building the optional browser site needs Node.js and npm on the build machine.
 The [gateway README](../../README.md#store-gateway) describes the server contract.
 
 | File | Resources |
@@ -80,7 +80,7 @@ The host requirements and tailnet grants above still apply.
 
 Prepare `gateway.tgz` and `executor.tgz` as [Publish a release](#publish-a-release) describes.
 The gateway archive holds `./layr-gateway` and `./sync.py`.
-The executor archive holds `./layr` and `./sync.py`.
+The executor archive holds `./layr`, `./sync.py`, and `./checks.py` for the host check loop.
 Place both archives and this `deploy.json` in one release folder:
 
 ```json
@@ -269,27 +269,36 @@ AWS Systems Manager Parameter Store (SSM) stores the keys as `SecureString` valu
 These commands use the default SSM encryption key.
 A customer KMS key requires a separate, restricted `kms:Decrypt` grant on each host role.
 
-Create two local files with mode `0600`.
-Put only the respective tailnet key in each file.
-Avoid a final newline.
+Enter each key through a hidden prompt. This example sends the value to the AWS CLI through standard input.
+It creates no local credential file and puts no key in the process arguments.
 
 ```sh
-aws ssm put-parameter --name /layr-store/gateway/tailscale-auth-key \
-  --type SecureString --value file:///absolute/path/gateway-auth-key --overwrite
-aws ssm put-parameter --name /layr-store/executor/tailscale-auth-key \
-  --type SecureString --value file:///absolute/path/executor-auth-key --overwrite
+python3 - <<'PY'
+import getpass, json, subprocess
+for kind in ('gateway', 'executor'):
+    value = getpass.getpass(f'{kind} Tailscale auth key: ')
+    if not value or '\n' in value:
+        raise SystemExit('expected one nonempty auth key')
+    request = {'Name': f'/layr-store/{kind}/tailscale-auth-key',
+               'Type': 'SecureString', 'Value': value, 'Overwrite': True}
+    result = subprocess.run(['aws', 'ssm', 'put-parameter', '--cli-input-json', 'file:///dev/stdin'],
+                            input=json.dumps(request), text=True, capture_output=True)
+    if result.returncode:
+        raise SystemExit(f'{kind} SSM write failed; check profile, region and permissions')
+    print(f'{kind} SSM parameter stored')
+PY
 ```
 
-Delete the local files after the SSM writes succeed.
 Do not put keys in CloudFormation parameters, outputs, shell history, or artifacts.
+The host passes its key from SSM through an inherited pipe to Tailscale.
 Rotate the SSM values before a replacement host joins the tailnet.
 An existing host keeps its Tailscale identity on its root disk.
 
 ## Publish a release
 
 Create one release for each host type.
-The gateway archive contains `./layr-gateway` and `./sync.py`.
-The executor archive contains `./layr` and `./sync.py`.
+The gateway archive contains `./layr-gateway`, `./sync.py`, and optionally the built files under `./site/`.
+The executor archive contains `./layr`, `./sync.py`, and optional `./checks.py` for check automation.
 Build `layr` from the [Layr repository](https://github.com/ifdotpy/layr).
 The host checks the SHA-256 digest and refuses links, extra files, and programs without static ARM64 code.
 Limit write access to the artifacts bucket to administrators.
@@ -303,6 +312,29 @@ cargo build --release --locked --target aarch64-unknown-linux-musl
 export GATEWAY_BINARY="$PWD/target/aarch64-unknown-linux-musl/release/layr-gateway"
 export LAYR_BINARY=/path/to/layr/target/aarch64-unknown-linux-musl/release/layr
 ```
+
+On ARM64 Debian or Ubuntu, install `musl-tools` and set
+`CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=musl-gcc` and `CC_aarch64_unknown_linux_musl=musl-gcc` for the build.
+Confirm the output with `file` and `readelf -l`. It must be ARM64 ELF with no `INTERP` program header.
+Strip debug symbols on the ARM64 Linux build machine before packaging. Each release file is limited to 32 MiB.
+
+```sh
+strip -o /path/to/releases/layr-gateway "$GATEWAY_BINARY"
+strip -o /path/to/releases/layr "$LAYR_BINARY"
+export GATEWAY_BINARY=/path/to/releases/layr-gateway
+export LAYR_BINARY=/path/to/releases/layr
+```
+
+To serve the browser site from the gateway, build it before packaging:
+
+```sh
+npm ci --prefix web
+npm run build --prefix web
+export SITE_DIR="$PWD/web/dist"
+```
+
+The gateway serves these files on the same HTTPS origin as its API.
+The API keeps the direct tailnet peer address for Tailscale identity checks.
 
 Create and publish the archives:
 
@@ -319,7 +351,21 @@ for KIND in gateway executor; do
   fi
   install -m 0755 "$BINARY_PATH" "$RELEASE_DIR/$KIND/$BINARY_NAME"
   install -m 0644 infra/aws/sync.py "$RELEASE_DIR/$KIND/sync.py"
-  COPYFILE_DISABLE=1 tar -czf "$RELEASE_DIR/$KIND.tgz" -C "$RELEASE_DIR/$KIND" "./$BINARY_NAME" ./sync.py
+  if [ "$KIND" = executor ]; then
+    install -m 0644 infra/aws/checks.py "$RELEASE_DIR/$KIND/checks.py"
+  fi
+  if [ "$KIND" = gateway ] && [ -n "${SITE_DIR:-}" ]; then
+    mkdir "$RELEASE_DIR/$KIND/site"
+    cp -R "$SITE_DIR/." "$RELEASE_DIR/$KIND/site/"
+    COPYFILE_DISABLE=1 tar -czf "$RELEASE_DIR/$KIND.tgz" -C "$RELEASE_DIR/$KIND" \
+      "./$BINARY_NAME" ./sync.py ./site
+  else
+    if [ "$KIND" = executor ]; then
+      COPYFILE_DISABLE=1 tar -czf "$RELEASE_DIR/$KIND.tgz" -C "$RELEASE_DIR/$KIND" "./$BINARY_NAME" ./sync.py ./checks.py
+    else
+      COPYFILE_DISABLE=1 tar -czf "$RELEASE_DIR/$KIND.tgz" -C "$RELEASE_DIR/$KIND" "./$BINARY_NAME" ./sync.py
+    fi
+  fi
   RELEASE_SHA=$(python3 -c \
     'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' \
     "$RELEASE_DIR/$KIND.tgz")
@@ -344,7 +390,20 @@ export ZONE_ID=''
 printf '%s\n' '{"tls":"tailscale"}' > "$RELEASE_DIR/gateway.json"
 ```
 
-For a custom domain, deploy the DNS zone instead:
+For a custom domain in an existing Route 53 zone, reuse that zone:
+
+```sh
+export GATEWAY_HOST=cloud.example.com
+export ZONE_ID=Z_REPLACE_WITH_EXISTING_ZONE
+jq -n --arg host "$GATEWAY_HOST" --arg zone "$ZONE_ID" \
+  '{host:$host,zone:$zone,tls:"files"}' > "$RELEASE_DIR/gateway.json"
+```
+
+The gateway role can change only this exact host name and its `_acme-challenge` name.
+It cannot change the zone apex or another host's records.
+Do not deploy a new DNS zone or change registrar delegation for this case.
+
+If the domain needs a new hosted zone, deploy it instead:
 
 ```sh
 export DOMAIN=example.com
@@ -379,6 +438,7 @@ aws s3 cp "$RELEASE_DIR/project.json" "s3://$ARTIFACTS_BUCKET/gateway/projects/$
 The project files contain only token hashes, never bearer tokens or store identities.
 The host writes `/etc/layr-gateway/config.json` with `host`, `listen`, and `projects`.
 The listen value is the tailnet address plus port 443.
+When the release contains `site/index.html`, the generated config also sets `siteDir` to the current release's site folder.
 Systemd passes the certificate and key through `LoadCredential=tls.crt` and `LoadCredential=tls.key`.
 The service runs as a dynamic user with a read-only system.
 It starts `layr-gateway serve --config /etc/layr-gateway/config.json`.
@@ -477,19 +537,31 @@ Use the following profile to add the executor machine slot.
 
 ## Configure the executor profile
 
-Issue a write token for the executor from the local administration machine.
-Store it in a file with mode `0600`:
+Issue the executor write token and send it directly to SSM from the administration machine.
+Keep the token out of local files, terminal output, and command arguments:
 
 ```sh
-umask 077
-tailscale ssh root@layr-gateway \
-  "/opt/layr-gateway/current/layr-gateway token $PROJECT --write --until 720h" \
-  > "$RELEASE_DIR/executor-token"
-tailscale ssh root@"$EXECUTOR_ROLE_NAME" \
-  'install -m 0600 /dev/null /etc/layr-executor/write-token; cat > /etc/layr-executor/write-token' \
-  < "$RELEASE_DIR/executor-token"
-rm "$RELEASE_DIR/executor-token"
+python3 - <<'PYTOKEN'
+import json, os, subprocess
+project = os.environ['PROJECT']
+issued = subprocess.run(['tailscale', 'ssh', 'root@layr-gateway',
+    f'/opt/layr-gateway/current/layr-gateway token {project} --write --until 720h'],
+    text=True, capture_output=True, check=True)
+request = {'Name':'/layr-store/executor/write-token','Type':'SecureString',
+           'Value':issued.stdout.strip(),'Overwrite':True}
+stored = subprocess.run(['aws','ssm','put-parameter','--cli-input-json','file:///dev/stdin'],
+    input=json.dumps(request),text=True,capture_output=True)
+if stored.returncode:
+    raise SystemExit('executor token SSM write failed')
+print('executor write token stored in SSM')
+PYTOKEN
 ```
+
+The instance role can read only its exact auth-key and write-token parameters.
+The token service creates `/run/layr-executor-token/write-token` with mode `0600`, owned by the Layr service user (root).
+It verifies that this directory is on tmpfs before writing.
+Stopping `layr.service` stops the token service and removes the file and runtime directory.
+The transfer service refreshes the token before each transfer.
 
 First boot runs `layr remote self --json` after the data mount.
 It writes `/etc/layr-executor/machine.json` and prints its public fields to the service journal.
@@ -524,11 +596,12 @@ set -euo pipefail
 export LAYR_ROOT=/var/lib/layr
 export PROJECT=example
 export GATEWAY_HOST=layr-gateway.YOUR-TAILNET.ts.net
-export LAYR_GATEWAY_TOKEN_FILE=/etc/layr-executor/write-token
+export LAYR_GATEWAY_TOKEN_FILE=/run/layr-executor-token/write-token
+systemctl start layr-executor-token.service
 ln -sfn /opt/layr-executor/current/layr /usr/local/bin/layr
 layr clone "layr+https://$GATEWAY_HOST/$PROJECT" "$PROJECT"
 layr --project "$PROJECT" fetch origin
-layr --project "$PROJECT" config queue.run main
+layr --project "$PROJECT" config queue.run ''
 layr --project "$PROJECT" config registry.listen "$(tailscale ip -4):5000"
 layr --project "$PROJECT" config registry.user layr-registry
 printf 'PROJECT=%q\n' "$PROJECT" > /etc/layr-executor/profile.env
@@ -543,23 +616,41 @@ findmnt -no SOURCE,FSTYPE,TARGET /var/lib/layr
 Clone creates the local project with the remote project identity and configures `origin`.
 Clone and fetch use the machine slot that the trusted Mac created.
 
+As an administrator, pin the person's Ed25519 public signing key on the executor.
+Obtain Igor's login and public key from him and check them through a trusted channel.
+Do not copy his private person identity or recovery words to this host.
+Run this against each executor project before enabling person requests:
+
+```sh
+layr --project "$PROJECT" access person-key "$PERSON_LOGIN" "$PERSON_SIGNING_KEY"
+```
+
+The person-key pin and person access policy are machine-local.
+Fetching project records does not install another machine's pin or policy.
+The gateway checks request signatures against the registered person key; the executor independently
+checks its administrator's local pin and person policy before applying an action.
+
 For an existing copy of the same project without `origin`, add the gateway remote directly:
 
 ```sh
 layr --project "$PROJECT" remote add origin "layr+https://$GATEWAY_HOST/$PROJECT"
 ```
 
-The units set `LAYR_GATEWAY_TOKEN_FILE=/etc/layr-executor/write-token`.
+The units set `LAYR_GATEWAY_TOKEN_FILE=/run/layr-executor-token/write-token`.
 The client refuses token files with another owner or a mode other than `0600`.
 Read requests use the machine slot and challenge; they need no stored bearer token.
-Replace the token file before the token expires.
+Replace the SSM value before the token expires. Restart the token service to refresh an active daemon token.
 Keep bearer tokens out of command arguments, project config, records, and logs.
 
-The root daemon runs the queue and project checks.
+The root daemon serves local IPC and the registry. Keep `queue.run` empty on the executor.
+The separate runner executes all checks.
 First boot creates the dedicated system account `layr-registry` without a home or login shell.
 The registry handler uses that unprivileged account.
 Do not use that account for ordinary Layr commands.
-The timer fetches and pushes `origin` after each inactive minute.
+The transfer timer fetches and pushes `origin` after each inactive minute until `checks-ready` exists.
+After a successful executor push, it runs `layr index write origin`. The check/apply loop does the same
+after its successful push. The runner does not publish indexes.
+The check loop then owns fetch/apply/scan/push, so the two timers do not duplicate transfers.
 Systemd permits only one transfer unit at a time.
 A fetch failure stops the push and appears in the unit journal.
 The executor never runs remote GC automatically.
@@ -595,7 +686,14 @@ A retained volume needs explicit reattachment or resource import; a new stack cr
 
 Save the bucket names and volume ID before deletion:
 
+If the optional runner stack exists, delete it before deleting the gateway subnet.
+Save its data volume ID first. Its retained disk remains billable after deletion.
+
 ```sh
+if [ -n "${RUNNER_STACK:-}" ]; then
+  aws cloudformation delete-stack --stack-name "$RUNNER_STACK"
+  aws cloudformation wait stack-delete-complete --stack-name "$RUNNER_STACK"
+fi
 printf 'store=%s\nartifacts=%s\ndata=%s\n' "$STORE_BUCKET" "$ARTIFACTS_BUCKET" "$DATA_VOLUME_ID"
 tailscale ssh root@"$EXECUTOR_ROLE_NAME" 'systemctl stop layr-transfer.timer layr-transfer.service layr.service'
 aws cloudformation delete-stack --stack-name "$EXECUTOR_STACK"
@@ -607,16 +705,20 @@ aws cloudformation wait stack-delete-complete --stack-name "layr-store-$PROJECT"
 aws cloudformation delete-stack --stack-name layr-bootstrap
 aws cloudformation wait stack-delete-complete --stack-name layr-bootstrap
 aws ssm delete-parameters --names /layr-store/gateway/tailscale-auth-key \
-  /layr-store/executor/tailscale-auth-key
+  /layr-store/executor/tailscale-auth-key /layr-store/executor/write-token
 ```
 
-Delete the executor first because it uses the gateway subnet.
+Delete the executor and optional runner before the gateway because they use its subnet.
 The project bucket, artifacts bucket, and data volume remain, with their storage charges.
 Do not delete the shared gateway, artifacts, or SSM keys while another project uses them.
 Remove the two host devices from the tailnet administration console.
 Revoke the two tailnet auth keys.
 
-For a custom domain, delete its records and update registrar delegation before you remove the zone.
+For an existing shared zone such as `layr.ws`, keep the zone, its delegation, the apex,
+`desk.layr.ws`, and its ACM validation record. Remove only this deployment's `cloud.layr.ws`
+and ACME challenge records. Skip the DNS stack and hosted-zone deletion commands below.
+
+Only if this deployment created a dedicated new zone, delete its records and update registrar delegation before you remove the zone.
 The DNS stack retains the zone:
 
 ```sh
@@ -658,4 +760,81 @@ Install `python3-venv` in the VM first if its Python installation lacks `ensurep
 The volume tests create temporary loop devices and test btrfs mounts as root.
 They reject ext4 and preserve data across repeat mounts.
 The release tests use synthetic ELF headers. They do not execute either release binary.
+
+The public-writer regression starts a real MinIO server, an unprivileged gateway, and a
+local HTTPS trace proxy. It initializes and publishes a disposable project, confirms the
+writer's machine slot, and pushes a new state without AWS credentials in the client.
+It requires root, MinIO, OpenSSL, boto3, and a debug gateway binary in the Linux VM:
+
+```sh
+LAYR_BIN=/absolute/path/to/layr \
+LAYR_GATEWAY_BINARY=/absolute/path/to/debug/layr-gateway \
+  /opt/layr-cfn-lint/bin/python tests/public-writer-gateway.py
+```
+
+The trace contains only method, path, status and credential presence. It never prints headers or bodies.
+The writer may make exactly one anonymous `GET /p/<project>/public.json` side request.
+All object writes must use `/v1/p/` and the exact writer bearer. Other public routes are refused by the test.
+All disposable recovery and token material stays under `/run` on tmpfs and is removed on exit.
+TLS private keys stay in memory-backed file descriptors. The test creates no AWS resources.
+Set `LAYR_TEST_INDEX=1` to also run `layr index write gateway` and verify immutable index objects through the same gateway.
 A template lint result does not prove AWS deployment, first boot, or a live gateway request.
+
+## Optional check runner
+
+Reuse `executor.yaml` for the runner. Set `HostKind=runner`, `InstanceType=t4g.large`,
+`DataVolumeSize=60`, `RootVolumeSize=8`, a distinct role and hostname, and separate runner SSM parameter names.
+The extra root disk is separate from the 60 GiB btrfs data disk.
+The template installs the runner tools and enables its idle timer.
+The runner has no EC2 start grant. Its project roles include reader and writer, with no GC role.
+
+Deploy this host only after the local M3 watcher is merged into the selected Layr main revision.
+Enroll its own machine slot through the trusted owner, as for the executor.
+The token is project-scoped and follows the same SSM-to-tmpfs rule.
+Use `/layr-store/runner/tailscale-auth-key` and `/layr-store/runner/write-token` on this host.
+
+After both machines are enrolled, provision each host's local reviewed check policy.
+Imported policy is namespaced by its source machine and does not become effective automatically.
+Run the following as root on each host, using that host's project:
+
+```sh
+export LAYR_ROOT=/var/lib/layr
+layr --project "$PROJECT" access grant layr-checks reader
+# Run the reviewed tools/checks/configure.sh from the checked-out project on this host.
+# On the runner only:
+layr --project "$PROJECT" config --local checks.runner true
+layr --project "$PROJECT" config --local checks.privileged-runner true
+test -S /run/layr.sock
+runuser -u layr-checks -- env LAYR_ROOT=/var/lib/layr LAYR_SOCKET=/run/layr.sock \
+  layr --project "$PROJECT" change list --json
+touch /etc/layr-executor/checks-ready
+systemctl enable --now layr-checks.timer
+```
+
+Before enabling the runner timer, seed its offline dependencies from the verified checked-out source:
+
+```sh
+source_dir=$(layr --project "$PROJECT" --line main rev-parse --show-toplevel)
+(
+  cd "$source_dir"
+  CARGO_HOME=/usr/local/share/layr-checks/cargo \
+  RUSTUP_HOME=/usr/local/share/layr-checks/rustup \
+    /usr/local/share/layr-checks/cargo/bin/cargo fetch --locked
+)
+```
+
+Use this seed on the runner only. It must contain no credential files.
+The normal sandbox has no network and copies the cargo seed into its private home.
+Repeat the fetch after a reviewed lockfile update, before enabling its new check commands.
+
+The executor runs the watcher only in reporter mode, with both local runner flags false. It needs no Rust.
+Keep its `queue.run` empty; applying a person queue request must not launch checks on this small host.
+After check setup, enable `queue.run=main` on the runner only.
+Set `RunnerInstanceId` on the executor stack to the exact runner instance ID.
+Its IAM policy can describe instance state and start only that instance with `layr:kind=runner`.
+A positive read-only pending count wakes the runner. The executor runs no checks. No SSH connection is used between the hosts.
+The runner independently fetches, scans all configured checks, and pushes the signed results.
+A host lock prevents shutdown during a scan or tool setup.
+After 30 minutes with no check work, its idle timer powers off the host. EC2 stops it and retains both disks.
+
+See [DEPLOYED.md](DEPLOYED.md) for the policy snippet, cost formula, measured resources, and current deployment limits.

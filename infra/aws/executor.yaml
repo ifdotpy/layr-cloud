@@ -1,6 +1,23 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Layr executor, tailnet Graviton host and retained encrypted gp3 btrfs volume.
+Description: Layr executor or idle-stopping check runner, tailnet Graviton and retained btrfs data.
 Parameters:
+  HostKind:
+    Type: String
+    Default: executor
+    AllowedValues: [executor, runner]
+  RunnerInstanceId:
+    Type: String
+    Default: ''
+    AllowedPattern: '(i-[0-9a-f]{17})?'
+    Description: Exact runner instance this executor can start; empty on the runner itself.
+  RootVolumeSize:
+    Type: Number
+    Default: 12
+    MinValue: 8
+  RustToolchain:
+    Type: String
+    Default: 1.99.1
+    AllowedPattern: '[0-9]+\.[0-9]+\.[0-9]+'
   ArtifactsBucket:
     Type: String
     AllowedPattern: '[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]'
@@ -31,6 +48,10 @@ Parameters:
     Type: String
     AllowedPattern: '/[A-Za-z0-9_./-]+'
     Default: /layr-store/executor/tailscale-auth-key
+  WriteTokenParameter:
+    Type: String
+    AllowedPattern: '/[A-Za-z0-9_./-]+'
+    Default: /layr-store/executor/write-token
   InstanceType:
     Type: String
     Default: t4g.small
@@ -40,6 +61,13 @@ Parameters:
     Default: 100
     MinValue: 10
     MaxValue: 16384
+Rules:
+  RunnerCannotWakeAnotherHost:
+    Assertions:
+      - Assert: !Or [!Equals [!Ref HostKind, executor], !Equals [!Ref RunnerInstanceId, '']]
+        AssertDescription: Set RunnerInstanceId only on the executor, never on a runner.
+Conditions:
+  HasRunner: !Not [!Equals [!Ref RunnerInstanceId, '']]
 Resources:
   SecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -78,7 +106,24 @@ Resources:
                 Resource: [!Ref ReaderRoleArn, !Ref WriterRoleArn]
               - Effect: Allow
                 Action: ssm:GetParameter
-                Resource: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${AuthKeyParameter}'
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${AuthKeyParameter}'
+                  - !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${WriteTokenParameter}'
+              - !If
+                - HasRunner
+                - Effect: Allow
+                  Action: ec2:StartInstances
+                  Resource: !Sub 'arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/${RunnerInstanceId}'
+                  Condition:
+                    StringEquals:
+                      ec2:ResourceTag/layr:kind: runner
+                - !Ref AWS::NoValue
+              - !If
+                - HasRunner
+                - Effect: Allow
+                  Action: ec2:DescribeInstances
+                  Resource: '*'
+                - !Ref AWS::NoValue
   InstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
@@ -92,7 +137,7 @@ Resources:
       VolumeType: gp3
       Size: !Ref DataVolumeSize
       Encrypted: true
-      Tags: [{Key: Name, Value: layr-executor-store}]
+      Tags: [{Key: Name, Value: !Sub '${RoleName}-store'}]
   DataAttachment:
     Type: AWS::EC2::VolumeAttachment
     Properties:
@@ -104,6 +149,7 @@ Resources:
     Properties:
       ImageId: !Ref ImageId
       InstanceType: !Ref InstanceType
+      InstanceInitiatedShutdownBehavior: stop
       CreditSpecification:
         CPUCredits: standard
       IamInstanceProfile: !Ref InstanceProfile
@@ -122,10 +168,12 @@ Resources:
         - DeviceName: /dev/xvda
           Ebs:
             VolumeType: gp3
-            VolumeSize: 12
+            VolumeSize: !Ref RootVolumeSize
             Encrypted: true
             DeleteOnTermination: true
-      Tags: [{Key: Name, Value: layr-executor}]
+      Tags:
+        - {Key: Name, Value: !Ref RoleName}
+        - {Key: 'layr:kind', Value: !Ref HostKind}
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
@@ -134,12 +182,20 @@ Resources:
           export DEBIAN_FRONTEND=noninteractive
           for try in 1 2 3 4 5; do apt-get update && break || sleep 15; done
           apt-get install -y --no-install-recommends ca-certificates curl python3-boto3 \
-            btrfs-progs git zstd util-linux unattended-upgrades
+            btrfs-progs git zstd util-linux unattended-upgrades bubblewrap
+          if [ '${HostKind}' = runner ]; then
+            apt-get install -y --no-install-recommends xfsprogs e2fsprogs python3 \
+              docker-registry skopeo apache2-utils golang-go build-essential pkg-config
+          fi
           if ! id -u layr-registry >/dev/null 2>&1; then
             useradd --system --user-group --no-create-home --home-dir /nonexistent \
               --shell /usr/sbin/nologin layr-registry
           fi
           test "$(id -u layr-registry)" -ne 0
+          if ! id -u layr-checks >/dev/null 2>&1; then
+            useradd --system --user-group --create-home --home-dir /var/lib/layr-checks \
+              --shell /usr/sbin/nologin layr-checks
+          fi
           curl -fsSL https://pkgs.tailscale.com/stable/debian/trixie.noarmor.gpg \
             -o /usr/share/keyrings/tailscale-archive-keyring.gpg
           curl -fsSL https://pkgs.tailscale.com/stable/debian/trixie.tailscale-keyring.list \
@@ -155,7 +211,44 @@ Resources:
           EOF
           install -d -m 0755 /etc/layr-executor
           cat > /etc/layr-executor/source.json <<'EOF'
-          {"kind":"executor","hostname":"${TailnetHostname}","bucket":"${ArtifactsBucket}","region":"${AWS::Region}","authKeyParameter":"${AuthKeyParameter}"}
+          {"kind":"executor","hostKind":"${HostKind}","tailnetTag":"tag:layr-${HostKind}","runnerInstanceId":"${RunnerInstanceId}","hostname":"${TailnetHostname}","bucket":"${ArtifactsBucket}","region":"${AWS::Region}","authKeyParameter":"${AuthKeyParameter}","writeTokenParameter":"${WriteTokenParameter}"}
+          EOF
+          cat > /usr/local/lib/layr-executor-token.py <<'EOF'
+          import json, os, sys, tempfile, subprocess
+          from pathlib import Path
+          os.environ['AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE'] = 'IPv6'
+          os.environ['AWS_USE_DUALSTACK_ENDPOINT'] = 'true'
+          import boto3
+          try:
+              source = json.load(open('/etc/layr-executor/source.json'))
+              value = boto3.client('ssm', region_name=source['region']).get_parameter(
+                  Name=source['writeTokenParameter'], WithDecryption=True)['Parameter']['Value']
+              root = Path('/run/layr-executor-token')
+              if root.is_symlink() or not root.is_dir() or root.stat().st_uid != 0:
+                  raise ValueError('invalid runtime directory')
+              if subprocess.check_output(['findmnt', '-n', '-o', 'FSTYPE', '-T', str(root)], text=True).strip() != 'tmpfs':
+                  raise ValueError('runtime directory must be on tmpfs')
+              with tempfile.NamedTemporaryFile('w', dir=root, delete=False) as token:
+                  temporary = token.name
+                  os.fchmod(token.fileno(), 0o600)
+                  token.write(value)
+              os.replace(temporary, root / 'write-token')
+          except Exception:
+              sys.exit('executor token setup failed; check SSM parameter and instance role')
+          EOF
+          cat > /etc/systemd/system/layr-executor-token.service <<'EOF'
+          [Unit]
+          Description=Load the executor write token into tmpfs
+          After=network-online.target
+          Wants=network-online.target
+          PartOf=layr.service
+          [Service]
+          Type=oneshot
+          RemainAfterExit=yes
+          RuntimeDirectory=layr-executor-token
+          RuntimeDirectoryMode=0700
+          ExecStart=/usr/bin/python3 /usr/local/lib/layr-executor-token.py
+          ExecStop=/bin/rm -f /run/layr-executor-token/write-token
           EOF
           cat > /usr/local/sbin/layr-data <<'EOF'
           #!/bin/bash
@@ -186,6 +279,19 @@ Resources:
           fi
           chmod 0755 /var/lib/layr
           EOF
+          if [ '${HostKind}' = runner ]; then
+            cat >> /usr/local/sbin/layr-data <<'EOF'
+          mkdir -p /var/lib/layr/check-work
+          if ! mountpoint -q /var/tmp; then
+            mount --bind /var/lib/layr/check-work /var/tmp
+          fi
+          chmod 1777 /var/tmp
+          mkdir -p /var/lib/layr/tools/cargo /var/lib/layr/tools/rustup /usr/local/share/layr-checks
+          if ! mountpoint -q /usr/local/share/layr-checks; then
+            mount --bind /var/lib/layr/tools /usr/local/share/layr-checks
+          fi
+          EOF
+          fi
           chmod 0755 /usr/local/sbin/layr-data
           cat > /etc/systemd/system/layr-data.service <<'EOF'
           [Unit]
@@ -204,16 +310,16 @@ Resources:
           cat > /etc/systemd/system/layr.service <<'EOF'
           [Unit]
           Description=Layr service
-          Requires=layr-data.service
-          After=layr-data.service network-online.target tailscaled.service
+          Requires=layr-data.service layr-executor-token.service
+          After=layr-data.service layr-executor-token.service network-online.target tailscaled.service
           Wants=network-online.target
           ConditionPathExists=/etc/layr-executor/ready
           [Service]
           Environment=LAYR_ROOT=/var/lib/layr
-          Environment=LAYR_GATEWAY_TOKEN_FILE=/etc/layr-executor/write-token
+          Environment=LAYR_GATEWAY_TOKEN_FILE=/run/layr-executor-token/write-token
           Environment=AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE=IPv6
           Environment=AWS_USE_DUALSTACK_ENDPOINT=true
-          ExecStart=/opt/layr-executor/current/layr daemon
+          ExecStart=/opt/layr-executor/current/layr daemon --socket /run/layr.sock --tick 60
           Restart=on-failure
           RestartSec=5
           [Install]
@@ -226,6 +332,9 @@ Resources:
           export LAYR_ROOT=/var/lib/layr
           /opt/layr-executor/current/layr --project "$PROJECT" fetch origin
           /opt/layr-executor/current/layr --project "$PROJECT" push origin
+          if [ '${HostKind}' = executor ]; then
+            /opt/layr-executor/current/layr --project "$PROJECT" index write origin
+          fi
           EOF
           chmod 0755 /usr/local/sbin/layr-executor-transfer
           cat > /etc/systemd/system/layr-transfer.service <<'EOF'
@@ -234,9 +343,11 @@ Resources:
           Requires=layr.service
           After=layr.service
           ConditionPathExists=/etc/layr-executor/ready
+          ConditionPathExists=!/etc/layr-executor/checks-ready
           [Service]
           Type=oneshot
-          Environment=LAYR_GATEWAY_TOKEN_FILE=/etc/layr-executor/write-token
+          Environment=LAYR_GATEWAY_TOKEN_FILE=/run/layr-executor-token/write-token
+          ExecStartPre=/usr/bin/python3 /usr/local/lib/layr-executor-token.py
           ExecStart=/usr/local/sbin/layr-executor-transfer
           TimeoutStartSec=1h
           EOF
@@ -252,6 +363,43 @@ Resources:
           systemctl enable layr-data.service
           systemctl enable layr.service
           systemctl enable --now layr-transfer.timer
+          cat > /etc/systemd/system/layr-checks.service <<'EOF'
+          [Unit]
+          Description=Sync and scan local Layr checks
+          Requires=layr.service
+          After=layr.service
+          ConditionPathExists=/etc/layr-executor/checks-ready
+          [Service]
+          Type=oneshot
+          Environment=AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE=IPv6
+          Environment=AWS_USE_DUALSTACK_ENDPOINT=true
+          ExecStartPre=/usr/bin/python3 /usr/local/lib/layr-executor-token.py
+          ExecStart=/usr/bin/python3 /opt/layr-executor/current/checks.py tick
+          TimeoutStartSec=0
+          EOF
+          cat > /etc/systemd/system/layr-checks.timer <<'EOF'
+          [Timer]
+          OnBootSec=3min
+          OnUnitInactiveSec=60s
+          [Install]
+          WantedBy=timers.target
+          EOF
+          cat > /etc/systemd/system/layr-runner-idle.service <<'EOF'
+          [Unit]
+          Description=Stop the check runner after thirty idle minutes
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/bin/python3 /opt/layr-executor/current/checks.py idle
+          EOF
+          cat > /etc/systemd/system/layr-runner-idle.timer <<'EOF'
+          [Timer]
+          OnBootSec=1min
+          OnUnitActiveSec=1min
+          [Install]
+          WantedBy=timers.target
+          EOF
+          systemctl daemon-reload
+          systemctl enable --now layr-checks.timer
           export AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE=IPv6 AWS_USE_DUALSTACK_ENDPOINT=true
           cat > /usr/local/lib/layr-cloud-bootstrap.py <<'EOF'
           import hashlib, io, json, os, re, sys, tarfile, tempfile
@@ -302,6 +450,57 @@ Resources:
           systemctl enable --now layr-executor-sync.timer
           systemctl start layr-executor-sync.service
           cat /etc/layr-executor/machine.json
+          if [ '${HostKind}' = runner ]; then
+            cat > /usr/local/sbin/layr-runner-tools <<'EOF'
+          #!/bin/bash
+          set -euo pipefail
+          mkdir -p /run/layr-checks
+          exec 9>/run/layr-checks/active.lock
+          flock -x 9
+          export RUSTUP_HOME=/usr/local/share/layr-checks/rustup
+          export CARGO_HOME=/usr/local/share/layr-checks/cargo
+          export GOPATH=/var/lib/layr/tools/go
+          export GOCACHE=/var/lib/layr/tools/go-cache
+          mkdir -p /var/lib/layr/tools
+          if [ ! -x "$CARGO_HOME/bin/rustup" ]; then
+            curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs \
+              | sh -s -- -y --profile minimal --default-toolchain '${RustToolchain}'
+          fi
+          "$CARGO_HOME/bin/rustup" toolchain install '${RustToolchain}' --profile minimal
+          "$CARGO_HOME/bin/rustup" default '${RustToolchain}'
+          for tool in cargo rustc rustdoc rustfmt; do
+            ln -sfn "$CARGO_HOME/bin/$tool" "/usr/local/bin/$tool"
+          done
+          mkdir -p /usr/local/lib/layr-checks /usr/local/share/layr-checks
+          CGO_ENABLED=0 GOBIN=/usr/local/lib/layr-checks go install github.com/minio/minio@RELEASE.2025-10-15T17-29-55Z
+          ln -sfn /usr/local/lib/layr-checks/minio /usr/local/bin/minio
+          work=$(mktemp -d)
+          trap 'rm -rf "$work"' EXIT
+          curl -fsSL https://get.helm.sh/helm-v3.22.1-linux-arm64.tar.gz -o "$work/helm.tgz"
+          echo '4c29e286b279d170fa048ddfc3e4e83dcd069ca9c52102766ba672d7149e694d  '"$work/helm.tgz" | sha256sum -c -
+          tar -xzf "$work/helm.tgz" -C "$work" linux-arm64/helm
+          install -m 0755 "$work/linux-arm64/helm" /usr/local/bin/helm
+          touch /var/lib/layr/tools/ready
+          EOF
+            chmod 0755 /usr/local/sbin/layr-runner-tools
+            cat > /etc/systemd/system/layr-runner-tools.service <<'EOF'
+          [Unit]
+          Description=Install the pinned check runner toolchain
+          Requires=layr-data.service
+          After=layr-data.service network-online.target
+          Wants=network-online.target
+          ConditionPathExists=!/var/lib/layr/tools/ready
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/local/sbin/layr-runner-tools
+          TimeoutStartSec=2h
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+            systemctl daemon-reload
+            systemctl enable --now layr-runner-idle.timer
+            systemctl enable --now layr-runner-tools.service
+          fi
 Outputs:
   InstanceId:
     Value: !Ref Instance
