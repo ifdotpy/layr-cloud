@@ -452,3 +452,35 @@ grant-based object transport does not use it. The lead authorized per-credential
 limits while retaining anonymous/failed-authentication 600/IP and person-bootstrap 12/IP.
 Gateway implementation and deployment verification are in progress. Request measurement uses
 a separate local counting CLI build; no core branch is changed.
+
+### Gateway credential budgets
+
+Gateway source `7d4af8693f749e3f63f6d35829ccbe299ce8ba64` passed 40 tests, with one
+MinIO environment test ignored. The route test exhausts the anonymous 600-request budget,
+then sends 3,000 successful requests for each of two grants on the same IP. Each credential's
+next request gets 429. A valid person session still works after the anonymous budget is
+exhausted; revoked grants use the IP budget. Forged viewer headers do not reset the budget.
+Existing origin guard, epoch proof and 12/minute person-bootstrap tests passed. All three
+packaging tests passed.
+
+The copied ARM64 static executable matched its build-host SHA-256
+`9759956b2de6474fb695550f9eb4aad3118418b167fd54257752115fa67723a9` and size 7,615,376 bytes.
+The package validated ELF bounds and preserved the nine site assets plus sync code exactly.
+Candidate archive: `ec2d79e7065094f0e77d02f60606662c8d1d27955c44d6e5c668e643bda9aac4`.
+Host preflight `78830fd4-a217-456c-838e-a310788d67b3` verified the candidate and ran `--help`
+while the old service continued to return IPv6 HTTPS 200. Deployment ran from 12:30:17 to
+12:30:59 UTC, SSM `ef31ab9a-939b-4056-815f-716eaf51b42c`. The running executable matched
+its hash. Direct origin and forged viewer requests returned 403; authenticated origin returned
+verified HTTPS 200. All nine published asset hashes matched. The prior manifest was retained
+for guarded rollback; no instance, stack or DNS record changed.
+
+Live SSM probe `f6f27765-07a9-4589-81f1-b6848bf38923` used reserved synthetic viewer addresses
+through the guarded origin. Exactly 600 anonymous requests returned 200, followed by one 429.
+The independent bootstrap viewer allowed 12 requests, followed by one 429. Both supplied
+`Retry-After: 60`. These probes did not consume the home IP's anonymous budget.
+
+The local-only counting CLI uses source `e74ceff` plus route-counter instrumentation outside
+all core branches. Its executable is 74,957,656 bytes, SHA-256
+`7ec2e329e5875fcf24943ed0e6353d588e66e6746597f20b70cb492e7c7334c7`.
+It records method, route class and response status only. Request counts and five corrected
+runner results remain pending.
