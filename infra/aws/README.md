@@ -209,7 +209,8 @@ python3 infra/aws/cloudfront.py gateway-plan
 ```
 
 Inspect and execute the printed gateway change set using gateway-inspect and gateway-execute.
-After the origin release/certificate converges, plan the front with PublishDns=false initially:
+Keep the previous public gateway active while the distribution deploys. Plan the front with
+PublishDns=false initially:
 
 ```sh
 python3 infra/aws/cloudfront.py front-plan --certificate "$CERT_ARN"
@@ -217,7 +218,11 @@ python3 infra/aws/cloudfront.py front-inspect --change "$FRONT_CHANGE"
 python3 infra/aws/cloudfront.py front-execute --change "$FRONT_CHANGE"
 ```
 
-Read the change-set resources before executing it. Wait for the stack and distribution to finish.
+Read the change-set resources before executing it. The helper checks both managed policy IDs
+against the AWS API by name before planning. Wait for the stack and distribution to finish.
+Then activate the preflighted guarded gateway, test through the distribution with the real public
+SNI/Host, and publish the DNS aliases immediately on HTTP 200. On any error, restore the previous
+release and original host configuration through Sync.release() immediately, before further diagnosis.
 The distribution uses the managed CachingDisabled policy, passes every HTTP method and query string,
 and has zero error-cache TTLs. Its origin policy forwards Authorization, Content-Type, Content-Length
 and Range while replacing Host with the origin name. Verify that the generated viewer-address header

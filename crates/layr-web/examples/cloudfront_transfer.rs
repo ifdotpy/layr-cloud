@@ -4,7 +4,6 @@
 use anyhow::{ensure, Context, Result};
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
 use layr_store::{format::Descriptor, keys};
-use layr_web::Session;
 use rand::RngCore;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -19,7 +18,6 @@ fn main() -> Result<()> {
     let base = &args[0];
     let root = Path::new(&args[1]);
     let fixture: Value = serde_json::from_slice(&fs::read(root.join("browser.json"))?)?;
-    let login = fixture["login"].as_str().context("login")?;
     let alias = fixture["alias"].as_str().context("alias")?;
     let descriptor: Descriptor =
         serde_json::from_slice(&fs::read(root.join("archive/store.json"))?)?;
@@ -27,41 +25,33 @@ fn main() -> Result<()> {
         .no_proxy()
         .timeout(Duration::from_secs(150))
         .build()?;
-    let unlock: Value = http
-        .get(format!("{base}/api/person/unlock"))
-        .query(&[("login", login)])
-        .send()?
-        .error_for_status()?
-        .json()?;
-    let view = String::from_utf8(B64.decode(unlock["unlock"].as_str().context("unlock")?)?)?;
-    let view: Value = serde_json::from_str(&view)?;
-    let mut signer = Session::new();
-    let words = fs::read_to_string(fixture["words_file"].as_str().context("recovery file")?)?;
-    signer
-        .unlock_recovery(words.trim(), &view.to_string())
-        .map_err(|_| anyhow::anyhow!("unlock failed"))?;
-    signer
-        .open_signing_key(
-            &B64.decode(view["signing"].as_str().context("sealed signing")?)?,
-            view["signing_key"].as_str().context("signing public")?,
-        )
-        .map_err(|_| anyhow::anyhow!("signing failed"))?;
+    let grant = env::var("LAYR_TEST_WRITE_TOKEN").context("SSM write grant in environment")?;
+    let identity = keys::open_slot(
+        &fs::read(root.join("archive/slots/paper.age"))?,
+        &keys::identity_from_paper(fs::read_to_string(root.join("paper"))?.trim())?,
+    )?;
     let challenge: Value = http
-        .get(format!("{base}/api/session/challenge"))
-        .query(&[("login", login)])
+        .get(format!("{base}/v1/p/{alias}/challenge"))
+        .bearer_auth(&grant)
         .send()?
         .error_for_status()?
         .json()?;
-    let signature = signer
-        .sign_session(challenge["challenge"].as_str().context("challenge")?)
-        .map_err(|_| anyhow::anyhow!("session signature failed"))?;
-    let session: Value = http
-        .post(format!("{base}/api/session"))
-        .json(&json!({"login":login,"challenge":challenge["challenge"],"signature":signature}))
+    let clear = String::from_utf8(keys::decrypt(
+        &identity,
+        &B64.decode(
+            challenge["challenge"]
+                .as_str()
+                .context("project challenge")?,
+        )?,
+    )?)?;
+    let proof: Value = http
+        .post(format!("{base}/v1/p/{alias}/token"))
+        .bearer_auth(&grant)
+        .json(&json!({"challenge":clear}))
         .send()?
         .error_for_status()?
         .json()?;
-    let token = session["token"].as_str().context("session token")?;
+    let token = proof["token"].as_str().context("project read token")?;
     let path = root.join("cloudfront-30m.age");
     if !path.exists() {
         let mut plaintext = vec![0; 30 * 1024 * 1024];
@@ -78,7 +68,6 @@ fn main() -> Result<()> {
     let url = format!("{base}/v1/p/{alias}/objects/{object}");
     let previous = http.get(&url).bearer_auth(token).send()?;
     if previous.status().as_u16() == 404 {
-        let grant = env::var("LAYR_TEST_WRITE_TOKEN").context("SSM write grant in environment")?;
         let response = http
             .put(&url)
             .bearer_auth(grant)
@@ -138,7 +127,6 @@ fn main() -> Result<()> {
         count == ciphertext.len() && format!("{:x}", digest.finalize()) == expected,
         "download bytes differ"
     );
-    signer.lock();
     println!(
         "{}",
         json!({"status":"PASS","object":object,"bytes":count,"sha256":expected,"upload":201,"download":200,"range":206})
