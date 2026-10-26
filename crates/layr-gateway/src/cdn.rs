@@ -47,7 +47,12 @@ impl Settings {
                 self.key_parameter.as_str(),
                 "/layr-store/gateway/cdn-signing-a" | "/layr-store/gateway/cdn-signing-b"
             )
-            || self.region != "eu-north-1"
+            || self.region.is_empty()
+            || self.region.len() > 40
+            || !self
+                .region
+                .bytes()
+                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
             || self.stores.is_empty()
         {
             bail!("invalid CDN signing configuration");
@@ -55,10 +60,10 @@ impl Settings {
         let mut prefixes = std::collections::BTreeSet::new();
         for (alias, store) in &self.stores {
             if !crate::config::project_name(alias)
-                || !crate::config::project_name(&store.prefix)
+                || !crate::config::project_name(store.prefix.trim_end_matches('/'))
                 || store.bucket.is_empty()
                 || store.region != self.region
-                || !prefixes.insert(&store.prefix)
+                || !prefixes.insert(store.prefix.trim_end_matches('/'))
             {
                 bail!("invalid CDN store binding");
             }
@@ -83,10 +88,12 @@ impl Signer {
         if project.bucket != store.bucket || project.region != store.region {
             return None;
         }
-        let relative = if project.prefix == store.prefix {
+        let root_prefix = store.prefix.trim_end_matches('/');
+        let project_prefix = project.prefix.trim_end_matches('/');
+        let relative = if project_prefix == root_prefix {
             key.to_owned()
         } else {
-            let epoch_prefix = project.prefix.strip_prefix(&format!("{}/", store.prefix))?;
+            let epoch_prefix = project_prefix.strip_prefix(&format!("{root_prefix}/"))?;
             format!("{epoch_prefix}/{key}")
         };
         cacheable(&relative).then_some(relative)
@@ -159,7 +166,7 @@ pub fn test_signer(project: &crate::config::Project) -> Signer {
         host: "localhost".into(),
         key_id: "PUBLICKEY".into(),
         key_parameter: "/layr-store/gateway/cdn-signing-a".into(),
-        region: "eu-north-1".into(),
+        region: project.region.clone(),
         stores: [(
             "example".into(),
             Store {
@@ -247,7 +254,10 @@ mod tests {
             .is_err());
         assert_eq!(signer.object(project, "example", &key), Some(key.clone()));
         let mut scoped = project.clone();
-        scoped.prefix += &format!("/project/epochs/{ID}");
+        scoped.prefix = format!(
+            "{}/project/epochs/{ID}",
+            project.prefix.trim_end_matches('/')
+        );
         assert_eq!(
             signer.object(&scoped, "example", &key),
             Some(format!("project/epochs/{ID}/{key}"))
