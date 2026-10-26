@@ -261,6 +261,22 @@ class ConfigTests(unittest.TestCase):
             host.configure("100.64.0.1")
             self.assertEqual(json.loads(path.read_text())["projects"]["example"]["writeTokenHashes"], [])
 
+    def test_cdn_configuration_keeps_only_public_metadata_and_requires_the_origin_guard(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            host = sync.Sync.__new__(sync.Sync)
+            host.home = Path(temporary); host.bucket = 'artifacts'
+            host.source = {'region':'eu-north-1', 'network':'public-ipv6'}
+            host.restart = False; host.s3 = Mock()
+            host.s3.get_paginator.return_value.paginate.return_value = []
+            settings = {'host':'cloud.layr.ws','keyId':'PUBLICID','keyParameter':'/layr-store/gateway/cdn-signing-a','region':'eu-north-1','stores':{}}
+            public = {'host':'origin.cloud.layr.ws','cloudfront':True,'publicHost':'cloud.layr.ws','cdn':settings}
+            host.get = lambda _: json.dumps(public).encode()
+            host.configure('2001:db8::4')
+            self.assertEqual(json.loads((host.home/'config.json').read_text())['cdn'],settings)
+            self.assertNotIn('PRIVATE KEY',(host.home/'config.json').read_text())
+            public['cloudfront'] = False
+            with self.assertRaisesRegex(ValueError,'guarded'): host.configure('2001:db8::4')
+
     def test_cloudfront_config_contains_only_secret_region_and_origin_dns_name(self):
         with tempfile.TemporaryDirectory() as temporary:
             host = sync.Sync.__new__(sync.Sync)

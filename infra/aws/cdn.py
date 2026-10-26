@@ -247,6 +247,51 @@ def stores_from_stacks(session):
     return result
 
 
+def gateway_role(template):
+    """Change only the role's exact signing-key read permissions."""
+    result = copy.deepcopy(template)
+    rows = result['Resources']['Role']['Properties']['Policies'][0]['PolicyDocument']['Statement']
+    source = source_template('gateway.yaml')['Resources']['Role']['Properties']['Policies'][0]['PolicyDocument']['Statement']
+    desired = next(row for row in source if row.get('Sid') == 'CdnSigningRead')
+    old = [row for row in rows if row.get('Sid') == 'CdnSigningRead']
+    if old and old != [desired]:
+        raise ValueError('Existing CDN signing permission differs')
+    if not old:
+        position = next((i for i, row in enumerate(rows) if row.get('Effect') == 'Deny'), len(rows))
+        rows.insert(position, desired)
+    deny = [row for row in rows if row.get('Effect') == 'Deny'
+            and row.get('Action') == ['ssm:GetParameter', 'ssm:GetParameters', 'ssm:GetParametersByPath']]
+    if len(deny) != 1 or not isinstance(deny[0].get('NotResource'), list):
+        raise ValueError('Gateway SSM deny boundary differs')
+    required = [{'Fn::Sub': 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/layr-store/gateway/' + name}
+                for name in ('session-secret', 'origin-secret', 'cdn-signing-a', 'cdn-signing-b')]
+    if any(row not in required for row in deny[0]['NotResource']) or not all(row in deny[0]['NotResource'] for row in required[:2]):
+        raise ValueError('Gateway secret read exceptions differ')
+    deny[0]['NotResource'] = required
+    return result
+
+
+def runtime_settings(session, slot='a'):
+    """Return only public routing metadata after matching the SSM key to CloudFront."""
+    from cryptography.hazmat.primitives import serialization
+    if slot not in KEY_PARAMETERS:
+        raise ValueError('Unknown signing slot')
+    outputs = {row['OutputKey']: row['OutputValue'] for row in session.client('cloudformation').describe_stacks(
+        StackName='layr-cloudfront')['Stacks'][0]['Outputs']}
+    public_id = outputs['CdnPublicKey' + slot.upper()]
+    encoded = session.client('cloudfront').get_public_key(Id=public_id)['PublicKey']['PublicKeyConfig']['EncodedKey']
+    parameter = session.client('ssm').get_parameter(Name=KEY_PARAMETERS[slot], WithDecryption=True)['Parameter']
+    if parameter['Type'] != 'SecureString':
+        raise ValueError('Signing key must be a SecureString')
+    key = serialization.load_pem_private_key(parameter['Value'].encode(), password=None)
+    public = key.public_key().public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo).decode()
+    if public.strip() != encoded.strip():
+        raise ValueError('SSM signing key does not match the trusted CloudFront public key')
+    return {'host': 'cloud.layr.ws', 'keyId': public_id, 'keyParameter': KEY_PARAMETERS[slot], 'region': REGION,
+            'stores': {alias: {'bucket': row['bucket'], 'prefix': row['prefix'], 'region': REGION}
+                       for alias, row in stores_from_stacks(session).items()}}
+
+
 def plan(session, stack, template):
     cf = session.client('cloudformation')
     current = cf.describe_stacks(StackName=stack)['Stacks'][0]
@@ -271,7 +316,7 @@ def plan(session, stack, template):
 def validate_changes(cf, stack, change, result):
     allowed = {'layr-cloudfront': {'Distribution', 'CdnOac', 'CdnCache', 'CdnRouter',
                                   'CdnKeys', 'CdnPublicKeyA', 'CdnPublicKeyB'}}
-    names = allowed.get(stack, {'BucketPolicy'} if stack in
+    names = {'Role'} if stack == 'layr-gateway' else allowed.get(stack, {'BucketPolicy'} if stack in
         ['layr-store-' + name for name in ('layr', 'layr-cloud', 'layr-studio', 'm8-final')] else set())
     for row in result.get('Changes', []):
         resource = row['ResourceChange']
@@ -288,13 +333,13 @@ def validate_changes(cf, stack, change, result):
             continue
         if name not in names or resource['Action'] == 'Remove':
             raise ValueError('Unexpected resource change')
-        if name in ('Distribution', 'BucketPolicy') and resource['Action'] == 'Modify' and resource.get('Replacement') != 'False':
+        if name in ('Distribution', 'BucketPolicy', 'Role') and resource['Action'] == 'Modify' and resource.get('Replacement') != 'False':
             raise ValueError('Refusing replacement of an existing distribution or bucket policy')
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('operation', choices=['plan-front', 'plan-store', 'inspect', 'execute', 'probe'])
+    parser.add_argument('operation', choices=['plan-front', 'plan-store', 'inspect', 'execute', 'probe', 'plan-role', 'settings'])
     parser.add_argument('--stack', default='layr-cloudfront')
     parser.add_argument('--change')
     parser.add_argument('--receipt', default='/tmp/layr-cdn-build/sha256-probe.json')
@@ -302,7 +347,15 @@ def main():
     session = boto3.Session(region_name=REGION)
     if session.client('sts').get_caller_identity()['Account'] != ACCOUNT:
         raise ValueError('Unexpected AWS account')
-    if args.operation == 'probe':
+    if args.operation == 'settings':
+        print(json.dumps(runtime_settings(session), sort_keys=True))
+    elif args.operation == 'plan-role':
+        if args.stack != 'layr-gateway':
+            raise ValueError('Unexpected gateway stack')
+        live = session.client('cloudformation').get_template(StackName=args.stack)['TemplateBody']
+        live = yaml.load(live, Loader=Loader) if isinstance(live, str) else live
+        print(json.dumps(plan(session, args.stack, gateway_role(live))))
+    elif args.operation == 'probe':
         probe(session, args.receipt)
     elif args.operation == 'plan-front':
         if args.stack != 'layr-cloudfront':

@@ -78,10 +78,10 @@ class TemplateTests(unittest.TestCase):
         self.assertEqual(cert["ValidationMethod"], "DNS")
         self.assertEqual(cert["DomainValidationOptions"], [{"DomainName":{"Ref":"Host"}, "HostedZoneId":{"Ref":"ZoneId"}}])
 
-    def test_gateway_secret_read_is_limited_to_the_two_exact_parameters(self):
+    def test_gateway_secret_read_is_limited_to_four_exact_parameters(self):
         role = template("gateway.yaml")["Resources"]["Role"]
         deny = next(item for item in statements(role) if item.get("Effect") == "Deny" and "ssm:GetParameter" in item["Action"])
-        self.assertEqual(deny["NotResource"], [{"Fn::Sub": "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/layr-store/gateway/" + name} for name in ("session-secret", "origin-secret")])
+        self.assertEqual(deny["NotResource"], [{"Fn::Sub": "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/layr-store/gateway/" + name} for name in ("session-secret", "origin-secret", "cdn-signing-a", "cdn-signing-b")])
 
     def test_fallback_transfer_applies_requests_and_stops_before_push_or_index_on_failure(self):
         source = template("executor.yaml")["Resources"]["Instance"]["Properties"]["UserData"]["Fn::Base64"]["Fn::Sub"]

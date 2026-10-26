@@ -254,6 +254,10 @@ class Sync:
             if gateway.get("cloudfront"):
                 config["originSecretRegion"] = self.source["region"]
                 config["publicHost"] = gateway["publicHost"]
+            if gateway.get("cdn"):
+                if not gateway.get("cloudfront"):
+                    raise ValueError("CDN requires the guarded CloudFront origin")
+                config["cdn"] = gateway["cdn"]
             app = getattr(self, "app", Path("/opt/layr-gateway"))
             if (app / "current/site/index.html").is_file():
                 config["siteDir"] = str(app / "current/site")

@@ -7,6 +7,29 @@ import cdn
 
 
 class CdnTests(unittest.TestCase):
+    def test_signing_iam_changes_only_the_role_and_two_exact_read_permissions(self):
+        base = cdn.source_template('gateway.yaml')
+        old = copy.deepcopy(base)
+        # Reproduce the current live role before CDN was enabled.
+        rows = base['Resources']['Role']['Properties']['Policies'][0]['PolicyDocument']['Statement']
+        rows[:] = [row for row in rows if row.get('Sid') != 'CdnSigningRead']
+        deny = next(row for row in rows if row.get('Effect') == 'Deny' and 'ssm:GetParameter' in row.get('Action', []))
+        deny['NotResource'] = deny['NotResource'][:2]
+        changed = cdn.gateway_role(base)
+        for name, resource in base['Resources'].items():
+            if name != 'Role': self.assertEqual(changed['Resources'][name], resource)
+        statements = changed['Resources']['Role']['Properties']['Policies'][0]['PolicyDocument']['Statement']
+        reads = next(row for row in statements if row.get('Sid') == 'CdnSigningRead')
+        self.assertEqual(reads['Action'], 'ssm:GetParameter')
+        self.assertEqual(len(reads['Resource']), 2)
+        self.assertTrue(all('cdn-signing-' in row['Fn::Sub'] and '*' not in row['Fn::Sub'] for row in reads['Resource']))
+        self.assertEqual(cdn.gateway_role(changed), changed)
+        self.assertEqual(changed, old)
+        deny['NotResource'].append({'Fn::Sub': 'unexpected'})
+        with self.assertRaises(ValueError): cdn.gateway_role(base)
+        changes = {'Changes': [{'ResourceChange': {'LogicalResourceId':'Role','Action':'Modify','Replacement':'True'}}]}
+        with self.assertRaises(ValueError): cdn.validate_changes(Mock(), 'layr-gateway', 'change', changes)
+
     def test_dns_dependency_updates_require_identical_definitions(self):
         cf = Mock()
         base = cdn.source_template('cloudfront.yaml')

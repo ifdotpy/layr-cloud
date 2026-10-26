@@ -161,11 +161,19 @@ Resources:
                   Action: ssm:PutParameter
                   Resource: !Ref ProjectWriteTokenParameterArns
                 - !Ref AWS::NoValue
+              - Sid: CdnSigningRead
+                Effect: Allow
+                Action: ssm:GetParameter
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/layr-store/gateway/cdn-signing-a"
+                  - !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/layr-store/gateway/cdn-signing-b"
               - Effect: Deny
                 Action: [ssm:GetParameter, ssm:GetParameters, ssm:GetParametersByPath]
                 NotResource:
                   - !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/layr-store/gateway/session-secret"
                   - !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/layr-store/gateway/origin-secret"
+                  - !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/layr-store/gateway/cdn-signing-a"
+                  - !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/layr-store/gateway/cdn-signing-b"
               # Only the host's address and its ACME challenge.
               - !If
                 - HasZone
