@@ -388,7 +388,7 @@ that policy is retained and a dual-SAN origin certificate is unnecessary. The or
 covers `origin.cloud.layr.ws`. Direct origin traffic and a forged viewer header without the secret
 both returned 403, while an authenticated origin request returned verified HTTPS 200.
 
-## Full-suite laptop cloud fixture (2026-10-26, in progress)
+## Full-suite laptop cloud fixture (2026-10-26)
 
 The lead authorized a separate disposable fixture after the M1 preparation stage was merged.
 At 11:21 UTC, `m3-suite` was published in the empty `layr-store-m8-final` store. Its project ID is
@@ -562,3 +562,29 @@ the source and displayed exactly five passing command rows bound to the correcte
 including the macOS APFS and both Linux overlay jobs. Historical failure rows remained visible.
 Signature sign-in, lock and empty browser storage passed. Cloud and RAM cleanup wait for the
 runner worker's final local enrollment-removal receipt.
+
+
+### Full-suite fixture retirement
+
+The runner worker's 14:10:52 UTC receipt confirms both local project enrollments removed,
+all project-specific agents/timers disabled, transport files removed, and both global machine
+identities preserved. Its VM, stable runner daemon and user LaunchAgent remain available.
+Before cloud retirement, six full signed envelopes (original failure plus five corrected checks)
+were retained in [evidence/m3-signed-checks.jsonl](evidence/m3-signed-checks.jsonl). Six retained
+logs and a byte-count/hash manifest are outside RAM under `/tmp/layr-m3-build`; no credential
+patterns were found in those logs. The independent comparison matched all five passing
+signed envelopes and all five retained log hashes.
+
+Cleanup removed 314 versions/markers under `m8-final/`, the synthetic person's four versions,
+two registration versions/markers, two gateway project-config versions and four fixture SSM
+parameters. It preserved the persistent origin/session secrets. Final gateway readback SSM
+`6654b3c5-b184-40c2-98d6-8b713afda623` found the credential-budget release active, an empty
+project configuration, direct/forged-origin 403 and public IPv6 HTTPS 200 with certificate
+verification 0. The owned APFS RAM disk detached normally.
+
+Final AWS readback at 14:15:37 UTC: CloudFront deployed; both public aliases present; origin
+IPv6-only; 120-second origin timeout; caching disabled; all six protected DNS records and the
+prototype distribution unchanged; disposable store empty; all three real stores empty;
+fixture parameters absent; persistent secrets preserved; no relay ports open. Public Mac
+IPv4 HTTPS returned 200 with certificate verification 0. No real-project creation, recovery
+key handling or executor enrollment occurred. M1 step 4 remains for Igor's coordinated steps.
