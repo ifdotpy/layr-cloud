@@ -1,0 +1,30 @@
+{
+  "observedUTC": "2026-10-26T22:57:00Z",
+  "test": "transport::tests::tls_http1_full_queue_with_128_connections_has_bounded_rss",
+  "monitor": "080c966c-0a3a-518a-b2d4-4a26f3dd1d1c",
+  "connections": 128,
+  "queuedRequests": 64,
+  "activeWorkerLimit": 4,
+  "transport": "HTTP/1.1 over TLS",
+  "baselineRssBytes": 9711616,
+  "loadedRssBytes": 21159936,
+  "clientProcessExcluded": true,
+  "scope": "Transport admission overhead; worker permits held without S3 payload buffers",
+  "timeouts": {
+    "keepAliveEnabled": false,
+    "headerReadSeconds": 15,
+    "tlsHandshakeSeconds": 10,
+    "queueSeconds": 10
+  },
+  "nanoBaseline": {
+    "MemTotalBytes": 451129344,
+    "MemAvailableBytes": 328552448,
+    "gatewayRssBytes": 6287360
+  },
+  "queueFull": {
+    "status": 503,
+    "retryAfterSeconds": 1,
+    "refusedTotal": 1,
+    "log": "layr-gateway: admission refused reason=queue_full refused_total=1"
+  }
+}

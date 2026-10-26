@@ -60,8 +60,8 @@ pub enum Transfer {
 pub struct ListPage { pub entries: Vec<Entry>, pub continuation: Option<String> }
 
 pub trait Storage: Send + Sync {
-    fn object_length(&self, project: &Project, key: &str) -> Result<Option<u64>> {
-        Ok(self.get(project, key, None, object_limit(key))?.map(|object| object.body.len() as u64))
+    fn object_length(&self, _: &Project, _: &str) -> Result<Option<u64>> {
+        bail!("storage metadata is unavailable")
     }
     fn list_page(&self, project: &Project, prefix: &str, role: Role, continuation: Option<&str>, limit: usize) -> Result<ListPage> {
         if limit == 0 || limit > crate::listing::PAGE { bail!("invalid listing page size"); }
@@ -413,7 +413,7 @@ impl Gateway {
         };
         if !allowed { return Ok(Self::rate_exceeded()); }
         if unavailable { return Ok(Reply::error(404, "no such project")); }
-        let reply = self.route_checked(request, login, peer, &config, chain)?;
+        let reply = self.route_checked(request, login, peer, &config, chain, false)?;
         // Valid credentials do not move refused authentication out of the IP budget.
         if credential && matches!(reply.status, 401 | 403 | 404)
             && !self.public_limit.allow(peer, std::time::Instant::now()) {
@@ -435,6 +435,7 @@ impl Gateway {
         peer: std::net::IpAddr,
         config: &super::config::Config,
         mut preloaded: Option<super::epochs::Chain>,
+        metadata_only: bool,
     ) -> Result<Reply> {
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
         if config.listen != self.listen {
@@ -503,9 +504,23 @@ impl Gateway {
                 ));
             }
         }
+        let batch = if request.method == "POST" && parts.len() == 4 && parts[0] == "v1" && parts[1] == "p" && parts[3] == "cdn" {
+            #[derive(serde::Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Batch { epoch: String, keys: Vec<String> }
+            if request.body.len() > 256 * 1028 + 128 { return Ok(Reply::error(413, "batch request is too large")); }
+            let value: Batch = match serde_json::from_slice(&request.body) {
+                Ok(value) => value,
+                Err(_) => return Ok(Reply::error(400, "invalid batch request")),
+            };
+            if value.keys.is_empty() || value.keys.len() > 256 || value.keys.iter().any(|key|key.starts_with("project/epochs/")) || (value.epoch != "root" && !layr_store::format::is_uuid(&value.epoch)) {
+                return Ok(Reply::error(400, "invalid batch request"));
+            }
+            Some((value.epoch, value.keys))
+        } else { None };
         let mut scoped_project = None;
         let mut epoch_chain = None;
-        let mut namespace = String::from("root");
+        let mut namespace = batch.as_ref().map(|(epoch, _)| epoch.clone()).unwrap_or_else(|| String::from("root"));
         let mut scoped_query = None;
         let mut scoped_read = false;
         if parts.len() >= 3 && parts[0] == "v1" && parts[1] == "p" {
@@ -604,7 +619,7 @@ impl Gateway {
         }
         let query = scoped_query.as_deref().unwrap_or(query);
         if request.method != "GET" && request.method != "HEAD" {
-            let json = parts.get(3).is_some_and(|p| p == "token");
+            let json = parts.get(3).is_some_and(|p| matches!(p.as_str(), "token" | "cdn"));
             if let Some(reply) = other_site(&request, json, public_host) {
                 return Ok(reply);
             }
@@ -665,6 +680,32 @@ impl Gateway {
                     None => Reply::error(404, "no such object"),
                 },
             );
+        }
+        if let Some((epoch, keys)) = batch {
+            if !read { return Ok(Reply::error(401, "a read challenge token is required")); }
+            let mut objects = Vec::with_capacity(keys.len());
+            for key in keys {
+                if std::time::Instant::now() >= deadline { return Ok(Reply::error(408, "request timed out")); }
+                let mut headers = request.headers.clone(); headers.insert("x-layr-cdn".into(), "1".into());
+                let prefix = if epoch == "root" { String::new() } else { format!("project/epochs/{epoch}/") };
+                // Reuse the single GET's route and authorization checks. Metadata mode
+                // replaces the final body read with HEAD; no requested body is fetched.
+                let reply = self.route_checked(http::Request {
+                    method: "GET".into(), target: format!("/v1/p/{name}/objects/{prefix}{key}"), headers, body: Vec::new(),
+                }, login, peer, config, epoch_chain.clone(), true).unwrap_or_else(|error| {
+                    if let Some(error) = error.downcast_ref::<http::Error>() { return Reply::error(error.status,error.message); }
+                    eprintln!("layr-gateway: request failed: {error:#}");
+                    Reply::error(502,"storage request failed")
+                });
+                let value = if reply.status == 200 {
+                    let mut value: serde_json::Value = serde_json::from_slice(&reply.body)?;
+                    value.as_object_mut().expect("metadata object").insert("status".into(), json!(200)); value
+                } else {
+                    json!({"status":reply.status,"error":serde_json::from_slice::<serde_json::Value>(&reply.body)?})
+                };
+                objects.push(value);
+            }
+            return Ok(Reply::json(200, json!({"objects":objects})));
         }
         match (request.method.as_str(), action.as_str(), root) {
             ("GET", "store.json", true) => {
@@ -803,6 +844,12 @@ impl Gateway {
                     if let Some(signer) = &self.cdn {
                         if let Some(reply) = signer.reply(self, project, name, &key, &request)? { return Ok(reply); }
                     }
+                }
+                if metadata_only {
+                    return Ok(match self.storage.object_length(project, &key)? {
+                        Some(_) => Reply::json(200, json!({"direct":true})),
+                        None => Reply::error(404, "no such object"),
+                    });
                 }
                 let range = request
                     .header("range")
@@ -1145,7 +1192,7 @@ impl Gateway {
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use super::*;
     use std::collections::BTreeMap;
     use std::sync::Mutex;
@@ -1190,6 +1237,9 @@ mod tests {
         }
     }
     impl Storage for Memory {
+        fn object_length(&self, project: &Project, key: &str) -> Result<Option<u64>> {
+            Ok(self.0.lock().unwrap().get(&memory_key(project, key)).map(|bytes| bytes.len() as u64))
+        }
         fn get_stream(
             &self,
             project: &Project,
@@ -1272,14 +1322,23 @@ mod tests {
             Ok(())
         }
     }
-    struct Fixture {
+    pub(crate) struct Fixture {
         gateway: Gateway,
         identity: age::x25519::Identity,
         config: super::super::config::Config,
         path: std::path::PathBuf,
     }
     impl Fixture {
-        fn new() -> Self {
+        pub(crate) fn transport_gateway(&self) -> Arc<Gateway> {
+            Arc::new(Gateway {
+                cdn: None, config: self.gateway.config.clone(), proof: auth::Proof::new(),
+                storage: self.gateway.storage.clone(), listen: self.gateway.listen, origin: None,
+                person_secret: self.gateway.person_secret.clone(), person_writing: self.gateway.person_writing.clone(),
+                public_limit: super::super::public::Limiter::default(), sessions: super::super::session::Sessions::default(),
+                bootstrap_limit: super::super::public::Limiter::default(),
+            })
+        }
+        pub(crate) fn new() -> Self {
             let identity = age::x25519::Identity::generate();
             let mut config = super::super::config::sample();
             config.projects.get_mut("example").unwrap().recipient =
@@ -2089,6 +2148,56 @@ mod tests {
         assert_eq!(request(&key, &read, true, false).status, 404);
         let hidden = format!("overlays/{OVERLAY}/keys/{OVERLAY}-{EPOCH}.age");
         assert_eq!(request(&hidden, "", true, false).body, request(&hidden, "", false, false).body);
+    }
+
+    #[test]
+    fn batch_signing_matches_single_results_without_reading_object_bodies() {
+        let mut f = Fixture::new(); let project = f.config.projects["example"].clone();
+        f.gateway.cdn = Some(super::super::cdn::test_signer(&project));
+        let read = f.read_token();
+        let existing = format!("states/{OVERLAY}/12345678.tree.age");
+        let direct = format!("slots/machine-{OVERLAY}.age");
+        let missing = format!("states/{EPOCH}/12345678.tree.age");
+        let hidden = format!("overlays/{OVERLAY}/keys/{OVERLAY}-{EPOCH}.age");
+        for key in [&existing, &direct] { f.gateway.storage.put(&project, key, b"cipher".to_vec()).unwrap(); }
+        let keys = vec![existing.clone(), direct.clone(), missing.clone(), hidden.clone(), "invalid".into()];
+        let singles: Vec<_> = keys.iter().map(|key| {
+            f.gateway.handle(http::Request { method:"GET".into(), target:format!("/v1/p/example/objects/{key}"),
+                headers:[("host".into(),"localhost".into()),("authorization".into(),format!("Bearer {read}")),("x-layr-cdn".into(),"1".into())].into(), body:vec![] }, None)
+        }).collect();
+        struct MetadataOnly { inner: Arc<dyn Storage>, forbidden: Vec<String> }
+        impl Storage for MetadataOnly {
+            fn object_length(&self, p:&Project, k:&str)->Result<Option<u64>> { self.inner.object_length(p,k) }
+            fn get(&self,p:&Project,k:&str,r:Option<http::Range>,n:usize)->Result<Option<Object>> {
+                assert!(!self.forbidden.iter().any(|name| name==k),"batch read object body: {k}"); self.inner.get(p,k,r,n)
+            }
+            fn list(&self,p:&Project,k:&str,r:Role)->Result<Vec<Entry>> { self.inner.list(p,k,r) }
+            fn put(&self,_:&Project,_:&str,_:Vec<u8>)->Result<bool> { bail!("unused") }
+            fn delete(&self,_:&Project,_:&str)->Result<()> { bail!("unused") }
+        }
+        f.gateway.storage = Arc::new(MetadataOnly { inner:f.gateway.storage.clone(), forbidden:keys.clone() });
+        let body = json!({"epoch":"root","keys":keys}).to_string();
+        let reply=f.request("POST","/v1/p/example/cdn",&read,body.as_bytes(),None);
+        assert_eq!(reply.status,200);
+        let batch:serde_json::Value=serde_json::from_slice(&reply.body).unwrap();
+        for (index,single) in singles.iter().enumerate() {
+            let item=&batch["objects"][index]; assert_eq!(item["status"],single.status);
+            if single.status!=200 {
+                assert_eq!(item["error"],serde_json::from_slice::<serde_json::Value>(&single.body).unwrap());
+                assert!(item.get("url").is_none()); assert!(item.get("bytes").is_none());
+            } else if index==1 { assert_eq!(*item,json!({"status":200,"direct":true})); }
+            else {
+                let link:serde_json::Value=serde_json::from_slice(&single.body).unwrap();
+                assert_eq!(item["bytes"],link["bytes"]);
+                assert!(item["expires"].as_u64().unwrap().abs_diff(link["expires"].as_u64().unwrap())<=1);
+                assert_eq!(item["url"].as_str().unwrap().split('?').next(),link["url"].as_str().unwrap().split('?').next());
+                assert_eq!(item.as_object().unwrap().len(),4);
+            }
+        }
+        assert_eq!(f.request("POST","/v1/p/example/cdn","",body.as_bytes(),None).status,401);
+        for invalid in [json!({"epoch":"root","keys":vec![existing;257]}), json!({"epoch":"wrong","keys":[missing]}), json!({"epoch":"root","keys":[format!("project/epochs/{EPOCH}/states/{OVERLAY}/12345678.tree.age")]})] {
+            assert_eq!(f.request("POST","/v1/p/example/cdn",&read,invalid.to_string().as_bytes(),None).status,400);
+        }
     }
 
     #[test]

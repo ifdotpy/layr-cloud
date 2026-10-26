@@ -49,6 +49,7 @@ pub fn key_record(path: &str, bytes: &[u8], project: &str) -> Result<Key> {
     Ok(key)
 }
 
+#[derive(Clone)]
 pub struct Chain {
     root: Project,
     keys: Vec<Key>,

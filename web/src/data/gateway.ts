@@ -31,6 +31,15 @@ export class Gateway {
   private signer?: {login: string; sign: (challenge: string) => string};
   private signingIn?: Promise<void>;
   private generation = 0;
+  private signingActive = 0;
+  private signingWaiters: (() => void)[] = [];
+  private batchLinks = new Map<string, unknown>();
+  private async signingRequest<T>(request: () => Promise<T>): Promise<T> {
+    if (this.signingActive >= 4) await new Promise<void>(resolve => this.signingWaiters.push(resolve));
+    else this.signingActive++;
+    try { return await request(); }
+    finally { const next = this.signingWaiters.shift(); if (next) next(); else this.signingActive--; }
+  }
   private ciphertext = new Map<string, Uint8Array>();
   private bytes = 0;
   private cdnSources = new WeakSet<Uint8Array>();
@@ -41,13 +50,23 @@ export class Gateway {
     this.base = url.pathname.replace(/\/$/, '');
   }
   private async request(path: string, init: RequestInit = {}): Promise<Response> {
-    const response = await fetch(this.base + path, { ...init, credentials: 'same-origin', cache: 'no-store' });
-    if (!response.ok) {
+    const generation = this.generation;
+    for (let attempt = 0; ; attempt++) {
+      const response = await fetch(this.base + path, { ...init, credentials: 'same-origin', cache: 'no-store' });
+      if (response.ok) return response;
       const body = await response.json().catch(() => ({}));
+      if (response.status === 503 && body.error === 'gateway is busy; retry later' && attempt < 3) {
+        const delay = Number(response.headers.get('retry-after'));
+        if (Number.isFinite(delay) && delay >= 0 && delay <= 60) {
+          await new Promise(resolve => setTimeout(resolve, delay * 1000 + Math.random() * 250));
+          if (generation !== this.generation) throw new Error('Your session is locked.');
+          continue;
+        }
+      }
       throw new HttpError(response.status, body.error || `HTTP ${response.status}`);
     }
-    return response;
   }
+
   async unlock(login: string): Promise<PersonView> {
     const result = await (await this.request(`/api/person/unlock?login=${encodeURIComponent(login)}`)).json();
     const bytes = fromBase64(result.unlock);
@@ -135,10 +154,15 @@ export class Gateway {
     this.readExchanges.set(project,pending);
     try { return await pending; } finally { if (this.readExchanges.get(project)===pending) this.readExchanges.delete(project); }
   }
-  private async authorized(project: string, path: string, decrypt: (bytes: Uint8Array) => string, cdn = false): Promise<Response> {
+  private async authorized(project: string, path: string, decrypt: (bytes: Uint8Array) => string, cdn = false, init: RequestInit = {}): Promise<Response> {
     for (let attempt = 0; ; attempt++) {
       const token = await this.token(project, decrypt);
-      try { return await this.request(this.route(project, path), { headers: { authorization: `Bearer ${token}`, ...(cdn ? {'x-layr-cdn':'1'} : {}) } }); }
+      try {
+        const headers = new Headers(init.headers); headers.set('authorization', `Bearer ${token}`);
+        if (cdn) headers.set('x-layr-cdn', '1');
+        const get = () => this.request(this.route(project, path), {...init, headers});
+        return await (cdn ? this.signingRequest(get) : get());
+      }
       catch (error) {
         if (!(error instanceof HttpError) || error.status !== 401 || attempt > 0) throw error;
         this.tokens.delete(project);
@@ -167,7 +191,9 @@ export class Gateway {
   private async ciphertextObject(project: string, key: string, maximum: number, decrypt?: (bytes: Uint8Array) => string, direct = false): Promise<Uint8Array> {
     const generation = this.generation, path = key.split('/').map(encodeURIComponent).join('/');
     const get = (cdn: boolean) => decrypt ? this.authorized(project, `objects/${path}`, decrypt, cdn) : this.request(this.publicRoute(project, path));
-    let response = await get(!direct && cacheable(key));
+    const prepared = direct ? undefined : this.batchLinks.get(`${project}/${key}`);
+    this.batchLinks.delete(`${project}/${key}`);
+    let response = prepared ? new Response(JSON.stringify(prepared), {headers:{'content-type':'application/vnd.layr.cdn+json'}}) : await get(!direct && prepared !== false && cacheable(key));
     let fromCdn = false, expected: number | undefined;
     if (response.headers.get('content-type')?.split(';')[0] === 'application/vnd.layr.cdn+json') {
       if (direct || !decrypt || !cacheable(key)) throw new Error('Unexpected CDN reply.');
@@ -208,6 +234,34 @@ export class Gateway {
     }
     return result;
   }
+  private async prepareBatch(project: string, keys: string[], decrypt: (bytes: Uint8Array) => string): Promise<void> {
+    const generation = this.generation;
+    const groups = new Map<string, {key:string; relative:string}[]>();
+    for (const key of keys) {
+      if (!cacheable(key) || this.ciphertext.has(`${project}/${key}`)) continue;
+      const scoped = /^project\/epochs\/([0-9a-f-]{36})\/(.+)$/.exec(key);
+      const epoch = scoped?.[1] ?? 'root', relative = scoped?.[2] ?? key;
+      const group = groups.get(epoch) ?? []; group.push({key, relative}); groups.set(epoch, group);
+    }
+    for (const [epoch, entries] of groups) {
+      const response = await this.signingRequest(() => this.authorized(project, 'cdn', decrypt, false, {
+        method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({epoch, keys:entries.map(entry=>entry.relative)}),
+      }));
+      const raw = await boundedBody(response, 2 * 1024 * 1024);
+      const value = JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(raw));
+      if (!Array.isArray(value.objects) || value.objects.length !== entries.length) throw new Error('Invalid CDN batch reply.');
+      if (generation !== this.generation) throw new Error('Your session is locked.');
+      for (let i=0;i<entries.length;i++) {
+        const item = value.objects[i], entry = entries[i];
+        if (item.status !== 200) throw new HttpError(item.status, item.error?.error || 'CDN signing refused.');
+        if (item.direct === true) { console.debug('A cacheable-key batch returned a direct object.'); this.batchLinks.set(`${project}/${entry.key}`, false); continue; }
+        const {status: _status, ...link} = item;
+        try { signedLink(link, location.origin, project, entry.key, 256 * 1024 * 1024); }
+        catch { this.batchLinks.set(`${project}/${entry.key}`, false); continue; }
+        this.batchLinks.set(`${project}/${entry.key}`, link);
+      }
+    }
+  }
   /** The callback must verify all supplied objects before it publishes a result. */
   async verifiedObjects<T>(project: string, keys: string[], decrypt: (bytes: Uint8Array) => string,
     verify: (bytes: Uint8Array[], retry: boolean) => T | Promise<T>, maximum?: number, readObject?: (key: string, direct: boolean) => Promise<Uint8Array>): Promise<T> {
@@ -215,7 +269,11 @@ export class Gateway {
     const read = (key: string, direct = false) => readObject ? readObject(key,direct) : maximum === undefined ? this.object(project,key,decrypt,direct) : this.releaseObject(project,key,maximum,decrypt,direct);
     const bodies: Uint8Array[] = [];
     // Fetch in bounded batches. WASM verification stays in the caller's serial order.
-    for (let i=0;i<keys.length;i+=8) bodies.push(...await Promise.all(keys.slice(i,i+8).map(key => read(key))));
+    for (let start=0;start<keys.length;start+=256) {
+      const batch = keys.slice(start,start+256);
+      if (!readObject) await this.prepareBatch(project,batch,decrypt);
+      for (let i=0;i<batch.length;i+=8) bodies.push(...await Promise.all(batch.slice(i,i+8).map(key => read(key))));
+    }
     try { return await verify(bodies,false); }
     catch (error) {
       const retry = bodies.map(body=>this.cdnSources.has(body));
@@ -238,5 +296,5 @@ export class Gateway {
     if (!key.endsWith('.age') || key.split('/').some(part => !part || part === '.' || part === '..')) throw new Error('Invalid ciphertext object.');
     return new Uint8Array(await (await this.request(this.publicRoute(project, key.split('/').map(encodeURIComponent).join('/')))).arrayBuffer());
   }
-  lock(): void { this.generation++; this.personSession = undefined; this.signer = undefined; this.signingIn = undefined; this.tokens.clear(); this.readExchanges.clear(); this.epochs.clear(); this.ciphertext.clear(); this.cdnSources = new WeakSet(); this.bytes = 0; }
+  lock(): void { this.generation++; this.personSession = undefined; this.signer = undefined; this.signingIn = undefined; this.tokens.clear(); this.readExchanges.clear(); this.epochs.clear(); this.ciphertext.clear(); this.batchLinks.clear(); this.cdnSources = new WeakSet(); this.bytes = 0; }
 }

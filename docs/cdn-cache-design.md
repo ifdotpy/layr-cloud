@@ -16,12 +16,13 @@ Only objects that never change after creation (create-once):
 
 Never cached: `store.json`, `public.json`, slots, `keys/` discovery, `index/heads/...`, requests, claims, person records, listings, challenges and tokens. Their routes stay exactly as today.
 
-## Flow
+## Flow (lead decision 2026-10-26)
 
 1. The client asks the gateway for an object, as today, with its read token. It adds a header that says it can follow a CDN link.
 2. The gateway checks the read token for that project and epoch, checks that the key is in a cacheable class and that the object exists. Then it answers with a short-lived CloudFront signed URL for `/o/<store-alias>/<key>` (canned policy, path-exact, expiry 5 minutes). A client without the header gets the bytes as today.
-3. The client fetches the signed URL. CloudFront checks the signature, then serves from its cache or from S3.
-4. The client checks the bytes as it does now (age decryption, record signatures, SHA where it has one). A wrong or missing object falls back to the direct gateway route once, then fails.
+3. A batch signing request carries at most 256 keys for one store and one epoch, under one read proof. The gateway applies the same authorization, cacheable-class, existence and epoch checks to every key. It returns a signed URL or the same refusal as the single-key request for each key. The single-key form remains available.
+4. The client fetches the signed URL. CloudFront checks the signature, then serves from its cache or from S3.
+5. The client checks the bytes as it does now (age decryption, record signatures, SHA where it has one). A wrong or missing object falls back to the direct gateway route once, then fails.
 
 ## CloudFront and S3
 
@@ -37,11 +38,14 @@ Never cached: `store.json`, `public.json`, slots, `keys/` discovery, `index/head
 - After GC deletes an object, a cached copy may stay at the edge until its TTL, but nobody gets a signed URL for it, because the gateway checks that the object exists.
 - The signature scheme is the standard CloudFront signed URL. It is AWS's own scheme, and we use an existing RSA library for it. No own cryptography.
 
-## Clients
+## Clients (lead decision 2026-10-26)
 
 - CLI (crates in layr): follow the CDN link on the cacheable routes, with bounded parallel fetches. Keep the gateway route as the fallback.
 - Site worker: the same, through fetch on the same origin.
-- Both send the capability header only for cacheable keys.
+- Both send the capability header only for cacheable keys, use batch signing for object sets, and limit concurrent signing requests to four.
+- A 503 busy response waits for Retry-After with jitter before a bounded retry. It does not trigger the same burst through the direct fallback.
+- The outer connection cap is 128. CloudFront uses HTTP/1.1 to the custom origin, so 32 connections cannot fill the 64-waiter queue. Keep-alive is disabled; each connection serves one request. Header reads time out after 15 seconds; TLS handshakes time out after ten seconds.
+- All gateway routes share four active workers and at most 64 queued requests. A queued request waits at most ten seconds. A full queue or timeout returns 503 with Retry-After: 1, increments the refusal counter and logs the reason without the request path or credentials.
 
 ## Checks
 
@@ -53,3 +57,13 @@ Never cached: `store.json`, `public.json`, slots, `keys/` discovery, `index/head
 - The site loads a large project through the CDN path, with the same browser checks as before.
 - The fallback works when the CDN path is blocked.
 - Cost: the measured CloudFront and S3 request and transfer cost for these clones, written into DEPLOYED.md.
+
+### Batch request and response (lead decision 2026-10-26)
+
+`POST /v1/p/<store>/cdn` accepts JSON `{"epoch":"root","keys":["records/<machine>/<from>-<to>.age"]}` and one project read proof. An epoch UUID replaces `root` for a scoped request. The maximum is 256 keys, all relative to that epoch.
+
+The response preserves input order: `{"objects":[{"status":200,"url":"https://...","expires":1793000000,"bytes":4096}]}`. Each failed entry has the same status and error body as the single GET: `{"status":404,"error":{"error":"no such object"}}`. A readable object outside the cacheable classes returns `{"status":200,"direct":true}`. The gateway checks access and existence without reading an object body. It does not expose a hidden object's existence through the batch route.
+
+Clients include only cacheable classes in a batch. A `direct:true` reply indicates a client defect: log it at debug level and use the direct GET. It does not make that key eligible for caching.
+
+The Linux test build used 21,159,936 bytes of RSS (20.18 MiB) with 128 open TLS HTTP/1.1 connections and all 64 queue slots occupied. The idle test process used 9,711,616 bytes. A separate process held the client sockets. This measures transport and queue memory; the test held the four worker permits without loading S3 payload bodies. At the same time, the production nano reported 328,552,448 bytes of available memory. See `benchmarks/cdn/admission-rss.json` for the measured fields and limits.

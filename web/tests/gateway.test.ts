@@ -145,6 +145,12 @@ test('CDN reads carry no gateway authority and retry verification directly once'
         if(mode==='blocked')return new Response('blocked',{status:403});
         return new Response(new Uint8Array([0,0,0]));
       }
+      if(path==='/v1/p/project/cdn') {
+        assert.equal(init.method,'POST');assert.equal(headers.get('authorization'),'Bearer read-token');
+        assert.deepEqual(JSON.parse(String(init.body)),{epoch:'root',keys:[key]});
+        links++;const expires=Math.floor(Date.now()/1000)+300,host=mode==='foreign'?'other.example':'layr.example';
+        return Response.json({objects:[{status:200,url:`https://${host}/o/project/${key}?Expires=${expires}&Signature=abc&Key-Pair-Id=K123&Hash-Algorithm=SHA256`,expires,bytes:3}]});
+      }
       assert.equal(path,`/v1/p/project/objects/${key}`);assert.equal(headers.get('authorization'),'Bearer read-token');
       if(headers.get('x-layr-cdn')==='1') {
         links++;const expires=Math.floor(Date.now()/1000)+300;
@@ -179,4 +185,42 @@ test('CDN object batches use at most eight parallel reads and preserve caller or
     const result=await gateway.verifiedObjects('project',Array.from({length:19},(_,i)=>`records/${i}.age`),()=> 'proof',bodies=>bodies.map(body=>body[0]));
     assert.deepEqual(result,Array.from({length:19},(_,i)=>i));assert.equal(peak,8);assert.equal(active,0);assert.equal(exchanges,1);
   }finally{globalThis.fetch=previous;}
+});
+
+test('busy responses retry the identical envelope and stop without another burst',async()=>{
+ const previous=globalThis.fetch,random=Math.random;let calls=0;
+ Math.random=()=>0;
+ globalThis.fetch=async(input,init={})=>{
+  assert.equal(String(input),'/api/person?login=ann%40example.com');
+  assert.equal(init.method,'PUT');assert.equal(init.body,'same encrypted registration');
+  calls++;return Response.json({error:'gateway is busy; retry later'},{status:503,headers:{'Retry-After':'0'}});
+ };
+ try {const gateway=new Gateway();await assert.rejects(gateway.register('ann@example.com','invite','same encrypted registration'),/busy/);assert.equal(calls,4);}
+ finally {globalThis.fetch=previous;Math.random=random;}
+});
+
+test('batch signing uses 256-key requests and eight CDN reads with one proof',async()=>{
+ const previous=globalThis.fetch;let batches:number[]=[],active=0,peak=0,proofs=0;
+ const keys=Array.from({length:300},(_,i)=>`files/01a177aa-a7a5-716c-8774-${i.toString(16).padStart(12,'0')}.age`),positions=new Map(keys.map((key,i)=>[key,i]));
+ globalThis.fetch=async(input,init={})=>{
+  const path=String(input),headers=new Headers(init.headers);
+  if(path.startsWith('/api/session/challenge'))return Response.json({challenge:'person'});
+  if(path==='/api/session')return Response.json({login:'ann@example.com',token:'person',expires:Date.now()+60000});
+  if(path.endsWith('/challenge'))return Response.json({challenge:btoa('cipher')});
+  if(path.endsWith('/token')){proofs++;return Response.json({token:'read',expires:Date.now()+60000});}
+  if(path==='/v1/p/project/cdn'){
+   assert.equal(init.method,'POST');assert.equal(headers.get('authorization'),'Bearer read');
+   const body=JSON.parse(String(init.body));assert.equal(body.epoch,'root');assert.ok(body.keys.length<=256);batches.push(body.keys.length);
+   const expires=Math.floor(Date.now()/1000)+300;
+   return Response.json({objects:body.keys.map((key:string)=>({status:200,bytes:1,expires,url:`https://layr.example/o/project/${key}?Expires=${expires}&Signature=abc&Key-Pair-Id=K123&Hash-Algorithm=SHA256`}))});
+  }
+  assert.ok(path.startsWith('https://layr.example/o/project/'));assert.equal(headers.get('authorization'),null);
+  active++;peak=Math.max(peak,active);await new Promise(resolve=>setImmediate(resolve));active--;
+  const key=new URL(path).pathname.slice('/o/project/'.length);return new Response(new Uint8Array([positions.get(key)!%256]));
+ };
+ try {
+  const gateway=new Gateway();await gateway.signIn('ann@example.com',()=> 'signature');
+  const result=await gateway.verifiedObjects('project',keys,()=> 'proof',bodies=>bodies.map(body=>body[0]));
+  assert.deepEqual(result,keys.map((_,i)=>i%256));assert.deepEqual(batches,[256,44]);assert.equal(proofs,1);assert.equal(peak,8);
+ }finally{globalThis.fetch=previous;}
 });

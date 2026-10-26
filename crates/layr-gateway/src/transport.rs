@@ -24,6 +24,8 @@ use std::{
 };
 use tokio::sync::Semaphore;
 
+const CONNECTION_LIMIT: usize = 128;
+
 type ResponseBody = http_body_util::combinators::UnsyncBoxBody<Bytes, io::Error>;
 struct DownloadBody(tokio::sync::mpsc::Receiver<Result<hyper::body::Frame<Bytes>, io::Error>>);
 impl hyper::body::Body for DownloadBody {
@@ -169,15 +171,46 @@ fn release_path(target: &str) -> bool {
     })
 }
 
+// Bound both storage work and waiting requests across all connections/routes.
+struct Admission {
+    active: Arc<Semaphore>,
+    waiting: Arc<Semaphore>,
+    refused: std::sync::atomic::AtomicU64,
+}
+impl Admission {
+    fn new() -> Self {
+        Self { active: Arc::new(Semaphore::new(4)), waiting: Arc::new(Semaphore::new(64)), refused: std::sync::atomic::AtomicU64::new(0) }
+    }
+    fn refuse(&self, reason: &str) -> Reply {
+        let count = self.refused.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+        // Do not log paths or credentials: refusals happen before authorization.
+        eprintln!("layr-gateway: admission refused reason={reason} refused_total={count}");
+        let mut reply = Reply::error(503, "gateway is busy; retry later");
+        reply.headers.push(("Retry-After".into(), "1".into()));
+        reply
+    }
+    async fn acquire(&self, timeout: Duration) -> Result<tokio::sync::OwnedSemaphorePermit, Reply> {
+        if let Ok(slot) = self.active.clone().try_acquire_owned() { return Ok(slot); }
+        let _waiting = match self.waiting.clone().try_acquire_owned() {
+            Ok(slot) => slot,
+            Err(_) => return Err(self.refuse("queue_full")),
+        };
+        match tokio::time::timeout(timeout, self.active.clone().acquire_owned()).await {
+            Ok(Ok(slot)) => Ok(slot),
+            _ => Err(self.refuse("wait_timeout")),
+        }
+    }
+}
+
 async fn request(
     request: Request<Incoming>,
     gateway: Arc<Gateway>,
     peer: IpAddr,
-    work: Arc<Semaphore>,
+    work: Arc<Admission>,
 ) -> Result<Reply> {
-    let _slot = match work.try_acquire_owned() {
+    let _slot = match work.acquire(Duration::from_secs(10)).await {
         Ok(slot) => slot,
-        Err(_) => return Ok(Reply::error(503, "gateway is busy; retry later")),
+        Err(reply) => return Ok(reply),
     };
     let (parts, body) = request.into_parts();
     let target = parts
@@ -323,7 +356,7 @@ async fn request(
     .await?)
 }
 
-async fn connection<I>(io: I, gateway: Arc<Gateway>, peer: IpAddr, work: Arc<Semaphore>)
+async fn connection<I>(io: I, gateway: Arc<Gateway>, peer: IpAddr, work: Arc<Admission>)
 where
     I: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + 'static,
 {
@@ -388,8 +421,8 @@ pub fn serve(
         socket.listen(128)?;
         let listener = tokio::net::TcpListener::from_std(socket.into())
             .context("bind gateway listen address")?;
-        let connections = Arc::new(Semaphore::new(32));
-        let work = Arc::new(Semaphore::new(4));
+        let connections = Arc::new(Semaphore::new(CONNECTION_LIMIT));
+        let work = Arc::new(Admission::new());
         eprintln!("layr-gateway: listening on {address}");
         loop {
             let (stream, peer) = listener.accept().await?;
@@ -416,4 +449,175 @@ pub fn serve(
         #[allow(unreachable_code)]
         Ok::<(), anyhow::Error>(())
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    #[test]
+    fn eight_request_burst_waits_without_exceeding_four_active_jobs() {
+        tokio::runtime::Runtime::new().unwrap().block_on(async {
+            let work = Arc::new(Admission::new());
+            let active = Arc::new(AtomicUsize::new(0));
+            let peak = Arc::new(AtomicUsize::new(0));
+            // Occupy all workers first so every client must use the wait path.
+            let occupied = work.active.clone().acquire_many_owned(4).await.unwrap();
+            let mut jobs = Vec::new();
+            for _ in 0..8 {
+                let work = work.clone(); let active = active.clone(); let peak = peak.clone();
+                jobs.push(tokio::spawn(async move {
+                    let _lease = work.acquire(Duration::from_secs(1)).await.ok().expect("burst must drain");
+                    let n = active.fetch_add(1, Ordering::SeqCst) + 1;
+                    peak.fetch_max(n, Ordering::SeqCst);
+                    tokio::time::sleep(Duration::from_millis(20)).await;
+                    active.fetch_sub(1, Ordering::SeqCst);
+                }));
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+            assert_eq!(active.load(Ordering::SeqCst), 0);
+            drop(occupied);
+            for job in jobs { job.await.unwrap(); }
+            assert_eq!(peak.load(Ordering::SeqCst), 4);
+            assert_eq!(work.active.available_permits(), 4);
+            let occupied = work.active.clone().acquire_many_owned(4).await.unwrap();
+            let refusal = work.acquire(Duration::from_millis(5)).await.err().expect("sustained overload must remain bounded");
+            assert_eq!(refusal.status, 503);
+            assert!(refusal.headers.contains(&("Retry-After".into(), "1".into())));
+            drop(occupied);
+            assert_eq!(work.active.available_permits(), 4);
+        });
+    }
+    #[test]
+    fn real_transport_queues_eight_and_sixty_four_and_refuses_full_queue() {
+        tokio::runtime::Runtime::new().unwrap().block_on(async {
+            for count in [8, 64] {
+                let fixture = crate::server::tests::Fixture::new();
+                let gateway = fixture.transport_gateway();
+                let work = Arc::new(Admission::new());
+                let occupied = work.active.clone().acquire_many_owned(4).await.unwrap();
+                let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+                let address = listener.local_addr().unwrap();
+                let accept_work = work.clone();
+                let server = tokio::spawn(async move {
+                    let mut peers = Vec::new();
+                    for _ in 0..count + 1 {
+                        let (io, peer) = listener.accept().await.unwrap();
+                        peers.push(tokio::spawn(connection(io, gateway.clone(), peer.ip(), accept_work.clone())));
+                    }
+                    for peer in peers { peer.await.unwrap(); }
+                });
+                fn client(address: SocketAddr) -> String {
+                    use std::io::Write;
+                    let mut stream = std::net::TcpStream::connect(address).unwrap();
+                    stream.set_read_timeout(Some(Duration::from_secs(15))).unwrap();
+                    stream.write_all(b"GET /no-such-route HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n").unwrap();
+                    let mut response = String::new(); stream.read_to_string(&mut response).unwrap(); response
+                }
+                let mut clients = Vec::new();
+                for _ in 0..count { clients.push(tokio::task::spawn_blocking(move || client(address))); }
+                tokio::time::timeout(Duration::from_secs(5), async {
+                    while work.waiting.available_permits() != 64 - count { tokio::task::yield_now().await; }
+                }).await.expect("all real HTTP requests must enter the queue");
+                if count == 64 {
+                    let refused = tokio::task::spawn_blocking(move || client(address)).await.unwrap();
+                    assert!(refused.starts_with("HTTP/1.1 503"));
+                    assert!(refused.to_ascii_lowercase().contains("retry-after: 1"));
+                    assert_eq!(work.refused.load(std::sync::atomic::Ordering::Relaxed), 1);
+                } else {
+                    clients.push(tokio::task::spawn_blocking(move || client(address)));
+                }
+                drop(occupied);
+                for response in clients { assert!(response.await.unwrap().starts_with("HTTP/1.1 404")); }
+                server.await.unwrap();
+                assert_eq!(work.waiting.available_permits(), 64);
+                assert_eq!(work.active.available_permits(), 4);
+            }
+        });
+    }
+
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn tls_http1_full_queue_with_128_connections_has_bounded_rss() {
+        // Other tests intentionally allocate large record stores. Measure admission
+        // in a fresh test process so their retained allocator pages do not count.
+        if std::env::var_os("LAYR_GATEWAY_RSS_CHILD").is_none() {
+            let result=std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact","transport::tests::tls_http1_full_queue_with_128_connections_has_bounded_rss","--nocapture","--test-threads=1"])
+                .env("LAYR_GATEWAY_RSS_CHILD","1").output().unwrap();
+            print!("{}",String::from_utf8_lossy(&result.stdout));
+            eprint!("{}",String::from_utf8_lossy(&result.stderr));
+            assert!(result.status.success());return;
+        }
+        use std::io::{BufRead, Write};
+        fn rss() -> u64 {
+            std::fs::read_to_string("/proc/self/status").unwrap().lines().find_map(|line|
+                line.strip_prefix("VmRSS:").map(|value|value.split_whitespace().next().unwrap().parse::<u64>().unwrap()*1024)).unwrap()
+        }
+        let root=std::path::PathBuf::from("/dev/shm").join(format!("layr-transport-{}",uuid::Uuid::now_v7()));
+        std::fs::create_dir(&root).unwrap();
+        let certificate=root.join("certificate.pem");let key=root.join("key.pem");
+        assert!(std::process::Command::new("openssl").args(["req","-x509","-newkey","rsa:2048","-nodes","-days","1","-subj","/CN=localhost","-addext","subjectAltName=DNS:localhost","-keyout"]).arg(&key).arg("-out").arg(&certificate).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status().unwrap().success());
+        tokio::runtime::Runtime::new().unwrap().block_on(async {
+            let baseline=rss();let fixture=crate::server::tests::Fixture::new();let gateway=fixture.transport_gateway();
+            let provider=crate::tls::provider();
+            let resolver=crate::tls::Reloading::new(certificate.clone(),key.clone(),provider.clone()).unwrap();
+            let mut tls=rustls::ServerConfig::builder_with_provider(provider).with_safe_default_protocol_versions().unwrap().with_no_client_auth().with_cert_resolver(Arc::new(resolver));
+            tls.alpn_protocols=vec![b"http/1.1".to_vec()];let acceptor=tokio_rustls::TlsAcceptor::from(Arc::new(tls));
+            let work=Arc::new(Admission::new());let occupied=work.active.clone().acquire_many_owned(4).await.unwrap();
+            let listener=tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();let address=listener.local_addr().unwrap();
+            let connections=Arc::new(Semaphore::new(CONNECTION_LIMIT));let server_connections=connections.clone();let server_work=work.clone();
+            let server=tokio::spawn(async move {
+                let mut jobs=Vec::new();
+                for _ in 0..129 {
+                    let (io,peer)=listener.accept().await.unwrap();
+                    let permit=server_connections.clone().try_acquire_owned().expect("connection cap must admit 128");
+                    let acceptor=acceptor.clone();let gateway=gateway.clone();let work=server_work.clone();
+                    jobs.push(tokio::spawn(async move {
+                        let _permit=permit;
+                        let stream=tokio::time::timeout(Duration::from_secs(10),acceptor.accept(io)).await.unwrap().unwrap();
+                        connection(stream,gateway,peer.ip(),work).await;
+                    }));
+                }
+                for job in jobs { job.await.unwrap(); }
+            });
+            let script=r#"import socket,ssl,sys
+ctx=ssl.create_default_context(cafile=sys.argv[1]);ctx.set_alpn_protocols(['http/1.1'])
+port=int(sys.argv[2]);held=[];idle=[]
+def connect():
+ s=ctx.wrap_socket(socket.create_connection(('127.0.0.1',port),timeout=15),server_hostname='localhost');s.settimeout(15);return s
+def request(s):s.sendall(b'GET /no-such-route HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n')
+def read(s):
+ data=b''
+ while True:
+  block=s.recv(65536)
+  if not block:break
+  data+=block
+ return data
+for i in range(64):
+ s=connect();request(s);held.append(s)
+print('queued',flush=True);assert sys.stdin.readline().strip()=='continue'
+s=connect();request(s);response=read(s);s.close();assert response.startswith(b'HTTP/1.1 503') and b'retry-after: 1' in response.lower()
+for i in range(64):idle.append(connect())
+print('open128',flush=True);assert sys.stdin.readline().strip()=='release'
+for s in held:assert read(s).startswith(b'HTTP/1.1 404');s.close()
+for s in idle:s.close()
+print('passed',flush=True)
+"#;
+            let mut child=std::process::Command::new("python3").arg("-c").arg(script).arg(&certificate).arg(address.port().to_string()).stdin(std::process::Stdio::piped()).stdout(std::process::Stdio::piped()).spawn().unwrap();
+            let mut output=std::io::BufReader::new(child.stdout.take().unwrap());let mut input=child.stdin.take().unwrap();
+            let mut line=String::new();output.read_line(&mut line).unwrap();assert_eq!(line.trim(),"queued");
+            tokio::time::timeout(Duration::from_secs(5),async {while work.waiting.available_permits()!=0 {tokio::task::yield_now().await;}}).await.unwrap();
+            writeln!(input,"continue").unwrap();line.clear();output.read_line(&mut line).unwrap();assert_eq!(line.trim(),"open128");
+            tokio::time::timeout(Duration::from_secs(5),async {while connections.available_permits()!=0 {tokio::task::yield_now().await;}}).await.unwrap();
+            let resident=rss();println!("{{\"connections\":128,\"waiters\":64,\"activeLimit\":4,\"http\":\"1.1 over TLS\",\"baselineRssBytes\":{baseline},\"loadedRssBytes\":{resident}}}");
+            assert!(resident<128*1024*1024,"transport RSS must leave ample nano memory");
+            assert_eq!(work.refused.load(std::sync::atomic::Ordering::Relaxed),1);
+            drop(occupied);writeln!(input,"release").unwrap();line.clear();output.read_line(&mut line).unwrap();assert_eq!(line.trim(),"passed");
+            assert!(child.wait().unwrap().success());server.await.unwrap();
+        });
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
 }
