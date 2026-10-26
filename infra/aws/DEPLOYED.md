@@ -165,3 +165,46 @@ Verification:
 - Core t44/t45/t46 passed 61/28/17 checks sequentially. The real gateway harness reproduced the old staging failure, then passed rotation ordering, interruption after discovery, fail-closed reader message, one-epoch resume and machine-only cloning. The lead's merged-core full suite passed 51/51.
 - Infrastructure: cfn-lint and 35 Python tests passed. Browser build, TypeScript and 85 unit tests passed; 44 page/browser tests and the additional epoch Access test passed.
 - Final readbacks: both smoke stores and registrations absent, real store empty, protected DNS unchanged, gateway active, executor unenrolled, runtime token absent, and all test forwarding resources removed.
+
+## CloudFront artifact verification incident (2026-10-26)
+
+The first CloudFront gateway activation failed before configuration loading: systemd reported
+`Main process exited, code=killed, status=11/SEGV`; running the executable with `--help` also
+returned 139. The source tests had passed. The build-machine executable was 7,418,768 bytes with
+SHA-256 `721c970bdd3ef8afc866873cbe7d01d1418d5a523223d4de6a9f9fba9a29062a`. A copy made through
+captured `orb ... cat` stdout was truncated to 6,422,528 bytes, SHA-256
+`898452cebc9352ddc3063d8e63ffb0f82f4afd505960c3ccae8320dba545d265`. Every copied byte matched
+the original prefix; 996,240 trailing bytes were missing. The resulting archive was
+`b7f25ac06e9f930ecde77afe90bf8e5c14345b35c333666acf10221dd461f5dd`.
+
+The previous archive `66ff73f145bbf064aea1b1f92edacbc651d4ac3eb2fea62c9caae33998132b8b`
+and original host configuration were restored through `Sync.release()`, SSM
+`a1a7aeba-f5a2-4e57-acb6-d5b20e8eb63d`. AWS IPv6 checks returned HTTP 200 with certificate
+verification 0 over HTTP/1.1 and HTTP/2. The distribution was still unexecuted and public DNS was
+unchanged throughout the incident.
+
+The corrected path uses file copying and the tracked `package_gateway.py`, with mandatory byte
+count and SHA-256 measured independently on the build host. Release manifests include
+`binaryBytes` and `binarySha256`; sync checks both before installation and on cached releases.
+The ELF validator rejects a segment extending past the executable's end, even when the archive's
+own digest matches. The actual truncated archive is rejected by this check. Historical manifests
+remain usable for rollback. All 49 Linux infrastructure tests and CloudFormation lint passed.
+
+The complete candidate passed `--help` on the gateway host before activation, SSM
+`284999aa-955c-4d06-bf12-0ab374f7c402`; its size and build-machine SHA-256 matched. An independent
+SSM SecureString read also passed without exposing its value, while the old service still returned
+IPv6 HTTPS 200. The corrected package preserves all nine deployed site files byte for byte.
+
+The first distribution create failed at 09:25 UTC because its template contained an incorrect
+managed cache policy ID. CloudFormation reported `specified cache policy does not exist`, then
+`ROLLBACK_COMPLETE`. The gateway was restored to the previous unguarded release at 09:27 UTC,
+SSM `28a4d760-72b1-451d-b708-a1cef6321432`; HTTP/1.1 and HTTP/2 both returned 200 with TLS
+verification 0. Public DNS did not change. The guarded activation window was approximately
+09:21–09:27 UTC. After the lead approved deletion, resource readback showed only a deleted
+Distribution with no physical ID. The empty failed stack was deleted.
+
+The managed-policy API returned CachingDisabled `4135ea2d-6df8-44a3-9df3-4b5a84be39ad` and
+AllViewerExceptHostHeader `b689b0a8-53d0-40ab-baf2-68738e2966ac`. The template now uses these
+IDs. Before planning any front change set, the deployment helper lists AWS managed policies and
+checks the IDs against their names. A missing or mismatched policy fails before reading the
+origin secret or creating a change set. CloudFormation lint and all 51 infrastructure tests passed.

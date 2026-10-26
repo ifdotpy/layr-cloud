@@ -25,9 +25,31 @@ def change(resource="Distribution", kind="AWS::CloudFront::Distribution", action
 class CloudFrontDeployTests(unittest.TestCase):
     def session(self):
         session = Mock()
-        cf, ssm = Mock(), Mock()
-        session.client.side_effect = lambda name, **kwargs: {"cloudformation": cf, "ssm": ssm}[name]
+        cf, ssm, front = Mock(), Mock(), Mock()
+        front.list_cache_policies.return_value = {"CachePolicyList": {"Items": [{"CachePolicy": {
+            "Id": "4135ea2d-6df8-44a3-9df3-4b5a84be39ad", "CachePolicyConfig": {"Name": "Managed-CachingDisabled"}}}]}}
+        front.list_origin_request_policies.return_value = {"OriginRequestPolicyList": {"Items": [{"OriginRequestPolicy": {
+            "Id": "b689b0a8-53d0-40ab-baf2-68738e2966ac", "OriginRequestPolicyConfig": {"Name": "Managed-AllViewerExceptHostHeader"}}}]}}
+        session.client.side_effect = lambda name, **kwargs: {"cloudformation": cf, "ssm": ssm, "cloudfront": front}[name]
         return session, cf, ssm
+
+    def test_policy_missing_from_aws_refuses_changeset_before_secret_read(self):
+        session, cf, ssm = self.session()
+        cf.describe_stacks.return_value = {"Stacks": [{"Parameters": []}]}
+        session.client("cloudfront").list_cache_policies.return_value = {"CachePolicyList": {"Items": []}}
+        with self.assertRaisesRegex(ValueError, "Managed-CachingDisabled"):
+            deploy.plan(session, "layr-cloudfront", "cloudfront.yaml", {}, origin_secret=True)
+        cf.create_change_set.assert_not_called()
+        ssm.get_parameter.assert_not_called()
+
+    def test_policy_with_wrong_name_or_id_refuses_changeset(self):
+        session, cf, _ = self.session()
+        cf.describe_stacks.return_value = {"Stacks": [{"Parameters": []}]}
+        session.client("cloudfront").list_origin_request_policies.return_value = {"OriginRequestPolicyList": {"Items": [{
+            "OriginRequestPolicy": {"Id": "different", "OriginRequestPolicyConfig": {"Name": "Managed-AllViewerExceptHostHeader"}}}]}}
+        with self.assertRaisesRegex(ValueError, "Managed-AllViewerExceptHostHeader"):
+            deploy.plan(session, "layr-cloudfront", "cloudfront.yaml", {}, origin_secret=True)
+        cf.create_change_set.assert_not_called()
 
     def test_new_front_secret_is_only_in_sdk_parameter_and_receipt_is_public(self):
         session, cf, ssm = self.session()

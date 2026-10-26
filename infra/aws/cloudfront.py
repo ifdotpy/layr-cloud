@@ -10,6 +10,7 @@ import hashlib
 import json
 from pathlib import Path
 import secrets
+import yaml
 
 import boto3
 from botocore.exceptions import ClientError
@@ -19,6 +20,28 @@ REGION = "eu-north-1"
 ACCOUNT = "134250228509"
 ZONE = "Z00094863IAG61NP8YENE"
 ORIGIN_SECRET = "/layr-store/gateway/origin-secret"
+
+
+def verify_managed_policies(session, template):
+    """Resolve managed policies from AWS before creating a change set."""
+    class Loader(yaml.SafeLoader):
+        pass
+    Loader.add_multi_constructor("!", lambda loader, tag, node:
+                                 loader.construct_scalar(node) if isinstance(node, yaml.ScalarNode)
+                                 else loader.construct_sequence(node))
+    behavior = yaml.load(template, Loader=Loader)["Resources"]["Distribution"]["Properties"]["DistributionConfig"]["DefaultCacheBehavior"]
+    client = session.client("cloudfront")
+    for kind, field, expected in (
+            ("cache", "CachePolicyId", "Managed-CachingDisabled"),
+            ("origin_request", "OriginRequestPolicyId", "Managed-AllViewerExceptHostHeader")):
+        result = getattr(client, "list_" + kind + "_policies")(Type="managed")
+        key = "CachePolicy" if kind == "cache" else "OriginRequestPolicy"
+        rows = result[key + "List"].get("Items", [])
+        matches = [row[key]["Id"] for row in rows
+                   if row[key][key + "Config"]["Name"] == expected]
+        if matches != [behavior[field]]:
+            raise ValueError("Template policy does not match AWS managed policy " + expected)
+    print("AWS managed cache and origin request policy IDs verified")
 
 
 def current_stack(cf, name):
@@ -50,6 +73,8 @@ def plan(session, name, template, values, region=REGION, origin_secret=False):
     cf = session.client("cloudformation", region_name=region)
     current = current_stack(cf, name)
     text = (ROOT / template).read_text()
+    if template == "cloudfront.yaml":
+        verify_managed_policies(session, text)
     digest = hashlib.sha256((text + json.dumps(values, sort_keys=True)).encode()).hexdigest()[:16]
     change = "cloudfront-" + digest
     # Recover the receipt before repeating a possibly completed mutation.

@@ -62,7 +62,7 @@ Resources:
           AllowedMethods: [GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE]
           CachedMethods: [GET, HEAD]
           # Managed CachingDisabled; no tokens or private responses enter the cache.
-          CachePolicyId: 413f1606-6b90-4a5d-9d90-cedbe7f1a537
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
           # Managed AllViewerExceptHostHeader; origin Host matches its ACME name.
           OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
           Compress: false

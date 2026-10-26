@@ -62,7 +62,7 @@ class TemplateTests(unittest.TestCase):
         self.assertEqual(origin["OriginCustomHeaders"], [{"HeaderName":"X-Layr-Origin", "HeaderValue":{"Ref":"OriginSecret"}}])
         self.assertTrue(front["Parameters"]["OriginSecret"]["NoEcho"])
         behavior = distribution["DefaultCacheBehavior"]
-        self.assertEqual(behavior["CachePolicyId"], "413f1606-6b90-4a5d-9d90-cedbe7f1a537")
+        self.assertEqual(behavior["CachePolicyId"], "4135ea2d-6df8-44a3-9df3-4b5a84be39ad")
         self.assertEqual(behavior["OriginRequestPolicyId"], "b689b0a8-53d0-40ab-baf2-68738e2966ac")
         self.assertEqual(set(behavior["AllowedMethods"]), {"GET","HEAD","POST","PUT","PATCH","DELETE","OPTIONS"})
         self.assertTrue(all(error["ErrorCachingMinTTL"] == 0 for error in distribution["CustomErrorResponses"]))
