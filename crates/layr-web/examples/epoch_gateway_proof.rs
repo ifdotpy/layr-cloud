@@ -60,7 +60,7 @@ fn main() -> Result<()> {
                 .mode(0o600)
                 .open(&token_path)?
                 .write_all(token.as_bytes())?;
-            println!("PASS removed reader root proof reads original epoch before rotation");
+            println!("PASS removed reader root proof reads original epoch");
         }
         "deny" => {
             let epoch = fixture["epoch"].as_str().context("current epoch")?;
@@ -70,6 +70,14 @@ fn main() -> Result<()> {
                 "object must belong to current epoch"
             );
             let token = fs::read_to_string(&token_path)?;
+            ensure!(
+                http.get(format!("{base}/objects?prefix=records%2F"))
+                    .bearer_auth(token.trim())
+                    .send()?
+                    .status()
+                    == 200,
+                "old proof must still read root history; expiry is not revocation evidence"
+            );
             for target in [
                 format!("{base}/objects/{object}"),
                 format!("{base}/objects?prefix=project%2Fepochs%2F{epoch}%2Frecords%2F"),

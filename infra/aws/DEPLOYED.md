@@ -1,8 +1,8 @@
 # AWS deployment of Layr Cloud
 
-Measured state: 2026-10-25, 22:53 UTC. Both hosts are deployed in Stockholm with SSM administration and no public IPv4 address. The gateway serves IPv6 HTTPS with a valid Let's Encrypt certificate. The exact-main executor build, fresh clone, push, index and reporter cycle passed. One hosted browser comment was delivered encrypted and applied exactly once; native signature verification passed. Cleanup is recorded below.
+Measured state: 2026-10-26, 08:28 UTC. The epoch gateway and site are active. The exact Layr 0.3.0 executor is installed and unenrolled after the disposable live check. Rotation, a fresh machine-only executor clone, one hosted browser comment and removed-reader refusal passed. All disposable enrollments, store objects, person registrations, invites and private fixtures were removed.
 
-Deployment branch: `cloud/m8-deploy`. Real project keys and stores remain uninitialized; final verification uses only the isolated `browser-signin-final` smoke project. The earlier `browser-actions` project was retired and removed.
+Deployment branch: `cloud/epoch-rollout`. Gateway production source: `4b359da6aa424a92abb26ce8a7305ff72beb55ba`, including layr-cloud main `89ecc0b`. Shared crates and executor source: Layr main `01038b931575e1880fbc7b5829fec649720886f1`. No real project has been imported.
 
 ## Resources and network
 
@@ -13,9 +13,9 @@ AWS profile `ifdotpy`, account `134250228509`, region `eu-north-1`.
 | Gateway | `i-04da10c290655544f` | `t4g.nano` | `2a05:d016:df9:4000:8463:e4d6:66bb:c15f` | 8 GiB gp3 root |
 | Executor | `i-0df29a43f3b810a82` | `t4g.small` | `2a05:d016:df9:4000:d35f:3f24:8eae:a94` | 12 GiB root; retained 10 GiB btrfs data |
 
-VPC `vpc-0c5b8b1792383ecf5`; subnet `subnet-07f9b77a10c790951`, Availability Zone `eu-north-1a`; route table `rtb-07dfadc754796fa35`. The retained data volume is `vol-0c764a630871fc14c`, mounted at `/var/lib/layr`.
+VPC `vpc-0c5b8b1792383ecf5`; subnet `subnet-07f9b77a10c790951`, Availability Zone `eu-north-1a`; route table `rtb-07dfadc754796fa35`. Retained volume `vol-0c764a630871fc14c` is mounted at `/var/lib/layr`. The AMI is official Debian 13 ARM64 `ami-0309727f887f847cb`, publisher `136693071363`.
 
-The AMI is `ami-0309727f887f847cb`, official Debian 13 ARM64 publisher `136693071363`. Both hosts reported SSM Online, agent `3.3.5538.0`, and no swap. The gateway accepts TCP 443 from `::/0`; the executor has no inbound security-group rules. Neither host accepts SSH. Tailscale is optional and is not required for this deployment.
+Both hosts use SSM administration, with no public IPv4, SSH or swap. The gateway accepts IPv6 TCP 443; the executor has no inbound security-group rules. No instance, volume, network resource or DNS value was replaced during epoch rollout. The optional runner is not deployed.
 
 | Stack | Bucket or role |
 | --- | --- |
@@ -25,77 +25,106 @@ The AMI is `ami-0309727f887f847cb`, official Debian 13 ARM64 publisher `13669307
 | `layr-gateway` | IAM role `layr-gateway` |
 | `layr-executor-layr` | IAM role `layr-executor-layr` |
 
-Each store has separate `layr-store-reader-<prefix>`, `layr-store-writer-<prefix>` and `layr-store-gc-<prefix>` roles. Host roles assume these exact project roles rather than receiving direct project-object access. The writer creates immutable objects; the separate GC role deletes eligible state data. Retained buckets, object versions and the data volume continue to incur charges after stack deletion.
+Each store has separate reader, writer and GC roles. Host roles assume exact project roles. The disposable `layr-store-m8-final` stack remains, empty, with prefix `m8-final/`. The real `layr-store-layr` bucket has zero object versions and zero delete markers. Its stack and old IAM policy were not changed.
 
-The executor currently uses the final smoke store roles and prefix `m8-final/`, project alias `browser-signin-final`. The `layr` store has no real project data or private project keys. The optional runner is not deployed.
-
-## HTTPS and DNS
-
-Origin: `https://cloud.layr.ws`, IPv6 only. Route 53 zone `Z00094863IAG61NP8YENE` has an AAAA record for the gateway address, TTL 300, and no A record for this host. ACME uses the Route 53 DNS challenge. The certificate has subject `CN=cloud.layr.ws`, issuer Let's Encrypt YE2, and expires 2027-01-23 at 16:26:42 UTC. The gateway supports HTTP/1.1 and HTTP/2 and refuses IPv4 listener connections.
-
-The 19:19 UTC readback confirmed both hosts running without public IPv4. The final 22:53 UTC inventory confirmed the DNS baseline preserved and the real project store empty. Only `cloud.layr.ws` and `_acme-challenge.cloud.layr.ws` were changed. Protected records:
-
-- Apex A/AAAA aliases: `d601z3odhuaeg.cloudfront.net`.
-- `desk.layr.ws A 100.68.127.7`.
-- Existing ACM validation CNAME `_4c72782be16027c8dc92cab529a0814a.layr.ws` to `_a9f28679b4330e8c850d67573fd71795.wzccmgtwzk.acm-validations.aws`.
-
-Initial cloud-init reported a scripts-user failure because the release manifest had not yet been published. After publication, the normal sync service completed and activated HTTPS. It was not an IPv6 or SSM connectivity failure.
-
-## Exact-main executor release
-
-Final CLI source: merged Layr main `1793e69b8df39add2c9ebf1275071949b7591389`. Later main `34ad8c0` adds the browser policy helper without changing CLI code. Main subsequently advanced to `ddcce23` with epoch support; the lead explicitly retained executor `1793e69` for this root-only gateway. Epoch rollout is a separate task.
-
-After merge, `git ls-remote` confirmed that main hash. All 364 files in the build folder were compared with its exact Git archive; none differed. The source archive SHA-256 was `3a2d7dc22c420e593a6985b72970a85656f79fb9888fa6a2a914dbfdcf024c3a`. A new `cargo build --release --locked --target aarch64-unknown-linux-musl --bin layr` completed successfully using the verified source and compiler cache.
+## Installed releases
 
 | Artifact | SHA-256 |
 | --- | --- |
-| Static executor CLI | `c4f016e5c3cd17f0f763657912018ae383aa97531c67c5bc4503c2bda822d814` |
-| Executor archive, three validated files | `30df05a0ce57096466dd79f1020f120352fc78768902785d44ca60f5bcfc0943` |
-| Reporter `checks.py` | `895b5568af8c8e8f7fd904f237c860c9cd07bf006415eba1bac8aaa1043ed92a` |
+| Gateway binary | `4606b9dac995b7062b771df5218bfcd72f3afe2d321ca6bd01b65104fd5bc56e` |
+| Gateway archive, 11 validated files including the site | `66ff73f145bbf064aea1b1f92edacbc651d4ac3eb2fea62c9caae33998132b8b` |
+| Executor binary | `2c7d5195ac15c6606291be52fc1c9f37538ef5a1420ff4a7fa01cdff34bc2de4` |
+| Executor archive, three validated files | `6d479b77efa6aaab5c3b74ce01c2246d30c02b3eb0a6c78dd3c1756f30786819` |
 
-The public executor identity remains `01a17428-6b5f-7593-b722-ae3fbaba2957`, public key `c12088572a3a43049e33d4b4936d31c2f6f126cbe8fcb86376679629855c1cc7`. The owner trusted that exact public identity. Fresh-clone checks preserve it and retire only the previous disposable project folder outside the active projects directory.
+The gateway source archive contained 202 verified files, SHA-256 `bddba6a72bd04b44d132ba8c3770882e95de8fe658b76d4688100986b03ae59a`. The exact executor source archive contained 377 verified files, SHA-256 `876a38b789ced245a5c5573a890c34e05b0ceaa6a47f0bc999e6177ca1de463d`. Builds used `cargo build --release --locked --target aarch64-unknown-linux-musl`; the installed static executables match the hashes above.
 
-The executor fetches, applies signed encrypted person requests, scans pending checks as the local `layr-checks` reader, pushes records, and publishes signed indexes. Both machine-local runner flags are false and `queue.run` is empty. No Rust toolchain or check execution is required on this host. An optional runner may be configured later; it is not part of this live verification.
+The gateway was installed first. This order matters: CLI `01038b9` discovers signed `keys/` even for a root store, which the previous gateway refused. Gateway activation and HTTPS 200 with certificate verification 0 passed in SSM command `f6b42a5a-6b45-4b3c-bc90-88983740853a`. Executor installation passed in `a879777f-89b5-439c-976f-94b3b913adbd`.
 
-Person signing pins are machine-local. The final smoke executor has the verified public signing key for `web-signin-final-34ad@example.com` and a maintainer grant. Real project enrollment must pin Igor's verified public key locally; gateway registration does not replace that pin. Private person keys and recovery words stay off AWS hosts.
+Hosted assets: `index-9KUKB4B8.js`, `worker-DSo2a-Or.js`, `layr_web_bg-CMP4BpkJ.wasm`. The site reads the current epoch, authenticates sealed history, routes encrypted requests to that epoch and shows access mode and earlier epochs in Settings > Access.
 
-## Gateway and site releases
+The gateway serves signed discovery, epoch descriptors, exact machine slots, records, states, sealed history, requests and claims. Write and GC grants can read their own project's signed `keys/` discovery and perform narrow machine bootstrap. They cannot list encrypted data or aggregate slots. Encrypted reads require a proof for the requested epoch or a later epoch. Wrong-project grants and hidden projects retain matching 404 responses. `files/` listing requires a read proof; file GET, PUT and streaming belong to the release-files task.
 
-The active gateway protocol implementation is from `40c79a15936c01677081ec8b95411d7a06998fb5`, with shared dependency pin `45080bb53b4de5c84726ac85563c979374308024`.
+## Current service and credential state
 
-- Gateway binary: `04cb9bf878de17803ef8a7782914b22336eb8a756b3091802a1cba555ee48c54`.
-- Active gateway archive with the final site: `04857823dc3e7e2492491695123e53b20e0059c8086483517a5713d87e19c990`.
-- Site source: `c8ca115a32094f20547a8bb9d77426a05011fc4b`, shared Layr main `34ad8c0e9e31b4898ec3b98cbbd33ad6f30c41bf`. Public site archive SHA-256: `386b4bd05e2388699e598ca1c22ba5be1e0c4e1e4dd6c717128662e03c761358`. Hosted asset readback: `index-bCtVUjWs.js`, `worker-Bqz6U2K9.js`, `layr_web_bg-Dfb8tmGe.wasm`. The gateway binary is unchanged.
+The gateway is active with `projects: {}`. The executor binary remains installed, but `layr.service`, `layr-executor-token.service`, `layr-checks.timer` and `layr-transfer.timer` are inactive. `ready` and `checks-ready` are absent; `profile.env` is empty. No smoke project directory remains.
 
-The gateway uses the shared `layr_store::session` signing message. Challenges are random 32-byte values, valid for one minute and single use. Sessions are login-bound, expire after 12 hours, and are held only as token hashes in RAM. Session tokens encode 32 random bytes as lowercase hexadecimal. A gateway restart invalidates sessions.
+Public executor identity is preserved: `01a17428-6b5f-7593-b722-ae3fbaba2957`, key `c12088572a3a43049e33d4b4936d31c2f6f126cbe8fcb86376679629855c1cc7`.
 
-First registration requires a hashed seven-day single-use invite. The administrator creates it locally through SSM; the command writes the raw value directly into a SecureString and prints only its name. Registration grants no session until the new signing key proves a fresh challenge.
+During enrollment, the approved service-token exception is a root-owned mode 0600 file under tmpfs, `/run/layr-executor-token/write-token`, loaded from `/layr-store/executor/write-token`. Stop both the daemon and token service explicitly when retiring an enrollment; stopping the daemon alone does not remove the token file. Both the runtime file and its SSM parameter are now absent. The persistent gateway decoy-secret parameter `/layr-store/gateway/session-secret` is preserved. Private person signing keys and recovery words never went to AWS hosts.
 
-Public unlock returns one fixed-size base64 field with 65536 decoded bytes, without an index or inbox. Known and unknown logins have the same status, outer shape and size. Deterministic unknown-login packets follow age 0.11.5 GREASE distributions from the source. Their HMAC key is fetched into gateway memory from `/layr-store/gateway/session-secret`. The 1,000-login distribution/restart regression and HTTP structure/restart regression passed.
+The executor's transfer program fetches, applies encrypted person requests, pushes and publishes indexes. The reporter runs through `/usr/sbin/runuser` with restricted reader credentials. Both runner flags were false and `queue.run` was empty throughout the live check. It executed no checks.
 
-Unlock and sign-in share a strict 12/minute client-address limit; all routes have a 600/minute limit. Person routes use sessions. Machines bootstrap only their exact project descriptor, own encrypted slot, challenge and proof exchange with a scoped grant; subsequent data reads require their read proof. Machines make no aggregate slot request. Wrong, expired, other-project or absent grants cannot discover private projects.
+## HTTPS and protected DNS
 
-Request v2 contains an encrypted action and a verified outer person signature. The gateway refuses plaintext v1 and project/epoch/path/identity mismatches. Current deployment verification covers root requests; epoch rollout is separate.
+At the measured time, `https://cloud.layr.ws` is IPv6 only, with the gateway AAAA record above and no A record. Route 53 zone: `Z00094863IAG61NP8YENE`. The Let's Encrypt certificate for `cloud.layr.ws` expires 2027-01-23 at 16:26:42 UTC. Post-cleanup HTTPS returned 200, certificate verification 0 and HTTP/2, SSM command `e9f8b6b3-26ab-4932-88ee-bf96a71ad17b`.
 
-## Credential handling
+The final readback confirmed these protected values unchanged:
 
-The approved runtime exception is a root-owned mode 0600 write-token file under tmpfs: `/run/layr-executor-token/write-token`, loaded from `/layr-store/executor/write-token`. Its directory is mode 0700. Stopping `layr.service` stops the token service and removes this runtime material. Transfer/report cycles refresh it from SSM. No service token is stored in a persistent file, artifact, command argument or log.
+- Apex A and AAAA aliases: `d601z3odhuaeg.cloudfront.net.`
+- `desk.layr.ws A 100.68.127.7`.
+- ACM validation CNAME `_4c72782be16027c8dc92cab529a0814a.layr.ws` to `_a9f28679b4330e8c850d67573fd71795.wzccmgtwzk.acm-validations.aws.`
 
-The gateway can read only its exact persistent decoy-secret parameter and write only the approved invite/service-token parameter names. The executor can read only its own token parameter. Owner/private person material is never used as a workaround for machine authentication.
+AWS was released to the separate CloudFront worker after cleanup at 08:28 UTC. That work can change the frontend later; the state above records the epoch rollout boundary.
 
-## Existing-host program convergence
+## Disposable store IAM update
 
-`infra/aws/executor.yaml` contains the normal fallback transfer program: fetch, apply person requests, push, then index. A failed apply or push prevents index publication. The runner path does not apply person requests or publish indexes.
+The first live CLI connection returned 502 because the old writer role refused `keys/` listing. Change set `epoch-01038b9-20261026` updated only the disposable stack's `Writer` and `Gc` IAM roles. Both were `Modify`, `Replacement=False`; execution reached `UPDATE_COMPLETE`. Its ARN is `arn:aws:cloudformation:eu-north-1:134250228509:changeSet/epoch-01038b9-20261026/655f2457-2f16-40d5-a634-e1fb792915b3`.
 
-Source commit: `da5f98eb8fcf1a1eb65349bde949fdb31a0fa712`. Script SHA-256: `1a0390654872d7201232326f3ddcd0b763013de003307961d9473cb0ecae2b2b`.
+The template adds epoch-scoped immutable writes, signed discovery listing and epoch-scoped GC data paths. Both existing parameters were retained. The gateway and executor stacks were not updated.
 
-CloudFormation user data does not rewrite an existing host's program. As an approved one-time convergence step, the exact committed program was installed through SSM and its hash read back, command `0f474e32-8c5d-4200-acab-e605b26cdae2`. Rebuilding from the Git template installs the same program.
+Before the real project move (M1), apply the same IAM-only update to `layr-store-layr`. This is required and has **not** been done. From the reviewed template, prepare this exact change set:
 
-Reporter launcher fix: `a52943877a1d50f8e5d8ae0267202e2e9e10f552` uses `/usr/sbin/runuser` because the reader's restricted PATH excludes sbin. The real restricted-PATH launcher regression passed. The reviewed reporter travels in the normal content-addressed release archive.
+```sh
+aws --profile ifdotpy --region eu-north-1 cloudformation create-change-set \
+  --stack-name layr-store-layr --change-set-name m1-epoch-iam \
+  --change-set-type UPDATE --template-body file://infra/aws/template.yaml \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameters ParameterKey=GatewayRoleArns,UsePreviousValue=true \
+               ParameterKey=Prefix,UsePreviousValue=true
+aws --profile ifdotpy --region eu-north-1 cloudformation wait change-set-create-complete \
+  --stack-name layr-store-layr --change-set-name m1-epoch-iam
+aws --profile ifdotpy --region eu-north-1 cloudformation describe-change-set \
+  --stack-name layr-store-layr --change-set-name m1-epoch-iam
+```
 
-## Live verification path
+Execute only after review confirms IAM-role modifications with replacement disabled:
 
-The Mac has no IPv6 connectivity; `layr-dev` has only an OrbStack ULA. The browser and disposable recovery material therefore stay on `layr-dev`. SSM forwards HTTPS through the AWS executor, which reaches the gateway over IPv6:
+```sh
+aws --profile ifdotpy --region eu-north-1 cloudformation execute-change-set \
+  --stack-name layr-store-layr --change-set-name m1-epoch-iam
+aws --profile ifdotpy --region eu-north-1 cloudformation wait stack-update-complete \
+  --stack-name layr-store-layr
+```
+
+## Live epoch and browser evidence
+
+The new fixture used project `epoch-live-01038b9`, login `epoch-live-01038b9@example.test`, project UUID `01a17735-b3e5-70de-a693-f3a90bb962cb` and change `01a17735-b3ff-71da-b872-1833726b95de`. Its private material existed only under VM tmpfs `/run/layr-web-epoch.oDULIk`. Only encrypted objects and public metadata were uploaded.
+
+A write grant was stored through SSM; only its hash was retained in project configuration. One single-use registration invite was issued. Encrypted registration returned 200. A root-store push and removed-reader machine clone passed through the real gateway.
+
+The exact static CLI ran `layr remote rotate gateway --remove machine:01a17735-b43b-74a4-8b9b-1f79fb675d85 --reason 'AWS epoch smoke removed-reader proof'`. It published one private epoch, `01a1773f-0f66-748c-83be-bc79a87689f8`. A new save and push wrote state `01a1773f-321f-720f-ac78-0dcbffec7965` in that epoch.
+
+The removed machine could no longer fetch. A proof made with the old root identity still read root history with 200, but current-epoch GET and LIST returned 404. The old identity could not decrypt the new epoch's challenge. The tested new encrypted data part was `project/epochs/01a1773f-0f66-748c-83be-bc79a87689f8/states/01a1773f-321f-720f-ac78-0dcbffec7965/a73c8f45.0000.data.age`. The old proof was refreshed after a provider delay so expiry could not explain refusal.
+
+The executor first cloned **after** rotation, with its machine identity and scoped grant only: 24 records and four states. It pinned the unique person's public signing key locally, pushed 12 records, published one heads snapshot and four paths and graphs, and completed the reporter cycle. SSM command: `280c1a5e-64ac-43cf-9d81-9852eccbd1a2`.
+
+The published-site browser checked current mode, both epochs and main/feature file bytes before submitting exactly one encrypted comment. Request `01a1774e-6ad4-7681-9abb-3c898569acb6` was written under the new epoch and applied once. One shared-signature session exchange, three viewports, zero axe violations, lock and no persistent browser secrets passed.
+
+Independent native proof, SSM `67e67bcf-5c6f-4c2f-ad76-b635a09107d1`:
+
+- Exactly one comment record `01a1774e-a336-7704-a1c6-80328a9fcbe6`, executor sequence 15.
+- Signed-envelope SHA-256: `471f60f530a13c8e7a00390a8dba52a0e2016ae82663f1132cb2056b43d6f261`.
+- Request digest: `2cf855010d9da90acb5f71e0e5bcc7730558b283c12fb11328ddc0f6071163fc`, matching the stored 1427-byte encrypted request.
+- Outer fields: `ct`, `epoch`, `id`, `person`, `project`, `sig`, `v`; version 2, with no plaintext action or comment.
+- Both machine chains and signatures passed native fsck, zero problems; reporter result was success.
+
+A native `layr-web` reader also passed against an encrypted snapshot of the live rotated store. It authenticated discovery, sealed root history, current records and file parts from both epochs, and matched the CLI's explicit state-ID file oracles.
+
+The live run found a CLI defect: with `LAYR_PAPER_KEY_FILE` still set, the next gateway push tried reading the root paper slot while learning the pin's paper recipient. The run scoped that variable to rotation and then pushed with the machine identity only. The lead authorized a separate narrow core correction on `cloud/paper-env-push`; it is not in the installed `01038b9` binary.
+
+## Temporary test transport
+
+This was an isolated verification path, not a user connection procedure. The Mac has no IPv6 route, and `layr-dev` has only an OrbStack ULA. An SSM session forwarded opaque gateway TLS through the IPv6 executor:
 
 ```sh
 AWS_PROFILE=ifdotpy AWS_REGION=eu-north-1 aws ssm start-session \
@@ -104,57 +133,35 @@ AWS_PROFILE=ifdotpy AWS_REGION=eu-north-1 aws ssm start-session \
   --parameters '{"host":["cloud.layr.ws"],"portNumber":["443"],"localPortNumber":["18443"]}'
 ```
 
-The temporary CONNECT proxy binds only the OrbStack bridge `192.168.139.3:18445`, accepts only the VM address and `CONNECT cloud.layr.ws:443`, and forwards opaque TLS to localhost port 18443. The browser retains the real Host and TLS SNI `cloud.layr.ws` and validates the real certificate. Early DNS negative caching required the measured IPv6 literal as the SSM remote host; later sessions used the hostname successfully. No resolver files were changed.
+The Mac CONNECT forwarder bound only `192.168.139.3:18445`, accepted only VM `192.168.139.239` and `CONNECT cloud.layr.ws:443`, and forwarded bytes to SSM localhost port 18443. The browser used that explicit proxy.
 
-This proves the gateway path through the executor. It does not prove public access from an IPv4-only network. Such networks need an IPv4 front later, for example CloudFront or one public IPv4 address. No private test material goes to AWS hosts.
+The static CLI ignores proxy environment variables. With lead approval, its VM-only byte forwarder temporarily used the existing gateway IPv6 address on loopback:
 
-## Verification evidence
+```sh
+orb -m layr-dev -u root python3 /mnt/mac/tmp/layr-epoch-build/loopback-tls-relay.py
+# The program adds the address with:
+# ip -6 addr add 2a05:d016:df9:4000:8463:e4d6:66bb:c15f/128 dev lo
+# Its finally block, including SIGTERM/SIGINT, removes it with:
+# ip -6 addr del 2a05:d016:df9:4000:8463:e4d6:66bb:c15f/128 dev lo
+```
 
-After merging reviewed layr-cloud main `c8ca115`, exact merge source `ac02cf44123eab3bebdaec15ca67480281f8e5d4` passed `cargo test --locked --workspace`: 62 passed, zero failed, eight environment-dependent tests ignored. CloudFormation lint and all 35 infrastructure tests passed. These checks ran from the exact Git archive in `layr-dev`; no deployed binaries or epoch routes were changed.
+The Python program performed the add itself, bound only that VM address on port 443, sent the permitted CONNECT request and forwarded opaque TLS bytes. Neither forwarder terminated TLS. The CLI kept hostname and SNI `cloud.layr.ws` and verified its real certificate. No resolver or DNS override was used.
 
-- Gateway: 31 tests passed; one environment-dependent test ignored. Exact paper-slot proof/authority regression passed subsequently, commit `d4ecef0a743151467e62f9d3e4c177731f775a75`.
-- Infrastructure: 35 Python tests passed and cfn-lint passed. These include real btrfs volume checks, release validation, IAM boundaries and transfer failure ordering.
-- Real CLI, gateway and MinIO: private-project push and signed index publication passed. Proof precedes data listing; machines make no aggregate slot requests. Public-project push/index, invite registration, signature sign-in and encrypted v2 comment submission also passed. Test material was removed from `/run` after each run. Harness commit `44dfb110afb3b28fea25d9210113afbc32dcb80e`.
-- Deployed read-only browser: recovery unlock, signature sign-in, three viewports, zero axe violations, lock and no persistent browser secrets passed.
-- Multi-writer diagnosis: native person pins and protected-main config were intact. The browser needed the project-creator policy perspective and a retry after full trust-history verification. The published index itself validated against the full records. The staged corrected browser passed signing-pin enabled, protected-main visible and no discarded index, without submitting a comment.
-- Exact-main AWS rerun passed: installation readback `d853121e-cdce-4815-9eb0-5cc505150d62`; fresh clone `45cb2b68-cb89-4182-a073-49a10014af1a` imported 56 records and three states. Command `d93ad15d-7829-4e1f-b324-67c25f05e561` pushed one record, published one heads snapshot, and completed the reporter cycle with count/pending zero and `work_done=false`.
-- Final published-site browser run, 22:46–22:47 UTC: one signature exchange; one encrypted v2 comment PUT returned 201; the signed applied comment appeared in Conversation. Three viewports had zero axe violations. Lock and no persistent browser secrets passed. Request `01a1753e-6581-7f24-bc49-41a1c0e56071`; project `01a17539-ce9f-7439-acc7-d9c4b566bd03`; change `01a17539-cebe-721b-acef-3d5dcec19802`.
-- Independent native proof, SSM `fe85415e-c489-47bc-9e08-8647423b84a7`: exactly one comment record `01a1753e-cdd5-726a-9f53-08177eae53f9`, executor sequence 15. Signed-envelope SHA-256 `64da76460ba77a42d6144a99b4c2986f4044c7b4117d99e5070edeaf03332c3f`. Request digest `ce6e2e0eb42f5948a17c3b99a14b9a3cb7cf30216a183a8f175222a3e9494b00` matched the stored 1417-byte encrypted S3 request. Its outer fields contain ciphertext and public bindings, with no plaintext action or comment. Native fsck verified both machine chains and signatures with zero problems; reporter succeeded and daemon remained active.
-- Fresh final-project clone/push/index/reporter proof: SSM `dd2d0142-dc68-4672-b142-bd7959808e9b` imported 14 records and three states, pinned the new unique person, pushed 12 records, published one heads snapshot plus three paths and three graph objects, and completed the reporter cycle successfully.
+The listener and address were removed in the forwarder's `finally` block. SSM session `ifdotpy-98h8srqrb9rg4tnaz6bfqfksjy` was explicitly terminated; both Mac forwarding ports are closed. This path proves the IPv6 origin through SSM; public IPv4 access belongs to CloudFront verification.
 
-## Fixture replacement and cleanup
+## Cleanup and checks
 
-The VM rebooted at about 22:32 UTC during the merge hold. This cleared the original tmpfs fixture `/run/layr-web-actions.f627Ed` and its private recovery material. Its earlier persistent `/root/work/layr-web-actions.wcGUsl` copy had already been unmounted and removed before AWS enrollment. No other copy of the private material existed, in AWS or elsewhere. The disabled-button attempt against the earlier site delivered no comment; the old S3 request prefix was empty.
+The earlier `browser-signin-final` fixture was retired before creating the new UUID and login. Cleanup removed six old executor subvolumes, 473 store versions/markers, two project-config versions, four person versions and two registration-invite versions. The old login was `web-signin-final-34ad@example.com`. SSM retirement: `3c10fd75-5243-4bfc-84c5-498b18fe5208`.
 
-The lead approved a fresh disposable person `web-signin-final-34ad@example.com` and project `browser-signin-final`, generated only under VM tmpfs `/run/layr-web-actions.6ihzJN`. The new store uses the same reviewed template in `layr-store-m8-final`. The existing executor public identity was trusted; only encrypted project/person objects and public descriptors were uploaded. One invite was issued through SSM. The first registration returned 429; the exact person record was confirmed absent, the rate window elapsed, and the same invite retry returned 200. Rate limits were unchanged.
+After the new proof, cleanup removed seven executor subvolumes, 47 store versions/markers, two project-config versions, four person versions and two registration-invite versions. `/layr-store/executor/write-token` and `/layr-store/invites/epoch-live/token` were deleted. SSM retirement: `ec15da9b-13de-4c2e-a6d4-0e40bb0b07ca`; empty gateway project configuration: `78edd677-8099-4a62-a337-07c883d80462`.
 
-Gateway StoreRoleArns and executor reader/writer role parameters were updated through the previous CloudFormation templates. Each change set modified only the IAM Role, with Replacement false; neither instance nor user data changed. The final write grant is represented in remote project config only by its irreversible hash, so later config synchronization preserves it. The active raw grant stays in the approved SSM/tmpfs runtime path.
+The VM fixture, its private recovery/signing material, backing image, mount and loop device were removed. Local encrypted staging copies were removed too. The first local native fixture had been cleared by a clean VM poweroff at 07:35:50 UTC; the live fixture above was generated after that restart. No private fixture was restored from persistent storage.
 
-Cleanup completed after the final comment proof:
+Verification:
 
-- Removed the old `gateway/projects/browser-actions.json` object and all its versions. Gateway sync completed successfully, command `e573f15c-0230-4ee0-914f-0843bb15bac4`.
-- Removed the old `people/owner@example.com/` registration and encrypted slots/index, four versions/markers, plus two versions/markers of its registration invite metadata and used marker. The new unique person's registration remains separate.
-- Purged all 382 versions/markers from `layr-store-m8-smoke-bucket-ainpgseboqyh`, deleted the `layr-store-m8-smoke` stack and its project roles, then deleted the retained empty bucket. The gateway no longer lists those role ARNs; the executor role parameters now reference only the final smoke store.
-- Removed disposable SSM invite parameters `/layr-store/invites/m8-smoke/token` and `/layr-store/invites/m8-final/token`. The active executor grant and persistent gateway decoy secret remain in their required parameters.
-- Removed all three retired old smoke clones from `/var/lib/layr/smoke-retired/`, including six btrfs subvolumes per clone, command `158ff726-b239-4c92-8f27-c10915e46716`. The current final project and global executor identity were preserved.
-- Unmounted and removed `/run/layr-web-actions.6ihzJN`, its btrfs backing image and private person recovery material. The browser worker verified absence and no fixture mount at 22:51 UTC; an independent check also verified the final fixture, original tmpfs fixture and earlier persistent fixture absent, with no remaining fixture mount.
-- Closed both forwarding processes at 22:51 UTC and explicitly terminated SSM session `ifdotpy-p37no9ccvbsyegry9c7czvho5e`. Neither local port 18443 nor 18445 has a listener.
-
-Post-cleanup health readbacks passed: gateway command `552b01d4-59e1-4aa1-bfbd-eb3f85c1f1e1` confirmed only the final smoke project and its preserved scoped grant. Executor command `bca528f8-afa0-4db8-a49c-7fd558528f69` completed the reporter cycle successfully, confirmed the daemon active, and reached public IPv6 HTTPS with status 200, certificate verification 0 and HTTP/2.
-
-The final encrypted smoke project remains available for deployment evidence. No disposable recovery material remains, and no real project has been imported. The `layr-store-layr` stack was not changed.
-
-## Cost and optional runner
-
-Prices were read from the AWS Price List API on 2026-10-25, USD before tax, using 730 hours/month:
-
-| Item | Rate | Monthly estimate |
-| --- | --- | ---: |
-| Gateway `t4g.nano` | $0.0043/hour | $3.14 |
-| Executor `t4g.small` | $0.0172/hour | $12.56 |
-| 30 GiB gp3 | $0.0836/GiB-month | $2.51 |
-| Base total | | About $18.21 |
-
-Usage-based S3 bytes/versions/requests, DNS queries and transfer are additional. Initial total is estimated at about $20/month; this is not a billing cap. The existing zone charge is unchanged. No public IPv4, NAT gateway, load balancer or new hosted zone was added.
-
-The optional `t4g.large` runner is not deployed. A later runner would cost $0.0688/running hour plus about $5.68/month for 68 GiB of retained gp3 storage, including while stopped. It would run checks and stop after 30 idle minutes. The executor can start only its configured runner instance and has no stop, terminate or SSH authority over it. Reviewed local runner policy and a verified toolchain are required before enabling that separate role.
+- Exact cloud `4b359da` workspace: 65 passed, zero failed, nine environment-dependent tests ignored. The native rotated-store test was then run explicitly against live bytes and passed.
+- Full actual CLI/gateway/MinIO t27 passed, including session-authenticated mount, paper-only S3 mount, unauthenticated gateway 401 with no served file, person registration/invites/clone, GC machine bootstrap and overlay reader/writer isolation.
+- Gateway: 33 unit tests passed. GC discovery and bootstrap are project-bound; wrong-project GC grants match hidden 404s; a write grant cannot delete; `files/` listing rejects a write grant without read proof.
+- Core t44/t45/t46 passed 61/28/17 checks sequentially. The real gateway harness reproduced the old staging failure, then passed rotation ordering, interruption after discovery, fail-closed reader message, one-epoch resume and machine-only cloning. The lead's merged-core full suite passed 51/51.
+- Infrastructure: cfn-lint and 35 Python tests passed. Browser build, TypeScript and 85 unit tests passed; 44 page/browser tests and the additional epoch Access test passed.
+- Final readbacks: both smoke stores and registrations absent, real store empty, protected DNS unchanged, gateway active, executor unenrolled, runtime token absent, and all test forwarding resources removed.
