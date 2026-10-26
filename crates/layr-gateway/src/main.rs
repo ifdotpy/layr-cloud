@@ -4,6 +4,7 @@ mod auth;
 mod aws;
 mod config;
 mod decoy;
+mod epochs;
 #[cfg(test)]
 mod minio;
 mod people;

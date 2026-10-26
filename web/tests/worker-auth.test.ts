@@ -1,3 +1,4 @@
+import {epochRoute} from '../src/data/epochs';
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {readFileSync} from 'node:fs';
@@ -16,6 +17,7 @@ function setup(){
   sign_request(){return 'sealed request';}lock(){signing=false;calls.push('lock');}free(){}
  }
  class Gateway{
+  discovery(){return {};} setEpoch(){}
   unlock(login:string){calls.push(`bootstrap ${login}`);return {login,recipient:'recipient',signing:'sealed',signing_key:'public'};}
   signIn(login:string,sign:(s:string)=>string){if(refused)throw new HttpError(401,'wrong proof');calls.push(`session ${login}`);assert.equal(sign('challenge'),'proof');}
   person(){calls.push('person');return {login:'ann@example.com'};}projects(){if(refused)throw new HttpError(401,'sign in again');calls.push('projects');return ['store'];}descriptor(){return {project:'project'};}slot(){return new Uint8Array();}list(){return [];}
@@ -23,7 +25,7 @@ function setup(){
   putRequest(){if(refused)throw new HttpError(401,'sign in again');}lock(){}
  }
  const scope={onmessage:(_event:unknown)=>{},postMessage:(v:Parameters<typeof receive>[0])=>receive(v),close(){}};
- vm.runInNewContext(code,{self:scope,Session,Gateway,HttpError,init:async()=>{},fromBase64:()=>new Uint8Array([1]),crypto:{getRandomValues:(v:Uint8Array)=>{v.fill(37);return v;}},uuidV7:()=> 'id',Uint8Array,Date,Error,setTimeout:()=>1,clearTimeout(){}});
+ vm.runInNewContext(code,{self:scope,Session,Gateway,epochRoute,HttpError,init:async()=>{},fromBase64:()=>new Uint8Array([1]),crypto:{getRandomValues:(v:Uint8Array)=>{v.fill(37);return v;}},uuidV7:()=> 'id',Uint8Array,Date,Error,setTimeout:()=>1,clearTimeout(){}});
  let id=0;
  return{calls,buffers,bodies,refuse:()=>{refused=true;},call:(method:string,args:unknown[]=[])=>new Promise<Parameters<typeof receive>[0]>(resolve=>{receive=v=>{if(v.id)resolve(v)};scope.onmessage({data:{id:++id,method,args}});})};
 }

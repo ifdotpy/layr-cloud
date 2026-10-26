@@ -87,3 +87,26 @@ test('locking an in-flight exchange cannot restore its session',async()=>{
  try{const gateway=new Gateway();const login=gateway.signIn('ann@example.com',()=> 'signature');await new Promise(resolve=>setTimeout(resolve,0));gateway.lock();release(Response.json({login:'ann@example.com',token:'secret',expires:Date.now()+60000}));await assert.rejects(login,/locked/);await assert.rejects(gateway.person(),/Sign in/);}
  finally{globalThis.fetch=previous;}
 });
+
+test('epoch read proofs and requests use the current namespace and renewal clears the old proof',async()=>{
+ const previous=globalThis.fetch;const paths:string[]=[];let exchanges=0;
+ globalThis.fetch=async(input)=>{
+  const path=String(input);paths.push(path);
+  if(path.startsWith('/api/session/challenge'))return Response.json({challenge:'session'});
+  if(path==='/api/session')return Response.json({login:'ann@example.com',token:'person',expires:Date.now()+60000});
+  if(path.includes('/challenge'))return Response.json({challenge:btoa('sealed')});
+  if(path.includes('/token')){exchanges++;return Response.json({token:'read',expires:Date.now()+60000});}
+  return new Response(new Uint8Array([1]),{status:200});
+ };
+ try{
+  const gateway=new Gateway();await gateway.signIn('ann@example.com',()=> 'signature');
+  const epoch='01a12290-0000-7000-8000-000000000008';gateway.setEpoch('p',epoch);
+  await gateway.object('p',`project/epochs/${epoch}/records/a.age`,()=> 'proof');
+  await gateway.putRequest('p','id','encrypted');
+  assert(paths.includes(`/v1/p/p/challenge?epoch=${epoch}`));
+  assert(paths.includes(`/v1/p/p/token?epoch=${epoch}`));
+  assert(paths.includes(`/v1/p/p/objects/project/epochs/${epoch}/requests/id.json`));
+  gateway.setEpoch('p','root');await gateway.object('p','records/b.age',()=> 'root proof');
+  assert.equal(exchanges,2);assert(paths.includes('/v1/p/p/challenge'));
+ }finally{globalThis.fetch=previous;}
+});

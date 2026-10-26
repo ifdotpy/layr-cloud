@@ -202,6 +202,7 @@ impl Session {
         self.stores.insert(
             alias.clone(),
             Store {
+                epochs: None,
                 cache: index::Cache::default(),
                 identity,
                 descriptor: format::Descriptor {
@@ -290,6 +291,7 @@ impl Session {
         self.stores.insert(
             alias.clone(),
             Store {
+                epochs: None,
                 cache: index::Cache::default(),
                 identity,
                 descriptor: format::Descriptor {

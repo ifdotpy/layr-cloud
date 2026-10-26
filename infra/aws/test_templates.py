@@ -79,7 +79,10 @@ class TemplateTests(unittest.TestCase):
         resources = template("template.yaml")["Resources"]
         self.assertEqual(actions(resources["Writer"]), {"s3:PutObject", "s3:AbortMultipartUpload", "s3:GetObject", "s3:ListBucket"})
         writer_resources = statements(resources["Writer"])[0]["Resource"]
-        self.assertEqual(writer_resources, [
+        self.assertCountEqual(writer_resources, [
+            {"Fn::Sub": "${Bucket.Arn}/${Prefix}/store.json"},
+            {"Fn::Sub": "${Bucket.Arn}/${Prefix}/public.json"},
+            {"Fn::Sub": "${Bucket.Arn}/${Prefix}/keys/*"},
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/records/*"},
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/states/*"},
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/slots/*"},
@@ -89,8 +92,17 @@ class TemplateTests(unittest.TestCase):
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/overlays/*/epochs/*/records/*"},
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/overlays/*/epochs/*/states/*"},
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/overlays/*/epochs/*/slots/*"},
+            {"Fn::Sub": "${Bucket.Arn}/${Prefix}/project/epochs/*/store.json"},
+            {"Fn::Sub": "${Bucket.Arn}/${Prefix}/project/epochs/*/public.json"},
+            {"Fn::Sub": "${Bucket.Arn}/${Prefix}/project/epochs/*/records/*"},
+            {"Fn::Sub": "${Bucket.Arn}/${Prefix}/project/epochs/*/states/*"},
+            {"Fn::Sub": "${Bucket.Arn}/${Prefix}/project/epochs/*/slots/*"},
+            {"Fn::Sub": "${Bucket.Arn}/${Prefix}/project/epochs/*/history/*"},
+            {"Fn::Sub": "${Bucket.Arn}/${Prefix}/project/epochs/*/index/*"},
+            {"Fn::Sub": "${Bucket.Arn}/${Prefix}/project/epochs/*/requests/*"},
+            {"Fn::Sub": "${Bucket.Arn}/${Prefix}/project/epochs/*/claims/*"},
         ])
-        self.assertNotIn({"Fn::Sub": "${Bucket.Arn}/${Prefix}/store.json"}, writer_resources)
+        self.assertNotIn({"Fn::Sub": "${Bucket.Arn}/${Prefix}/people/*"}, writer_resources)
         writer_get = statements(resources["Writer"])[1]
         self.assertEqual(writer_get["Action"], "s3:GetObject")
         self.assertEqual(writer_get["Resource"], {"Fn::Sub": "${Bucket.Arn}/${Prefix}/overlays/*/keys/*"})
@@ -99,12 +111,13 @@ class TemplateTests(unittest.TestCase):
         self.assertEqual(writer_list["Resource"], {"Fn::GetAtt": "Bucket.Arn"})
         self.assertEqual(writer_list["Condition"], {"StringLike": {"s3:prefix": [
             {"Fn::Sub": "${Prefix}/records/*"}, {"Fn::Sub": "${Prefix}/states/*"}, {"Fn::Sub": "${Prefix}/requests/*"},
-            {"Fn::Sub": "${Prefix}/overlays/*/keys/"},
+            {"Fn::Sub": "${Prefix}/keys/"}, {"Fn::Sub": "${Prefix}/overlays/*/keys/"},
         ]}})
         self.assertEqual(actions(resources["Reader"]), {"s3:GetObject", "s3:ListBucket"})
         self.assertEqual(actions(resources["Gc"]), {"s3:DeleteObject"})
         self.assertEqual(statements(resources["Gc"])[0]["Resource"],
-                         {"Fn::Sub": "${Bucket.Arn}/${Prefix}/states/*/*.data.age"})
+                         [{"Fn::Sub": "${Bucket.Arn}/${Prefix}/states/*/*.data.age"},
+                          {"Fn::Sub": "${Bucket.Arn}/${Prefix}/project/epochs/*/states/*/*.data.age"}])
         for role in ("Writer", "Reader", "Gc"):
             trust = resources[role]["Properties"]["AssumeRolePolicyDocument"]["Statement"][0]
             self.assertEqual(trust["Condition"]["ArnEquals"]["aws:PrincipalArn"], {"Ref": "GatewayRoleArns"})

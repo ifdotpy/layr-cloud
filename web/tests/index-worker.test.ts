@@ -1,3 +1,4 @@
+import {epochRoute} from '../src/data/epochs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
@@ -26,6 +27,7 @@ function worker(tamper:boolean|'laterTrust'=false) {
     overlay_slots(){return '[]'}overlay_inputs(){return '[]'}
   }
   class Gateway {
+    discovery(){return {};} setEpoch(){}
     unlock(){return this.person();} signIn(){}
     async person(){return {recipient:'person'}}async projects(){return ['store']}async descriptor(){return {project:'project'}}async slot(){return new Uint8Array()}
     async list(_name:string,prefix:string){if(prefix==='index/heads/')return [{key:head}];if(prefix==='records/')return [{key:first},{key:second}];return []}
@@ -33,7 +35,7 @@ function worker(tamper:boolean|'laterTrust'=false) {
     lock(){}
   }
   const scope={onmessage:(_event:unknown)=>{},postMessage:(message:Parameters<typeof onReply>[0])=>onReply(message),close(){}};
-  vm.runInNewContext(source,{self:scope,Session,Gateway,HttpError:class extends Error{},init:async()=>{},setTimeout:(fn:()=>void,ms:number)=>ms===0?setTimeout(fn,0):undefined,clearTimeout,Uint8Array,Date,Error});
+  vm.runInNewContext(source,{self:scope,Session,Gateway,epochRoute,HttpError:class extends Error{},init:async()=>{},setTimeout:(fn:()=>void,ms:number)=>ms===0?setTimeout(fn,0):undefined,clearTimeout,Uint8Array,Date,Error});
   let id=0;
   function request(method:string,args:unknown[]=[]){return new Promise<Parameters<typeof onReply>[0]>(resolve=>{const wanted=++id;onReply=message=>{if(message.id===wanted)resolve(message)};scope.onmessage({data:{id:wanted,method,args}})})}
   return {calls,request,release,finishes:()=>finishes,updated:()=>new Promise<void>(resolve=>onReply=message=>{if(message.updated)resolve()})};

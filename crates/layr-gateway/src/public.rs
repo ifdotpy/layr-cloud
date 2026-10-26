@@ -48,13 +48,27 @@ impl Limiter {
 }
 
 pub fn object(key: &str) -> bool {
-    matches!(key, "store.json" | "public.json" | "slots/public.age")
+    if let Some((_, inner)) = crate::epochs::split(key) {
+        return !inner.starts_with("project/") && object(inner);
+    }
+    crate::epochs::discovery(key)
+        || key
+            .strip_prefix("history/")
+            .and_then(|s| s.strip_suffix(".age"))
+            .is_some_and(|epoch| epoch == "root" || format::is_uuid(epoch))
+        || matches!(key, "store.json" | "public.json" | "slots/public.age")
         || format::parse_segment_name(key).is_some()
         || format::parse_tree_name(key).is_some()
         || format::parse_data_name(key).is_some()
 }
 
 fn prefix(value: &str) -> bool {
+    if let Some((_, inner)) = crate::epochs::split(value) {
+        return !inner.starts_with("project/") && prefix(inner) && inner != "keys/";
+    }
+    if value == "keys/" {
+        return true;
+    }
     static PATTERN: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
         let id = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
         regex::Regex::new(&format!(
@@ -102,18 +116,18 @@ impl Gateway {
             }
             key.clone()
         };
-        let Some(manifest) = self.storage.get(project, "public.json", None, JSON_LIMIT)? else {
-            return Ok(Reply::error(404, "no such public project"));
+        let chain = match crate::epochs::Chain::load(self, project) {
+            Ok(chain) => chain,
+            Err(_) => return Ok(Reply::error(404, "no such public project")),
         };
-        let Some(descriptor_object) = self.storage.get(project, "store.json", None, JSON_LIMIT)?
-        else {
+        if !chain.public(self)? {
             return Ok(Reply::error(404, "no such public project"));
-        };
-        let descriptor: format::Descriptor = serde_json::from_slice(&descriptor_object.body)?;
-        if descriptor.recipient != project.recipient
-            || layr_store::public::Manifest::parse(&manifest.body, &descriptor).is_err()
+        }
+        // The latest published epoch controls openness. An old public opener cannot
+        // authorize a later private epoch, including metadata and staged namespaces.
+        if crate::epochs::split(&selected).is_some_and(|(epoch, _)| chain.project(epoch).is_none())
         {
-            return Ok(Reply::error(404, "no such public project"));
+            return Ok(Reply::error(404, "no such public object"));
         }
         // The native/browser reader additionally verifies the signer against authenticated
         // project history. The gateway does not keep a parallel public machine trust registry.
@@ -125,6 +139,10 @@ impl Gateway {
             let objects: Vec<_> = entries
                 .into_iter()
                 .filter(|e| e.key.starts_with(&selected) && object(&e.key))
+                .filter(|e| {
+                    crate::epochs::split(&e.key)
+                        .is_none_or(|(epoch, _)| chain.project(epoch).is_some())
+                })
                 .map(|e| json!({"key":e.key,"modified":e.modified}))
                 .collect();
             return Ok(Reply::json(200, json!({"objects":objects})));
@@ -141,13 +159,7 @@ impl Gateway {
         } else {
             OBJECT_LIMIT
         };
-        let found = if range.is_none() && key == "public.json" {
-            Some(manifest)
-        } else if range.is_none() && key == "store.json" {
-            Some(descriptor_object)
-        } else {
-            self.storage.get(project, &selected, range, limit)?
-        };
+        let found = self.storage.get(project, &selected, range, limit)?;
         Ok(match found {
             None => Reply::error(404, "no such public object"),
             Some(object) => {

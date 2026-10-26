@@ -63,6 +63,18 @@ Resources:
                 Action: [s3:PutObject, s3:AbortMultipartUpload]
                 Resource:
                   - !Sub '${Bucket.Arn}/${Prefix}/records/*'
+                  - !Sub '${Bucket.Arn}/${Prefix}/store.json'
+                  - !Sub '${Bucket.Arn}/${Prefix}/public.json'
+                  - !Sub '${Bucket.Arn}/${Prefix}/keys/*'
+                  - !Sub '${Bucket.Arn}/${Prefix}/project/epochs/*/store.json'
+                  - !Sub '${Bucket.Arn}/${Prefix}/project/epochs/*/public.json'
+                  - !Sub '${Bucket.Arn}/${Prefix}/project/epochs/*/records/*'
+                  - !Sub '${Bucket.Arn}/${Prefix}/project/epochs/*/states/*'
+                  - !Sub '${Bucket.Arn}/${Prefix}/project/epochs/*/slots/*'
+                  - !Sub '${Bucket.Arn}/${Prefix}/project/epochs/*/history/*'
+                  - !Sub '${Bucket.Arn}/${Prefix}/project/epochs/*/index/*'
+                  - !Sub '${Bucket.Arn}/${Prefix}/project/epochs/*/requests/*'
+                  - !Sub '${Bucket.Arn}/${Prefix}/project/epochs/*/claims/*'
                   - !Sub '${Bucket.Arn}/${Prefix}/states/*'
                   - !Sub '${Bucket.Arn}/${Prefix}/slots/*'
                   - !Sub '${Bucket.Arn}/${Prefix}/requests/*'
@@ -79,7 +91,7 @@ Resources:
                 Resource: !GetAtt Bucket.Arn
                 Condition:
                   StringLike:
-                    s3:prefix: [!Sub '${Prefix}/records/*', !Sub '${Prefix}/states/*', !Sub '${Prefix}/requests/*', !Sub '${Prefix}/overlays/*/keys/']
+                    s3:prefix: [!Sub '${Prefix}/records/*', !Sub '${Prefix}/states/*', !Sub '${Prefix}/requests/*', !Sub '${Prefix}/keys/', !Sub '${Prefix}/overlays/*/keys/']
   Reader:
     Type: AWS::IAM::Role
     Properties:
@@ -129,7 +141,9 @@ Resources:
             Statement:
               - Effect: Allow
                 Action: s3:DeleteObject
-                Resource: !Sub '${Bucket.Arn}/${Prefix}/states/*/*.data.age'
+                Resource:
+                  - !Sub '${Bucket.Arn}/${Prefix}/states/*/*.data.age'
+                  - !Sub '${Bucket.Arn}/${Prefix}/project/epochs/*/states/*/*.data.age'
   BucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:

@@ -66,6 +66,11 @@ function Access({ project, source }: { project: Project; source: DataSource }) {
   };
   return (
     <>
+      <Section title="Access mode" description="The current audience and project key history.">
+        <p>{project.access_mode ?? 'private'}</p>
+        <Table label="Project epochs" headers={["Epoch", "Mode", "Created", "Status"]}
+          rows={(project.epochs ?? []).map(epoch => [<Mono>{epoch.epoch}</Mono>, epoch.mode ?? 'private', epoch.time ? when(epoch.time) : 'Project created', epoch.current ? 'Current' : 'History'])} />
+      </Section>
       <Section
         title="Access"
         description="Project roles and time limits from the access policy."

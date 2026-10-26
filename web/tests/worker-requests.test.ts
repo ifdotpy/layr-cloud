@@ -1,3 +1,4 @@
+import {epochRoute} from '../src/data/epochs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import test from 'node:test';
@@ -20,6 +21,7 @@ function setup(mode:'lost-success'|'offline') {
     challenge(){return 'proof';} lock(){locked=true;} free(){}
   }
   class Gateway {
+    discovery(){return {};} setEpoch(){}
     unlock(){return this.person();} signIn(){}
     person(){return {recipient:'person',signing:'sealed',signing_key:'public'};}
     projects(){return ['store'];} descriptor(){return {project:'project'};} slot(){return new Uint8Array();}
@@ -28,7 +30,7 @@ function setup(mode:'lost-success'|'offline') {
     async requestObject(){if(mode==='offline'&&!online)throw Error('offline');return writes[0].envelope;}
   }
   const scope={onmessage:(_event:unknown)=>{},postMessage:(value:Parameters<typeof received>[0])=>received(value),close(){}};
-  vm.runInNewContext(code,{self:scope,Session,Gateway,HttpError:class extends Error{},init:async()=>{},uuidV7,fromBase64:()=>new Uint8Array([1,2,3]),setTimeout:()=>1,clearTimeout(){},Uint8Array,Date,Error});
+  vm.runInNewContext(code,{self:scope,Session,Gateway,epochRoute,HttpError:class extends Error{},init:async()=>{},uuidV7,fromBase64:()=>new Uint8Array([1,2,3]),setTimeout:()=>1,clearTimeout(){},Uint8Array,Date,Error});
   let id=0;
   return {writes,opened,online:()=>{online=true;},call:(method:string,args:unknown[]=[])=>new Promise<Parameters<typeof received>[0]>(resolve=>{received=resolve;scope.onmessage({data:{id:++id,method,args}});})};
 }
