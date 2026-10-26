@@ -233,3 +233,18 @@ The reader computes this name and reads the exact slot through `GET /v1/p/<proje
 That route returns only slots for the caller's own tailnet login.
 Old person slots stay in the store until a separate collection design exists.
 A repeated grant prints `already granted` and sends the sealed invite again.
+
+### Object listing pages
+
+Object lists accept `prefix`, `limit=1000`, and an optional opaque `continuation`
+query parameter. Each response contains `objects` and `continuation` (a string or
+`null`). Follow the continuation even when a filtered public page has no objects.
+Encode query values as URL query parameters. Continuations expire after 10 minutes
+and bind the project, prefix and public/private route; a gateway restart invalidates
+them. On an invalid continuation, start a new listing.
+
+A listing can scan at most 100,000 objects. Each serialized JSON response is limited
+to 8 MiB. Clients must reject duplicate keys, repeated continuations and objects
+outside their requested prefix. Omitting `limit` retains the complete response for
+older clients, subject to the same count and byte bounds. Person and slot limits
+are unchanged.

@@ -5,6 +5,7 @@ mod aws;
 mod config;
 mod decoy;
 mod epochs;
+mod listing;
 #[cfg(test)]
 mod minio;
 mod origin;

@@ -35,6 +35,7 @@ pub struct Object {
     pub content_range: Option<String>,
 }
 
+#[derive(Clone)]
 pub struct Entry {
     pub key: String,
     pub modified: i64,
@@ -56,7 +57,20 @@ pub enum Transfer {
     },
 }
 
+pub struct ListPage { pub entries: Vec<Entry>, pub continuation: Option<String> }
+
 pub trait Storage: Send + Sync {
+    fn list_page(&self, project: &Project, prefix: &str, role: Role, continuation: Option<&str>, limit: usize) -> Result<ListPage> {
+        if limit == 0 || limit > crate::listing::PAGE { bail!("invalid listing page size"); }
+        let mut entries = self.list(project, prefix, role)?;
+        if entries.len() > crate::listing::OBJECTS { bail!("too many listed objects"); }
+        entries.sort_by(|a, b| a.key.cmp(&b.key));
+        let start = continuation.map_or(0, |key| entries.partition_point(|entry| entry.key.as_str() <= key));
+        let end = (start + limit).min(entries.len());
+        let next = (end < entries.len()).then(|| entries[end - 1].key.clone());
+        Ok(ListPage { entries: entries[start..end].to_vec(), continuation: next })
+    }
+
     fn get_stream(
         &self,
         _: &Project,
@@ -538,16 +552,10 @@ impl Gateway {
                         scoped_query = Some(String::new());
                     }
                 } else if parts.len() == 4 && parts[3] == "objects" {
-                    if let Some(prefix) = query
-                        .strip_prefix("prefix=")
-                        .filter(|_| !query.contains('&'))
-                        .and_then(decode)
-                    {
-                        if let Some((epoch, inner)) = super::epochs::split(&prefix) {
+                    if let Ok(options) = crate::listing::Options::parse(query) {
+                        if let Some((epoch, inner)) = super::epochs::split(&options.prefix) {
                             namespace = epoch.to_owned();
-                            let mut url = reqwest::Url::parse("https://gateway.invalid/")?;
-                            url.query_pairs_mut().append_pair("prefix", inner);
-                            scoped_query = url.query().map(str::to_owned);
+                            scoped_query = Some(options.with_prefix(inner));
                         }
                     }
                 }
@@ -723,11 +731,11 @@ impl Gateway {
                 });
             }
             ("GET", "objects", true) => {
-                let prefix = match query.strip_prefix("prefix=").and_then(decode) {
-                    Some(p) if !query.contains('&') && list_prefix(&p) => p,
-                    None if query.is_empty() => String::new(),
+                let options = match crate::listing::Options::parse(query) {
+                    Ok(options) if list_prefix(&options.prefix) => options,
                     _ => return Ok(Reply::error(400, "invalid object prefix")),
                 };
+                let prefix = &options.prefix;
                 let role = if read
                     || ((login.is_some() || gc) && namespace == "root" && prefix == "keys/")
                 {
@@ -742,18 +750,15 @@ impl Gateway {
                         "a read challenge token or scoped write token is required",
                     ));
                 };
-                let objects = self.storage.list(project, &prefix, role)?;
-                if objects.len() > 10_000 {
-                    bail!("too many listed objects");
-                }
+                let (objects, continuation) = crate::listing::fetch(self, project, name, role, &options, false)?;
                 let objects: Vec<_> = objects
                     .into_iter()
-                    .filter(|e| e.key.starts_with(&prefix))
+                    .filter(|e| e.key.starts_with(prefix.as_str()))
                     .filter(|e| super::epochs::split(&e.key).is_none_or(|(epoch, _)|
                         epoch_chain.as_ref().is_some_and(|chain| chain.reads(&self.proof, name, epoch, token, at))))
                     .map(|e| json!({"key":if namespace == "root" {e.key} else {format!("project/epochs/{namespace}/{}",e.key)},"modified":e.modified}))
                     .collect();
-                return Ok(Reply::json(200, json!({"objects":objects})));
+                return crate::listing::reply(objects, continuation, options.paged);
             }
             ("GET" | "PUT" | "DELETE", "objects", false) => {}
             _ => return Ok(Reply::error(405, "method or route is not supported")),
@@ -1940,6 +1945,104 @@ mod tests {
             format!("index/paths/{EPOCH}.age\n"),
         ] {
             assert!(!object_name(&name), "{name}");
+        }
+    }
+
+    #[test]
+    fn incremental_storage_pages_enforce_the_aggregate_count() {
+        struct Pages(usize);
+        impl Storage for Pages {
+            fn get(&self, _: &Project, _: &str, _: Option<http::Range>, _: usize) -> Result<Option<Object>> { Ok(None) }
+            fn list(&self, _: &Project, _: &str, _: Role) -> Result<Vec<Entry>> { bail!("paging test must not load the full listing") }
+            fn put(&self, _: &Project, _: &str, _: Vec<u8>) -> Result<bool> { bail!("unused") }
+            fn delete(&self, _: &Project, _: &str) -> Result<()> { bail!("unused") }
+            fn list_page(&self, _: &Project, prefix: &str, _: Role, continuation: Option<&str>, limit: usize) -> Result<ListPage> {
+                let start = continuation.unwrap_or("0").parse::<usize>()?;
+                let end = (start + limit).min(self.0);
+                Ok(ListPage { entries: (start..end).map(|n| Entry { key: format!("{prefix}{n:08}.age"), modified: 0 }).collect(), continuation: (end < self.0).then(|| end.to_string()) })
+            }
+        }
+        for count in [15000, 100000, 100001] {
+            let mut f = Fixture::new(); f.gateway.storage = Arc::new(Pages(count));
+            let project = &f.config.projects["example"];
+            let mut continuation = None;
+            let mut total = 0;
+            loop {
+                let options = crate::listing::Options { prefix: "records/".into(), paged: true, continuation };
+                match crate::listing::fetch(&f.gateway, project, "example", Role::Reader, &options, false) {
+                    Ok((entries, next)) => {
+                        total += entries.len(); continuation = next;
+                        if continuation.is_none() { assert_eq!(count, total); assert!(count <= 100000); break; }
+                    }
+                    Err(error) => { assert_eq!(count, 100001); assert_eq!(total, 99000); assert!(error.to_string().contains("too many")); break; }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn object_pages_preserve_15000_keys_and_refuse_100001_for_both_routes() {
+        use layr_store::{format, keys, person, public::Manifest};
+        let f = Fixture::new();
+        let project = &f.config.projects["example"];
+        let descriptor = format::Descriptor { format: 2, project: OVERLAY.into(), recipient: project.recipient.clone() };
+        f.gateway.storage.put(project, "store.json", serde_json::to_vec(&descriptor).unwrap()).unwrap();
+        let identity = keys::generate_identity();
+        let signing = person::make_signing_keys(&keys::recipient_of(&identity).unwrap()).unwrap();
+        let key = person::open_signing_key(&identity, &signing.sealed, &signing.public_key).unwrap();
+        let manifest = Manifest::new(&descriptor, keys::generate_identity(), EPOCH.into(), &key).unwrap();
+        f.gateway.storage.put(project, "public.json", serde_json::to_vec(&manifest).unwrap()).unwrap();
+        let read = f.read_token();
+        for n in 1..=15000 { f.gateway.storage.put(project, &format::segment_name(OVERLAY, n, n), vec![]).unwrap(); }
+        let mut private_cursor = None;
+        for (route, token) in [("/v1/p/example/objects", read.as_str()), ("/p/example/objects", "")] {
+            let legacy = f.request("GET", &format!("{route}?prefix=records%2F"), token, b"", None);
+            assert_eq!(legacy.status, 200);
+            let legacy: serde_json::Value = serde_json::from_slice(&legacy.body).unwrap();
+            assert_eq!(legacy["objects"].as_array().unwrap().len(), 15000);
+            assert!(legacy.get("continuation").is_none());
+            let mut cursor = None;
+            let mut keys = std::collections::BTreeSet::new();
+            let mut pages = 0;
+            loop {
+                let options = crate::listing::Options { prefix: "records/".into(), paged: true, continuation: cursor };
+                let reply = f.request("GET", &format!("{route}?{}", options.with_prefix("records/")), token, b"", None);
+                assert_eq!(reply.status, 200);
+                assert!(reply.body.len() <= crate::listing::BYTES);
+                let value: serde_json::Value = serde_json::from_slice(&reply.body).unwrap();
+                let objects = value["objects"].as_array().unwrap();
+                assert!(objects.len() <= 1000);
+                for object in objects { assert!(keys.insert(object["key"].as_str().unwrap().to_string())); }
+                pages += 1;
+                cursor = value["continuation"].as_str().map(str::to_owned);
+                if pages == 1 && route.starts_with("/v1") { private_cursor = cursor.clone(); }
+                if cursor.is_none() { break; }
+            }
+            assert_eq!(pages, 15);
+            assert_eq!(keys.len(), 15000);
+        }
+        let cursor = private_cursor.unwrap();
+        for (route, prefix, token) in [("/v1/p/example/objects", "states/", read.as_str()), ("/p/example/objects", "records/", "")] {
+            let options = crate::listing::Options { prefix: prefix.into(), paged: true, continuation: Some(cursor.clone()) };
+            assert_eq!(f.request("GET", &format!("{route}?{}", options.with_prefix(prefix)), token, b"", None).status, 400);
+        }
+        // Public filtering can yield an empty page without ending the listing.
+        for n in 0..1000 { f.gateway.storage.put(project, &format!("records/00000-invalid-{n:04}"), vec![]).unwrap(); }
+        let first = f.request("GET", "/p/example/objects?prefix=records%2F&limit=1000", "", b"", None);
+        assert_eq!(first.status, 200);
+        let first: serde_json::Value = serde_json::from_slice(&first.body).unwrap();
+        assert!(first["objects"].as_array().unwrap().is_empty());
+        assert!(first["continuation"].is_string());
+        let options = crate::listing::Options { prefix: "records/".into(), paged: true, continuation: first["continuation"].as_str().map(str::to_owned) };
+        let second = f.request("GET", &format!("/p/example/objects?{}", options.with_prefix("records/")), "", b"", None);
+        assert_eq!(second.status, 200);
+        assert_eq!(serde_json::from_slice::<serde_json::Value>(&second.body).unwrap()["objects"].as_array().unwrap().len(), 1000);
+        for n in 0..1000 { f.gateway.storage.delete(project, &format!("records/00000-invalid-{n:04}")).unwrap(); }
+        for n in 15001..=100001 { f.gateway.storage.put(project, &format::segment_name(OVERLAY, n, n), vec![]).unwrap(); }
+        for (route, token) in [("/v1/p/example/objects", read.as_str()), ("/p/example/objects", "")] {
+            for suffix in ["prefix=records%2F", "prefix=records%2F&limit=1000"] {
+                assert_eq!(f.request("GET", &format!("{route}?{suffix}"), token, b"", None).status, 502);
+            }
         }
     }
 

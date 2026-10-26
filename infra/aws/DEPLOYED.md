@@ -388,7 +388,7 @@ that policy is retained and a dual-SAN origin certificate is unnecessary. The or
 covers `origin.cloud.layr.ws`. Direct origin traffic and a forged viewer header without the secret
 both returned 403, while an authenticated origin request returned verified HTTPS 200.
 
-## Full-suite laptop cloud fixture (2026-10-26, in progress)
+## Full-suite laptop cloud fixture (2026-10-26)
 
 The lead authorized a separate disposable fixture after the M1 preparation stage was merged.
 At 11:21 UTC, `m3-suite` was published in the empty `layr-store-m8-final` store. Its project ID is
@@ -526,3 +526,111 @@ one runner, already above the former shared-IP budget of 600. At 120 seconds it 
 replace the credential budgets. Processes sharing a token also share its 3,000/minute budget.
 All measured commands completed without 429. Expected absent-object responses were two
 404s in Mac push and two in runner push; fresh clone returned 200 for every request.
+
+
+### Corrected five-job cloud result
+
+At 14:10 UTC, an independent Mac owner fetch and signature check completed with zero problems
+across three signer chains. All five corrected-state signed envelopes matched the runner's
+reported SHA-256 values, and every retained `check.log` matched its byte count and SHA-256.
+The exact state is `01a17824-b887-7026-bd2f-ab273a0351f8`, source `e74ceff`, tree
+`8572e78f15a3377840578c028dbb7e9c15187a75`. Evidence with full record and log hashes is in
+[evidence/m3-fixed-checks.json](evidence/m3-fixed-checks.json). Sanitized command request
+counts are in [evidence/m3-request-counts.json](evidence/m3-request-counts.json).
+
+| Check | Platform | Exit | Duration (ms) |
+| --- | --- | ---: | ---: |
+| integration | Linux VZ | 0 | 1822794 |
+| apfs | macOS APFS | 0 | 2757614 |
+| overlayfs-ext4 | Linux VZ | 0 | 390026 |
+| overlayfs-xfs | Linux VZ | 0 | 310049 |
+| unit | Linux VZ | 0 | 258366 |
+
+The corrected APFS Cargo run passed 132 tests and its native filesystem suites passed. Linux
+integration passed its Rust tests and all selected shell suites; both overlay filesystem jobs
+passed 117 Rust tests plus their selected filesystem and shell suites. Unit checks passed all
+selected crate suites. The original exit-101 APFS envelope and retained-log reference remained
+unchanged and were verified again by hash; it was not substituted with the passing record.
+
+A VM stop during the corrected run interrupted pending Linux work. The runner worker reported
+host-agent SIGINT at 13:02:50 UTC; its external cause is unknown. Recovery restored the ephemeral
+transport credential and resumed through the user LaunchAgent. Signed completed results were
+preserved and deduplicated; the tested source state did not change, and no second reseed ran.
+
+At 14:09 UTC, a fresh browser context used the published site through CloudFront. It decrypted
+the source and displayed exactly five passing command rows bound to the corrected state,
+including the macOS APFS and both Linux overlay jobs. Historical failure rows remained visible.
+Signature sign-in, lock and empty browser storage passed. Cloud and RAM cleanup wait for the
+runner worker's final local enrollment-removal receipt.
+
+
+### Full-suite fixture retirement
+
+The runner worker's 14:10:52 UTC receipt confirms both local project enrollments removed,
+all project-specific agents/timers disabled, transport files removed, and both global machine
+identities preserved. Its VM, stable runner daemon and user LaunchAgent remain available.
+Before cloud retirement, six full signed envelopes (original failure plus five corrected checks)
+were retained in [evidence/m3-signed-checks.jsonl](evidence/m3-signed-checks.jsonl). Six retained
+logs and a byte-count/hash manifest are outside RAM under `/tmp/layr-m3-build`; no credential
+patterns were found in those logs. The independent comparison matched all five passing
+signed envelopes and all five retained log hashes.
+
+Cleanup removed 314 versions/markers under `m8-final/`, the synthetic person's four versions,
+two registration versions/markers, two gateway project-config versions and four fixture SSM
+parameters. It preserved the persistent origin/session secrets. Final gateway readback SSM
+`6654b3c5-b184-40c2-98d6-8b713afda623` found the credential-budget release active, an empty
+project configuration, direct/forged-origin 403 and public IPv6 HTTPS 200 with certificate
+verification 0. The owned APFS RAM disk detached normally.
+
+Final AWS readback at 14:15:37 UTC: CloudFront deployed; both public aliases present; origin
+IPv6-only; 120-second origin timeout; caching disabled; all six protected DNS records and the
+prototype distribution unchanged; disposable store empty; all three real stores empty;
+fixture parameters absent; persistent secrets preserved; no relay ports open. Public Mac
+IPv4 HTTPS returned 200 with certificate verification 0. No real-project creation, recovery
+key handling or executor enrollment occurred. M1 step 4 remains for Igor's coordinated steps.
+
+
+### Gateway object listing preparation (2026-10-26)
+
+The server and the Git bridge worker agreed on `prefix`, `limit=1000` and optional
+`continuation`, with response `{objects, continuation: string|null}`. Private and
+public routes retain their existing authorization and key validation. The S3
+backend reads one ListObjectsV2 page per HTTP page. Continuations authenticate the
+project, prefix, route, scanned count and backend position; they expire after ten
+minutes and after a process restart. Filtered public pages can be empty and still
+carry a continuation. Prefix-only clients retain complete bounded responses.
+
+Gateway tests: 45 passed, one external MinIO test ignored. Tests traverse 15,000
+keys through both routes, accept exactly 100,000 scanned keys, reject 100,001,
+follow an empty filtered public page, reject modified or cross-route/prefix
+continuations, and enforce an 8 MiB bound during JSON serialization. Person and
+slot limits remain unchanged. Deployment evidence follows after activation.
+
+
+### Object listing release activated
+
+Source `6c9a9ef2f57fa3dca13e498d8258f6f8fc4f96b2` was built from an immutable
+Git archive for aarch64 Linux musl. The stripped build-machine executable measured
+7,615,376 bytes, SHA-256
+`37c0a9a55020fcd2ffea0075941bec7a3b068061c82a84a66b45f2087fdee526`.
+The copied executable passed size, SHA-256 and ELF validation before packaging.
+Archive `555c625bbca5bd0f03647f2e62dd198c2ff27498b2f69af3c99598ad87df036c`
+retains the nine accepted site files and sync SHA-256
+`3bc33961d321125f5e762f58634942fc5f6971153edce54614914eee925e37d9`.
+
+Candidate preflight SSM `516fbc0a-384f-406e-a7bd-3760e47f511d` passed with the
+previous release still active. Activation ran 14:34:48–14:34:57 UTC through SSM
+`d5849feb-0d1c-42c4-bfec-dc724176468e`, with the prior manifest and release retained
+for rollback. The running process hash and installed archive matched. Direct
+origin and forged viewer-header requests returned 403; authenticated origin HTTPS
+returned 200 with certificate verification. All nine published asset hashes matched.
+The bulk-list tests use the gateway's actual route handler with controlled storage;
+no bulk-list traffic or synthetic project was added to the now-empty AWS stores.
+
+Final readback at 14:35:25 UTC (gateway SSM
+`96e9efa4-5252-47ad-9aac-6459b3329432`): gateway and sync timer active, project
+configuration empty, public IPv4 and IPv6 HTTPS 200 with certificate verification
+0, direct/forged origin 403. All three real stores and the disposable store remain
+empty; fixture parameters remain absent; persistent secrets remain present; the
+RAM disk remains detached. Protected DNS, prototype distribution and CloudFront
+settings match the 14:15:37 cleanup readback.

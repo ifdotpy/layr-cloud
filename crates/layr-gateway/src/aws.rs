@@ -3,7 +3,7 @@
 use super::{
     auth,
     config::Project,
-    server::{Entry, Object, Role, Storage},
+    server::{Entry, ListPage, Object, Role, Storage},
 };
 use anyhow::{anyhow, bail, Context, Result};
 use layr_store::http;
@@ -546,62 +546,47 @@ impl Storage for Aws {
         }))
     }
 
-    fn list(&self, project: &Project, prefix: &str, role: Role) -> Result<Vec<Entry>> {
+    fn list_page(&self, project: &Project, prefix: &str, role: Role, continuation: Option<&str>, limit: usize) -> Result<ListPage> {
+        if limit == 0 || limit > crate::listing::PAGE { bail!("invalid S3 listing page size"); }
         let s3 = self.s3(project, role)?;
         let root = project.key("");
         let prefix = project.key(prefix);
+        let max_keys = limit.to_string();
+        let mut query = vec![("list-type", "2"), ("prefix", prefix.as_str()), ("max-keys", max_keys.as_str())];
+        if let Some(token) = continuation { query.push(("continuation-token", token)); }
+        let response = s3.request(Method::GET, "", &query, &[], Vec::new(), Duration::from_secs(30))?;
+        let xml = String::from_utf8(checked(response, "S3 list", 4 * 1024 * 1024)?)?;
+        let mut entries = Vec::new();
+        let mut keys = BTreeSet::new();
+        for item in aws::xml_texts(&xml, "Contents") {
+            let key = aws::xml_text(&item, "Key").context("S3 list omitted key")?;
+            if !key.starts_with(&prefix) || !keys.insert(key.clone()) { bail!("S3 list returned an invalid key"); }
+            let key = key.strip_prefix(&root).context("S3 list returned another project")?.to_owned();
+            if !crate::listing::valid_key(&key) { bail!("S3 list returned an invalid object key"); }
+            let modified = aws::xml_text(&item, "LastModified").map(|s| expiry(&s)).transpose()?.unwrap_or(0) as i64;
+            entries.push(Entry { key, modified });
+            if entries.len() > limit { bail!("S3 exceeded listing page size"); }
+        }
+        let next = aws::xml_text(&xml, "NextContinuationToken").filter(|s| !s.is_empty());
+        if next.is_none() && aws::xml_text(&xml, "IsTruncated").as_deref() == Some("true") { bail!("S3 list omitted its continuation token"); }
+        if next.as_deref().is_some_and(|token| Some(token) == continuation) { bail!("S3 list repeated its continuation token"); }
+        Ok(ListPage { entries, continuation: next })
+    }
+
+    fn list(&self, project: &Project, prefix: &str, role: Role) -> Result<Vec<Entry>> {
         let deadline = Instant::now() + Duration::from_secs(120);
         let mut seen = BTreeSet::new();
         let mut token = None::<String>;
         let mut entries = Vec::new();
         loop {
-            if Instant::now() >= deadline || seen.len() > 100 {
-                bail!("S3 list deadline reached");
-            }
-            let mut query = vec![
-                ("list-type", "2"),
-                ("prefix", prefix.as_str()),
-                ("max-keys", "1000"),
-            ];
-            if let Some(token) = &token {
-                query.push(("continuation-token", token.as_str()));
-            }
-            let response = s3.request(
-                Method::GET,
-                "",
-                &query,
-                &[],
-                Vec::new(),
-                Duration::from_secs(30),
-            )?;
-            let xml = String::from_utf8(checked(response, "S3 list", 4 * 1024 * 1024)?)?;
-            for item in aws::xml_texts(&xml, "Contents") {
-                let key = aws::xml_text(&item, "Key").context("S3 list omitted key")?;
-                if !key.starts_with(&prefix) {
-                    bail!("S3 list returned another prefix");
-                }
-                let key = key
-                    .strip_prefix(&root)
-                    .context("S3 list returned another project")?
-                    .to_owned();
-                let modified = aws::xml_text(&item, "LastModified")
-                    .map(|s| expiry(&s))
-                    .transpose()?
-                    .unwrap_or(0) as i64;
-                entries.push(Entry { key, modified });
-                if entries.len() > 10_000 {
-                    bail!("S3 list has too many objects");
-                }
-            }
-            token = aws::xml_text(&xml, "NextContinuationToken").filter(|s| !s.is_empty());
+            if Instant::now() >= deadline || seen.len() >= 1024 { bail!("S3 list deadline reached"); }
+            let page = self.list_page(project, prefix, role, token.as_deref(), crate::listing::PAGE)?;
+            entries.extend(page.entries);
+            if entries.len() > crate::listing::OBJECTS || (entries.len() == crate::listing::OBJECTS && page.continuation.is_some()) { bail!("S3 list has too many objects"); }
+            token = page.continuation;
             match &token {
-                None if aws::xml_text(&xml, "IsTruncated").as_deref() == Some("true") => {
-                    bail!("S3 list omitted its continuation token")
-                }
                 None => break,
-                Some(t) if !seen.insert(t.clone()) => {
-                    bail!("S3 list repeated its continuation token")
-                }
+                Some(value) if !seen.insert(value.clone()) => bail!("S3 list repeated its continuation token"),
                 _ => {}
             }
         }

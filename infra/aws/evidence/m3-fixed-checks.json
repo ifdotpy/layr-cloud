@@ -1,0 +1,65 @@
+{
+  "time": "2026-10-26T14:10:42.817796+00:00",
+  "source": "e74ceff3e74babd8bf24e2a06c25ec600deb64f9",
+  "tree": "8572e78f15a3377840578c028dbb7e9c15187a75",
+  "state": "01a17824-b887-7026-bd2f-ab273a0351f8",
+  "verified": [
+    {
+      "name": "integration",
+      "state": "01a17824-b887-7026-bd2f-ab273a0351f8",
+      "record": "01a17843-79b1-716a-95b0-3ea54f8ce94a",
+      "sha256": "99503cb80cb89208928b2ff7696dcaffc0b7dad34c1b996b6c3627acf6b52a18",
+      "signer": "01a17736-70f4-744f-a59b-8685f3151eff",
+      "exit": 0,
+      "duration_ms": 1822794,
+      "logBytes": 23873,
+      "logSha256": "875677d887d27472170b996ccc7c8e7b2a911f0d3a2775ca789142dad3e065b2"
+    },
+    {
+      "name": "apfs",
+      "state": "01a17824-b887-7026-bd2f-ab273a0351f8",
+      "record": "01a17852-a56f-7039-91a0-b1b57880fdf8",
+      "sha256": "f64e48d4a121868ae0d2d7785163338cbb9a0b9e666a64b014af10c5030a7d17",
+      "signer": "01a17725-e2e4-72d8-9de9-95d6d32eb719",
+      "exit": 0,
+      "duration_ms": 2757614,
+      "logBytes": 44521,
+      "logSha256": "0a27cb7de146cdc39f6cbd58f2d7baa0d7088db7f44842a33c08041c7428fedb"
+    },
+    {
+      "name": "overlayfs-ext4",
+      "state": "01a17824-b887-7026-bd2f-ab273a0351f8",
+      "record": "01a1787d-f4ed-765f-b19d-797229cb83e2",
+      "sha256": "a22ae9d59a889ccaccb6a3a2731fedbf813b0396af9dbb1a589d7a9798d01434",
+      "signer": "01a17736-70f4-744f-a59b-8685f3151eff",
+      "exit": 0,
+      "duration_ms": 390026,
+      "logBytes": 32566,
+      "logSha256": "f081dabedf4c7d9add2a4ea124eb346bf7c8742d00811d39ddfea3591d066aa7"
+    },
+    {
+      "name": "overlayfs-xfs",
+      "state": "01a17824-b887-7026-bd2f-ab273a0351f8",
+      "record": "01a17882-b17f-77e4-b966-d0800abed69b",
+      "sha256": "41f12ba42d4067756fb2ee60495c5138f587f5792dbffc7f97609a6f46b3d629",
+      "signer": "01a17736-70f4-744f-a59b-8685f3151eff",
+      "exit": 0,
+      "duration_ms": 310049,
+      "logBytes": 32281,
+      "logSha256": "148b4ff4cf59d9e6afdcb875a58a4ff182d8368a1050dd406b53270a45489329"
+    },
+    {
+      "name": "unit",
+      "state": "01a17824-b887-7026-bd2f-ab273a0351f8",
+      "record": "01a17886-a336-747c-85bd-64a86e65a975",
+      "sha256": "46164ed2c65d30875b017682644899b05755f0f90d0dbd58b5e9c5c721d3fe0c",
+      "signer": "01a17736-70f4-744f-a59b-8685f3151eff",
+      "exit": 0,
+      "duration_ms": 258366,
+      "logBytes": 31520,
+      "logSha256": "6444d98e902c9da689d2d01667cdf1052c1cf354dea17e2e3cac551918fd4884"
+    }
+  ],
+  "oldFailurePreserved": true,
+  "status": "PASS"
+}

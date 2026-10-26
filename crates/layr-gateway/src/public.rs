@@ -3,7 +3,7 @@ use crate::{
     config::Config,
     server::{Gateway, Reply, Role, JSON_LIMIT},
 };
-use anyhow::{bail, Result};
+use anyhow::Result;
 use layr_store::{format, http};
 use serde_json::json;
 use std::{
@@ -118,14 +118,14 @@ impl Gateway {
         };
         let key = parts[2..].join("/");
         let listing = key == "objects";
-        let selected = if listing {
-            match query
-                .strip_prefix("prefix=")
-                .and_then(super::server::decode)
-            {
-                Some(value) if !query.contains('&') && prefix(&value) => value,
+        let options = if listing {
+            match crate::listing::Options::parse(query) {
+                Ok(value) if prefix(&value.prefix) => Some(value),
                 _ => return Ok(Reply::error(400, "invalid public object prefix")),
             }
+        } else { None };
+        let selected = if let Some(options) = &options {
+            options.prefix.clone()
         } else {
             if !query.is_empty() || !object(&key) {
                 return Ok(Reply::error(404, "no such public object"));
@@ -148,10 +148,8 @@ impl Gateway {
         // The native/browser reader additionally verifies the signer against authenticated
         // project history. The gateway does not keep a parallel public machine trust registry.
         if listing {
-            let entries = self.storage.list(project, &selected, Role::Reader)?;
-            if entries.len() > 10_000 {
-                bail!("too many public objects")
-            }
+            let options = options.as_ref().expect("listing options");
+            let (entries, continuation) = crate::listing::fetch(self, project, &parts[1], Role::Reader, options, true)?;
             let objects: Vec<_> = entries
                 .into_iter()
                 .filter(|e| e.key.starts_with(&selected) && object(&e.key))
@@ -161,7 +159,7 @@ impl Gateway {
                 })
                 .map(|e| json!({"key":e.key,"modified":e.modified}))
                 .collect();
-            return Ok(Reply::json(200, json!({"objects":objects})));
+            return crate::listing::reply(objects, continuation, options.paged);
         }
         let range = request
             .header("range")

@@ -1,0 +1,86 @@
+{
+  "count-mac-push": {
+    "requests": 112,
+    "statuses": {
+      "200": 109,
+      "404": 2,
+      "201": 1
+    },
+    "routes": {
+      "GET challenge": 1,
+      "GET objects:list:keys": 2,
+      "GET objects:list:records": 4,
+      "GET objects:list:states": 2,
+      "GET objects:records": 88,
+      "GET objects:slots": 1,
+      "GET other": 1,
+      "GET slots": 2,
+      "GET store.json": 9,
+      "POST token": 1,
+      "PUT objects:records": 1
+    }
+  },
+  "count-fresh-clone": {
+    "requests": 124,
+    "statuses": {
+      "200": 124
+    },
+    "routes": {
+      "GET challenge": 1,
+      "GET objects:list:keys": 1,
+      "GET objects:list:other": 2,
+      "GET objects:list:records": 1,
+      "GET objects:list:states": 1,
+      "GET objects:records": 88,
+      "GET objects:states": 20,
+      "GET slots": 1,
+      "GET store.json": 8,
+      "POST token": 1
+    }
+  },
+  "runner": {
+    "time": "2026-10-26T12:36:11.601776+00:00",
+    "binary_size": 74957656,
+    "binary_sha256": "7ec2e329e5875fcf24943ed0e6353d588e66e6746597f20b70cb492e7c7334c7",
+    "operations": [
+      {
+        "operation": "fetch",
+        "requests": 102,
+        "counts": {
+          "{\"method\":\"GET\",\"route\":\"store.json\",\"status\":200}": 6,
+          "{\"method\":\"GET\",\"route\":\"objects:list:keys\",\"status\":200}": 1,
+          "{\"method\":\"GET\",\"route\":\"slots\",\"status\":200}": 1,
+          "{\"method\":\"GET\",\"route\":\"challenge\",\"status\":200}": 1,
+          "{\"method\":\"POST\",\"route\":\"token\",\"status\":200}": 1,
+          "{\"method\":\"GET\",\"route\":\"objects:list:records\",\"status\":200}": 1,
+          "{\"method\":\"GET\",\"route\":\"objects:records\",\"status\":200}": 88,
+          "{\"method\":\"GET\",\"route\":\"objects:list:states\",\"status\":200}": 1,
+          "{\"method\":\"GET\",\"route\":\"objects:list:other\",\"status\":200}": 2
+        }
+      },
+      {
+        "operation": "push",
+        "requests": 264,
+        "counts": {
+          "{\"method\":\"GET\",\"route\":\"store.json\",\"status\":200}": 12,
+          "{\"method\":\"GET\",\"route\":\"objects:list:keys\",\"status\":200}": 3,
+          "{\"method\":\"GET\",\"route\":\"other\",\"status\":404}": 1,
+          "{\"method\":\"GET\",\"route\":\"slots\",\"status\":200}": 3,
+          "{\"method\":\"GET\",\"route\":\"challenge\",\"status\":200}": 1,
+          "{\"method\":\"POST\",\"route\":\"token\",\"status\":200}": 1,
+          "{\"method\":\"GET\",\"route\":\"objects:slots\",\"status\":404}": 1,
+          "{\"method\":\"GET\",\"route\":\"objects:list:records\",\"status\":200}": 5,
+          "{\"method\":\"PUT\",\"route\":\"objects:records\",\"status\":201}": 1,
+          "{\"method\":\"GET\",\"route\":\"objects:list:states\",\"status\":200}": 3,
+          "{\"method\":\"GET\",\"route\":\"objects:records\",\"status\":200}": 178,
+          "{\"method\":\"GET\",\"route\":\"objects:states\",\"status\":200}": 23,
+          "{\"method\":\"GET\",\"route\":\"objects:other\",\"status\":200}": 30,
+          "{\"method\":\"GET\",\"route\":\"objects:list:other\",\"status\":200}": 1,
+          "{\"method\":\"PUT\",\"route\":\"objects:other\",\"status\":201}": 1
+        }
+      }
+    ],
+    "total_requests": 366,
+    "scope": "one real existing Mac runner fetch+push--index; check watcher unchanged; original120sservices resumed"
+  }
+}
