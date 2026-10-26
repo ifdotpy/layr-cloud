@@ -45,7 +45,8 @@ def write_if_changed(path: Path, text: str, mode: int = 0o644) -> bool:
     return True
 
 
-def release_files(data: bytes, digest: str, binary_name: str) -> dict[str, bytes]:
+def release_files(data: bytes, digest: str, binary_name: str, binary_sha256: str | None = None,
+                  binary_bytes: int | None = None) -> dict[str, bytes]:
     """Reject an invalid hash, extra files, links and non-static ARM64 programs."""
     if not re.fullmatch(r"[0-9a-f]{64}", digest) or hashlib.sha256(data).hexdigest() != digest:
         raise ValueError("release SHA-256 mismatch")
@@ -71,22 +72,41 @@ def release_files(data: bytes, digest: str, binary_name: str) -> dict[str, bytes
     if not {binary_name, "sync.py"}.issubset(files):
         raise ValueError(f"release lacks {binary_name} or sync.py")
     binary = files[binary_name]
+    validate_binary(binary, binary_sha256, binary_bytes)
+    compile(files["sync.py"], "sync.py", "exec")
+    if "checks.py" in files:
+        compile(files["checks.py"], "checks.py", "exec")
+    return files
+
+
+def validate_binary(binary: bytes, expected_sha256: str | None = None,
+                    expected_bytes: int | None = None) -> None:
+    if expected_sha256 is not None or expected_bytes is not None:
+        if (not isinstance(expected_sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", expected_sha256)
+                or type(expected_bytes) is not int or not 0 < expected_bytes <= 32 * 1024 * 1024):
+            raise ValueError("invalid build-machine binary metadata")
+        if len(binary) != expected_bytes or hashlib.sha256(binary).hexdigest() != expected_sha256:
+            raise ValueError("binary differs from build-machine size or SHA-256")
     if (len(binary) < 64 or binary[:6] != b"\x7fELF\x02\x01"
             or int.from_bytes(binary[18:20], "little") != 183):
         raise ValueError("layr must be a Linux ARM64 ELF program")
     offset = int.from_bytes(binary[32:40], "little")
     size = int.from_bytes(binary[54:56], "little")
     count = int.from_bytes(binary[56:58], "little")
-    if size < 4 or offset + size * count > len(binary):
+    if size < 56 or count == 0 or offset + size * count > len(binary):
         raise ValueError("invalid ELF program headers")
     for index in range(count):
         at = offset + index * size
-        if int.from_bytes(binary[at:at + 4], "little") == 3:
+        kind = int.from_bytes(binary[at:at + 4], "little")
+        if kind == 3:
             raise ValueError("layr must be static (no ELF interpreter)")
-    compile(files["sync.py"], "sync.py", "exec")
-    if "checks.py" in files:
-        compile(files["checks.py"], "checks.py", "exec")
-    return files
+        segment_offset = int.from_bytes(binary[at + 8:at + 16], "little")
+        file_size = int.from_bytes(binary[at + 32:at + 40], "little")
+        memory_size = int.from_bytes(binary[at + 40:at + 48], "little")
+        if segment_offset + file_size > len(binary):
+            raise ValueError("truncated ELF segment")
+        if kind == 1 and file_size > memory_size:
+            raise ValueError("invalid ELF load segment")
 
 
 class Sync:
@@ -152,10 +172,13 @@ class Sync:
         if release["key"] != f"{self.kind}/releases/{digest}.tgz":
             raise ValueError("invalid release key")
         current = self.app / "current"
-        if (current / ".sha256").exists() and (current / ".sha256").read_text() == digest:
-            return
         binary_name = "layr-gateway" if self.kind == "gateway" else "layr"
-        files = release_files(self.get(release["key"]), digest, binary_name)
+        binary_sha256, binary_bytes = release.get("binarySha256"), release.get("binaryBytes")
+        if (current / ".sha256").exists() and (current / ".sha256").read_text() == digest:
+            if binary_sha256 is not None or binary_bytes is not None:
+                validate_binary((current / binary_name).read_bytes(), binary_sha256, binary_bytes)
+            return
+        files = release_files(self.get(release["key"]), digest, binary_name, binary_sha256, binary_bytes)
         target = self.app / "releases" / digest
         if target.exists():
             shutil.rmtree(target)

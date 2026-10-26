@@ -45,6 +45,33 @@ class ReleaseTests(unittest.TestCase):
         data, digest = release()
         self.assertEqual(set(sync.release_files(data, digest, "layr-gateway")), {"layr-gateway", "sync.py"})
 
+    def test_matching_archive_digest_does_not_allow_a_truncated_elf_segment(self):
+        binary = bytearray(program())
+        binary[72:80] = (64).to_bytes(8, "little")
+        binary[96:104] = (80).to_bytes(8, "little")
+        binary[104:112] = (80).to_bytes(8, "little")
+        data, digest = release(bytes(binary))
+        with self.assertRaisesRegex(ValueError, "truncated ELF segment"):
+            sync.release_files(data, digest, "layr-gateway")
+
+    def test_load_segment_cannot_have_more_file_bytes_than_memory(self):
+        binary = bytearray(program())
+        binary[96:104] = (64).to_bytes(8, "little")
+        binary[104:112] = (32).to_bytes(8, "little")
+        data, digest = release(bytes(binary))
+        with self.assertRaisesRegex(ValueError, "invalid ELF load segment"):
+            sync.release_files(data, digest, "layr-gateway")
+
+    def test_build_machine_size_and_hash_must_both_match(self):
+        data, digest = release()
+        binary_hash = hashlib.sha256(program()).hexdigest()
+        for expected_hash, expected_size in [("f" * 64, len(program())), (binary_hash, len(program()) + 1)]:
+            with self.assertRaisesRegex(ValueError, "build-machine size or SHA-256"):
+                sync.release_files(data, digest, "layr-gateway", expected_hash, expected_size)
+        sync.release_files(data, digest, "layr-gateway", binary_hash, len(program()))
+        with self.assertRaisesRegex(ValueError, "metadata"):
+            sync.release_files(data, digest, "layr-gateway", binary_hash, None)
+
     def test_executor_release(self):
         data, digest = release(name="layr")
         self.assertEqual(set(sync.release_files(data, digest, "layr")), {"layr", "sync.py"})

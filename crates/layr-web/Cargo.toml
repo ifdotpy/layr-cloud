@@ -40,3 +40,7 @@ required-features = ["test-tools"]
 [[example]]
 name = "epoch_gateway_proof"
 required-features = ["test-tools"]
+
+[[example]]
+name = "cloudfront_transfer"
+required-features = ["test-tools"]

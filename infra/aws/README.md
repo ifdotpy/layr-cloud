@@ -21,6 +21,7 @@ Do not infer a successful deployment from a template lint or local test.
 | cloudfront-certificate.yaml | DNS-validated viewer certificate in us-east-1 |
 | cloudfront.yaml | IPv4/IPv6 distribution and public Route 53 aliases |
 | cloudfront.py | SDK deployment plans with secret handling and replacement checks |
+| package_gateway.py | Checks build-machine size/hash, preserves the site and validates the archive |
 | executor.yaml | Executor or optional idle-stopping runner and retained btrfs disk |
 | sync.py | Atomic release installation, configuration, DNS and ACME certificate setup |
 | checks.py | Fetch/apply/report/push/index loop and optional runner wake/idle control |
@@ -72,13 +73,21 @@ CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=musl-gcc \
 
 Build the native `layr` executable from the same pinned Layr source. Strip both executables.
 Prepare a gateway directory with `layr-gateway`, `sync.py` and `site/` copied from `web/dist/`.
-Prepare an executor directory with `layr`, `sync.py` and `checks.py`. The release validator refuses
-links, path escapes, dynamic executables, wrong architectures, files over 32 MiB and total contents
-over 128 MiB. It checks the archive digest before installing anything.
+Prepare an executor directory with `layr`, `sync.py` and `checks.py`. Copy executables as files;
+command stdout can truncate binary streams. Measure the stripped executable's SHA-256 and byte count
+on the build host, then compare both after copying. The gateway packager requires those independent
+measurements. Test the candidate's `--help` on the actual host before changing the active manifest.
+
+The release validator refuses links, path escapes, dynamic executables, wrong architectures,
+truncated ELF segments, files over 32 MiB and total contents over 128 MiB. It checks the archive digest
+and the manifest's build-machine binarySha256/binaryBytes before installing anything. Historical
+manifests without binary metadata remain usable for rollback.
 
 ```sh
-tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner \
-  -czf gateway.tgz -C gateway ./layr-gateway ./sync.py ./site
+python3 infra/aws/package_gateway.py --binary gateway/layr-gateway \
+  --binary-sha256 "$GATEWAY_BINARY_SHA256" --binary-bytes "$GATEWAY_BINARY_BYTES" \
+  --site-archive "$PREVIOUS_GATEWAY_ARCHIVE" --site-sha256 "$PREVIOUS_GATEWAY_SHA256" \
+  --output gateway.tgz > gateway-release.json
 tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner \
   -czf executor.tgz -C executor ./layr ./sync.py ./checks.py
 ```
@@ -98,8 +107,12 @@ for kind in ('gateway','executor'):
     data=pathlib.Path(kind+'.tgz').read_bytes(); digest=hashlib.sha256(data).hexdigest()
     key=f'{kind}/releases/{digest}.tgz'
     s3.put_object(Bucket=os.environ['ARTIFACTS_BUCKET'],Key=key,Body=data,ContentType='application/gzip')
+    manifest={'key':key,'sha256':digest}
+    if kind=='gateway':
+        build=json.loads(pathlib.Path('gateway-release.json').read_text())
+        manifest.update({field:build[field] for field in ('binarySha256','binaryBytes')})
     s3.put_object(Bucket=os.environ['ARTIFACTS_BUCKET'],Key=f'{kind}/release.json',
-                  Body=json.dumps({'key':key,'sha256':digest}).encode(),ContentType='application/json')
+                  Body=json.dumps(manifest).encode(),ContentType='application/json')
     print(kind,digest)
 PYRELEASE
 ```
@@ -161,8 +174,14 @@ Coordinate with any active gateway/executor deployment before changing AWS. Upda
 gateway stack through a reviewed change set; refuse instance replacement. In particular, user data
 runs only at first boot. Deploy the gateway IAM change so its SSM read exception includes the exact
 `/layr-store/gateway/origin-secret` name, and its DNS grant names the origin host. Publish the tested
-gateway release and public configuration through the normal artifacts manifest. Run sync and read
-back the running release, certificate and service state.
+gateway release and public configuration through the normal artifacts manifest. For the first
+upgrade from a sync script that does not know CloudFront, stop the gateway and sync service/timer
+before publication. Use the old script's existing `Sync.release()` method to install the new release
+and stable sync entrypoint without starting the gateway. Then start the sync service; the new script
+writes originSecretRegion/publicHost, obtains the origin certificate and starts the guarded gateway.
+Read back the actual running executable digest, guarded configuration and direct-origin 403 before
+starting the sync timer and executing the distribution change set. This avoids an unguarded origin
+startup during the entrypoint upgrade.
 
 Create the origin secret once as a random 32-byte lowercase hex SecureString. Fetch it only into
 SDK memory. It must not enter shell arguments, a file, public configuration or command output.
