@@ -59,7 +59,10 @@ def plan(session, name, template, values, region=REGION, origin_secret=False):
                           "status": previous["Status"], "executionStatus": previous["ExecutionStatus"]}))
         return change
     except ClientError as error:
-        if error.response["Error"]["Code"] != "ChangeSetNotFound":
+        code = error.response["Error"]["Code"]
+        absent_stack = (code == "ValidationError" and current is None
+                        and "does not exist" in error.response["Error"]["Message"])
+        if code != "ChangeSetNotFound" and not absent_stack:
             raise
     parameters = {p["ParameterKey"]: {"ParameterKey": p["ParameterKey"], "UsePreviousValue": True}
                   for p in (current or {}).get("Parameters", [])}

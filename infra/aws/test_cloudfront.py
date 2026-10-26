@@ -46,6 +46,15 @@ class CloudFrontDeployTests(unittest.TestCase):
         ssm.get_parameter.assert_called_once_with(Name=deploy.ORIGIN_SECRET, WithDecryption=True)
         self.assertTrue(args["ClientToken"].startswith("layr-cloudfront-"))
 
+    def test_new_stack_describe_changeset_validation_error_is_recoverable(self):
+        session, cf, _ = self.session()
+        cf.describe_stacks.side_effect = missing("ValidationError", "Stack does not exist")
+        cf.describe_change_set.side_effect = missing("ValidationError", "Stack does not exist")
+        cf.create_change_set.return_value = {"Id": "public-change-id"}
+        with contextlib.redirect_stdout(io.StringIO()):
+            deploy.plan(session, "layr-cloudfront-certificate", "cloudfront-certificate.yaml", {})
+        cf.create_change_set.assert_called_once()
+
     def test_update_preserves_secret_and_unrelated_parameters(self):
         session, cf, ssm = self.session()
         cf.describe_stacks.return_value = {"Stacks": [{"Parameters": [{"ParameterKey": key} for key in ("Host", "OriginSecret")]}]}
