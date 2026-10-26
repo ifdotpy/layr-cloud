@@ -229,7 +229,7 @@ Do not overwrite the executor's single-project `profile.env` three times as a su
       --person-login "$IGOR_LOGIN" --person-public "$IGOR_SIGNING_PUBLIC"
     ```
 
-    Its `checks.PROJECTS` directory must contain the staged profile while enrolling; the normal location is `/etc/layr-executor/projects.d`. Keep the timer stopped during this step. The helper reads the exact SSM parameter, uses the executor's existing machine slot, and removes its tmpfs token on exit. It does not accept a paper key.
+    Its `checks.PROJECTS` directory must contain the staged profile while enrolling; the normal location is `/etc/layr-executor/projects.d`. Stop the legacy checks and transfer timers and services before adding profiles; keep the new timer stopped during enrollment. The helper reads the exact SSM parameter, uses the executor's existing machine slot, and removes its tmpfs token on exit. It creates the nonsecret `ready` marker only after clone, configuration and fsck succeed. It does not accept a paper key.
 
     After all profiles selected for this installation are enrolled, install the rendered systemd files under `/etc/systemd/system`. The `layr.service.d/projects.conf` drop-in removes the legacy single-token dependency and token environment. Stop and disable `layr-checks.timer` and `layr-transfer.timer`, and stop their services before enabling `layr-projects.timer`. Reload systemd, restart `layr.service`, start `layr-projects.service` once and check its journal for each selected project. Then enable the single new timer. Keep the old profile and units as the single-project path until the lead accepts the new runtime. Do not install these runtime changes during the rehearsal or before igor's steps.
 

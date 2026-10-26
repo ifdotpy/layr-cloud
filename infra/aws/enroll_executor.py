@@ -13,6 +13,9 @@ from pathlib import Path
 
 import checks
 
+HOME = Path('/var/lib/layr')
+READY = Path('/etc/layr-executor/ready')
+
 
 def enroll(project, login, public):
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,43}', project):
@@ -28,10 +31,10 @@ def enroll(project, login, public):
     os.environ['AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE'] = 'IPv6'
     os.environ['AWS_USE_DUALSTACK_ENDPOINT'] = 'true'
     with checks.project_token(source, profile) as token:
-        env = dict(os.environ, LAYR_ROOT='/var/lib/layr', LAYR_GATEWAY_TOKEN_FILE=str(token))
+        env = dict(os.environ, LAYR_ROOT=str(HOME), LAYR_GATEWAY_TOKEN_FILE=str(token))
         def run(*args):
             subprocess.run([checks.BINARY, *args], env=env, check=True)
-        if not (Path('/var/lib/layr/projects') / project).exists():
+        if not (HOME / 'projects' / project).exists():
             run('clone', 'layr+https://cloud.layr.ws/' + project, project)
         for args in (
                 ('config', 'queue.run', ''),
@@ -44,6 +47,7 @@ def enroll(project, login, public):
         run('--project', project, 'push', 'origin')
         run('--project', project, 'index', 'write', 'origin', '--json')
         run('--project', project, 'fsck')
+        READY.touch(mode=0o600)
 
 
 def main():

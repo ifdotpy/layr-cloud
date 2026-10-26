@@ -1,5 +1,6 @@
 """Check ciphertext-only publication and cleanup of per-command transport grants."""
 import importlib.util
+import contextlib
 import json
 import tempfile
 from pathlib import Path
@@ -16,9 +17,33 @@ def module(name):
 
 publisher = module('publish_project')
 grant = module('with_gateway_grant')
+enroller = module('enroll_executor')
 
 
 class ProjectToolsTests(TestCase):
+    def test_enrollment_marks_ready_only_after_verified_project_and_keeps_grants_separate(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / 'source.json'
+            source.write_text('{"hostKind":"executor","region":"eu-north-1"}')
+            ready = root / 'ready'
+            profile = {'project': 'layr', 'writeTokenParameter': '/layr-store/executor/projects/layr/write-token'}
+            @contextlib.contextmanager
+            def token(source, own):
+                self.assertEqual(own, profile)
+                yield root / 'private-token'
+            with patch.object(enroller, 'HOME', root), patch.object(enroller, 'READY', ready), patch.object(enroller.os, 'geteuid', return_value=0), patch.object(enroller.checks, 'SOURCE', source), patch.object(enroller.checks, 'project_profiles', return_value=[profile]), patch.object(enroller.checks, 'project_token', token), patch.object(enroller.subprocess, 'run') as run:
+                run.side_effect = RuntimeError('clone failed')
+                with self.assertRaises(RuntimeError):
+                    enroller.enroll('layr', 'igor@example.test', 'a' * 64)
+                self.assertFalse(ready.exists())
+                run.side_effect = None
+                enroller.enroll('layr', 'igor@example.test', 'a' * 64)
+                self.assertTrue(ready.exists())
+                self.assertEqual(run.call_args.args[0][-1], 'fsck')
+                for call in run.call_args_list:
+                    self.assertEqual(call.kwargs['env']['LAYR_GATEWAY_TOKEN_FILE'], str(root / 'private-token'))
+
     def test_plaintext_seed_is_refused_before_any_aws_call(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

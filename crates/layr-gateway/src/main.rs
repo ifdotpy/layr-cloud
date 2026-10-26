@@ -148,10 +148,12 @@ fn command(args: &[String]) -> Result<()> {
 
 fn service_parameter(project: &str, parameter: &str, gc: bool) -> bool {
     !gc && config::project_name(project)
-        && (matches!(parameter, "/layr-store/executor/write-token" | "/layr-store/runner/write-token")
-            || ["owner", "executor", "runner"].iter().any(|kind| {
-                parameter == format!("/layr-store/{kind}/projects/{project}/write-token")
-            }))
+        && (matches!(
+            parameter,
+            "/layr-store/executor/write-token" | "/layr-store/runner/write-token"
+        ) || ["owner", "executor", "runner"]
+            .iter()
+            .any(|kind| parameter == format!("/layr-store/{kind}/projects/{project}/write-token")))
 }
 
 fn invite_command(args: &[String]) -> Result<()> {
@@ -321,12 +323,19 @@ mod tests {
                 assert!(!service_parameter(project, &parameter, true));
             }
         }
-        for parameter in ["/layr-store/gateway/session-secret", "/layr-store/gateway/origin-secret",
-                          "/layr-store/owner/projects/layr/../layr-cloud/write-token",
-                          "/layr-store/owner/projects/layr/write-token/extra"] {
+        for parameter in [
+            "/layr-store/gateway/session-secret",
+            "/layr-store/gateway/origin-secret",
+            "/layr-store/owner/projects/layr/../layr-cloud/write-token",
+            "/layr-store/owner/projects/layr/write-token/extra",
+        ] {
             assert!(!service_parameter("layr", parameter, false));
         }
-        assert!(service_parameter("layr", "/layr-store/executor/write-token", false));
+        assert!(service_parameter(
+            "layr",
+            "/layr-store/executor/write-token",
+            false
+        ));
     }
     #[test]
     fn wildcard_public_private_lan_and_plaintext_tailnet_binds_are_refused() {
