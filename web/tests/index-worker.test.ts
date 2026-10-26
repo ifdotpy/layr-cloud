@@ -1,3 +1,4 @@
+import {mockVerification} from './worker-transport';
 import {epochRoute} from '../src/data/epochs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -14,6 +15,7 @@ function worker(tamper:boolean|'laterTrust'=false) {
   const reconcile=new Promise<void>(resolve=>release=resolve);
   let onReply:(message:{id?:number;value?:unknown;error?:string;updated?:boolean})=>void=()=>{};
   class Session {
+    clear_record_segments() {} verify_file() {}
     refresh_person() {} sign_session(){return "signature";}
     unlock_recovery(){} slot_name(){return 'person.age'} open_store(){return 'project'} challenge(){return 'proof'} lock(){} free(){}
     query(_name:string,method:string){
@@ -27,6 +29,7 @@ function worker(tamper:boolean|'laterTrust'=false) {
     overlay_slots(){return '[]'}overlay_inputs(){return '[]'}
   }
   class Gateway {
+    verifiedObjects = mockVerification;
     discovery(){return {};} setEpoch(){}
     unlock(){return this.person();} signIn(){}
     async person(){return {recipient:'person'}}async projects(){return ['store']}async descriptor(){return {project:'project'}}async slot(){return new Uint8Array()}

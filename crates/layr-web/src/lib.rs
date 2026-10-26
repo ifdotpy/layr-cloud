@@ -139,6 +139,15 @@ impl Session {
     ) -> std::result::Result<(), JsValue> {
         self.segment(name, object, ciphertext).map_err(js)
     }
+    /// Discard only pending, unverified segments before an authoritative reload.
+    pub fn clear_record_segments(&mut self, name: &str) -> std::result::Result<(), JsValue> {
+        self.stores.get_mut(name).context("store is locked").map_err(js)?.segments.clear();
+        Ok(())
+    }
+    /// Check complete file bytes before the worker publishes derived results.
+    pub fn verify_file(&self, name: &str, object: &str, path: &str) -> std::result::Result<(), JsValue> {
+        self.read_file(name, object, path).map(|bytes| { drop(Zeroizing::new(bytes)); }).map_err(js)
+    }
     pub fn finish_records(&mut self, name: &str) -> std::result::Result<(), JsValue> {
         self.finish(name).map_err(js)
     }
@@ -1307,6 +1316,24 @@ mod tests {
         )
         .unwrap();
         assert!(s.finish("test").is_err());
+    }
+    #[test]
+    fn a_direct_retry_discards_pending_segments_without_replacing_the_verified_model() {
+        let (mut session,vault,_,key)=fixture();
+        let first=signed(&key,1,"machine",json!({"public_key":hex_key(&key)}));
+        let second=signed(&key,2,"project",json!({"name":"Verified"}));
+        let object=format::segment_name(MACHINE,1,2);
+        let seal=|text: &str| keys::encrypt(&keys::recipient_of(&vault).unwrap(),text.as_bytes()).unwrap();
+        let valid=seal(&format!("{first}\n{second}\n"));
+        session.segment("test",&object,&valid).unwrap(); session.finish("test").unwrap();
+        let forged=seal(&format!("{first}\n{}\n",second.replace("Verified","Forged")));
+        session.segment("test",&object,&forged).unwrap(); assert!(session.finish("test").is_err());
+        assert_eq!(session.answer("","projects",&json!([]),0).unwrap()[0]["name"],"Verified");
+        assert!(session.segment("test",&object,&valid).is_err());
+        session.clear_record_segments("test").unwrap();
+        assert!(session.stores["test"].segments.is_empty());
+        session.segment("test",&object,&valid).unwrap(); session.finish("test").unwrap();
+        assert_eq!(session.answer("","projects",&json!([]),0).unwrap()[0]["name"],"Verified");
     }
     fn hex_key(key: &ed25519_dalek::SigningKey) -> String {
         key.verifying_key()

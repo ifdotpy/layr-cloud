@@ -1,3 +1,4 @@
+import {mockVerification} from './worker-transport';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
@@ -23,6 +24,7 @@ function worker(options:{removed?:boolean;incomplete?:boolean}={}){
  const calls:string[]=[];let locked=false;
  let resolve:(message:{id?:number;value?:unknown;error?:string})=>void=()=>{};
  class Session {
+    clear_record_segments() {} verify_file() {}
   unlock_recovery(){} refresh_person(){} sign_session(){return 'signature'} slot_name(){return 'person-reader.age'}
   open_store(){throw Error('old epoch fallback')}
   open_epoch_store(){calls.push('open-current');return 'project'}
@@ -45,6 +47,7 @@ function worker(options:{removed?:boolean;incomplete?:boolean}={}){
   lock(){locked=true} free(){}
  }
  class Gateway {
+    verifiedObjects = mockVerification;
   selected='root';
   unlock(){return {recipient:'person',login:'reader@example.test'}} person(){return this.unlock()} signIn(){}
   projects(){return ['store']} discovery(){calls.push('discovery');return discovery}

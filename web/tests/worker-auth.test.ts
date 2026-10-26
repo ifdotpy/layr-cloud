@@ -1,3 +1,4 @@
+import {mockVerification} from './worker-transport';
 import {epochRoute} from '../src/data/epochs';
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
@@ -9,6 +10,7 @@ const code=ts.transpileModule(readFileSync(new URL('../src/data/worker.ts',impor
 function setup(){
  const calls:string[]=[];const buffers:Uint8Array[]=[];const bodies:string[]=[];let signing=false,refused=false;let receive:(v:{id?:number;value?:unknown;error?:string;locked?:boolean})=>void=()=>{};
  class Session{
+    clear_record_segments() {} verify_file() {}
   unlock_recovery(){calls.push('open person');} open_signing_key(){signing=true;calls.push('open signing');}
   sign_session(challenge:string){assert(signing);calls.push(`sign ${challenge}`);return 'proof';}
   refresh_person(){calls.push('private index');}slot_name(){return 'person.age';}query(_name:string,method:string){return method==='pins'?'["project"]':'[]';}
@@ -17,6 +19,7 @@ function setup(){
   sign_request(){return 'sealed request';}lock(){signing=false;calls.push('lock');}free(){}
  }
  class Gateway{
+    verifiedObjects = mockVerification;
   discovery(){return {};} setEpoch(){}
   unlock(login:string){calls.push(`bootstrap ${login}`);return {login,recipient:'recipient',signing:'sealed',signing_key:'public'};}
   signIn(login:string,sign:(s:string)=>string){if(refused)throw new HttpError(401,'wrong proof');calls.push(`session ${login}`);assert.equal(sign('challenge'),'proof');}

@@ -129,3 +129,54 @@ test('acceptance index and inbox writes use the person session and preserve the 
   gateway.lock();await assert.rejects(gateway.putPersonIndex(body),/Sign in/);
  }finally{globalThis.fetch=previous;}
 });
+
+test('CDN reads carry no gateway authority and retry verification directly once', async () => {
+  const previous=globalThis.fetch, key='files/01a177aa-a7a5-716c-8774-7f165724c16b.age';
+  for (const mode of ['corrupt','blocked','foreign','direct-corrupt']) {
+    let links=0, cdn=0, direct=0, verifies=0;
+    globalThis.fetch=async(input,init={})=>{
+      const path=String(input), headers=new Headers(init.headers);
+      if(path.startsWith('/api/session/challenge'))return Response.json({challenge:'person'});
+      if(path==='/api/session')return Response.json({login:'ann@example.com',token:'person-token',expires:Date.now()+60000});
+      if(path.endsWith('/challenge'))return Response.json({challenge:btoa('cipher')});
+      if(path.endsWith('/token'))return Response.json({token:'read-token',expires:Date.now()+60000});
+      if(path.startsWith('https://')) {
+        cdn++;assert.equal(headers.get('authorization'),null);assert.equal(init.credentials,'omit');assert.equal(init.redirect,'error');assert.equal(init.referrerPolicy,'no-referrer');
+        if(mode==='blocked')return new Response('blocked',{status:403});
+        return new Response(new Uint8Array([0,0,0]));
+      }
+      assert.equal(path,`/v1/p/project/objects/${key}`);assert.equal(headers.get('authorization'),'Bearer read-token');
+      if(headers.get('x-layr-cdn')==='1') {
+        links++;const expires=Math.floor(Date.now()/1000)+300;
+        const host=mode==='foreign'?'other.example':'layr.example';
+        return Response.json({url:`https://${host}/o/project/${key}?Expires=${expires}&Signature=abc&Key-Pair-Id=K123&Hash-Algorithm=SHA256`,expires,bytes:3},{headers:{'content-type':'application/vnd.layr.cdn+json'}});
+      }
+      direct++;return new Response(new Uint8Array(mode==='direct-corrupt'?[0,0,0]:[1,2,3]));
+    };
+    try {
+      const gateway=new Gateway();await gateway.signIn('ann@example.com',()=> 'signature');
+      const result=gateway.verifiedObjects('project',[key],()=> 'proof',bodies=>{verifies++;assert.deepEqual([...bodies[0]],[1,2,3]);return 'verified';});
+      if(mode==='direct-corrupt')await assert.rejects(result);else assert.equal(await result,'verified');
+      assert.equal(links,1);assert.equal(direct,1);assert.equal(cdn,mode==='foreign'?0:1);
+      assert.equal(verifies,mode==='corrupt'||mode==='direct-corrupt'?2:1);
+    } finally {globalThis.fetch=previous;}
+  }
+});
+
+test('CDN object batches use at most eight parallel reads and preserve caller order', async()=>{
+  const previous=globalThis.fetch;let active=0,peak=0,exchanges=0;
+  globalThis.fetch=async(input)=>{
+    const path=String(input);
+    if(path.startsWith('/api/session/challenge'))return Response.json({challenge:'person'});
+    if(path==='/api/session')return Response.json({login:'ann@example.com',token:'person',expires:Date.now()+60000});
+    if(path.endsWith('/challenge'))return Response.json({challenge:btoa('cipher')});
+    if(path.endsWith('/token')){exchanges++;return Response.json({token:'read',expires:Date.now()+60000});}
+    active++;peak=Math.max(peak,active);await new Promise(resolve=>setImmediate(resolve));active--;
+    return new Response(new Uint8Array([Number(path.split('/').at(-1)!.split('.')[0])]));
+  };
+  try {
+    const gateway=new Gateway();await gateway.signIn('ann@example.com',()=> 'signature');
+    const result=await gateway.verifiedObjects('project',Array.from({length:19},(_,i)=>`records/${i}.age`),()=> 'proof',bodies=>bodies.map(body=>body[0]));
+    assert.deepEqual(result,Array.from({length:19},(_,i)=>i));assert.equal(peak,8);assert.equal(active,0);assert.equal(exchanges,1);
+  }finally{globalThis.fetch=previous;}
+});

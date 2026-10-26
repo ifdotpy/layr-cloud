@@ -1,3 +1,4 @@
+import {mockVerification} from './worker-transport';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
@@ -28,11 +29,13 @@ function worker(size:number,valid=true) {
  let fetched=0,blobbed=0;let receive:(value:{value?:Blob;error?:string})=>void;
  const file={name:'layr',size,object:'files/01a12290-0000-7000-8000-000000000001.age'};
  class Session {
+    clear_record_segments() {} verify_file() {}
   open_public_store(){return 'project';} add_segment(){} finish_records(){} lock(){} free(){}
   query(_name:string,method:string){assert.equal(method,'releaseFiles');return JSON.stringify([file]);}
   release_file(){if(!valid)throw Error('release file SHA-256 or size mismatch');return new Uint8Array([1,2,3]);}
  }
  class Gateway {
+    verifiedObjects = mockVerification;
   discovery(){return {};}setEpoch(){} publicDescriptor(){return {project:'project'};}publicManifest(){return new Uint8Array();}publicObject(){return new Uint8Array();}publicList(){return [];}lock(){}
   releaseObject(){fetched++;return new Uint8Array();}
  }

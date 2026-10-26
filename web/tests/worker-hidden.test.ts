@@ -1,3 +1,4 @@
+import {mockVerification} from './worker-transport';
 import {epochRoute} from '../src/data/epochs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -21,6 +22,7 @@ function worker(options: { hidden?: boolean; slot?: boolean; foreign?: boolean; 
   let locked = false;
   let resolve: (message: { id: number; value?: unknown; error?: string }) => void;
   class Session {
+    clear_record_segments() {} verify_file() {}
     refresh_person() {} sign_session(){return "signature";}
     unlock_recovery() { calls.push('unlock'); }
     slot_name() { return 'person-reader.age'; }
@@ -47,6 +49,7 @@ function worker(options: { hidden?: boolean; slot?: boolean; foreign?: boolean; 
     overlay_inputs() { return '[]'; }
   }
   class Gateway {
+    verifiedObjects = mockVerification;
     discovery(){return {};} setEpoch(){}
     unlock(){return this.person();} signIn(){}
     async person() { return { recipient: 'person' }; }

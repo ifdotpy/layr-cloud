@@ -1,3 +1,4 @@
+import {mockVerification} from './worker-transport';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
@@ -11,6 +12,7 @@ function worker(mode='ok') {
  let receive:(v:{id?:number;value?:unknown;error?:string;updated?:boolean})=>void=()=>{};
  const events:string[]=[];
  class Session {
+    clear_record_segments() {} verify_file() {}
   unlock_recovery(){} refresh_person(view:string){refreshed=JSON.parse(view).index==='sealed';} slot_name(){return 'person.age'} sign_session(){return 'signature'}
   invite_project(){if(mode==='stale'||mode==='foreign')throw Error(mode);return 'project'}
   prepare_invite_accept(){if(mode==='slot')throw Error('slot mismatch');return '{"data":"sealed","previous":null}'}
@@ -18,6 +20,7 @@ function worker(mode='ok') {
   open_store(){assert(refreshed);events.push('open');return 'project'} finish_records(){if(mode==='records'&&refreshed)throw Error('invalid project records')} close_store(){events.push('close')} overlay_slots(){return '[]'} lock(){} free(){}
  }
  class Gateway {
+    verifiedObjects = mockVerification;
   unlock(){return {recipient:'person'}}signIn(){}person(){return {index:saved,inbox:removed?[]:[{id:'invite'}]}}projects(){return ['store']}descriptor(){return {project:'project'}}slot(){return new Uint8Array()} discovery(){return {}}setEpoch(){}list(){return []}
   putPersonIndex(){writes++;if(mode==='conflict'){saved='concurrent';throw Error('index changed')}saved='sealed';events.push('write');if(mode==='lost')throw Error('reply lost')}
   removeInvite(){assert(refreshed);removed=true;events.push('delete');if(mode==='lost-delete')throw Error('delete reply lost')}lock(){}

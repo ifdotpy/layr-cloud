@@ -36,19 +36,26 @@ function proof(name: string) { return (bytes: Uint8Array) => current().session.c
 function sourceObject(name: string, key: string) {
   return objectSources.get(`${name}/${key}`) ?? route(name).prefix + key;
 }
-async function objectBytes(name: string, key: string, maximum?: number) {
+async function objectBytes(name: string, key: string, maximum?: number, direct?: boolean) {
   const target = route(name), {gateway} = current();
   const known = objectSources.get(`${name}/${key}`);
   const candidates=known ? [known] : [target.prefix + key, ...(historyPrefixes.get(name) ?? []).map(prefix=>prefix+key)];
   for (let i=0;i<candidates.length;i++) {
     try {
       const bytes = maximum !== undefined
-        ? await gateway.releaseObject(target.gateway, candidates[i], maximum, publicProjects.has(target.gateway) ? undefined : proof(name))
-        : publicProjects.has(target.gateway) ? await gateway.publicObject(target.gateway,candidates[i]) : await gateway.object(target.gateway,candidates[i],proof(name));
+        ? await gateway.releaseObject(target.gateway, candidates[i], maximum, publicProjects.has(target.gateway) ? undefined : proof(name),direct)
+        : publicProjects.has(target.gateway) ? await gateway.publicObject(target.gateway,candidates[i]) : await gateway.object(target.gateway,candidates[i],proof(name),direct);
       objectSources.set(`${name}/${key}`,candidates[i]); return bytes;
     } catch(error) { if (!(error instanceof HttpError) || error.status!==404 || i===candidates.length-1) throw error; }
   }
   throw new Error('The object is unavailable.');
+}
+async function verifiedObjects<T>(name: string, keys: string[], verify: (bytes: Uint8Array[], retry: boolean) => T | Promise<T>, maximum?: number) {
+  const {gateway,session}=current(), target=route(name);
+  return gateway.verifiedObjects(target.gateway,keys,proof(name),async (bytes,retry)=>{
+    if (current().session !== session) throw new Error('Your session changed.');
+    return verify(bytes,retry);
+  },maximum,(key,direct)=>objectBytes(name,key,maximum,direct));
 }
 async function loadEpochHistory(name:string, epochs:{prefix:string; history:string[]}, anonymous=false) {
   if (!epochs.prefix) return;
@@ -72,13 +79,13 @@ async function listObjects(name: string, prefix: string) {
   return entries.map(entry => ({...entry, key: entry.key.slice(target.prefix.length)}));
 }
 async function loadStore(name: string) {
-  const { session } = current();
-  for (const entry of (await listObjects(name, 'records/')).sort((a,b) => b.key.localeCompare(a.key))) {
-    const bytes = await objectBytes(name, entry.key);
-    if (current().session !== session) throw new Error('Your session changed.');
-    session.add_segment(name, sourceObject(name,entry.key), bytes);
-  }
-  session.finish_records(name);
+  const {session}=current();
+  const keys=(await listObjects(name,'records/')).sort((a,b)=>b.key.localeCompare(a.key)).map(entry=>entry.key);
+  await verifiedObjects(name,keys,bytes=>{
+    session.clear_record_segments(name);
+    keys.forEach((key,i)=>session.add_segment(name,sourceObject(name,key),bytes[i]));
+    session.finish_records(name);
+  });
 }
 async function loadStoreFast(name: string): Promise<boolean> {
   const {session} = current();
@@ -91,11 +98,12 @@ async function loadStoreFast(name: string): Promise<boolean> {
   try {
     // Bootstrap complete prefixes from each writer, never an index-provided key.
     const records = await listObjects(name, 'records/');
-    for (const entry of records.filter(entry => /\/0*1-[0-9]+\.age$/.test(entry.key))) {
-      const bytes=await objectBytes(name,entry.key);
-      session.add_segment(name,sourceObject(name,entry.key),bytes);
-    }
-    session.finish_records(name);
+    const initial=records.filter(entry => /\/0*1-[0-9]+\.age$/.test(entry.key)).map(entry=>entry.key);
+    await verifiedObjects(name,initial,bytes=>{
+      session.clear_record_segments(name);
+      initial.forEach((key,i)=>session.add_segment(name,sourceObject(name,key),bytes[i]));
+      session.finish_records(name);
+    });
     const latest = new Map<string, string>();
     for (const entry of found) {
       const match = /^index\/heads\/([^/]+)\/(\d{20})\.age$/.exec(entry.key);
@@ -173,19 +181,20 @@ async function loadTree(name: string, object: string, seen: Set<string>): Promis
   if (seen.has(id) || seen.size >= 32) throw new Error('The tree chain has a loop or exceeds 32 states.');
   seen.add(id);
   const { session } = current();
-  const bytes = await objectBytes(name, object);
-  const base: string | null = JSON.parse(session.tree_base(name, sourceObject(name,object), bytes));
-  if (base) await loadTree(name, base, seen);
-  session.install_tree(name, sourceObject(name,object), bytes); loaded.add(id);
+  await verifiedObjects(name,[object],async ([bytes])=>{
+    const base: string | null = JSON.parse(session.tree_base(name,sourceObject(name,object),bytes));
+    if (base) await loadTree(name,base,new Set(seen));
+    session.install_tree(name,sourceObject(name,object),bytes); loaded.add(id);
+  });
 }
 async function parts(name: string, object: string, path: string): Promise<void> {
   const { session } = current();
   const source = JSON.parse(session.file_location(name, object, path));
   const keys: string[] = JSON.parse(session.file_parts(source.name, source.object, path));
-  for (const key of keys) {
-    const bytes=await objectBytes(source.name,key);
-    session.add_part(source.name,sourceObject(source.name,key),bytes);
-  }
+  await verifiedObjects(source.name,keys,bytes=>{
+    keys.forEach((key,i)=>session.add_part(source.name,sourceObject(source.name,key),bytes[i]));
+    session.verify_file(name,object,path);
+  });
 }
 async function unlock(method: string, args: unknown[], base: string) {
   lock();
@@ -381,10 +390,11 @@ async function call(method: string, args: unknown[], base = ''): Promise<unknown
     const file = files.find(file => file.name === filename);
     if (!file) throw new Error('Release file is absent.');
     if (file.size > 256 * 1024 * 1024) throw new Error('File exceeds the 256 MiB browser limit; use layr release get.');
-    const bytes = await objectBytes(name, file.object, file.size + (Math.floor(file.size / 65536) + 1) * 16 + 4096);
-    const plain = session.release_file(name, reference, filename, sourceObject(name,file.object), bytes, Date.now());
-    try { return new Blob([plain as Uint8Array<ArrayBuffer>], {type:'application/octet-stream'}); }
-    finally { plain.fill(0); }
+    return verifiedObjects(name,[file.object],([bytes])=>{
+      const plain=session.release_file(name,reference,filename,sourceObject(name,file.object),bytes,Date.now());
+      try { return new Blob([plain as Uint8Array<ArrayBuffer>],{type:'application/octet-stream'}); }
+      finally { plain.fill(0); }
+    },file.size+(Math.floor(file.size/65536)+1)*16+4096);
   }
   if (['tree', 'file', 'diff'].includes(method)) {
     const [project, state, path = ''] = args as string[];

@@ -1,3 +1,4 @@
+import {mockVerification} from './worker-transport';
 import {epochRoute} from '../src/data/epochs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -12,6 +13,7 @@ function setup(mode:'lost-success'|'offline') {
   let online=false, locked=false;
   let received:(value:{id:number;value?:unknown;error?:string})=>void;
   class Session {
+    clear_record_segments() {} verify_file() {}
     refresh_person() {} sign_session(){return "signature";}
     unlock_recovery() {} slot_name(){return 'person.age';} open_store(){return 'project';}
     open_signing_key(bytes:Uint8Array){opened.push(bytes);}
@@ -21,6 +23,7 @@ function setup(mode:'lost-success'|'offline') {
     challenge(){return 'proof';} lock(){locked=true;} free(){}
   }
   class Gateway {
+    verifiedObjects = mockVerification;
     discovery(){return {};} setEpoch(){}
     unlock(){return this.person();} signIn(){}
     person(){return {recipient:'person',signing:'sealed',signing_key:'public'};}
