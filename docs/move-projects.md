@@ -10,8 +10,8 @@ An **agent** step uses public metadata, its own enrolled machine identity, and g
 ## Gates before a real move
 
 - **igor / agent — wait for git-history.** Task `work-1793009127566503168-7` must supply a reviewed CLI that imports the complete Git DAG and retains commit IDs after a fresh Cloud clone. Exact core `c1d7229` failed: a five-commit merge history became one commit after encrypted store transfer, although its main tree matched. Do not call that revision a full-history migration.
-- **igor — wait for paper-tty.** Store creation must send the new paper key only to igor's private terminal. The current `--paper-key-out` requires a regular file. `/dev/tty` is not supported. Wait for the reviewed terminal-only creation flag; do not create an agent-readable real paper-key file.
-- **igor — wait for site-accept.** Task `work-1793010263212975104-9` adds explicit invite acceptance in the signed-in site session. The current site does not accept pending project invites. Do not use a real person-key file to work around this gate.
+- **igor — use terminal-only store creation.** Reviewed Layr `879a228` adds `--paper-key-tty`. It sends the new paper key only to your controlling terminal and requires final-word confirmation before publication. The synthetic PTY rehearsal passed with no words in files. Do not use `--paper-key-out` or point it at `/dev/tty` for a real project. The final migration CLI must include this change and the full-history correction.
+- **igor — accept invites in the signed-in site session.** Site-accept is merged as `fb6b424` and deployed on `cloud.layr.ws`. Use **You > Your invites > Accept**. It updates the encrypted index in your existing session; a real person-key file is not part of this procedure.
 - **agent — wait for the reviewed gateway grant command and IAM allow list.** The new source accepts project-bound owner/executor/runner parameter names; the currently deployed gateway accepts the two legacy service names only. Before step 11, deploy the reviewed gateway release and apply the new exact-name PutParameter IAM plan from `project_iam.py`. This work is prepared but was not installed during the rehearsal.
 - **agent — wait for multi-project runtime approval before installation.** Keep the existing single-project executor profile during the rehearsal. The prepared runtime uses one public profile and one SSM grant per project, and continues after a project's failure. Install it only after igor finishes the corresponding enrollment steps.
 - **igor / agent — use the reviewed laptop runner.** Read the core repository's `docs/laptop-runner.md` and `tools/checks/configure.sh`. Trust its public machine identities. No paper key goes to a Linux runner.
@@ -98,7 +98,7 @@ Do not overwrite the executor's single-project `profile.env` three times as a su
 
    Git remote `github` and Cloud remote `origin` are separate namespaces. Ordinary `layr push origin` publishes encrypted Layr objects. `layr git push github main` updates the optional Git mirror.
 
-9. **igor — create an encrypted local seed and retain its paper key.** Wait for the reviewed paper-tty revision, then run:
+9. **igor — create an encrypted local seed and retain its paper key.** Use the reviewed `879a228` change in the final migration CLI, then run:
 
     ```sh
     SEED=/path/to/new/encrypted-seed
@@ -199,7 +199,7 @@ Do not overwrite the executor's single-project `profile.env` three times as a su
 
     This reads ciphertext and public metadata only. It refuses a different existing object and preserves transport-grant hashes. The first person grant uses the local seed because the current Cloud CLI grant action requires an unlocked person session.
 
-    The project invite is encrypted. After the reviewed site-accept task is deployed, sign in to the site yourself, review the pending project identity and choose its Accept action. This updates your encrypted person index in the existing signed-in session. Wait for the tested site action before the real move; do not use a person-key file. Never supply recovery words or a project paper key through an agent command.
+    The project invite is encrypted. Sign in to the site yourself, open **You > Your invites**, review the pending project identity and choose **Accept**. This updates your encrypted person index in the existing signed-in session. The site action is deployed; do not use a person-key file. Never supply recovery words or a project paper key through an agent command.
 
 15. **igor — trust the executor and laptop runner public identities.** Compare the public values with the independently read machine receipts. Then run these for each project:
 
