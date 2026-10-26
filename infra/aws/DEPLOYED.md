@@ -484,3 +484,45 @@ all core branches. Its executable is 74,957,656 bytes, SHA-256
 `7ec2e329e5875fcf24943ed0e6353d588e66e6746597f20b70cb492e7c7334c7`.
 It records method, route class and response status only. Request counts and five corrected
 runner results remain pending.
+
+
+The public CloudFront credential probe then sent 601 requests with one valid person session;
+all returned HTTP 200. The credential stayed in process memory. Source decryption, Checks,
+lock and empty browser storage also passed. The first probe attempt stopped on a Node DNS
+adapter error before sending probe traffic; the corrected adapter completed the probe.
+
+### Measured command requests
+
+Measurements used the local counting build above against the deployed gateway and the
+existing synthetic project. Mac push published two signed records without new source states.
+Fresh clone received 136 records, seven states and 791 files; four signer chains verified with
+zero problems. The runner measurement used its existing Mac identity and one real
+`fetch origin` followed by `push origin --index`; automatic transport paused for that cycle
+and resumed afterward. Check watchers and the tested source state did not change.
+
+| Route class | Mac push | Fresh clone | Runner fetch | Runner push with index |
+| --- | ---: | ---: | ---: | ---: |
+| GET project descriptor | 9 | 8 | 6 | 12 |
+| GET object/list endpoint | 97 | 113 | 93 | 244 |
+| GET slot discovery | 2 | 1 | 1 | 3 |
+| GET project challenge | 1 | 1 | 1 | 1 |
+| POST project read token | 1 | 1 | 1 | 1 |
+| GET other endpoint | 1 | 0 | 0 | 1 |
+| PUT object endpoint | 1 | 0 | 0 | 2 |
+| **Total** | **112** | **124** | **102** | **264** |
+
+The route counter groups objects by kind without storing object IDs, URLs, credentials or
+headers. Within GET objects, Mac push fetched 88 record objects and performed four record
+listings, two key listings and two state listings. Clone fetched 88 record objects and 20 state
+objects. Runner fetch fetched 88 record objects. Runner push fetched 178 record objects,
+23 state objects and 30 other objects, and performed five record listings, three key listings
+and three state listings. Its repeated record retrieval and 12 descriptor reads identify work
+for a command-scoped cache. A separate core task will address that after the Git-history
+changes merge; no core branch was edited for measurement.
+
+The runner cycle totals 366 requests. Every 15 seconds, that is 1,464 requests/minute from
+one runner, already above the former shared-IP budget of 600. At 120 seconds it averages
+183/minute. Bursts still consume a fixed one-minute window, so cadence alone does not
+replace the credential budgets. Processes sharing a token also share its 3,000/minute budget.
+All measured commands completed without 429. Expected absent-object responses were two
+404s in Mac push and two in runner push; fresh clone returned 200 for every request.
