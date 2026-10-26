@@ -432,6 +432,31 @@ fn actual_cli_minio_round_trip() {
     let read = issued["token"].as_str().unwrap();
     let write = token(&binary, &path, false);
     let gc = token(&binary, &path, true);
+    release_stream_round_trip(
+        &client,
+        &origin,
+        &write,
+        read,
+        &s3.0,
+        &config.projects["example"],
+        _server.0.id(),
+        address,
+        &ca,
+    );
+    if std::env::var_os("LAYR_RELEASE_ONLY").is_some() {
+        let discovery = request(Method::GET, "/v1/p/example/objects?prefix=keys%2F")
+            .bearer_auth(read)
+            .send()
+            .unwrap();
+        let status = discovery.status();
+        println!("release caller discovery probe: GET /v1/p/example/objects?prefix=keys%2F -> {status}: {}", discovery.text().unwrap());
+        assert_eq!(
+            status, 200,
+            "CLI epoch discovery must work before release attach"
+        );
+        cli_store_round_trip(&binary, &home.0, &path, &ca, address, &endpoint, &s3.0);
+        return;
+    }
     let bytes = age::encrypt(&identity.to_public(), b"the gateway cannot decrypt this").unwrap();
     let data_path = "/v1/p/example/objects/states/state/01234567.0001.data.age";
     assert_eq!(
@@ -631,6 +656,178 @@ fn actual_cli_minio_round_trip() {
     assert!(persisted.contains(&auth::hash(&gc)));
 }
 
+fn release_stream_round_trip(
+    client: &Client,
+    origin: &str,
+    write: &str,
+    read: &str,
+    s3: &S3,
+    project: &config::Project,
+    pid: u32,
+    address: std::net::SocketAddr,
+    ca: &Path,
+) {
+    use std::io::Read;
+    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+    let key = format!("files/{}.age", uuid::Uuid::now_v7());
+    let target = format!("{origin}/v1/p/example/objects/{key}");
+    let memory = || -> u64 {
+        fs::read_to_string(format!("/proc/{pid}/status"))
+            .unwrap()
+            .lines()
+            .find_map(|line| {
+                line.strip_prefix("VmRSS:")?
+                    .split_whitespace()
+                    .next()?
+                    .parse::<u64>()
+                    .ok()
+            })
+            .unwrap()
+            * 1024
+    };
+    let baseline = memory();
+    let peak = Arc::new(AtomicU64::new(baseline));
+    let done = Arc::new(AtomicBool::new(false));
+    let measured = peak.clone();
+    let stop = done.clone();
+    let monitor = std::thread::spawn(move || {
+        while !stop.load(Ordering::Relaxed) {
+            if let Ok(status) = fs::read_to_string(format!("/proc/{pid}/status")) {
+                if let Some(rss) = status.lines().find_map(|line| {
+                    line.strip_prefix("VmRSS:")?
+                        .split_whitespace()
+                        .next()?
+                        .parse::<u64>()
+                        .ok()
+                }) {
+                    measured.fetch_max(rss * 1024, Ordering::Relaxed);
+                }
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    });
+    let size = 128u64 << 20;
+    let reply = client
+        .put(&target)
+        .header("Host", "localhost")
+        .header("content-type", "application/octet-stream")
+        .bearer_auth(write)
+        .timeout(Duration::from_secs(120))
+        .body(reqwest::blocking::Body::sized(
+            std::io::repeat(0x55).take(size),
+            size,
+        ))
+        .send()
+        .unwrap();
+    assert_eq!(reply.status(), 201);
+    let mut reply = client
+        .get(&target)
+        .header("Host", "localhost")
+        .bearer_auth(read)
+        .timeout(Duration::from_secs(120))
+        .send()
+        .unwrap();
+    assert_eq!(reply.status(), 200);
+    assert_eq!(reply.content_length(), Some(size));
+    let mut buffer = [0u8; 65536];
+    let mut total = 0;
+    loop {
+        let n = reply.read(&mut buffer).unwrap();
+        if n == 0 {
+            break;
+        }
+        assert!(buffer[..n].iter().all(|b| *b == 0x55));
+        total += n as u64;
+    }
+    assert_eq!(total, size);
+    done.store(true, Ordering::Relaxed);
+    monitor.join().unwrap();
+    let delta = peak.load(Ordering::Relaxed).saturating_sub(baseline);
+    println!(
+        "PASS release streaming 128 MiB PUT/GET: baseline_rss={baseline} peak_rss={} delta={delta}",
+        peak.load(Ordering::Relaxed)
+    );
+    assert!(
+        delta < 16 << 20,
+        "release request memory grew by {delta} bytes"
+    );
+    assert_eq!(
+        client
+            .put(&target)
+            .header("Host", "localhost")
+            .header("content-type", "application/octet-stream")
+            .bearer_auth(write)
+            .body("overwrite")
+            .send()
+            .unwrap()
+            .status(),
+        412
+    );
+    assert_eq!(
+        client
+            .get(&target)
+            .header("Host", "localhost")
+            .send()
+            .unwrap()
+            .status(),
+        401
+    );
+    // An oversized declared body is rejected before a multipart upload can be created.
+    assert_eq!(raw(address,ca,&format!("PUT /v1/p/example/objects/{key} HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer {write}\r\nContent-Type: application/octet-stream\r\nContent-Length: {}\r\n\r\n",layr_store::format::RELEASE_OBJECT_LIMIT+1)),413);
+    // The streaming S3 reader reports disconnects; no object may be published and no upload may remain.
+    struct Disconnect(u64);
+    impl Read for Disconnect {
+        fn read(&mut self, out: &mut [u8]) -> std::io::Result<usize> {
+            if self.0 == 0 {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::ConnectionReset,
+                    "fixture disconnect",
+                ));
+            }
+            let n = out.len().min(self.0 as usize);
+            out[..n].fill(1);
+            self.0 -= n as u64;
+            Ok(n)
+        }
+    }
+    let abort_key = format!("files/{}.age", uuid::Uuid::now_v7());
+    assert!(client
+        .put(format!("{origin}/v1/p/example/objects/{abort_key}"))
+        .header("Host", "localhost")
+        .header("content-type", "application/octet-stream")
+        .bearer_auth(write)
+        .body(reqwest::blocking::Body::sized(
+            Disconnect((8 << 20) + 100),
+            16 << 20
+        ))
+        .send()
+        .is_err());
+    std::thread::sleep(Duration::from_millis(200));
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        let response = s3
+            .request(
+                Method::GET,
+                "",
+                &[("uploads", ""), ("prefix", &project.key(&abort_key))],
+                &[],
+                Vec::new(),
+                Duration::from_secs(5),
+            )
+            .unwrap();
+        let xml = response.text().unwrap();
+        if !xml.contains("<Upload>") && s3.get(&project.key(&abort_key)).unwrap().is_none() {
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "disconnected release left a multipart upload"
+        );
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    println!("PASS release stream create-once, read proof, limit and disconnected multipart abort");
+}
+
 fn cli_store_round_trip(
     gateway: &Path,
     home: &Path,
@@ -674,6 +871,10 @@ fn cli_store_round_trip(
         // Machine callers need the scoped grant to discover their own slot, then prove reads.
         if let Some(token) = token.or_else(|| bootstrap.exists().then_some(bootstrap.as_path())) {
             command.env("LAYR_GATEWAY_TOKEN_FILE", token);
+        }
+        if args.starts_with(&["remote", "mode"]) && args.last() == Some(&"private") {
+            // Retain the disposable store's paper reader during this one rotation.
+            command.env("LAYR_PAPER_KEY_FILE", home.join("owner-paper"));
         }
         let output = command.output().unwrap();
         assert!(
@@ -753,6 +954,149 @@ fn cli_store_round_trip(
         Some(&write_file),
     );
     run(&store, &line, &["push", "gateway", "-q"], Some(&write_file));
+    // The real CLI attaches and verifies a built file through the gateway's stream routes.
+    let payload = home.join("layr-linux-arm64");
+    fs::write(&payload, vec![0x5a; 10 << 20]).unwrap();
+    run(
+        &store,
+        &line,
+        &["ref", "set", "release/1.2.0", "main"],
+        None,
+    );
+    let files: serde_json::Value = serde_json::from_str(&run(
+        &store,
+        &line,
+        &[
+            "release",
+            "attach",
+            "release/1.2.0",
+            payload.to_str().unwrap(),
+            "--remote",
+            "gateway",
+            "--json",
+        ],
+        Some(&write_file),
+    ))
+    .unwrap();
+    assert_eq!(files.as_array().unwrap().len(), 1);
+    let output = home.join("release-download");
+    run(
+        &store,
+        &line,
+        &[
+            "release",
+            "get",
+            "release/1.2.0",
+            "--remote",
+            "gateway",
+            "-o",
+            output.to_str().unwrap(),
+        ],
+        None,
+    );
+    assert_eq!(
+        fs::read(output.join("layr-linux-arm64")).unwrap(),
+        fs::read(&payload).unwrap()
+    );
+    println!("PASS release attach/list/get through real TLS gateway and MinIO");
+    if std::env::var_os("LAYR_RELEASE_ONLY").is_some() {
+        run(
+            &store,
+            &line,
+            &["ref", "set", "release/previous", "main"],
+            None,
+        );
+        run(
+            &store,
+            &line,
+            &[
+                "release",
+                "attach",
+                "release/previous",
+                payload.to_str().unwrap(),
+                "--remote",
+                "gateway",
+            ],
+            Some(&write_file),
+        );
+        run(
+            &store,
+            &line,
+            &["remote", "mode", "gateway", "public"],
+            Some(&write_file),
+        );
+        run(
+            &store,
+            &line,
+            &["remote", "mode", "gateway", "private"],
+            Some(&write_file),
+        );
+        run(
+            &store,
+            &line,
+            &[
+                "release",
+                "attach",
+                "release/1.2.0",
+                payload.to_str().unwrap(),
+                "--remote",
+                "gateway",
+            ],
+            Some(&write_file),
+        );
+        for (reference, folder) in [
+            ("release/1.2.0", "epoch-current"),
+            ("release/previous", "epoch-history"),
+        ] {
+            let destination = home.join(folder);
+            run(
+                &store,
+                &line,
+                &[
+                    "release",
+                    "get",
+                    reference,
+                    "--remote",
+                    "gateway",
+                    "-o",
+                    destination.to_str().unwrap(),
+                ],
+                None,
+            );
+            assert_eq!(
+                fs::read(destination.join("layr-linux-arm64")).unwrap(),
+                fs::read(&payload).unwrap()
+            );
+        }
+        run(
+            &store,
+            &line,
+            &["remote", "mode", "gateway", "public"],
+            Some(&write_file),
+        );
+        let destination = home.join("epoch-public");
+        run(
+            &store,
+            &line,
+            &[
+                "release",
+                "get",
+                "release/1.2.0",
+                "--remote",
+                "gateway",
+                "--public",
+                "-o",
+                destination.to_str().unwrap(),
+            ],
+            None,
+        );
+        assert_eq!(
+            fs::read(destination.join("layr-linux-arm64")).unwrap(),
+            fs::read(&payload).unwrap()
+        );
+        println!("PASS release current-epoch attach, current/historical get, and public epoch download through TLS gateway");
+        return;
+    }
     // A standalone gateway reader signs a person session; tailnet identity is not authorization.
     let mount_login = "mount-reader@example.test";
     let person_dir = home.join("mount-person");

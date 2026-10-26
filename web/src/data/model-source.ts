@@ -1,5 +1,5 @@
 import type {
-  RequestAction, RequestStatus, ActionAccess, Comment, DataSource, Project, Line, State, Change, Ref, RefChange, QueueEntry, Attestation,
+  ReleaseFile, RequestAction, RequestStatus, ActionAccess, Comment, DataSource, Project, Line, State, Change, Ref, RefChange, QueueEntry, Attestation,
   Operation, Behavior, Tree, FileContent, Diff, Copy, Person, Machine, Store, You,
   ScreenDiff, LogOptions, MergeStatus, ChangeDiff, OpenChange, Blame, LoadStatus,
 } from './source';
@@ -91,6 +91,8 @@ export class ModelSource implements DataSource {
   changeDiff(project: string, id: string, from: string, to: string, path = ''): Promise<ChangeDiff> { return this.call('changeDiff', [project, id, from, to, path]); }
   mergeStatus(project: string, state: string, target: string): Promise<MergeStatus> { return this.call('mergeStatus', [project, state, target]); }
   refs(project: string): Promise<Ref[]> { return this.call('refs', [project]); }
+  releaseFiles(project: string, reference: string): Promise<ReleaseFile[]> { return this.call('releaseFiles', [project, reference]); }
+  releaseDownload(project: string, reference: string, filename: string): Promise<Blob> { return this.call('releaseDownload', [project, reference, filename]); }
   refLog(project: string, name: string): Promise<RefChange[]> { return this.call('refLog', [project, name]); }
   queue(project: string): Promise<QueueEntry[]> { return this.call('queue', [project]); }
   attestations(project: string, state: string): Promise<Attestation[]> { return this.call('attestations', [project, state]); }

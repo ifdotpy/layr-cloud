@@ -24,6 +24,7 @@ test("releases use ref dates, page all ancestry and scope checks and environment
   const old = { name: "release/9", target: "base" }, latest = { name: "release/10", target: "head" };
   const states = [state("head", "head", ["base"]), state("base")];
   const source = {
+    releaseFiles: async () => [],
     refs: async () => [old, latest, { name: "env/prod", target: "head" }, { name: "env/test", target: "other" }],
     opLog: async () => [moved(old, 1), moved(latest, 2)],
     log: async (_: string, target: string, options: { offset: number; limit: number }) => (target === "head" ? states : [states[1]]).slice(options.offset, options.offset + options.limit),

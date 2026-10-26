@@ -1,7 +1,7 @@
 //! Anonymous reads of deliberately published project objects.
 use crate::{
     config::Config,
-    server::{Gateway, Reply, Role, JSON_LIMIT, OBJECT_LIMIT},
+    server::{Gateway, Reply, Role, JSON_LIMIT},
 };
 use anyhow::{bail, Result};
 use layr_store::{format, http};
@@ -60,6 +60,7 @@ pub fn object(key: &str) -> bool {
         || format::parse_segment_name(key).is_some()
         || format::parse_tree_name(key).is_some()
         || format::parse_data_name(key).is_some()
+        || format::release_file(key)
 }
 
 fn prefix(value: &str) -> bool {
@@ -76,7 +77,9 @@ fn prefix(value: &str) -> bool {
         ))
         .unwrap()
     });
-    value.len() <= 1024 && !value.contains("..") && PATTERN.is_match(value)
+    matches!(value, "files" | "files/")
+        || format::release_file(value)
+        || (value.len() <= 1024 && !value.contains("..") && PATTERN.is_match(value))
 }
 
 impl Gateway {
@@ -151,13 +154,20 @@ impl Gateway {
             .header("range")
             .map(http::Range::parse)
             .transpose()?;
+        let logical = crate::epochs::split(&key).map(|(_, inner)| inner).unwrap_or(&key);
+        if format::release_file(logical) {
+            return Ok(match self.storage.get_stream(project, &selected, range)? {
+                Some(object) => Reply::stream(object),
+                None => Reply::error(404, "no such public object"),
+            });
+        }
         let limit = if matches!(
             key.as_str(),
             "store.json" | "public.json" | "slots/public.age"
         ) {
             JSON_LIMIT
         } else {
-            OBJECT_LIMIT
+            super::server::object_limit(&key)
         };
         let found = self.storage.get(project, &selected, range, limit)?;
         Ok(match found {

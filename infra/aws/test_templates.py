@@ -84,6 +84,7 @@ class TemplateTests(unittest.TestCase):
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/public.json"},
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/keys/*"},
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/records/*"},
+            {"Fn::Sub": "${Bucket.Arn}/${Prefix}/files/*"},
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/states/*"},
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/slots/*"},
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/requests/*"},
@@ -95,6 +96,7 @@ class TemplateTests(unittest.TestCase):
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/project/epochs/*/store.json"},
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/project/epochs/*/public.json"},
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/project/epochs/*/records/*"},
+            {"Fn::Sub": "${Bucket.Arn}/${Prefix}/project/epochs/*/files/*"},
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/project/epochs/*/states/*"},
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/project/epochs/*/slots/*"},
             {"Fn::Sub": "${Bucket.Arn}/${Prefix}/project/epochs/*/history/*"},
@@ -117,7 +119,9 @@ class TemplateTests(unittest.TestCase):
         self.assertEqual(actions(resources["Gc"]), {"s3:DeleteObject"})
         self.assertEqual(statements(resources["Gc"])[0]["Resource"],
                          [{"Fn::Sub": "${Bucket.Arn}/${Prefix}/states/*/*.data.age"},
-                          {"Fn::Sub": "${Bucket.Arn}/${Prefix}/project/epochs/*/states/*/*.data.age"}])
+                          {"Fn::Sub": "${Bucket.Arn}/${Prefix}/files/*"},
+                          {"Fn::Sub": "${Bucket.Arn}/${Prefix}/project/epochs/*/states/*/*.data.age"},
+                          {"Fn::Sub": "${Bucket.Arn}/${Prefix}/project/epochs/*/files/*"}])
         for role in ("Writer", "Reader", "Gc"):
             trust = resources[role]["Properties"]["AssumeRolePolicyDocument"]["Statement"][0]
             self.assertEqual(trust["Condition"]["ArnEquals"]["aws:PrincipalArn"], {"Ref": "GatewayRoleArns"})
@@ -129,6 +133,19 @@ class TemplateTests(unittest.TestCase):
         value = next(item for item in policy if item["Sid"] == "RequireCreateOnlyValue")
         self.assertEqual(value["Condition"]["StringNotEquals"]["s3:if-none-match"], "*")
         self.assertEqual(resources["Bucket"]["DeletionPolicy"], "Retain")
+
+    def test_release_file_resources_are_scoped_to_writer_and_gc(self):
+        resources = template("template.yaml")["Resources"]
+        expected = {"${Bucket.Arn}/${Prefix}/files/*", "${Bucket.Arn}/${Prefix}/project/epochs/*/files/*"}
+        for role, permissions in [("Writer", {"s3:PutObject", "s3:AbortMultipartUpload"}), ("Gc", {"s3:DeleteObject"})]:
+            grant = statements(resources[role])[0]
+            actual = grant["Action"] if isinstance(grant["Action"], list) else [grant["Action"]]
+            self.assertEqual(set(actual), permissions)
+            paths = {path["Fn::Sub"] for path in grant["Resource"]}
+            self.assertEqual({path for path in paths if path.endswith("/files/*")}, expected)
+        # A write grant cannot acquire file read or listing permissions.
+        self.assertNotIn("s3:GetObject", statements(resources["Writer"])[0]["Action"])
+        self.assertNotIn({"Fn::Sub": "${Prefix}/files/*"}, statements(resources["Writer"])[2]["Condition"]["StringLike"]["s3:prefix"])
 
     def test_gc_removes_noncurrent_bytes_without_expiring_current_objects(self):
         bucket = template("template.yaml")["Resources"]["Bucket"]["Properties"]

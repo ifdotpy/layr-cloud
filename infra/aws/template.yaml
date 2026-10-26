@@ -63,12 +63,14 @@ Resources:
                 Action: [s3:PutObject, s3:AbortMultipartUpload]
                 Resource:
                   - !Sub '${Bucket.Arn}/${Prefix}/records/*'
+                  - !Sub '${Bucket.Arn}/${Prefix}/files/*'
                   - !Sub '${Bucket.Arn}/${Prefix}/store.json'
                   - !Sub '${Bucket.Arn}/${Prefix}/public.json'
                   - !Sub '${Bucket.Arn}/${Prefix}/keys/*'
                   - !Sub '${Bucket.Arn}/${Prefix}/project/epochs/*/store.json'
                   - !Sub '${Bucket.Arn}/${Prefix}/project/epochs/*/public.json'
                   - !Sub '${Bucket.Arn}/${Prefix}/project/epochs/*/records/*'
+                  - !Sub '${Bucket.Arn}/${Prefix}/project/epochs/*/files/*'
                   - !Sub '${Bucket.Arn}/${Prefix}/project/epochs/*/states/*'
                   - !Sub '${Bucket.Arn}/${Prefix}/project/epochs/*/slots/*'
                   - !Sub '${Bucket.Arn}/${Prefix}/project/epochs/*/history/*'
@@ -143,7 +145,9 @@ Resources:
                 Action: s3:DeleteObject
                 Resource:
                   - !Sub '${Bucket.Arn}/${Prefix}/states/*/*.data.age'
+                  - !Sub '${Bucket.Arn}/${Prefix}/files/*'
                   - !Sub '${Bucket.Arn}/${Prefix}/project/epochs/*/states/*/*.data.age'
+                  - !Sub '${Bucket.Arn}/${Prefix}/project/epochs/*/files/*'
   BucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:

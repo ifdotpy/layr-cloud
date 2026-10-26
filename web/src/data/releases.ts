@@ -1,8 +1,9 @@
-import type { Check, DataSource, Operation, Project, Ref, State } from "./source";
+import type { Check, DataSource, Operation, Project, Ref, State, ReleaseFile } from "./source";
 import { object } from "../labels";
 
 export interface Release {
   ref: Ref;
+  files: ReleaseFile[];
   operation?: Operation;
   previous?: Ref;
   notes?: State[];
@@ -61,6 +62,7 @@ export async function releases(source: DataSource, project: string, checks: Chec
   const [refs, operations] = await Promise.all([source.refs(project), source.opLog(project)]);
   const rows: Release[] = refs.filter((ref) => ref.name.startsWith("release/")).map((ref) => ({
     ref,
+    files: [],
     operation: releaseOperation(ref, operations),
     checks: checks.filter((check) => check.state === ref.target),
     environments: refs.filter((env) => env.name.startsWith("env/") && env.target === ref.target),
@@ -71,6 +73,7 @@ export async function releases(source: DataSource, project: string, checks: Chec
     return histories.get(state)!;
   };
   await Promise.all(rows.map(async (row, index) => {
+    row.files = await source.releaseFiles(project, row.ref.name);
     // Without ref dates the previous release cannot be determined honestly.
     if (rows.some((r) => !r.operation)) {
       row.error = "Release order is not recorded.";
@@ -85,4 +88,10 @@ export async function releases(source: DataSource, project: string, checks: Chec
     }
   }));
   return rows;
+}
+
+/** A copyable command must preserve filenames containing spaces or shell syntax. */
+export function releaseDownloadCommand(reference: string, filename: string) {
+  const argument = /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(filename) ? filename : "'" + filename.replaceAll("'", "'\\''") + "'";
+  return `layr release get ${reference} ${filename.startsWith('-') ? '-- ' : ''}${argument}`;
 }
