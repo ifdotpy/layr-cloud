@@ -1,0 +1,18 @@
+{
+  "bucket": "layr-store-m8-final-bucket-noitqelxwhmd",
+  "prefix": "m8-final",
+  "key": "states/dcef07d7-9ef7-4bfa-831a-1b2db15bcd29/12345678.0000.data.age",
+  "version": "Pk8X0kVaigA1BnEsNBkbNyFqRGkTsWC4",
+  "complete": true,
+  "algorithm": "RSA2048-PKCS1v15-SHA256",
+  "unsigned": 403,
+  "signed": 200,
+  "otherPath": 403,
+  "expired": 403,
+  "reusedAfterExpiry": 403,
+  "secondReadCacheHit": true,
+  "bytes": 4096,
+  "sha256": "0c4287ec69ee734856520a22723780334ad5271dd71d8b1f9dfe3435815cf27f",
+  "verifiedAt": 1793034776,
+  "objectRemoved": true
+}

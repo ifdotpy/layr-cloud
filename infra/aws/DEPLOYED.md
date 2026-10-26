@@ -634,3 +634,35 @@ configuration empty, public IPv4 and IPv6 HTTPS 200 with certificate verificatio
 empty; fixture parameters remain absent; persistent secrets remain present; the
 RAM disk remains detached. Protected DNS, prototype distribution and CloudFront
 settings match the 14:15:37 cleanup readback.
+
+
+## CDN cache infrastructure and SHA256 probe (2026-10-26)
+
+The feature remains in progress. The gateway executable and site build are unchanged.
+CloudFront stack `layr-cloudfront` applied change set `cdn-c22b9820421c6f139f70`:
+OAC, path-only one-year cache policy, one `/o/*` behavior, a router function,
+two RSA public keys and their trusted key group. Existing gateway origin and default
+behavior remain identical. The router retains distinct store prefixes in rewritten
+cache paths. The two public aliases had identical resource definitions; CloudFormation
+reported dependency-only modifications with `Replacement=False`.
+
+Only the disposable store received bucket-policy change set
+`cdn-c0c998b02821bed7e20f`, modifying `BucketPolicy` with `Replacement=False`.
+It permits this distribution to read immutable object classes under `m8-final/`.
+Real-store bucket policies are not changed at this stage. Two RSA 2048 private keys
+were generated in memory and stored as SecureStrings in the exact SSM names
+`/layr-store/gateway/cdn-signing-a` and `/layr-store/gateway/cdn-signing-b`.
+No private key or bearer URL was written to a file or log.
+
+At 17:12:56 UTC the standard canned-policy RSA PKCS#1 v1.5 SHA256 URL passed a live
+probe on a disposable 4,096-byte object through `cloud.layr.ws` and S3 OAC. The signed
+read returned the expected SHA-256; its second read was a CloudFront cache hit.
+Unsigned, changed-path, expired and reused-after-expiry URLs returned 403. The test
+removed its exact S3 object version. See
+[evidence/cdn-sha256-probe.json](evidence/cdn-sha256-probe.json).
+
+The template passed cfn-lint. Four infrastructure tests cover unchanged gateway
+behavior, cache-key isolation, immutable-only bucket resources, unchanged DNS
+resource checks and the canned-policy signature against a library RSA verifier.
+The canonical gateway cache-class test also passed after restricting records,
+state trees and data parts to the store format's exact filename parsers.
