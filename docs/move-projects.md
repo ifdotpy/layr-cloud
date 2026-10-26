@@ -9,14 +9,14 @@ An **agent** step uses public metadata, its own enrolled machine identity, and g
 
 ## Gates before a real move
 
-- **igor / agent — wait for git-history.** Task `work-1793009127566503168-7` must supply a reviewed CLI that imports the complete Git DAG and retains commit IDs after a fresh Cloud clone. Exact core `c1d7229` failed: a five-commit merge history became one commit after encrypted store transfer, although its main tree matched. Do not call that revision a full-history migration.
-- **igor — use terminal-only store creation.** Reviewed Layr `879a228` adds `--paper-key-tty`. It sends the new paper key only to your controlling terminal and requires final-word confirmation before publication. The synthetic PTY rehearsal passed with no words in files. Do not use `--paper-key-out` or point it at `/dev/tty` for a real project. The final migration CLI must include this change and the full-history correction.
+- **igor / agent — use Layr main `ec8ba0f` or newer.** Task `work-1793009127566503168-7` is reviewed and merged. This revision includes the complete Git DAG transfer, identical commit-ID export and the mirror non-fast-forward guard. It also includes terminal-only paper-key creation from `879a228`. The old `c1d7229` network baseline does not preserve full history.
+- **igor — use terminal-only store creation.** Reviewed Layr `879a228` adds `--paper-key-tty`. It sends the new paper key only to your controlling terminal and requires final-word confirmation before publication. The synthetic PTY rehearsal passed with no words in files. Do not use `--paper-key-out` or point it at `/dev/tty` for a real project. The final migration CLI is main `ec8ba0f` or newer, which includes both changes.
 - **igor — accept invites in the signed-in site session.** Site-accept is merged as `fb6b424` and deployed on `cloud.layr.ws`. Use **You > Your invites > Accept**. It updates the encrypted index in your existing session; a real person-key file is not part of this procedure.
 - **agent — wait for the reviewed gateway grant command and IAM allow list.** The new source accepts project-bound owner/executor/runner parameter names; the currently deployed gateway accepts the two legacy service names only. Before step 11, deploy the reviewed gateway release and apply the new exact-name PutParameter IAM plan from `project_iam.py`. This work is prepared but was not installed during the rehearsal.
 - **agent — wait for multi-project runtime approval before installation.** Keep the existing single-project executor profile during the rehearsal. The prepared runtime uses one public profile and one SSM grant per project, and continues after a project's failure. Install it only after igor finishes the corresponding enrollment steps.
 - **igor / agent — use the reviewed laptop runner.** Read the core repository's `docs/laptop-runner.md` and `tools/checks/configure.sh`. Trust its public machine identities. No paper key goes to a Linux runner.
 
-Use the exact CLI revision and binary hash recorded after these gates pass. The old `c1d7229` binary is only the network-rehearsal baseline.
+Record the exact `ec8ba0f` or newer CLI revision and binary hash before the move. The old `c1d7229` binary is only the network-rehearsal baseline.
 
 ## Project stores
 
@@ -86,7 +86,7 @@ Do not overwrite the executor's single-project `profile.env` three times as a su
    git -C /path/to/clean/full/git/clone rev-parse 'main^{tree}'
    ```
 
-8. **igor — import with the corrected Git bridge.** Do not use `init --from` on a dirty working tree or a shallow clone. After the git-history gate passes:
+8. **igor — import with the corrected Git bridge.** Do not use `init --from` on a dirty working tree or a shallow clone. Use the final migration CLI from main `ec8ba0f` or newer:
 
    ```sh
    layr git clone "$GITHUB_URL" "$PROJECT" --branch main
@@ -98,7 +98,7 @@ Do not overwrite the executor's single-project `profile.env` three times as a su
 
    Git remote `github` and Cloud remote `origin` are separate namespaces. Ordinary `layr push origin` publishes encrypted Layr objects. `layr git push github main` updates the optional Git mirror.
 
-9. **igor — create an encrypted local seed and retain its paper key.** Use the reviewed `879a228` change in the final migration CLI, then run:
+9. **igor — create an encrypted local seed and retain its paper key.** Use the final migration CLI from main `ec8ba0f` or newer, then run:
 
     ```sh
     SEED=/path/to/new/encrypted-seed
@@ -284,6 +284,6 @@ Do not overwrite the executor's single-project `profile.env` three times as a su
 
 **agent — use a new synthetic Git repository and synthetic person only.** Create a macOS APFS RAM disk and put every disposable paper key, person key, recovery file and local project under it. Use only `layr-store-m8-final`, with a unique alias/login. Exercise the actor steps in the same order, including a fresh CloudFront clone, push/sync, published site sign-in and one executor-applied encrypted comment. Use a local bare Git target for the disposable mirror; do not create or delete GitHub repositories.
 
-**agent — record the full-history gate honestly.** The initial five-commit merge fixture reproduced the c1d7229 loss of four commits. Repeat the comparison after git-history is reviewed. Until then, the network rehearsal proves transport and callers only.
+**agent — record the full-history gate honestly.** The initial five-commit merge fixture reproduced the c1d7229 loss of four commits. The reviewed correction is merged as `ec8ba0f`. Repeat the same commit-ID, count and tree comparison with this final CLI during the migration rehearsal. The earlier network rehearsal alone proves transport and callers.
 
 **agent — clean up the rehearsal.** Stop its executor and runner enrollments, remove their per-project grant files, then remove scoped SSM parameters, gateway alias, person, invite and disposable S3 versions. Preserve real project stacks and records. Detach the owned RAM disk. Confirm empty disposable store, empty test enrollment, closed forwarding ports and unchanged protected DNS and prototype distribution.
