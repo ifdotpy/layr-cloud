@@ -526,3 +526,39 @@ one runner, already above the former shared-IP budget of 600. At 120 seconds it 
 replace the credential budgets. Processes sharing a token also share its 3,000/minute budget.
 All measured commands completed without 429. Expected absent-object responses were two
 404s in Mac push and two in runner push; fresh clone returned 200 for every request.
+
+
+### Corrected five-job cloud result
+
+At 14:10 UTC, an independent Mac owner fetch and signature check completed with zero problems
+across three signer chains. All five corrected-state signed envelopes matched the runner's
+reported SHA-256 values, and every retained `check.log` matched its byte count and SHA-256.
+The exact state is `01a17824-b887-7026-bd2f-ab273a0351f8`, source `e74ceff`, tree
+`8572e78f15a3377840578c028dbb7e9c15187a75`. Evidence with full record and log hashes is in
+[evidence/m3-fixed-checks.json](evidence/m3-fixed-checks.json). Sanitized command request
+counts are in [evidence/m3-request-counts.json](evidence/m3-request-counts.json).
+
+| Check | Platform | Exit | Duration (ms) |
+| --- | --- | ---: | ---: |
+| integration | Linux VZ | 0 | 1822794 |
+| apfs | macOS APFS | 0 | 2757614 |
+| overlayfs-ext4 | Linux VZ | 0 | 390026 |
+| overlayfs-xfs | Linux VZ | 0 | 310049 |
+| unit | Linux VZ | 0 | 258366 |
+
+The corrected APFS Cargo run passed 132 tests and its native filesystem suites passed. Linux
+integration passed its Rust tests and all selected shell suites; both overlay filesystem jobs
+passed 117 Rust tests plus their selected filesystem and shell suites. Unit checks passed all
+selected crate suites. The original exit-101 APFS envelope and retained-log reference remained
+unchanged and were verified again by hash; it was not substituted with the passing record.
+
+A VM stop during the corrected run interrupted pending Linux work. The runner worker reported
+host-agent SIGINT at 13:02:50 UTC; its external cause is unknown. Recovery restored the ephemeral
+transport credential and resumed through the user LaunchAgent. Signed completed results were
+preserved and deduplicated; the tested source state did not change, and no second reseed ran.
+
+At 14:09 UTC, a fresh browser context used the published site through CloudFront. It decrypted
+the source and displayed exactly five passing command rows bound to the corrected state,
+including the macOS APFS and both Linux overlay jobs. Historical failure rows remained visible.
+Signature sign-in, lock and empty browser storage passed. Cloud and RAM cleanup wait for the
+runner worker's final local enrollment-removal receipt.
