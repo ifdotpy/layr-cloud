@@ -666,3 +666,55 @@ behavior, cache-key isolation, immutable-only bucket resources, unchanged DNS
 resource checks and the canned-policy signature against a library RSA verifier.
 The canonical gateway cache-class test also passed after restricting records,
 state trees and data parts to the store format's exact filename parsers.
+
+### CDN admission and batch release (2026-10-26)
+
+The first CDN clone exposed an admission defect: eight parallel signing requests
+could exceed the gateway's four active workers and receive an immediate 503.
+Normal main clients still returned 200. The gateway was restored to release
+`596b33b785a5d56f36e5fef43720c900ec16f30f273a1ec9a16c71da54415ae8`,
+whose executable SHA-256 is
+`538f5e6518f5590b37d697a130941bd79327da0ffee95c31688f34ac439aedeb`.
+After rollback, anonymous site and public unlock reads and authenticated project
+discovery all returned 200. These identifiers name the release archive and the
+executable inside that archive, respectively.
+
+Reviewed source `0c4ef44934fb604ca0f89b0023c350880f9596ff` adds four active
+workers, at most 64 waiters and a ten-second admission wait. Refusals return 503
+with `Retry-After: 1` and increment a logged counter. The outer connection cap is
+128 because CloudFront uses HTTP/1.1 to this custom origin. HTTP keep-alive is
+disabled; header reads expire after 15 seconds and TLS handshakes after ten seconds.
+Batch signing accepts up to 256 keys from one store and epoch, preserves each
+single-key authorization result, and reads object metadata without object bodies.
+It performs at most 16 metadata checks concurrently per request. The CLI and site
+limit signing concurrency to four, retry busy responses with jitter and split a
+batch in half after a deadline response. The single-key form remains available.
+
+On the gateway nano in `eu-north-1`, 256 S3 HEAD operations took 4.895 seconds
+serially and 0.712 seconds with 16 workers. The ordered lengths were identical.
+This comparison excludes gateway authorization and URL signing. A separate TLS
+HTTP/1.1 test with 128 open connections and a full 64-waiter queue measured
+21,159,936 bytes of gateway RSS; the client ran in a separate process. The nano's
+available memory before activation was 328,552,448 bytes. The transport test
+excludes live S3 response buffers.
+
+The activation wrapper passed its success and forced-failure rollback dry runs at
+23:20:56 UTC, with zero AWS calls, HTTP calls or real mutations. Activation then
+completed at 23:24:55 UTC through SSM `3b5abbeb-9346-454d-a7aa-3890ca5a267f`.
+Release archive
+`0d8a47e2d09ccb7b801dcc985c0374bc7c43bdff4b073276e915dd6728f88e3d`
+contains the 7,942,784-byte executable with SHA-256
+`2079206158c79b64c7bcdb62944d4a0b2af7f54dc80db1dcbbfade23b2a0bff1`.
+All nine published site assets matched the local build. Direct origin and forged
+viewer-header requests returned 403; the guarded origin returned HTTPS 200 with
+certificate verification. The accepted main CLI then started a clone with all
+43 requests returning 200. Anonymous site and public unlock reads and authenticated
+project discovery also returned 200.
+
+At 23:25:34 UTC, an authenticated 256-key batch through `cloud.layr.ws` returned
+256 signed entries in 1.081 seconds, including the response JSON read. Authentication
+completed before the timed interval. No signed ciphertext was fetched. A ten-millisecond
+sampler spanning this request measured gateway RSS rising from 7,188,480 to
+9,236,480 bytes, with a peak of 36 threads. These are window maxima, sampled in
+the live gateway process; they are not a four-batch saturation measurement.
+Full cold and warm clone measurements and the final cleanup readback remain pending.

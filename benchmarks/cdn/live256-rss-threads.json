@@ -1,0 +1,18 @@
+{
+  "started": 1793057132.4516332,
+  "completed": 1793057152.4533281,
+  "pid": 24060,
+  "binarySha256": "2079206158c79b64c7bcdb62944d4a0b2af7f54dc80db1dcbbfade23b2a0bff1",
+  "baseline": {
+    "time": 1793057132.4400237,
+    "rssBytes": 7188480,
+    "threads": 6
+  },
+  "peak": {
+    "time": 1793057132.4400237,
+    "rssBytes": 9236480,
+    "threads": 36
+  },
+  "samples": 1927,
+  "scope": "20 second window spanning one 256-key batch; no clone running"
+}

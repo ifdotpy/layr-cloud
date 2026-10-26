@@ -1,0 +1,12 @@
+{
+  "started": "2026-10-26T23:25:34.323Z",
+  "completed": "2026-10-26T23:25:35.405Z",
+  "source": "0c4ef44934fb604ca0f89b0023c350880f9596ff",
+  "keys": 256,
+  "status": 200,
+  "seconds": 1.0811002090000001,
+  "signed": 256,
+  "metadataOnly": true,
+  "ciphertextFetched": false,
+  "totalDeclaredBytes": 557082
+}

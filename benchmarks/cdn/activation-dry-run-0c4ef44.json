@@ -1,0 +1,32 @@
+{
+  "observedUTC": "2026-10-26T23:20:56.558650+00:00",
+  "awsCalls": 0,
+  "httpCalls": 0,
+  "realMutations": 0,
+  "shellAndEmbeddedPythonValidation": true,
+  "scenarios": [
+    {
+      "scenario": "activate and verify published assets",
+      "passed": true,
+      "steps": [
+        "cdn-batch-0c4ef44-preflight",
+        "config:cdn",
+        "manifest:0d8a47e2",
+        "cdn-batch-0c4ef44-activate-1"
+      ]
+    },
+    {
+      "scenario": "activation failure then rollback",
+      "passed": true,
+      "steps": [
+        "cdn-batch-0c4ef44-preflight",
+        "config:cdn",
+        "manifest:0d8a47e2",
+        "cdn-batch-0c4ef44-activate-1",
+        "config:baseline",
+        "manifest:596b33b7",
+        "cdn-batch-0c4ef44-rollback-1"
+      ]
+    }
+  ]
+}

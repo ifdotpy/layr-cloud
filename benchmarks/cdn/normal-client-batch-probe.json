@@ -1,0 +1,38 @@
+{
+  "observedUTC": "2026-10-26T23:25:24.911172+00:00",
+  "gatewayRelease": "0d8a47e2d09ccb7b801dcc985c0374bc7c43bdff4b073276e915dd6728f88e3d",
+  "gatewayBinarySha256": "2079206158c79b64c7bcdb62944d4a0b2af7f54dc80db1dcbbfade23b2a0bff1",
+  "baselineRelease": "596b33b785a5d56f36e5fef43720c900ec16f30f273a1ec9a16c71da54415ae8",
+  "baselineBinarySha256": "538f5e6518f5590b37d697a130941bd79327da0ffee95c31688f34ac439aedeb",
+  "http": [
+    {
+      "read": "anonymous site",
+      "status": 200
+    },
+    {
+      "read": "anonymous public unlock read",
+      "status": 200
+    },
+    {
+      "read": "authenticated discovery",
+      "status": 200
+    }
+  ],
+  "cliSource": "ec8ba0f accepted main baseline; request counters only, no CDN code",
+  "cliBinarySha256": "51891a2b96354d77d9295c56cbf6c8005b07f924beb3921e1c2267f62524906f",
+  "cloneStarted": true,
+  "intentionallyStoppedAfterSeconds": 15,
+  "exitCode": -15,
+  "requestStatuses": {
+    "200": 43
+  },
+  "routes": {
+    "gateway:store.json": 6,
+    "gateway:list:keys": 1,
+    "gateway:slots": 1,
+    "gateway:challenge": 1,
+    "gateway:token": 1,
+    "gateway:list:records": 1,
+    "gateway:objects:records": 32
+  }
+}
