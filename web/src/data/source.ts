@@ -10,6 +10,7 @@ export type Json =
   | string
   | Json[]
   | { [key: string]: Json };
+export interface ReleaseFile { name: string; size: number; sha256: string; object: string }
 export type Id = string;
 export interface Author {
   name: string;
@@ -445,6 +446,8 @@ export interface DataSource {
   /** All change IDs with their complete CLI-compatible show output. */
   changes(project: Id): Promise<Change[]>;
   refs(project: Id): Promise<Ref[]>;
+  releaseFiles(project: Id, reference: string): Promise<ReleaseFile[]>;
+  releaseDownload(project: Id, reference: string, filename: string): Promise<Blob>;
   refLog(project: Id, name: string): Promise<RefChange[]>;
   queue(project: Id): Promise<QueueEntry[]>;
   attestations(project: Id, state: Id): Promise<Attestation[]>;

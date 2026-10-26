@@ -113,6 +113,20 @@ impl Session {
         String::from_utf8(keys::decrypt(&store.identity, ciphertext).map_err(js)?)
             .map_err(|e| js(e.into()))
     }
+    /// Only authenticated release metadata can select a download. Return bytes after
+    /// checking both age authentication and the signed plaintext digest and size.
+    pub fn release_file(
+        &self,
+        name: &str,
+        reference: &str,
+        filename: &str,
+        object: &str,
+        ciphertext: &[u8],
+        now: f64,
+    ) -> std::result::Result<Vec<u8>, JsValue> {
+        self.open_release_file(name, reference, filename, object, ciphertext, now as i64)
+            .map_err(js)
+    }
     pub fn add_segment(
         &mut self,
         name: &str,
@@ -465,6 +479,43 @@ impl Session {
         // The model is the retained metadata. Discard the decrypted segment copies.
         store.segments.clear();
         Ok(())
+    }
+    fn open_release_file(
+        &self,
+        name: &str,
+        reference: &str,
+        filename: &str,
+        object: &str,
+        ciphertext: &[u8],
+        now: i64,
+    ) -> Result<Vec<u8>> {
+        use sha2::{Digest, Sha256};
+        let store = self.stores.get(name).context("store is locked")?;
+        let project = store
+            .model
+            .projects
+            .get(&store.descriptor.project)
+            .context("project is absent")?;
+        let file = project
+            .release_files(reference, now)?
+            .into_iter()
+            .find(|f| f.name == filename)
+            .context("release file is absent")?;
+        let (identity, logical) = store.source(object)?;
+        if file.object != logical {
+            bail!("release object differs from its signed metadata");
+        }
+        if file.size > layr_model::release::WEB_MAX_FILE_BYTES {
+            bail!("file exceeds the 256 MiB browser limit; use layr release get");
+        }
+        if ciphertext.len() as u64 > layr_model::release::MAX_OBJECT_BYTES {
+            bail!("release object is too large");
+        }
+        let plain = Zeroizing::new(keys::decrypt(identity, ciphertext)?);
+        if plain.len() as u64 != file.size || hex::encode(Sha256::digest(&*plain)) != file.sha256 {
+            bail!("release file SHA-256 or size mismatch");
+        }
+        Ok(plain.to_vec())
     }
     fn base(&self, name: &str, object: &str, ciphertext: &[u8]) -> Result<Option<String>> {
         let store = self.stores.get(name).context("store is locked")?;
@@ -933,6 +984,7 @@ impl Session {
             "actionAccess" => self.action_access(name)?,
             "requestStatus" => self.request_status(name, arg(0))?,
             "refs" => json!(p.ref_list("", now)),
+            "releaseFiles" => json!(p.release_files(arg(0), now)?),
             "refLog" => json!(p.ref_log(arg(0))),
             "queue" => json!(p.queue_list(None)),
             "attestations" => json!(p.attestations(arg(0), None)),
@@ -997,6 +1049,70 @@ mod tests {
             keys::sign_bytes(body.as_bytes(), key)
         )
     }
+    #[test]
+    fn release_download_checks_exact_binding_size_digest_and_age_authentication() {
+        use sha2::{Digest, Sha256};
+        let (mut session, vault, _, _) = fixture();
+        let state = "01a12290-0000-7000-8000-000000000300";
+        let object = "files/01a12290-0000-7000-8000-000000000400.age";
+        let payload = b"verified release binary";
+        let make = |n: u64, op: &str, data: Value| {
+            let mut r = Record::new(op);
+            r.id = format!("01a12290-0000-7000-8000-{n:012x}");
+            r.machine = MACHINE.into();
+            r.project = PROJECT.into();
+            r.seq = n;
+            r.time = n as i64;
+            r.data = data;
+            r
+        };
+        let records = vec![
+            make(
+                1,
+                "ref.set",
+                json!({"ref_change":{"name":"release/1","before":null,"after":{"name":"release/1","target":state,"expires_at":null}}}),
+            ),
+            make(
+                2,
+                "release.files",
+                json!({"reference":"release/1","state":state,"files":[{"name":"layr","size":payload.len(),"sha256":hex::encode(Sha256::digest(payload)),"object":object}]}),
+            ),
+        ];
+        session.stores.get_mut("test").unwrap().model =
+            Model::from_records(records.clone(), MACHINE).unwrap();
+        let ciphertext = keys::encrypt(&keys::recipient_of(&vault).unwrap(), payload).unwrap();
+        let read = |s: &Session, bytes: &[u8], key: &str| {
+            s.open_release_file("test", "release/1", "layr", key, bytes, 100)
+        };
+        assert_eq!(read(&session, &ciphertext, object).unwrap(), payload);
+        assert!(read(
+            &session,
+            &ciphertext,
+            "files/01a12290-0000-7000-8000-000000000401.age"
+        )
+        .is_err());
+        assert!(read(&session, &ciphertext[..ciphertext.len() / 2], object).is_err());
+        let mut changed = ciphertext.clone();
+        *changed.last_mut().unwrap() ^= 1;
+        assert!(read(&session, &changed, object).is_err());
+        let wrong = keys::encrypt(
+            &keys::recipient_of(&vault).unwrap(),
+            b"different plaintext!!!!",
+        )
+        .unwrap();
+        assert!(format!("{:#}", read(&session, &wrong, object).unwrap_err()).contains("SHA-256"));
+        let mut oversized = records.clone();
+        oversized[1].data["files"][0]["size"] = json!((256u64 << 20) + 1);
+        session.stores.get_mut("test").unwrap().model =
+            Model::from_records(oversized, MACHINE).unwrap();
+        assert!(
+            format!("{:#}", read(&session, &ciphertext, object).unwrap_err()).contains("256 MiB")
+        );
+        session.stores.get_mut("test").unwrap().model =
+            Model::from_records([records[0].clone()], MACHINE).unwrap();
+        assert!(read(&session, &ciphertext, object).is_err());
+    }
+
     #[test]
     fn recovery_and_prf_use_existing_store_keys() {
         let (mut s, _, _, _) = fixture();

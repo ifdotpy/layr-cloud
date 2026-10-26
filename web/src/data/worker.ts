@@ -36,13 +36,15 @@ function proof(name: string) { return (bytes: Uint8Array) => current().session.c
 function sourceObject(name: string, key: string) {
   return objectSources.get(`${name}/${key}`) ?? route(name).prefix + key;
 }
-async function objectBytes(name: string, key: string) {
+async function objectBytes(name: string, key: string, maximum?: number) {
   const target = route(name), {gateway} = current();
   const known = objectSources.get(`${name}/${key}`);
   const candidates=known ? [known] : [target.prefix + key, ...(historyPrefixes.get(name) ?? []).map(prefix=>prefix+key)];
   for (let i=0;i<candidates.length;i++) {
     try {
-      const bytes = publicProjects.has(target.gateway) ? await gateway.publicObject(target.gateway,candidates[i]) : await gateway.object(target.gateway,candidates[i],proof(name));
+      const bytes = maximum !== undefined
+        ? await gateway.releaseObject(target.gateway, candidates[i], maximum, publicProjects.has(target.gateway) ? undefined : proof(name))
+        : publicProjects.has(target.gateway) ? await gateway.publicObject(target.gateway,candidates[i]) : await gateway.object(target.gateway,candidates[i],proof(name));
       objectSources.set(`${name}/${key}`,candidates[i]); return bytes;
     } catch(error) { if (!(error instanceof HttpError) || error.status!==404 || i===candidates.length-1) throw error; }
   }
@@ -333,6 +335,18 @@ async function call(method: string, args: unknown[], base = ''): Promise<unknown
   const { session } = current();
   if (method === 'blame' || method === 'fileHistory') return fileHistory(method, ...(args as [string,string,string]));
   if (args[0] && aliases.has(args[0] as string) && !['tree','file','lines','refs','openChanges','copies','loadStatus'].includes(method)) await complete(alias(args[0] as string));
+  if (method === 'releaseDownload') {
+    const [project, reference, filename] = args as string[];
+    const name = alias(project);
+    const files: {name: string; size: number; object: string}[] = JSON.parse(session.query(name, 'releaseFiles', JSON.stringify([reference]), Date.now()));
+    const file = files.find(file => file.name === filename);
+    if (!file) throw new Error('Release file is absent.');
+    if (file.size > 256 * 1024 * 1024) throw new Error('File exceeds the 256 MiB browser limit; use layr release get.');
+    const bytes = await objectBytes(name, file.object, file.size + (Math.floor(file.size / 65536) + 1) * 16 + 4096);
+    const plain = session.release_file(name, reference, filename, sourceObject(name,file.object), bytes, Date.now());
+    try { return new Blob([plain as Uint8Array<ArrayBuffer>], {type:'application/octet-stream'}); }
+    finally { plain.fill(0); }
+  }
   if (['tree', 'file', 'diff'].includes(method)) {
     const [project, state, path = ''] = args as string[];
     const name = alias(project); const object = await tree(name, state);

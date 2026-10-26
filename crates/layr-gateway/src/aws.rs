@@ -381,6 +381,84 @@ impl Aws {
 }
 
 impl Storage for Aws {
+    fn get_stream(
+        &self,
+        project: &Project,
+        key: &str,
+        range: Option<http::Range>,
+    ) -> Result<Option<super::server::ObjectStream>> {
+        let s3 = self.s3(project, Role::Reader)?;
+        let header = range.map(http::Range::header);
+        let headers: Vec<_> = header
+            .as_deref()
+            .map(|s| vec![("range", s)])
+            .unwrap_or_default();
+        let response = s3.request(
+            Method::GET,
+            &project.key(key),
+            &[],
+            &headers,
+            Vec::new(),
+            Duration::from_secs(7200),
+        )?;
+        let status = response.status().as_u16();
+        if status == 404 {
+            return Ok(None);
+        }
+        if status == 416 {
+            return Err(http::Error {
+                status: 416,
+                message: "range is outside the object",
+            }
+            .into());
+        }
+        if !matches!(status, 200 | 206) {
+            bail!("S3 get: HTTP {status}");
+        }
+        let length = response
+            .content_length()
+            .context("S3 stream omitted Content-Length")?;
+        let content_range = if status == 206 {
+            let header = response
+                .headers()
+                .get("content-range")
+                .context("S3 omitted Content-Range")?
+                .to_str()?;
+            let parsed = http::ContentRange::parse(header).context("invalid S3 Content-Range")?;
+            if range.and_then(|r| r.resolve(parsed.total)) != Some((parsed.start, parsed.end))
+                || parsed.end - parsed.start + 1 != length
+                || parsed.total > super::server::RELEASE_OBJECT_LIMIT as u64
+            {
+                bail!("S3 returned an invalid release byte range");
+            }
+            Some(header.to_owned())
+        } else {
+            None
+        };
+        if length > super::server::RELEASE_OBJECT_LIMIT as u64 {
+            bail!("release object exceeds limit");
+        }
+        Ok(Some(super::server::ObjectStream {
+            status,
+            length,
+            content_range,
+            reader: Box::new(response),
+        }))
+    }
+    fn put_stream(
+        &self,
+        project: &Project,
+        key: &str,
+        input: &mut dyn Read,
+        length: u64,
+    ) -> Result<bool> {
+        self.s3(project, Role::Writer)?.put_stream_new(
+            &project.key(key),
+            input,
+            length,
+            super::server::RELEASE_OBJECT_LIMIT as u64,
+        )
+    }
     fn people(
         &self,
         config: &super::config::People,

@@ -11,6 +11,14 @@ use serde_json::json;
 use std::sync::Arc;
 
 pub const OBJECT_LIMIT: usize = 32 * 1024 * 1024;
+pub const RELEASE_OBJECT_LIMIT: usize = layr_store::format::RELEASE_OBJECT_LIMIT as usize;
+pub fn object_limit(key: &str) -> usize {
+    if layr_store::format::release_file(key) {
+        RELEASE_OBJECT_LIMIT
+    } else {
+        OBJECT_LIMIT
+    }
+}
 pub const SLOT_LIMIT: usize = 16 * 1024;
 pub const JSON_LIMIT: usize = 16 * 1024;
 
@@ -32,7 +40,34 @@ pub struct Entry {
     pub modified: i64,
 }
 
+pub struct ObjectStream {
+    pub status: u16,
+    pub length: u64,
+    pub content_range: Option<String>,
+    pub reader: Box<dyn std::io::Read + Send>,
+}
+
+pub enum Transfer {
+    Download(ObjectStream),
+    Upload {
+        project: Project,
+        key: String,
+        length: u64,
+    },
+}
+
 pub trait Storage: Send + Sync {
+    fn get_stream(
+        &self,
+        _: &Project,
+        _: &str,
+        _: Option<http::Range>,
+    ) -> Result<Option<ObjectStream>> {
+        bail!("streaming storage is unavailable")
+    }
+    fn put_stream(&self, _: &Project, _: &str, _: &mut dyn std::io::Read, _: u64) -> Result<bool> {
+        bail!("streaming storage is unavailable")
+    }
     fn people(&self, _: &super::config::People) -> Result<Box<dyn super::person_support::Bucket>> {
         bail!("people storage is not configured")
     }
@@ -52,6 +87,7 @@ pub struct Reply {
     pub status: u16,
     pub headers: Vec<(String, String)>,
     pub body: Vec<u8>,
+    pub transfer: Option<Transfer>,
 }
 
 impl Reply {
@@ -59,6 +95,7 @@ impl Reply {
         Self {
             status,
             body,
+            transfer: None,
             headers: vec![
                 ("Content-Type".into(), media.into()),
                 ("Cache-Control".into(), "no-store".into()),
@@ -73,6 +110,15 @@ impl Reply {
                 ("Cross-Origin-Opener-Policy".into(), "same-origin".into()),
             ],
         }
+    }
+    pub fn stream(object: ObjectStream) -> Self {
+        let mut reply = Self::bytes(object.status, Vec::new(), "application/octet-stream");
+        reply.headers.push(("Accept-Ranges".into(), "bytes".into()));
+        if let Some(range) = &object.content_range {
+            reply.headers.push(("Content-Range".into(), range.clone()));
+        }
+        reply.transfer = Some(Transfer::Download(object));
+        reply
     }
     pub fn json(status: u16, value: serde_json::Value) -> Self {
         Self::bytes(status, value.to_string().into_bytes(), "application/json")
@@ -201,6 +247,7 @@ pub fn object_name(name: &str) -> bool {
                 .strip_prefix("history/")
                 .and_then(|s| s.strip_suffix(".age"))
                 .is_some_and(|e| e == "root" || layr_store::format::is_uuid(e))
+            || layr_store::format::release_file(name)
             || super::requests::path(name).is_some()
             || overlay_key(name)
             || hidden_overlay_key(name)
@@ -208,10 +255,11 @@ pub fn object_name(name: &str) -> bool {
 }
 
 pub fn gc_name(name: &str) -> bool {
-    object_name(name)
-        && name.starts_with("states/")
-        && name.split('/').count() == 3
-        && name.ends_with(".data.age")
+    layr_store::format::release_file(name)
+        || (object_name(name)
+            && name.starts_with("states/")
+            && name.split('/').count() == 3
+            && name.ends_with(".data.age"))
 }
 
 fn store_prefix(prefix: &str) -> bool {
@@ -687,6 +735,12 @@ impl Gateway {
                     .header("range")
                     .map(http::Range::parse)
                     .transpose()?;
+                if layr_store::format::release_file(&key) {
+                    return Ok(match self.storage.get_stream(project, &key, range)? {
+                        Some(object) => Reply::stream(object),
+                        None => Reply::error(404, "no such object"),
+                    });
+                }
                 Ok(
                     match self.storage.get(project, &key, range, OBJECT_LIMIT)? {
                         Some(object) => {
@@ -706,6 +760,9 @@ impl Gateway {
                 )
             }
             "PUT" => {
+                if request.body.len() > object_limit(&key) {
+                    return Ok(Reply::error(413, "object is too large"));
+                }
                 if matches!(key.as_str(), "store.json" | "public.json") {
                     if !write {
                         return Ok(Reply::error(403, "a write token is required"));
@@ -809,6 +866,24 @@ impl Gateway {
                 {
                     return Ok(Reply::error(400, "a slot is 1 to 4096 bytes"));
                 }
+                if layr_store::format::release_file(&key) {
+                    let Some(length) = request
+                        .header("content-length")
+                        .and_then(|v| v.parse::<u64>().ok())
+                    else {
+                        return Ok(Reply::error(400, "invalid Content-Length"));
+                    };
+                    if length > RELEASE_OBJECT_LIMIT as u64 {
+                        return Ok(Reply::error(413, "release object is too large"));
+                    }
+                    let mut reply = empty(100);
+                    reply.transfer = Some(Transfer::Upload {
+                        project: project.clone(),
+                        key,
+                        length,
+                    });
+                    return Ok(reply);
+                }
                 Ok(if self.storage.put(project, &key, request.body)? {
                     empty(201)
                 } else {
@@ -817,7 +892,10 @@ impl Gateway {
             }
             "DELETE" => {
                 if !gc || !gc_name(&key) {
-                    return Ok(Reply::error(403, "GC can delete only state data parts"));
+                    return Ok(Reply::error(
+                        403,
+                        "GC can delete only state data parts or release files",
+                    ));
                 }
                 self.storage.delete(project, &key)?;
                 Ok(empty(204))
@@ -1039,6 +1117,21 @@ mod tests {
         }
     }
     impl Storage for Memory {
+        fn get_stream(
+            &self,
+            project: &Project,
+            key: &str,
+            range: Option<http::Range>,
+        ) -> Result<Option<ObjectStream>> {
+            Ok(self
+                .get(project, key, range, RELEASE_OBJECT_LIMIT)?
+                .map(|object| ObjectStream {
+                    status: object.status,
+                    length: object.body.len() as u64,
+                    content_range: object.content_range,
+                    reader: Box::new(std::io::Cursor::new(object.body)),
+                }))
+        }
         fn people(
             &self,
             _: &super::super::config::People,
@@ -1657,6 +1750,86 @@ mod tests {
             (hidden.status, hidden.headers, hidden.body),
             (absent.status, absent.headers, absent.body)
         );
+    }
+
+    #[test]
+    fn release_allowlist_and_transfer_plans_require_existing_grants() {
+        let mut f = Fixture::new();
+        let write = f.token(false);
+        let gc = f.token(true);
+        let read = f.read_token();
+        let key = "files/01a12290-0000-7000-8000-000000000001.age";
+        assert!(object_name(key));
+        assert!(gc_name(key));
+        assert!(list_prefix("files/"));
+        for bad in [
+            "files/name.age",
+            "files/../x.age",
+            "files/01a12290-0000-7000-8000-000000000001.age/extra",
+            "files/01a12290-0000-7000-8000-000000000001.json",
+        ] {
+            assert!(!object_name(bad));
+        }
+        let path = format!("/v1/p/example/objects/{key}");
+        assert_eq!(f.request("PUT", &path, "", b"", None).status, 403);
+        assert_eq!(f.request("PUT", &path, &read, b"", None).status, 403);
+        let reply = f.request("PUT", &path, &write, b"", None);
+        assert!(matches!(
+            reply.transfer,
+            Some(Transfer::Upload { length: 0, .. })
+        ));
+        assert!(reply.body.is_empty());
+        let project = &f.config.projects["example"];
+        assert!(f
+            .gateway
+            .storage
+            .put(project, key, b"tiny ciphertext fixture".to_vec())
+            .unwrap());
+        assert_eq!(f.request("GET", &path, &write, b"", None).status, 401);
+        let reply = f.request("GET", &path, &read, b"", None);
+        assert_eq!(reply.status, 200);
+        assert!(reply.body.is_empty());
+        assert!(matches!(reply.transfer, Some(Transfer::Download(_))));
+        assert_eq!(f.request("DELETE", &path, &write, b"", None).status, 403);
+        assert_eq!(f.request("DELETE", &path, &gc, b"", None).status, 204);
+        let mut headers = BTreeMap::from([
+            ("host".into(), "localhost".into()),
+            ("authorization".into(), format!("Bearer {write}")),
+            ("content-type".into(), "application/octet-stream".into()),
+            (
+                "content-length".into(),
+                (RELEASE_OBJECT_LIMIT as u64 + 1).to_string(),
+            ),
+        ]);
+        assert_eq!(
+            f.gateway
+                .handle(
+                    http::Request {
+                        method: "PUT".into(),
+                        target: path.clone(),
+                        headers: headers.clone(),
+                        body: vec![]
+                    },
+                    None
+                )
+                .status,
+            413
+        );
+        headers.insert("content-length".into(), RELEASE_OBJECT_LIMIT.to_string());
+        assert!(matches!(
+            f.gateway
+                .handle(
+                    http::Request {
+                        method: "PUT".into(),
+                        target: path,
+                        headers,
+                        body: vec![]
+                    },
+                    None
+                )
+                .transfer,
+            Some(Transfer::Upload { .. })
+        ));
     }
 
     #[test]

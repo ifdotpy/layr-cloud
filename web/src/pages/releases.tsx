@@ -1,6 +1,6 @@
 import { useState } from "preact/hooks";
-import type { Check, DataSource, Project } from "../data/source";
-import { checkNames, releases } from "../data/releases";
+import type { Check, DataSource, Project, ReleaseFile } from "../data/source";
+import { checkNames, releases, releaseDownloadCommand } from "../data/releases";
 import { machineLabel, personLabel, plural, shortText } from "../labels";
 import { projectUrl } from "../router";
 import { Badge, Cmd, Empty, LoadError, Mono, PageHead, ReadOnlyAction, Segments, Status, Table, Who, bytes, short, useData, when } from "../components/ui";
@@ -27,14 +27,16 @@ export function ReleasesPage({ source, project, reference }: { source: DataSourc
   if (!data) return <LoadError error={error} />;
   const url = (name: string) => projectUrl(project.id, "deploy/release/" + encodeURIComponent(name));
   const latest = data.rows.every((row) => row.operation) ? data.rows[0]?.ref.name : undefined;
+  const hasFiles = data.rows.some(row => row.files.length > 0);
   const row = data.rows.find((row) => row.ref.name === reference);
   if (reference && !row) return <><DeployNav project={project.id} current="Releases" /><Empty>Release not found.</Empty></>;
   if (!row) return <>
     <DeployNav project={project.id} current="Releases" />
     <PageHead title="Releases" description="Each release names one exact state. Its notes are the changes since the release before it."
       actions={<ReadOnlyAction label="New release" command={`layr ref set release/<version> ${project.default_line ?? "main"}`} primary />} />
-    <Table label="Releases" headers={["Release", "Changes", "Checks", "By", "Date", "Where"]} rows={data.rows.map((release) => [
+    <Table label="Releases" headers={["Release", ...(hasFiles ? ["Files"] : []), "Changes", "Checks", "By", "Date", "Where"]} rows={data.rows.map((release) => [
       <><a class="mono" href={url(release.ref.name)}>{release.ref.name}</a>{release.ref.name === latest && <> <Badge kind="blue">latest</Badge></>}</>,
+      ...(hasFiles ? [release.files.length] : []),
       release.notes ? <a href={url(release.ref.name)}>{release.notes.length}</a> : <span class="muted" title={release.error}>Not available</span>,
       <CheckSummary checks={release.checks} />,
       release.operation ? <Who name={release.operation.actor.name || personLabel(String(release.operation.actor.uid))} /> : <span class="muted">Not recorded</span>,
@@ -53,6 +55,7 @@ export function ReleasesPage({ source, project, reference }: { source: DataSourc
       description={<>{row.operation ? <>{row.operation.actor.name || personLabel(String(row.operation.actor.uid))} released state </> : "State "}<a class="mono" href={projectUrl(project.id, "state/" + row.ref.target)}>{short(row.ref.target)}</a>{row.operation && <> on {when(row.operation.time)}</>}.{row.environments.length > 0 && <> In {row.environments.map((env) => <a class="ref" href={projectUrl(project.id, "deploy/environment/" + encodeURIComponent(env.name))}>{env.name}</a>)}.</>}</>} />
     <div class="cols">
       <div class="stack">
+        <BuiltFiles source={source} project={project.id} reference={row.ref.name} files={row.files} />
         <section class="sect">
           <h2>{row.notes ? plural(row.notes.length, "change") : "Changes"}{row.previous ? <> since <a class="mono" href={url(row.previous.name)}>{row.previous.name}</a></> : " in this release"}</h2>
           {row.notes ? <>
@@ -94,4 +97,28 @@ function ReleaseFiles({ source, project, base, head }: { source: DataSource; pro
   if (error) return <Empty>{error}</Empty>;
   if (!data) return <LoadError />;
   return <DiffBrowser source={source} project={project} base={base} head={head} files={data.files} />;
+}
+
+function BuiltFiles({source, project, reference, files}: {source: DataSource; project: string; reference: string; files: ReleaseFile[]}) {
+  const [pending, setPending] = useState<string>();
+  const [error, setError] = useState<string>();
+  async function download(file: ReleaseFile) {
+    setPending(file.name); setError(undefined);
+    try {
+      const blob = await source.releaseDownload(project, reference, file.name);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a'); link.href = url; link.download = file.name;
+      document.body.appendChild(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    } catch (error) { setError(error instanceof Error ? error.message : String(error)); }
+    finally { setPending(undefined); }
+  }
+  return <section class="sect"><h2>Files</h2>
+    {error && <p role="alert">{error}</p>}
+    {files.length ? <Table label="Release files" headers={["Name", "Size", "Download"]} rows={files.map(file => [
+      <Mono>{file.name}</Mono>, bytes(file.size),
+      file.size > 256 * 1024 * 1024 ? <><p class="note">Over the 256 MiB browser limit. Use the CLI:</p><Cmd text={releaseDownloadCommand(reference,file.name)} /></> :
+        <button type="button" class="btn" disabled={Boolean(pending)} onClick={() => void download(file)}>{pending === file.name ? 'Downloading…' : 'Download'}</button>,
+    ])} /> : <Empty>No built files attached to this release.</Empty>}
+  </section>;
 }

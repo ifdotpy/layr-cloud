@@ -148,6 +148,28 @@ export class Gateway {
     if (!/^overlays\/[^/]+\/keys\/[^/]+\.json$/.test(key)) throw new Error('Invalid overlay key object.');
     return new Uint8Array(await (await this.authorized(project, `objects/${key.split('/').map(encodeURIComponent).join('/')}`, decrypt)).arrayBuffer());
   }
+  async releaseObject(project: string, key: string, maximum: number, decrypt?: (bytes: Uint8Array) => string): Promise<Uint8Array> {
+    if (!/(?:^|\/)files\/[0-9a-f-]{36}\.age$/.test(key) || key.split('/').some(part => !part || part === '.' || part === '..')) throw new Error('Invalid release object.');
+    const path = key.split('/').map(encodeURIComponent).join('/');
+    const response = decrypt ? await this.authorized(project, `objects/${path}`, decrypt) : await this.request(this.publicRoute(project, path));
+    const length = response.headers.get('content-length');
+    if (length !== null && (!/^\d+$/.test(length) || Number(length) > maximum)) throw new Error('Release ciphertext exceeds its size limit.');
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error('Release response has no body.');
+    const chunks: Uint8Array[] = []; let total = 0;
+    try {
+      for (;;) {
+        const {done,value} = await reader.read(); if (done) break;
+        total += value.byteLength;
+        if (total > maximum) throw new Error('Release ciphertext exceeds its size limit.');
+        chunks.push(value);
+      }
+    } catch (error) { await reader.cancel().catch(() => {}); throw error; }
+    finally { reader.releaseLock(); }
+    const bytes = new Uint8Array(total); let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk,offset); offset += chunk.length; }
+    return bytes;
+  }
   async object(project: string, key: string, decrypt: (bytes: Uint8Array) => string): Promise<Uint8Array> {
     if (!key.endsWith('.age') || key.split('/').some(part => !part || part === '.' || part === '..')) throw new Error('Invalid ciphertext object.');
     const id = `${project}/${key}`;

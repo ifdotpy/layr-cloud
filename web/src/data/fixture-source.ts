@@ -1,3 +1,4 @@
+import { object } from "../labels";
 import { textDiff } from "../text-diff";
 import type {
   RequestAction, RequestStatus, ActionAccess, Comment,
@@ -228,6 +229,17 @@ export class FixtureSource implements DataSource {
   async refs(project: Id) {
     await this.project(project);
     return this.read<Ref[]>("refs", []);
+  }
+  async releaseFiles(project: Id, reference: string) {
+    const records = await this.opLog(project);
+    const ref = (await this.refs(project)).find(r => r.name === reference);
+    if (!ref) return [];
+    const record = records.filter(r => r.op === 'release.files' && object(r.data).reference === reference && object(r.data).state === ref.target)
+      .sort((a,b) => b.time - a.time || b.machine.localeCompare(a.machine) || b.seq - a.seq)[0];
+    return (object(record?.data).files ?? []) as unknown as import('./source').ReleaseFile[];
+  }
+  async releaseDownload(_project: Id, _reference: string, _filename: string): Promise<Blob> {
+    throw new Error('Release downloads need a connected gateway.');
   }
   async refLog(project: Id, name: string) {
     await this.project(project);
