@@ -285,8 +285,11 @@ async function acceptInvite(id: string) {
     }
     throw error;
   }
-  await gateway.removeInvite(id);
-  session.refresh_person(JSON.stringify(await gateway.person()));
+  let deleteError;
+  try { await gateway.removeInvite(id); } catch(error) { deleteError = error; }
+  const final = await gateway.person();
+  session.refresh_person(JSON.stringify(final));
+  if (final.inbox.some(invite => invite.id === id)) throw deleteError ?? new Error('The invite could not be removed. Try accepting it again.');
   scope.postMessage({updated:true});
   return project;
 }

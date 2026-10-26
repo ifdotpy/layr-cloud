@@ -18,16 +18,16 @@ function worker(mode='ok') {
   open_store(){assert(refreshed);events.push('open');return 'project'} finish_records(){if(mode==='records'&&refreshed)throw Error('invalid project records')} close_store(){events.push('close')} overlay_slots(){return '[]'} lock(){} free(){}
  }
  class Gateway {
-  unlock(){return {recipient:'person'}}signIn(){}person(){return {index:saved}}projects(){return ['store']}descriptor(){return {project:'project'}}slot(){return new Uint8Array()} discovery(){return {}}setEpoch(){}list(){return []}
+  unlock(){return {recipient:'person'}}signIn(){}person(){return {index:saved,inbox:removed?[]:[{id:'invite'}]}}projects(){return ['store']}descriptor(){return {project:'project'}}slot(){return new Uint8Array()} discovery(){return {}}setEpoch(){}list(){return []}
   putPersonIndex(){writes++;if(mode==='conflict'){saved='concurrent';throw Error('index changed')}saved='sealed';events.push('write');if(mode==='lost')throw Error('reply lost')}
-  removeInvite(){assert(refreshed);removed=true;events.push('delete')}lock(){}
+  removeInvite(){assert(refreshed);removed=true;events.push('delete');if(mode==='lost-delete')throw Error('delete reply lost')}lock(){}
  }
  const scope={onmessage:(_e:unknown)=>{},postMessage:(v:Parameters<typeof receive>[0])=>{if(v.updated)events.push('updated');else receive(v)},close(){}};
  vm.runInNewContext(code,{self:scope,Session,Gateway,epochRoute,HttpError,init:async()=>{},Uint8Array,Date,Error,setTimeout:()=>1,clearTimeout(){}});
  let id=0;
  return {events,get writes(){return writes},get removed(){return removed},call:(method:string)=>new Promise<Parameters<typeof receive>[0]>(resolve=>{receive=resolve;scope.onmessage({data:{id:++id,method,args:method==='unlockRecovery'?['words','accept@example.test']:['invite']}})})};
 }
-for(const mode of ['ok','lost'])test(`accept ${mode}: persists, reads back, opens and removes invite, then refreshes the page`,async()=>{
+for(const mode of ['ok','lost','lost-delete'])test(`accept ${mode}: persists, reads back, opens and removes invite, then refreshes the page`,async()=>{
  const w=worker(mode);await w.call('unlockRecovery');assert.equal((await w.call('acceptInvite')).value,'project');assert.equal(w.writes,1);assert(w.removed);assert.deepEqual(w.events,['write','open','delete','updated']);
 });
 for(const mode of ['stale','foreign','slot','conflict','records'])test(`refuses ${mode} without activating the project or deleting the invite`,async()=>{
