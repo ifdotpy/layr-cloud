@@ -12,6 +12,7 @@ use zeroize::Zeroizing;
 mod changes;
 mod epochs;
 mod index;
+mod invites;
 mod metadata;
 mod overlays;
 mod requests;
@@ -48,7 +49,7 @@ pub struct Session {
     login: String,
     signing: Option<ed25519_dalek::SigningKey>,
     index: person::Index,
-    invites: Vec<person::Pin>,
+    invites: Vec<(String, person::Pin)>,
     invite_errors: Vec<Value>,
     stores: BTreeMap<String, Store>,
 }
@@ -302,7 +303,10 @@ impl Session {
                 )
             })();
             match opened {
-                Ok(pin) => invites.push(pin),
+                Ok(pin) => invites.push((
+                    invite["id"].as_str().context("invite has no id")?.into(),
+                    pin,
+                )),
                 Err(error) => {
                     invite_errors.push(json!({"id":invite["id"],"reason":format!("{error:#}")}))
                 }
@@ -752,7 +756,7 @@ impl Session {
         }
         if method == "you" {
             return Ok(
-                json!({"login":self.login,"recipient":self.person.as_ref().map(|p| keys::recipient_of(p)).transpose()?,"invites":self.invites.iter().map(|pin|json!({"project":pin.project})).collect::<Vec<_>>(),"invite_errors":self.invite_errors,"disk":self.stores.iter().filter(|(_,s)|s.parent.is_none()).map(|(n,_)|json!({"store":n,"locked":false})).collect::<Vec<_>>()}),
+                json!({"login":self.login,"recipient":self.person.as_ref().map(|p| keys::recipient_of(p)).transpose()?,"invites":self.invites.iter().map(|(id,pin)|json!({"id":id,"project":pin.project})).collect::<Vec<_>>(),"invite_errors":self.invite_errors,"disk":self.stores.iter().filter(|(_,s)|s.parent.is_none()).map(|(n,_)|json!({"store":n,"locked":false})).collect::<Vec<_>>()}),
             );
         }
         if method == "people" {
@@ -1166,6 +1170,105 @@ mod tests {
         assert_eq!(you["invites"][0]["project"], MACHINE);
         assert_eq!(you["invite_errors"][0]["id"], "bad");
     }
+    #[test]
+    fn accept_invite_preserves_index_and_activates_only_after_readback() {
+        use sha2::Digest;
+        let (mut session, _, view, _) = fixture();
+        let identity = session.person.as_ref().unwrap().to_string();
+        let vault = keys::generate_identity();
+        let descriptor = format::Descriptor {
+            format: 2,
+            project: MACHINE.into(),
+            recipient: keys::recipient_of(&vault).unwrap(),
+        };
+        let pin = person::Pin::of_store(&descriptor);
+        let mut view: Value = serde_json::from_slice(&view).unwrap();
+        view["inbox"] = json!([{"id":"valid","data":B64.encode(person::seal_invite(&keys::recipient_of(&identity).unwrap(), &pin).unwrap())}]);
+        let slot = keys::seal_slot(&vault, &keys::recipient_of(&identity).unwrap()).unwrap();
+        let body: Value = serde_json::from_str(
+            &session
+                .accept_invite(
+                    &view.to_string(),
+                    "valid",
+                    &serde_json::to_string(&descriptor).unwrap(),
+                    &slot,
+                )
+                .unwrap(),
+        )
+        .unwrap();
+        assert!(session.index.pin(MACHINE).is_none());
+        assert_eq!(
+            body["previous"],
+            hex::encode(sha2::Sha256::digest(
+                unb64(view["index"].as_str().unwrap()).unwrap()
+            ))
+        );
+        let index =
+            person::open_index(&identity, &unb64(body["data"].as_str().unwrap()).unwrap()).unwrap();
+        assert!(index.pin(PROJECT).is_some());
+        assert_eq!(index.pin(MACHINE), Some(&pin));
+        view["index"] = body["data"].clone();
+        session.refresh_person_view(&view).unwrap();
+        assert_eq!(session.index.pin(MACHINE), Some(&pin));
+        session
+            .add_store(
+                "accepted",
+                &serde_json::to_string(&descriptor).unwrap(),
+                &slot,
+            )
+            .unwrap();
+    }
+
+    #[test]
+    fn accept_invite_refuses_stale_foreign_locked_and_mismatched_store() {
+        let (mut session, _, view, _) = fixture();
+        let identity = session.person.as_ref().unwrap().to_string();
+        let vault = keys::generate_identity();
+        let descriptor = format::Descriptor {
+            format: 2,
+            project: MACHINE.into(),
+            recipient: keys::recipient_of(&vault).unwrap(),
+        };
+        let pin = person::Pin::of_store(&descriptor);
+        let mut view: Value = serde_json::from_slice(&view).unwrap();
+        let slot = keys::seal_slot(&vault, &keys::recipient_of(&identity).unwrap()).unwrap();
+        let desc = serde_json::to_string(&descriptor).unwrap();
+        assert!(session
+            .accept_invite(&view.to_string(), "stale", &desc, &slot)
+            .is_err());
+        let foreign = keys::recipient_of(&keys::generate_identity()).unwrap();
+        view["inbox"] = json!([{"id":"foreign","data":B64.encode(person::seal_invite(&foreign, &pin).unwrap())}]);
+        assert!(session
+            .accept_invite(&view.to_string(), "foreign", &desc, &slot)
+            .is_err());
+        view["inbox"] = json!([{"id":"valid","data":B64.encode(person::seal_invite(&keys::recipient_of(&identity).unwrap(), &pin).unwrap())}]);
+        let wrong = format::Descriptor {
+            recipient: foreign,
+            ..descriptor
+        };
+        assert!(session
+            .accept_invite(
+                &view.to_string(),
+                "valid",
+                &serde_json::to_string(&wrong).unwrap(),
+                &slot
+            )
+            .is_err());
+        let bad_slot = keys::seal_slot(
+            &keys::generate_identity(),
+            &keys::recipient_of(&identity).unwrap(),
+        )
+        .unwrap();
+        assert!(session
+            .accept_invite(&view.to_string(), "valid", &desc, &bad_slot)
+            .is_err());
+        assert!(session.index.pin(MACHINE).is_none());
+        session.lock();
+        assert!(session
+            .accept_invite(&view.to_string(), "valid", &desc, &slot)
+            .is_err());
+    }
+
     #[test]
     fn records_refuse_forgery_sequence_gap_and_other_project() {
         let (mut s, vault, _, key) = fixture();

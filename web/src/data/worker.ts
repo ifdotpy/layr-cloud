@@ -212,12 +212,13 @@ async function unlock(method: string, args: unknown[], base: string) {
     touch();
   } catch (error) { lock(); throw error; }
 }
-async function loadProjects() {
+async function loadProjects(onlyProject?: string) {
     const {session, gateway} = current();
     const slotName = session.slot_name();
     const pins: string[] = JSON.parse(session.query('', 'pins', '[]', Date.now()));
     for (const name of await gateway.projects()) {
       const descriptor = await gateway.descriptor(name);
+      if (onlyProject && descriptor.project !== onlyProject) continue;
       if (!pins.includes(descriptor.project)) continue;
       const discovery=await gateway.discovery(name), epochs=epochRoute(descriptor,discovery);
       gateway.setEpoch(name,epochs.epoch);
@@ -254,6 +255,31 @@ async function loadProjects() {
       if (await loadStoreFast(name)) reconcile(name, loadOverlays);
       else await loadOverlays();
     }
+}
+async function acceptInvite(id: string) {
+  const {session,gateway} = current();
+  const view = JSON.stringify(await gateway.person());
+  const project = session.invite_project(view,id);
+  let body: string | undefined;
+  for (const name of await gateway.projects()) {
+    const descriptor = await gateway.descriptor(name);
+    if (descriptor.project !== project) continue;
+    body = session.prepare_invite_accept(view,id,JSON.stringify(descriptor),await gateway.slot(name,session.slot_name()));
+    break;
+  }
+  if (!body) throw new Error('This invite no longer has a project on this gateway. Ask for a new invite.');
+  let writeError;
+  try { await gateway.putPersonIndex(body); } catch(error) { writeError = error; }
+  // An exact ciphertext readback resolves a lost success reply without replaying a write.
+  const saved = await gateway.person();
+  if (saved.index !== JSON.parse(body).data) throw writeError ?? new Error('Your project index changed. Try accepting the invite again.');
+  session.refresh_person(JSON.stringify(saved));
+  try {
+    await loadProjects(project);
+    await gateway.removeInvite(id);
+    session.refresh_person(JSON.stringify(await gateway.person()));
+  } finally { scope.postMessage({updated:true}); }
+  return project;
 }
 async function prepareRegistration(login: string, base: string) {
   lock(); await init(); gateway = new Gateway(base); session = new Session();
@@ -333,6 +359,7 @@ async function call(method: string, args: unknown[], base = ''): Promise<unknown
   if (method === 'lock') { lock(); return; }
   touch();
   const { session } = current();
+  if (method === 'acceptInvite') return acceptInvite(args[0] as string);
   if (method === 'blame' || method === 'fileHistory') return fileHistory(method, ...(args as [string,string,string]));
   if (args[0] && aliases.has(args[0] as string) && !['tree','file','lines','refs','openChanges','copies','loadStatus'].includes(method)) await complete(alias(args[0] as string));
   if (method === 'releaseDownload') {
