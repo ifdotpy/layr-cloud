@@ -30,6 +30,100 @@ class CdnTests(unittest.TestCase):
         changes = {'Changes': [{'ResourceChange': {'LogicalResourceId':'Role','Action':'Modify','Replacement':'True'}}]}
         with self.assertRaises(ValueError): cdn.validate_changes(Mock(), 'layr-gateway', 'change', changes)
 
+    def test_rotation_adds_a_fresh_key_resource_and_keeps_two_trusted_keys(self):
+        stores = {'cdn-studio': {'origin':'cdn-test','bucket':'test','prefix':'m8-final'}}
+        old = cdn.front_template(cdn.source_template('cloudfront.yaml'),stores,{'a':'public-a','b':'public-b'})
+        rotated = cdn.rotation_template(old,'b','new-public-b')
+        self.assertEqual(rotated['Resources']['CdnPublicKeyB'],old['Resources']['CdnPublicKeyB'])
+        self.assertEqual(rotated['Resources']['CdnPublicKeyA'],old['Resources']['CdnPublicKeyA'])
+        new_id = rotated['Outputs']['CdnPublicKeyB']['Value']['Ref']
+        self.assertNotEqual(new_id,'CdnPublicKeyB')
+        self.assertEqual(rotated['Resources'][new_id]['Properties']['PublicKeyConfig']['EncodedKey'],'new-public-b')
+        group = rotated['Resources']['CdnKeys']['Properties']['KeyGroupConfig']['Items']
+        self.assertEqual(group,[{'Ref':'CdnPublicKeyA'},{'Ref':new_id}])
+        self.assertEqual(cdn.rotation_template(rotated,'b','new-public-b'),rotated)
+        self.assertEqual(rotated['Resources']['Distribution'],old['Resources']['Distribution'])
+        with self.assertRaises(ValueError): cdn.rotation_template(old,'other','pem')
+
+    def test_inactive_slot_rotation_recovers_a_lost_ssm_reply_without_a_private_key_file(self):
+        import datetime
+        import io
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric import rsa
+        previous = rsa.generate_private_key(public_exponent=65537,key_size=2048)
+        value = {'Type':'SecureString','Value':previous.private_bytes(serialization.Encoding.PEM,serialization.PrivateFormat.PKCS8,serialization.NoEncryption()).decode()}
+        session, ssm, s3, cf = Mock(), Mock(), Mock(), Mock()
+        session.client.side_effect = lambda name: {'ssm':ssm,'s3':s3,'cloudformation':cf}[name]
+        ssm.get_parameter.side_effect = lambda **_: {'Parameter':dict(value)}
+        source = {'cdn':{'keyParameter':cdn.KEY_PARAMETERS['a']}}
+        s3.get_object.side_effect = lambda **_: {'Body':io.BytesIO(json.dumps(source).encode()),'LastModified':datetime.datetime.now(datetime.timezone.utc)-datetime.timedelta(minutes=20)}
+        front = cdn.front_template(cdn.source_template('cloudfront.yaml'),{'cdn-studio':{'origin':'cdn-test','bucket':'test','prefix':'m8-final'}},{'a':'public-a','b':'public-b'})
+        cf.get_template.return_value = {'TemplateBody':front}
+        def lost_reply(**kwargs):
+            value['Value'] = kwargs['Value']
+            self.assertEqual(kwargs['Name'],cdn.KEY_PARAMETERS['b'])
+            self.assertEqual(kwargs['Type'],'SecureString')
+            self.assertTrue(kwargs['Overwrite'])
+            raise RuntimeError('response lost after write')
+        ssm.put_parameter.side_effect = lost_reply
+        with tempfile.TemporaryDirectory() as temp:
+            receipt=Path(temp)/'rotation.json'
+            with self.assertRaisesRegex(ValueError,'inactive'):
+                cdn.plan_rotation(session,'a',receipt)
+            ssm.put_parameter.assert_not_called()
+            with self.assertRaisesRegex(RuntimeError,'response lost'):
+                cdn.plan_rotation(session,'b',receipt)
+            self.assertNotIn('PRIVATE KEY',receipt.read_text())
+            with patch.object(cdn,'plan',return_value={'change':'rotation-fixture'}) as plan:
+                self.assertEqual(cdn.plan_rotation(session,'b',receipt)['change'],'rotation-fixture')
+                planned=plan.call_args.args[2]
+                self.assertEqual(len(planned['Resources']['CdnKeys']['Properties']['KeyGroupConfig']['Items']),2)
+            self.assertEqual(ssm.put_parameter.call_count,1)
+            cf.describe_change_set.return_value={'Status':'CREATE_COMPLETE','ExecutionStatus':'AVAILABLE'}
+            self.assertEqual(cdn.plan_rotation(session,'b',receipt)['executionStatus'],'AVAILABLE')
+            self.assertEqual(ssm.put_parameter.call_count,1)
+
+    def test_public_source_cas_recovers_a_lost_reply_without_another_write(self):
+        import io
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        session, s3 = Mock(), Mock(); session.client.return_value = s3
+        config = {'host':'origin.cloud.layr.ws','cloudfront':True,'publicHost':'cloud.layr.ws','zone':'unchanged'}
+        value = {'Body':json.dumps(config).encode(),'VersionId':'before','ETag':'before-etag'}
+        s3.get_object.side_effect = lambda **_: {**value,'Body':io.BytesIO(value['Body'])}
+        settings = {'host':'cloud.layr.ws','keyId':'PUBLIC','keyParameter':cdn.KEY_PARAMETERS['a']}
+        def write(**kwargs):
+            self.assertEqual(kwargs['IfMatch'],'before-etag')
+            value.update(Body=kwargs['Body'],VersionId='after',ETag='after-etag')
+            raise RuntimeError('response lost after write')
+        s3.put_object.side_effect = write
+        with tempfile.TemporaryDirectory() as temp, patch.object(cdn,'runtime_settings',return_value=settings):
+            receipt=Path(temp)/'source.json'
+            with self.assertRaisesRegex(RuntimeError,'response lost'):
+                cdn.configure_source(session,'a',receipt)
+            self.assertEqual(cdn.configure_source(session,'a',receipt)['version'],'after')
+            self.assertEqual(s3.put_object.call_count,1)
+            self.assertEqual(json.loads(receipt.read_text())['previousConfig'],config)
+            self.assertEqual(json.loads(value['Body'])['zone'],'unchanged')
+
+    def test_retirement_refuses_trusted_or_referenced_keys_and_unrelated_template_changes(self):
+        old = cdn.front_template(cdn.source_template('cloudfront.yaml'),{'cdn-studio':{'origin':'cdn-test','bucket':'test','prefix':'m8-final'}},{'a':'public-a','b':'public-b'})
+        with self.assertRaises(ValueError): cdn.retirement_template(old,'CdnPublicKeyB')
+        rotated=cdn.rotation_template(old,'b','new-public-b')
+        retired=cdn.retirement_template(rotated,'CdnPublicKeyB')
+        self.assertNotIn('CdnPublicKeyB',retired['Resources'])
+        cf=Mock();cf.get_template.side_effect=[{'TemplateBody':rotated},{'TemplateBody':retired}]
+        changes={'Changes':[{'ResourceChange':{'LogicalResourceId':'CdnPublicKeyB','ResourceType':'AWS::CloudFront::PublicKey','Action':'Remove'}}]}
+        cdn.validate_changes(cf,'layr-cloudfront','change',changes,'CdnPublicKeyB')
+        with self.assertRaises(ValueError): cdn.validate_changes(Mock(),'layr-cloudfront','change',changes)
+        altered=copy.deepcopy(retired);altered['Resources']['Distribution']['Properties']['DistributionConfig']['Enabled']=False
+        cf.get_template.side_effect=[{'TemplateBody':rotated},{'TemplateBody':altered}]
+        with self.assertRaises(ValueError): cdn.validate_changes(cf,'layr-cloudfront','change',changes,'CdnPublicKeyB')
+
     def test_dns_dependency_updates_require_identical_definitions(self):
         cf = Mock()
         base = cdn.source_template('cloudfront.yaml')

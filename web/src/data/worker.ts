@@ -63,8 +63,9 @@ async function loadEpochHistory(name:string, epochs:{prefix:string; history:stri
   historyPrefixes.set(name,epochs.history.slice().reverse().map(epoch=>epoch==='root' ? '' : `project/epochs/${epoch}/`));
   for (const epoch of epochs.history) {
     const key=`${epochs.prefix}history/${epoch}.age`;
-    const bytes=anonymous ? await gateway.publicObject(target.gateway,key) : await gateway.object(target.gateway,key,proof(name));
-    session.add_epoch_history(name,epoch,bytes);
+    if (anonymous) session.add_epoch_history(name,epoch,await gateway.publicObject(target.gateway,key));
+    else await gateway.verifiedObjects(target.gateway,[key],proof(name),([bytes])=>session.add_epoch_history(name,epoch,bytes),undefined,
+      (key,direct)=>gateway.object(target.gateway,key,proof(name),direct));
   }
   const records=anonymous ? await gateway.publicList(target.gateway,'records/') : await gateway.list(target.gateway,'records/',proof(name));
   for (const entry of records) {
@@ -358,7 +359,7 @@ async function fileHistory(method: string, project: string, state: string, path:
         // Missing optional objects are a normal cache miss; malformed ones discard it.
         const objects = await listObjects(name, key);
         if (!objects.some(object => object.key === key)) continue;
-        try { const bytes=await objectBytes(name,key); session.add_history_index(name,sourceObject(name,key),bytes); }
+        try { await verifiedObjects(name,[key],([bytes])=>session.add_history_index(name,sourceObject(name,key),bytes)); }
         catch { session.discard_index(name); cacheFailed = true; break; }
       }
     }

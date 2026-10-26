@@ -793,7 +793,13 @@ impl Gateway {
                 {
                     return Ok(Reply::error(401, "a read challenge token is required"));
                 }
-                if read {
+                // Earlier proofs retain their existing direct history access. Only a proof
+                // for the current epoch may obtain a new signed URL after reader rotation.
+                let current_proof = epoch_chain.as_ref().is_none_or(|chain| {
+                    chain.project(chain.current()).is_some_and(|current|
+                        self.proof.valid("read", &current.binding(name), token, at))
+                });
+                if read && current_proof {
                     if let Some(signer) = &self.cdn {
                         if let Some(reply) = signer.reply(self, project, name, &key, &request)? { return Ok(reply); }
                     }
@@ -1406,6 +1412,11 @@ mod tests {
         f.config.projects.insert("other".into(), other);
         std::fs::write(&f.path, serde_json::to_vec(&f.config).unwrap()).unwrap();
         let project = f.config.projects["example"].clone();
+        f.gateway.cdn = Some(super::super::cdn::test_signer(&project));
+        let cdn_request = |gateway: &Gateway, path: &str, token: &str| {
+            gateway.handle(http::Request {method:"GET".into(),target:path.into(),
+                headers:[("host".into(),"localhost".into()),("authorization".into(),format!("Bearer {token}")),("x-layr-cdn".into(),"1".into())].into(),body:vec![]},None)
+        };
         let write = f.token(false);
         let root_read = f.read_token();
         let gc = f.token(true);
@@ -1655,6 +1666,12 @@ mod tests {
         assert_eq!(token.status, 200);
         let token: serde_json::Value = serde_json::from_slice(&token.body).unwrap();
         let read = token["token"].as_str().unwrap();
+        let cdn_path=format!("{base}/states/{OVERLAY}/01234567.tree.age");
+        let signed=cdn_request(&f.gateway,&cdn_path,read);
+        assert_eq!(signed.status,200);
+        let link: serde_json::Value=serde_json::from_slice(&signed.body).unwrap();
+        assert!(link["url"].as_str().unwrap().contains(&format!("/o/example/project/epochs/{EPOCH}/states/")));
+        assert_eq!(cdn_request(&f.gateway,&cdn_path,&root_read).status,404);
         assert_eq!(
             f.request("GET", &format!("{base}/history/root.age"), read, b"", None)
                 .body,
@@ -1806,6 +1823,9 @@ mod tests {
         ] {
             assert_eq!(f.request("GET", &path, "", b"", None).status, 404, "{path}");
         }
+        let historical=cdn_request(&f.gateway,&cdn_path,read);
+        assert_eq!(historical.status,200);
+        assert!(!historical.headers.iter().any(|(key,value)| key=="Content-Type" && value==super::super::cdn::CONTENT_TYPE));
         let hidden = f.request(
             "GET",
             &format!("{next_base}/history/{EPOCH}.age"),
