@@ -1,0 +1,9 @@
+{
+  "observedUTC": "2026-10-26T23:54:11.256747+00:00",
+  "hostFreeBytes": 38785310720,
+  "ramFreeBytes": 23625998336,
+  "source": "62339b2e9af70408e53397241e19e56d2bd13bc0",
+  "binarySha256": "fc3d730b8d26b79e79508c09e2e8b342614d2a9aa93c954cbd87d797b2ff2b20",
+  "macCloneRegression": "PASS131exactGitIDs3batches0duplicatekeys",
+  "metricAttempt": "write-grant-window-62339b2"
+}

@@ -1,0 +1,10 @@
+{
+  "revision": "62339b2e9af70408e53397241e19e56d2bd13bc0",
+  "archiveSha256": "89dbd2a9a15f3593c33ba07df3809960dcbadac5e7701ac98985ef386d7b9f09",
+  "gatewayBeforeSha256": "c3508073c4f3efc8aed6bba97bbae10a99bc0dc311ecfb4b8d48798762985f6e",
+  "gatewayAfterSha256": "d41c9eeb59f0fd8cf27b53b453c334159d59add8e6585e411a103a001a6ec737",
+  "sendCalls": 10,
+  "binarySha256": "fc3d730b8d26b79e79508c09e2e8b342614d2a9aa93c954cbd87d797b2ff2b20",
+  "binaryPath": "/tmp/layr-cdn-build/layr-after-window-count-mac",
+  "buildMonitor": "b935c098-20f0-5d57-aa62-b02474298dde"
+}

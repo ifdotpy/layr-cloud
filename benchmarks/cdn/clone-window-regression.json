@@ -46,5 +46,24 @@
     "directGetCount": 0,
     "duplicateCiphertextReads": 3,
     "duplicateSignedKeys": 0
+  },
+  "macCorrected": {
+    "source": "62339b2e9af70408e53397241e19e56d2bd13bc0",
+    "binarySha256": "fc3d730b8d26b79e79508c09e2e8b342614d2a9aa93c954cbd87d797b2ff2b20",
+    "platform": "Mac APFS",
+    "monitor": "ce72b5f6-6c62-5a3a-9237-02cffb10e4a9",
+    "status": "PASS",
+    "commits": 131,
+    "batchCount": 3,
+    "batchSizes": [
+      2,
+      256,
+      5
+    ],
+    "stateBatchCount": 2,
+    "directGetCount": 0,
+    "singleSignCount": 0,
+    "duplicateCiphertextReads": 0,
+    "duplicateSignedKeys": 0
   }
 }
