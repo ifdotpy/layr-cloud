@@ -21,7 +21,8 @@ fn main() -> Result<()> {
     );
     let identity = keys::generate_identity();
     let recovery = keys::generate_identity();
-    let login = "owner@example.com";
+    let login = args.get(3).map(String::as_str).unwrap_or("owner@example.com");
+    anyhow::ensure!(person::login_name(login), "invalid fixture login");
     let recipient = keys::recipient_of(&identity)?;
     let slot = keys::seal_slot(&identity, &keys::recipient_of(&recovery)?)?;
     let index = person::Index {

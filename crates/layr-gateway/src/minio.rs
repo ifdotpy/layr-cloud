@@ -547,12 +547,14 @@ fn actual_cli_minio_round_trip() {
             .status(),
         404
     );
-    for malformed in [
-        "POST /v1/p/example/token HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\nContent-Length: 0\r\n\r\n",
-        "GET /v1/p/example/objects/records/%2e%2e/store.json HTTP/1.1\r\nHost: localhost\r\n\r\n",
-        "GET /v1/p/example/slots HTTP/1.1\r\nHost: localhost\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n",
+    for (malformed, expected) in [
+        ("POST /v1/p/example/token HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\nContent-Length: 0\r\n\r\n", 415),
+        ("POST /v1/p/example/token HTTP/1.1\r\nHost: localhost\r\nContent-Type: text/plain\r\nContent-Length: 1\r\n\r\n{", 415),
+        ("POST /v1/p/example/token HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: 1\r\n\r\n{", 400),
+        ("GET /v1/p/example/objects/records/%2e%2e/store.json HTTP/1.1\r\nHost: localhost\r\n\r\n", 400),
+        ("GET /v1/p/example/slots HTTP/1.1\r\nHost: localhost\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n", 400),
     ] {
-        assert_eq!(raw(address, &ca, malformed), 400);
+        assert_eq!(raw(address, &ca, malformed), expected, "request: {malformed:?}");
     }
     // Force ListObjectsV2 pagination through the actual HTTP endpoint.
     let bulk = Arc::new(
@@ -580,7 +582,7 @@ fn actual_cli_minio_round_trip() {
         .bearer_auth(&write)
         .send()
         .unwrap();
-    assert_eq!(names.status(), 200);
+    assert_eq!(names.status(), 401);
     assert_eq!(
         request(Method::GET, "/v1/p/example/objects?prefix=slots/")
             .bearer_auth(&write)

@@ -109,7 +109,7 @@ impl Epochs {
         }
         let original = verified_segments(&root.project, &self.root_segments)?;
         if original.is_empty() || original.iter().any(|line| !exact.contains(line)) {
-            bail!("epoch rewrites root history");
+            bail!("Rotation in progress: the current epoch history is incomplete.");
         }
         let root_writers = layr_store::public::trusted_writers(&root.project, &original)?;
         if root_writers
@@ -126,7 +126,7 @@ impl Epochs {
                     .context("epoch signer is not trusted")?,
             )?;
             if !exact.contains(&p.line) {
-                bail!("epoch discovery is absent from encrypted history");
+                bail!("Rotation in progress: epoch discovery is absent from its encrypted history.");
             }
         }
         let readers = exact
