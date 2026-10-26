@@ -1982,7 +1982,11 @@ mod tests {
             assert_eq!(body["bytes"], 6);
             assert!(body["url"].as_str().unwrap().starts_with(&format!("https://localhost/o/example/{key}?")));
             assert!(body["expires"].as_u64().unwrap() <= auth::now()/1000 + 300);
-            assert_eq!(request(&key, &read, false, false).body, b"cipher");
+            let mut direct = request(&key, &read, false, false);
+            if let Some(Transfer::Download(mut stream)) = direct.transfer.take() {
+                std::io::Read::read_to_end(stream.reader.as_mut(), &mut direct.body).unwrap();
+            }
+            assert_eq!(direct.body, b"cipher");
             assert_eq!(request(&key, "", true, false).status, 401);
             assert_eq!(request(&key, "invalid", true, false).status, 401);
         }
