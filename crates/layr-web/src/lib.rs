@@ -89,6 +89,9 @@ impl Session {
     pub fn lock(&mut self) {
         *self = Self::default();
     }
+    pub fn close_store(&mut self, name: &str) {
+        self.stores.retain(|key, store| key != name && store.parent.as_ref().is_none_or(|(parent, _, _)| parent != name));
+    }
     pub fn slot_name(&self) -> std::result::Result<String, JsValue> {
         person::slot_name(
             &self.login,

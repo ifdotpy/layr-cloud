@@ -26,7 +26,7 @@ fn main() -> Result<()> {
     let mut records = String::new();
     for (seq, op, data) in [
         (1, "machine", json!({"public_key":public})),
-        (2, "project", json!({"name":"Accepted project"})),
+        (2, "project", json!({"name":"accepted-project"})),
     ] {
         let r = json!({"id":format!("01a12290-0000-7000-8000-{seq:012}"),"machine":machine,"project":project,"seq":seq,"time":seq,"op":op,"actor":{"uid":0,"name":"test"},"states":[],"lines":{},"data":data}).to_string();
         records.push_str(&format!(
@@ -34,10 +34,14 @@ fn main() -> Result<()> {
             keys::sign_bytes(r.as_bytes(), &signing)
         ));
     }
+    for line in records.lines() {
+        layr_store::record::verify_line(line.as_bytes(), &signing.verifying_key())?;
+    }
+    layr_model::Model::from_verified_lines(records.lines(), machine)?;
     let view = json!({"login":login,"recipient":recipient,"slots":[{"name":"paper","data":B64.encode(keys::seal_slot(&identity,&keys::recipient_of(&recovery)?)?)}],"index":null,"inbox":[{"id":"1793010000000-00000001","data":B64.encode(valid)}],"signing_key":public,"signing":B64.encode(keys::encrypt(&recipient,&signing.to_bytes())?)});
     println!(
         "{}",
-        json!({"words":keys::words_of_identity(&recovery)?,"view":view,"descriptor":descriptor,"slot":B64.encode(keys::seal_slot(&vault,&recipient)?),"foreign":B64.encode(foreign),"segment":format::segment_name(machine,1,2),"records":B64.encode(keys::encrypt(&descriptor.recipient,records.as_bytes())?)})
+        json!({"words":keys::words_of_identity(&recovery)?,"view":view,"descriptor":descriptor,"slot":B64.encode(keys::seal_slot(&vault,&recipient)?),"foreign":B64.encode(foreign),"challenge":B64.encode(keys::encrypt(&descriptor.recipient,b"reader-proof")?),"segment":format::segment_name(machine,1,2),"records":B64.encode(keys::encrypt(&descriptor.recipient,records.as_bytes())?)})
     );
     Ok(())
 }

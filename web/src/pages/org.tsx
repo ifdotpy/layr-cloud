@@ -433,7 +433,6 @@ function YouPage({ source }: { source: DataSource }) {
   const result = useData(() => source.you(), [source]);
   const [accepting,setAccepting] = useState<string>();
   const [acceptError,setAcceptError] = useState('');
-  const [accepted,setAccepted] = useState<string>();
   return (
     <>
       <PageHead
@@ -471,7 +470,6 @@ function YouPage({ source }: { source: DataSource }) {
           </Section>
           <Section title="Your invites">
             {acceptError && <div class="callout bad" role="alert">{acceptError}</div>}
-            {accepted && <p role="status">Invite accepted. <a href={projectUrl(accepted)}>Open project</a></p>}
             {!result.data.invites.length ? (
               <Empty>No invites are available from your session.</Empty>
             ) : (
@@ -482,8 +480,8 @@ function YouPage({ source }: { source: DataSource }) {
                   <Mono>{invite.project}</Mono>,
                   invite.role ?? "Not recorded",
                   source.acceptInvite && invite.id ? <button class="btn" type="button" disabled={Boolean(accepting)} onClick={async () => {
-                    setAccepting(invite.id); setAcceptError(''); setAccepted(undefined);
-                    try { setAccepted(await source.acceptInvite!(invite.id!)); }
+                    setAccepting(invite.id); setAcceptError('');
+                    try { location.hash = projectUrl(await source.acceptInvite!(invite.id!)); }
                     catch(error) { setAcceptError(error instanceof Error ? error.message : 'Could not accept this invite.'); }
                     finally { setAccepting(undefined); }
                   }}>{accepting === invite.id ? 'Accepting…' : 'Accept'}</button> : <ReadOnlyAction label="Accept" />,

@@ -274,11 +274,20 @@ async function acceptInvite(id: string) {
   const saved = await gateway.person();
   if (saved.index !== JSON.parse(body).data) throw writeError ?? new Error('Your project index changed. Try accepting the invite again.');
   session.refresh_person(JSON.stringify(saved));
-  try {
-    await loadProjects(project);
-    await gateway.removeInvite(id);
-    session.refresh_person(JSON.stringify(await gateway.person()));
-  } finally { scope.postMessage({updated:true}); }
+  const existing = aliases.get(project);
+  if (existing) await complete(existing);
+  else try { await loadProjects(project); }
+  catch(error) {
+    const name = aliases.get(project);
+    if (name) {
+      session.close_store(name); aliases.delete(project);
+      for (const [alias,target] of routes) if (target.gateway === name) routes.delete(alias);
+    }
+    throw error;
+  }
+  await gateway.removeInvite(id);
+  session.refresh_person(JSON.stringify(await gateway.person()));
+  scope.postMessage({updated:true});
   return project;
 }
 async function prepareRegistration(login: string, base: string) {

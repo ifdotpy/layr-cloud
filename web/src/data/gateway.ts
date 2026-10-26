@@ -92,7 +92,7 @@ export class Gateway {
     await this.personRequest('/api/person/index', {method:'PUT', headers:{'content-type':'application/json'}, body});
   }
   async removeInvite(id: string): Promise<void> {
-    await this.personRequest(`/api/person/inbox/${encodeURIComponent(id)}`, {method:'DELETE'});
+    await this.personRequest(`/api/person/inbox/${encodeURIComponent(id)}`, {method:'DELETE', headers:{'content-type':'application/json'}});
   }
   async register(login: string, invite: string, body: string): Promise<void> {
     await this.request(`/api/person?login=${encodeURIComponent(login)}`, {method:'PUT',headers:{'content-type':'application/json',authorization:`Bearer ${invite}`},body});
