@@ -6,6 +6,7 @@ mod config;
 mod decoy;
 #[cfg(test)]
 mod minio;
+mod origin;
 mod people;
 mod person_support;
 mod public;
@@ -278,11 +279,18 @@ fn serve(options: Options, storage: std::sync::Arc<aws::Aws>) -> Result<()> {
         );
         rand::random()
     };
+    let origin = config
+        .extra
+        .get("originSecretRegion")
+        .and_then(|v| v.as_str())
+        .map(|region| storage.origin_secret(region).and_then(origin::Origin::new))
+        .transpose()?;
     let gateway = Arc::new(server::Gateway {
         config: file,
         listen: config.listen,
         proof: auth::Proof::new(),
         storage,
+        origin,
         person_secret: Arc::new(secret),
         person_writing: Arc::new(std::sync::Mutex::new(())),
         public_limit: public::Limiter::default(),

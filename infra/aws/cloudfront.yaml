@@ -1,0 +1,111 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Layr Cloud IPv4 and IPv6 HTTPS front for the IPv6-only gateway.
+Parameters:
+  Host:
+    Type: String
+    Default: cloud.layr.ws
+    AllowedPattern: '[a-z0-9.-]{3,253}'
+  OriginHost:
+    Type: String
+    Default: origin.cloud.layr.ws
+    AllowedPattern: '[a-z0-9.-]{3,253}'
+  ZoneId:
+    Type: AWS::Route53::HostedZone::Id
+  CertificateArn:
+    Type: String
+    AllowedPattern: 'arn:aws:acm:us-east-1:[0-9]{12}:certificate/[a-f0-9-]+'
+  OriginSecret:
+    Type: String
+    NoEcho: true
+    AllowedPattern: '[a-f0-9]{64}'
+    Description: Read /layr-store/gateway/origin-secret from SSM directly into SDK memory.
+  PublishDns:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: Enable only after verifying the distribution and origin together.
+  OriginReadTimeout:
+    Type: Number
+    Default: 120
+    MinValue: 60
+    MaxValue: 120
+Conditions:
+  HasDns: !Equals [!Ref PublishDns, 'true']
+Resources:
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: Layr Cloud gateway
+        Enabled: true
+        IPV6Enabled: true
+        HttpVersion: http2and3
+        PriceClass: PriceClass_100
+        Aliases: [!Ref Host]
+        Origins:
+          - Id: gateway
+            DomainName: !Ref OriginHost
+            ConnectionAttempts: 1
+            ConnectionTimeout: 10
+            OriginCustomHeaders:
+              - HeaderName: X-Layr-Origin
+                HeaderValue: !Ref OriginSecret
+            CustomOriginConfig:
+              HTTPSPort: 443
+              IpAddressType: ipv6
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols: [TLSv1.2]
+              OriginReadTimeout: !Ref OriginReadTimeout
+        DefaultCacheBehavior:
+          TargetOriginId: gateway
+          ViewerProtocolPolicy: https-only
+          AllowedMethods: [GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE]
+          CachedMethods: [GET, HEAD]
+          # Managed CachingDisabled; no tokens or private responses enter the cache.
+          CachePolicyId: 413f1606-6b90-4a5d-9d90-cedbe7f1a537
+          # Managed AllViewerExceptHostHeader; origin Host matches its ACME name.
+          OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
+          Compress: false
+        CustomErrorResponses:
+          - {ErrorCode: 400, ErrorCachingMinTTL: 0}
+          - {ErrorCode: 403, ErrorCachingMinTTL: 0}
+          - {ErrorCode: 404, ErrorCachingMinTTL: 0}
+          - {ErrorCode: 405, ErrorCachingMinTTL: 0}
+          - {ErrorCode: 414, ErrorCachingMinTTL: 0}
+          - {ErrorCode: 416, ErrorCachingMinTTL: 0}
+          - {ErrorCode: 500, ErrorCachingMinTTL: 0}
+          - {ErrorCode: 501, ErrorCachingMinTTL: 0}
+          - {ErrorCode: 502, ErrorCachingMinTTL: 0}
+          - {ErrorCode: 503, ErrorCachingMinTTL: 0}
+          - {ErrorCode: 504, ErrorCachingMinTTL: 0}
+        ViewerCertificate:
+          AcmCertificateArn: !Ref CertificateArn
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+  A:
+    Type: AWS::Route53::RecordSet
+    Condition: HasDns
+    Properties:
+      HostedZoneId: !Ref ZoneId
+      Name: !Ref Host
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt Distribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2
+        EvaluateTargetHealth: false
+  AAAA:
+    Type: AWS::Route53::RecordSet
+    Condition: HasDns
+    Properties:
+      HostedZoneId: !Ref ZoneId
+      Name: !Ref Host
+      Type: AAAA
+      AliasTarget:
+        DNSName: !GetAtt Distribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2
+        EvaluateTargetHealth: false
+Outputs:
+  DistributionId:
+    Value: !Ref Distribution
+  DistributionDomain:
+    Value: !GetAtt Distribution.DomainName

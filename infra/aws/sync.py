@@ -228,6 +228,9 @@ class Sync:
                       "people": {"bucket": self.bucket, "region": self.source["region"], "prefix": "people/"}}
             if self.source.get("network") == "public-ipv6":
                 config["sessionSecretRegion"] = self.source["region"]
+            if gateway.get("cloudfront"):
+                config["originSecretRegion"] = self.source["region"]
+                config["publicHost"] = gateway["publicHost"]
             app = getattr(self, "app", Path("/opt/layr-gateway"))
             if (app / "current/site/index.html").is_file():
                 config["siteDir"] = str(app / "current/site")

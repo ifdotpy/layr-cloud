@@ -1,0 +1,21 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Layr Cloud viewer certificate. Deploy in us-east-1 before cloudfront.yaml.
+Parameters:
+  Host:
+    Type: String
+    Default: cloud.layr.ws
+    AllowedPattern: '[a-z0-9.-]{3,253}'
+  ZoneId:
+    Type: AWS::Route53::HostedZone::Id
+Resources:
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref Host
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Ref Host
+          HostedZoneId: !Ref ZoneId
+Outputs:
+  CertificateArn:
+    Value: !Ref Certificate

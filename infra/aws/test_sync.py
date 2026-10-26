@@ -234,6 +234,30 @@ class ConfigTests(unittest.TestCase):
             host.configure("100.64.0.1")
             self.assertEqual(json.loads(path.read_text())["projects"]["example"]["writeTokenHashes"], [])
 
+    def test_cloudfront_config_contains_only_secret_region_and_origin_dns_name(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            host = sync.Sync.__new__(sync.Sync)
+            host.home = Path(temporary)
+            host.bucket = "artifacts"
+            host.source = {"region":"eu-north-1", "network":"public-ipv6"}
+            host.restart = False
+            host.s3 = Mock()
+            host.s3.get_paginator.return_value.paginate.return_value = []
+            host.get = lambda _: json.dumps({"host":"origin.cloud.layr.ws", "zone":"ZEXAMPLE", "cloudfront":True, "publicHost":"cloud.layr.ws"}).encode()
+            result = host.configure("2001:db8::4")
+            self.assertEqual(result["host"], "origin.cloud.layr.ws")
+            config = json.loads((host.home / "config.json").read_text())
+            self.assertEqual(config["originSecretRegion"], "eu-north-1")
+            self.assertEqual(config["host"], "origin.cloud.layr.ws")
+            self.assertEqual(config["publicHost"], "cloud.layr.ws")
+            self.assertNotIn("originSecret", config)
+            with patch.object(sync.boto3,"client") as client:
+                client.return_value.list_resource_record_sets.return_value = {"ResourceRecordSets":[]}
+                host.dns(result, "2001:db8::4")
+                record = client.return_value.change_resource_record_sets.call_args.kwargs["ChangeBatch"]["Changes"][0]["ResourceRecordSet"]
+                self.assertEqual(record["Name"], "origin.cloud.layr.ws.")
+                self.assertEqual(record["Type"], "AAAA")
+
     def test_executor_public_identity_has_no_private_fields(self):
         with tempfile.TemporaryDirectory() as temporary:
             host = sync.Sync.__new__(sync.Sync)

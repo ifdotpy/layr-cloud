@@ -1,9 +1,10 @@
-/** VM-only browser caller against the deployed HTTPS gateway through an AWS SSM relay.
+/** Browser caller against the deployed HTTPS gateway over direct IPv4 or an AWS SSM relay.
  * An explicit staging option serves local static files; the default uses the published site.
  */
 import assert from 'node:assert/strict';
 import {readFile,writeFile,mkdir,stat} from 'node:fs/promises';
 import path from 'node:path';
+import {resolve4} from 'node:dns/promises';
 import {chromium,expect} from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import {observePersistence,expectNoPersistence} from './storage.ts';
@@ -15,7 +16,10 @@ const fixture=JSON.parse(await readFile(process.env.LAYR_WEB_LIVE_FIXTURE,'utf8'
 const words=(await readFile(fixture.words_file,'utf8')).trim();
 const dist=path.resolve(process.env.LAYR_WEB_LIVE_DIST || 'dist');
 const output=path.resolve(process.env.LAYR_WEB_LIVE_OUTPUT || 'test-results/signin-deployed');await mkdir(output,{recursive:true});
-const browser=await chromium.launch({headless:true,...(process.env.LAYR_WEB_LIVE_PROXY ? {proxy:{server:process.env.LAYR_WEB_LIVE_PROXY}} : {args:[`--host-resolver-rules=MAP cloud.layr.ws ${process.env.LAYR_WEB_LIVE_RELAY || '127.0.0.1:443'}`]})});
+const directIpv4=process.env.LAYR_WEB_LIVE_IPV4==='1';
+assert(!(directIpv4 && (process.env.LAYR_WEB_LIVE_PROXY || process.env.LAYR_WEB_LIVE_RELAY)), 'Direct IPv4 cannot use a proxy or relay');
+const viewerIpv4=directIpv4?(await resolve4(new URL(origin).hostname))[0]:undefined;
+const browser=await chromium.launch({headless:true,...(process.env.LAYR_WEB_LIVE_PROXY ? {proxy:{server:process.env.LAYR_WEB_LIVE_PROXY}} : {args:[`--host-resolver-rules=MAP cloud.layr.ws ${viewerIpv4 || process.env.LAYR_WEB_LIVE_RELAY || '127.0.0.1:443'}`]})});
 let page;
 try{
  const context=await browser.newContext();
@@ -61,7 +65,7 @@ try{
  for(const view of views){await page.setViewportSize({width:view.width,height:view.height});await page.emulateMedia({colorScheme:view.colorScheme});const axe=await new AxeBuilder({page}).analyze();assert.deepEqual(axe.violations,[]);await writeFile(path.join(output,`${screen}-${view.name}-axe.json`),JSON.stringify(axe,null,2));await page.screenshot({path:path.join(output,`${screen}-${view.name}.png`),fullPage:true});}
  await expectNoPersistence(page,readOnly?'deployed signature sign-in and project read':'deployed signature sign-in and encrypted comment');assert.deepEqual(errors,[]);
  await page.getByRole('button',{name:/Account/}).click();await page.getByRole('button',{name:'Lock',exact:true}).click();await expect(page.getByRole('heading',{name:'Sign in',exact:true})).toBeVisible();
- await writeFile(path.join(output,'result.json'),JSON.stringify({origin,transport:'VM browser to SSM relay through AWS executor, then public IPv6 TLS gateway',client:process.env.LAYR_WEB_LIVE_STAGED_CLIENT?'reviewed local build in VM; API calls use deployed HTTPS':'published site and deployed HTTPS gateway',mode:readOnly?'read-only':'comment',phase,requestId,version:wire?.v,applied:readOnly?undefined:true,exchanges,screenshots:3,axeViolations:0,persistentSecrets:false},null,2));
+ await writeFile(path.join(output,'result.json'),JSON.stringify({origin,transport:directIpv4?'Mac Chromium over public IPv4 to CloudFront, then IPv6 HTTPS origin':'VM browser to SSM relay through AWS executor, then public IPv6 TLS gateway',viewerIpv4,client:process.env.LAYR_WEB_LIVE_STAGED_CLIENT?'reviewed local build in VM; API calls use deployed HTTPS':'published site and deployed HTTPS gateway',mode:readOnly?'read-only':'comment',phase,requestId,version:wire?.v,applied:readOnly?undefined:true,exchanges,screenshots:3,axeViolations:0,persistentSecrets:false},null,2));
  console.log(`PASS deployed HTTPS browser: recovery, shared signature session, ${readOnly?'project read':'encrypted v2 comment applied'}, lock, no persistent secrets${requestId?`; ${requestId}`:''}`);
 }catch(error){
  if(page){

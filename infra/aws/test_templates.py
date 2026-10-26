@@ -50,6 +50,39 @@ def actions(resource):
 
 
 class TemplateTests(unittest.TestCase):
+    def test_cloudfront_disables_caching_and_uses_authenticated_ipv6_https_origin(self):
+        front = template("cloudfront.yaml")
+        distribution = front["Resources"]["Distribution"]["Properties"]["DistributionConfig"]
+        origin = distribution["Origins"][0]
+        config = origin["CustomOriginConfig"]
+        self.assertEqual(config["IpAddressType"], "ipv6")
+        self.assertEqual(config["OriginProtocolPolicy"], "https-only")
+        self.assertEqual(config["OriginSSLProtocols"], ["TLSv1.2"])
+        self.assertEqual(front["Parameters"]["OriginReadTimeout"]["Default"], 120)
+        self.assertEqual(origin["OriginCustomHeaders"], [{"HeaderName":"X-Layr-Origin", "HeaderValue":{"Ref":"OriginSecret"}}])
+        self.assertTrue(front["Parameters"]["OriginSecret"]["NoEcho"])
+        behavior = distribution["DefaultCacheBehavior"]
+        self.assertEqual(behavior["CachePolicyId"], "413f1606-6b90-4a5d-9d90-cedbe7f1a537")
+        self.assertEqual(behavior["OriginRequestPolicyId"], "b689b0a8-53d0-40ab-baf2-68738e2966ac")
+        self.assertEqual(set(behavior["AllowedMethods"]), {"GET","HEAD","POST","PUT","PATCH","DELETE","OPTIONS"})
+        self.assertTrue(all(error["ErrorCachingMinTTL"] == 0 for error in distribution["CustomErrorResponses"]))
+        self.assertTrue(distribution["IPV6Enabled"])
+        self.assertEqual(distribution["ViewerCertificate"]["MinimumProtocolVersion"], "TLSv1.2_2021")
+        for name, kind in (("A", "A"), ("AAAA", "AAAA")):
+            record = front["Resources"][name]
+            self.assertEqual(record["Condition"], "HasDns")
+            self.assertEqual(record["Properties"]["Name"], {"Ref":"Host"})
+            self.assertEqual(record["Properties"]["Type"], kind)
+            self.assertEqual(record["Properties"]["AliasTarget"]["DNSName"], {"Fn::GetAtt":"Distribution.DomainName"})
+        cert = template("cloudfront-certificate.yaml")["Resources"]["Certificate"]["Properties"]
+        self.assertEqual(cert["ValidationMethod"], "DNS")
+        self.assertEqual(cert["DomainValidationOptions"], [{"DomainName":{"Ref":"Host"}, "HostedZoneId":{"Ref":"ZoneId"}}])
+
+    def test_gateway_secret_read_is_limited_to_the_two_exact_parameters(self):
+        role = template("gateway.yaml")["Resources"]["Role"]
+        deny = next(item for item in statements(role) if item.get("Effect") == "Deny" and "ssm:GetParameter" in item["Action"])
+        self.assertEqual(deny["NotResource"], [{"Fn::Sub": "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/layr-store/gateway/" + name} for name in ("session-secret", "origin-secret")])
+
     def test_fallback_transfer_applies_requests_and_stops_before_push_or_index_on_failure(self):
         source = template("executor.yaml")["Resources"]["Instance"]["Properties"]["UserData"]["Fn::Base64"]["Fn::Sub"]
         script = re.search(r"cat > /usr/local/sbin/layr-executor-transfer <<'EOF'\n(.*?)\nEOF", source, re.S)[1]

@@ -258,6 +258,20 @@ impl Aws {
         Ok(())
     }
 
+    pub fn origin_secret(&self, region: &str) -> Result<String> {
+        let value = self.ssm(
+            region,
+            "GetParameter",
+            serde_json::json!({
+                "Name":"/layr-store/gateway/origin-secret", "WithDecryption":true
+            }),
+        )?;
+        Ok(value["Parameter"]["Value"]
+            .as_str()
+            .context("missing origin secret")?
+            .to_owned())
+    }
+
     pub fn session_secret(&self, region: &str) -> Result<[u8; 32]> {
         let value = self.ssm(
             region,

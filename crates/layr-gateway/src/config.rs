@@ -86,6 +86,28 @@ impl Config {
         {
             bail!("gateway host must be a DNS name");
         }
+        if let Some(region) = self.extra.get("originSecretRegion") {
+            if !region.as_str().is_some_and(|r| {
+                (3..=63).contains(&r.len())
+                    && r.bytes()
+                        .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+            }) {
+                bail!("invalid origin secret region");
+            }
+            if !self
+                .extra
+                .get("publicHost")
+                .and_then(|v| v.as_str())
+                .is_some_and(|host| {
+                    (3..=253).contains(&host.len())
+                        && host
+                            .bytes()
+                            .all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-')
+                })
+            {
+                bail!("edge gateway needs its public DNS name");
+            }
+        }
         if let Some(people) = &self.people {
             if !(3..=63).contains(&people.bucket.len())
                 || !people
@@ -322,6 +344,27 @@ pub fn sample() -> Config {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn edge_config_requires_valid_secret_region_and_public_dns_name() {
+        let mut config = sample();
+        config
+            .extra
+            .insert("originSecretRegion".into(), serde_json::json!(true));
+        assert!(config.validate().is_err());
+        config
+            .extra
+            .insert("originSecretRegion".into(), serde_json::json!("eu-north-1"));
+        assert!(config.validate().is_err());
+        config
+            .extra
+            .insert("publicHost".into(), serde_json::json!("cloud.layr.ws"));
+        config.validate().unwrap();
+        config
+            .extra
+            .insert("publicHost".into(), serde_json::json!("cloud.layr.ws/path"));
+        assert!(config.validate().is_err());
+    }
+
     #[test]
     fn token_update_preserves_another_service_users_ownership() {
         if !rustix::process::geteuid().is_root() {

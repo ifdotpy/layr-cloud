@@ -1,10 +1,13 @@
 # Layr Cloud on AWS
 
-The default gateway serves public HTTPS on IPv6. Person identity comes from a signature session.
-Tailscale is optional and is not used by the default templates. The gateway permits only TCP 443
-from `::/0`; executor and runner hosts have no inbound rules. Administration uses SSM Session Manager.
-No host has public IPv4 or SSH. Clients without IPv6 need an IPv4 front later, such as CloudFront
-or one public IPv4 address. Run live network checks from an AWS host if the local network lacks IPv6.
+Clients reach `https://cloud.layr.ws` over IPv4 or IPv6 through CloudFront. CloudFront connects
+with verified HTTPS to the IPv6-only gateway at `origin.cloud.layr.ws`. Person identity comes from
+a signature session. The gateway requires the secret origin header before serving any route or
+trusting `CloudFront-Viewer-Address` for rate limits. It reads that secret from SSM at startup.
+
+Tailscale is optional. The gateway permits TCP 443 from `::/0`; the AWS origin-facing prefix list
+currently covers IPv4 only, so it cannot restrict this IPv6 origin. Executor and runner hosts have
+no inbound rules. Administration uses SSM Session Manager. No host has public IPv4 or SSH.
 
 The [public gateway design](../../docs/public-gateway-design.md) defines the authentication protocol.
 [DEPLOYED.md](DEPLOYED.md) records the exact deployed revisions, resources, costs and measured checks.
@@ -14,7 +17,9 @@ Do not infer a successful deployment from a template lint or local test.
 | --- | --- |
 | bootstrap.yaml | Retained, encrypted, versioned artifacts bucket |
 | template.yaml | Project bucket and reader, writer and GC roles |
-| gateway.yaml | IPv6 network, public gateway and SSM instance role |
+| gateway.yaml | IPv6 network, gateway origin and SSM instance role |
+| cloudfront-certificate.yaml | DNS-validated viewer certificate in us-east-1 |
+| cloudfront.yaml | IPv4/IPv6 distribution and public Route 53 aliases |
 | executor.yaml | Executor or optional idle-stopping runner and retained btrfs disk |
 | sync.py | Atomic release installation, configuration, DNS and ACME certificate setup |
 | checks.py | Fetch/apply/report/push/index loop and optional runner wake/idle control |
@@ -39,13 +44,15 @@ export AWS_PROFILE=ifdotpy AWS_REGION=eu-north-1 AWS_DEFAULT_REGION=eu-north-1
 export ARTIFACTS_STACK=layr-bootstrap GATEWAY_STACK=layr-gateway
 export PROJECT=m8-smoke EXECUTOR_STACK=layr-executor-layr
 export GATEWAY_ROLE_NAME=layr-gateway EXECUTOR_ROLE_NAME=layr-executor-layr
-export GATEWAY_HOST=cloud.layr.ws ZONE_ID=Z00094863IAG61NP8YENE
+export GATEWAY_HOST=cloud.layr.ws ORIGIN_HOST=origin.cloud.layr.ws ZONE_ID=Z00094863IAG61NP8YENE
 export IMAGE_ID=ami-0309727f887f847cb
 aws sts get-caller-identity --query '{Account:Account,Arn:Arn}'
 ```
 
-For this deployment the account must be `134250228509`. Only `cloud.layr.ws` and its ACME challenge
-may change in zone `layr.ws`. Keep the apex, desk.layr.ws and the existing ACM validation record.
+For this deployment the account must be `134250228509`. Only `cloud.layr.ws`, `origin.cloud.layr.ws`,
+their ACME challenges and the new viewer certificate validation CNAME may change in zone `layr.ws`.
+Keep the apex, desk.layr.ws and the existing ACM validation record. Distribution `ETP5AYPASWZMY`
+serves the prototype and must not change.
 Credentials come from the selected AWS profile or instance role, never a file made by these procedures.
 Keep shell tracing off for all secret handling. Do not include credentials in SSM command text or output.
 
@@ -113,7 +120,10 @@ aws cloudformation deploy --stack-name "layr-store-$PROJECT" \
 ```
 
 Use the exact reader, writer and GC role ARNs from each store's outputs in `StoreRoleArns`.
-Publish `gateway/gateway.json` to the artifacts bucket as JSON `{host,zone}`. Publish one
+Publish `gateway/gateway.json` to the artifacts bucket as JSON
+`{"host":"origin.cloud.layr.ws","publicHost":"cloud.layr.ws","zone":"Z00094863IAG61NP8YENE","cloudfront":true}`.
+The host is the origin DNS and ACME name; publicHost is the allowed browser Origin for writes.
+The configuration contains the secret's region only; it never contains the origin secret. Publish one
 `gateway/projects/<name>.json` per served project, with the gateway's `Project` configuration fields:
 `bucket`, `region`, `prefix`, `readerRoleArn`, `writerRoleArn`, `gcRoleArn`, `recipient`,
 `writeTokenHashes` and `gcTokenHashes`. The recipient must match the owner's immutable store descriptor.
@@ -123,7 +133,7 @@ These files contain only public configuration and token hashes. Do not put raw t
 aws cloudformation deploy --stack-name "$GATEWAY_STACK" \
   --template-file infra/aws/gateway.yaml --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides "ArtifactsBucket=$ARTIFACTS_BUCKET" "ImageId=$IMAGE_ID" \
-  "RoleName=$GATEWAY_ROLE_NAME" "Host=$GATEWAY_HOST" "ZoneId=$ZONE_ID" \
+  "RoleName=$GATEWAY_ROLE_NAME" "Host=$ORIGIN_HOST" "ZoneId=$ZONE_ID" \
   "StoreRoleArns=$STORE_ROLE_ARNS" --no-fail-on-empty-changeset
 ```
 
@@ -143,6 +153,82 @@ aws ssm start-session --target "$GATEWAY_INSTANCE_ID"
 Inside the session use `sudo -i`, then inspect `cloud-init status`, SSM and sync unit status.
 A missing archive or configuration fails closed; the sync timer retries after publication.
 Do not print environment variables or secret parameter values into the session log.
+
+## CloudFront front
+
+Coordinate with any active gateway/executor deployment before changing AWS. Update an existing
+gateway stack through a reviewed change set; refuse instance replacement. In particular, user data
+runs only at first boot. Deploy the gateway IAM change so its SSM read exception includes the exact
+`/layr-store/gateway/origin-secret` name, and its DNS grant names the origin host. Publish the tested
+gateway release and public configuration through the normal artifacts manifest. Run sync and read
+back the running release, certificate and service state.
+
+Create the origin secret once as a random 32-byte lowercase hex SecureString. Fetch it only into
+SDK memory. It must not enter shell arguments, a file, public configuration or command output.
+The distribution needs the value as its custom header; pass it through the template's NoEcho
+parameter. Do not print full distribution configuration, which contains that header value.
+
+Deploy the viewer certificate in us-east-1:
+
+```sh
+aws cloudformation deploy --region us-east-1 --stack-name layr-cloudfront-certificate \
+  --template-file infra/aws/cloudfront-certificate.yaml \
+  --parameter-overrides "Host=$GATEWAY_HOST" "ZoneId=$ZONE_ID" \
+  --no-fail-on-empty-changeset
+```
+
+Use the issued certificate ARN as CertificateArn in `cloudfront.yaml`. Create its change set with
+PublishDns=false initially. A Python/boto3 administration process can create the secret and submit
+its value without writing or printing it:
+
+```python
+import boto3, secrets
+from pathlib import Path
+session = boto3.Session(profile_name="ifdotpy", region_name="eu-north-1")
+ssm = session.client("ssm")
+name = "/layr-store/gateway/origin-secret"
+try:
+    ssm.put_parameter(Name=name, Type="SecureString", Value=secrets.token_hex(32), Overwrite=False)
+except ssm.exceptions.ParameterAlreadyExists:
+    pass
+secret = ssm.get_parameter(Name=name, WithDecryption=True)["Parameter"]["Value"]
+# certificate_arn is the nonsecret output of layr-cloudfront-certificate in us-east-1.
+cf = session.client("cloudformation")
+result = cf.create_change_set(
+    StackName="layr-cloudfront", ChangeSetName="initial-front", ChangeSetType="CREATE",
+    ClientToken="layr-cloudfront-initial-front",
+    TemplateBody=Path("infra/aws/cloudfront.yaml").read_text(),
+    Parameters=[{"ParameterKey":k, "ParameterValue":v} for k,v in {
+        "ZoneId":"Z00094863IAG61NP8YENE", "CertificateArn":certificate_arn,
+        "OriginSecret":secret, "PublishDns":"false"}.items()])
+print(result["Id"])
+```
+
+Read the change-set resources before executing it. Wait for the stack and distribution to finish.
+The distribution uses the managed CachingDisabled policy, passes every HTTP method and query string,
+and has zero error-cache TTLs. Its origin policy forwards Authorization, Content-Type, Content-Length
+and Range while replacing Host with the origin name. Verify that the generated viewer-address header
+arrives before publishing DNS. The gateway rejects missing/malformed trusted viewer addresses.
+
+Before the one-time DNS cutover, stop the old host-name sync path and verify the gateway now updates
+only `origin.cloud.layr.ws AAAA`. Remove only the former `cloud.layr.ws AAAA` address record, then execute
+the reviewed PublishDns=true change set to create CloudFormation-owned A and AAAA aliases. Do not
+remove a pre-existing alias on repeat deployment. Compare protected records and the prototype's
+configuration hash with the pre-deployment snapshot.
+
+CloudFront supports IPv6-only custom origins in commercial regions. Its documented request-body
+quota is 64 GB, above the 512 MiB release-file limit; no CLI limit change is required. Configure the
+origin read timeout to the largest accepted value, up to 120 seconds. See the
+[AWS quotas](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/cloudfront-limits.html)
+and [IPv6 origin documentation](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/cloudfront-enable-ipv6.html).
+The current object endpoint buffers at most 32 MiB; use a 30 MiB object for that path's transfer check.
+Run the 128 MiB release-file check after the streamed release endpoint is merged and deployed.
+
+From an IPv4-only Mac and an IPv6-capable AWS host, verify sign-in, clone/push and an encrypted comment
+applied once by the executor. Verify a direct origin request without the secret returns 403 with no
+project data, including a forged viewer-address header. Verify one viewer's 12/minute sign-in limit
+cannot be reset by changing that header and does not exhaust the other viewer's limit. Record the
+actual policy, transfer results and timeout in DEPLOYED.md.
 
 ## Executor stack
 

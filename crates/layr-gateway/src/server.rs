@@ -87,6 +87,7 @@ pub struct Gateway {
     pub proof: auth::Proof,
     pub storage: Arc<dyn Storage>,
     pub listen: std::net::SocketAddr,
+    pub origin: Option<super::origin::Origin>,
     pub person_secret: Arc<[u8; 32]>,
     pub person_writing: Arc<std::sync::Mutex<()>>,
     pub public_limit: super::public::Limiter,
@@ -254,6 +255,17 @@ fn list_prefix(prefix: &str) -> bool {
 }
 
 impl Gateway {
+    pub fn client_address(
+        &self,
+        headers: &std::collections::BTreeMap<String, String>,
+        peer: std::net::IpAddr,
+    ) -> std::result::Result<std::net::IpAddr, Reply> {
+        match &self.origin {
+            Some(origin) => origin.client(headers),
+            None => Ok(peer),
+        }
+    }
+
     #[cfg(test)]
     pub fn handle(&self, request: http::Request, login: Option<&str>) -> Reply {
         self.handle_from(request, login, std::net::Ipv4Addr::LOCALHOST.into())
@@ -283,6 +295,10 @@ impl Gateway {
         _login: Option<&str>,
         peer: std::net::IpAddr,
     ) -> Result<Reply> {
+        let peer = match self.client_address(&request.headers, peer) {
+            Ok(peer) => peer,
+            Err(reply) => return Ok(reply),
+        };
         let authenticated = self.sessions.login(bearer(&request), auth::now());
         let login = authenticated.as_deref();
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
@@ -298,6 +314,13 @@ impl Gateway {
                 "restart the gateway after a listen change",
             ));
         }
+        // The edge replaces Host with the origin name. Browser Origin must still
+        // match the explicitly configured public name, after edge authentication.
+        let public_host = self
+            .origin
+            .as_ref()
+            .and_then(|_| config.extra.get("publicHost"))
+            .and_then(|v| v.as_str());
         let host = request.header("host").unwrap_or("");
         let given = host
             .split_once(':')
@@ -330,7 +353,7 @@ impl Gateway {
         }
         if parts.first().is_some_and(|p| p == "api") {
             if request.method != "GET" && request.method != "HEAD" {
-                if let Some(reply) = other_site(&request, true) {
+                if let Some(reply) = other_site(&request, true, public_host) {
                     return Ok(reply);
                 }
             }
@@ -372,7 +395,7 @@ impl Gateway {
         }
         if request.method != "GET" && request.method != "HEAD" {
             let json = parts.get(3).is_some_and(|p| p == "token");
-            if let Some(reply) = other_site(&request, json) {
+            if let Some(reply) = other_site(&request, json, public_host) {
                 return Ok(reply);
             }
         }
@@ -626,7 +649,11 @@ fn bearer(request: &http::Request) -> &str {
         .and_then(|s| s.strip_prefix("Bearer "))
         .unwrap_or("")
 }
-fn other_site(request: &http::Request, require_json: bool) -> Option<Reply> {
+fn other_site(
+    request: &http::Request,
+    require_json: bool,
+    public_host: Option<&str>,
+) -> Option<Reply> {
     const REFUSED: &str = "a page of another site cannot change this gateway";
     if request
         .header("sec-fetch-site")
@@ -636,7 +663,9 @@ fn other_site(request: &http::Request, require_json: bool) -> Option<Reply> {
     }
     if request.header("origin").is_some_and(|origin| {
         !origin.split_once("://").is_some_and(|(_, rest)| {
-            rest.eq_ignore_ascii_case(request.header("host").unwrap_or(""))
+            rest.eq_ignore_ascii_case(
+                public_host.unwrap_or_else(|| request.header("host").unwrap_or("")),
+            )
         })
     }) {
         return Some(Reply::error(403, REFUSED));
@@ -889,6 +918,7 @@ mod tests {
                 proof: auth::Proof::new(),
                 listen: config.listen,
                 storage: Arc::new(Memory::default()),
+                origin: None,
                 person_secret: Arc::new(rand::random()),
                 person_writing: Arc::new(Mutex::new(())),
                 public_limit: super::super::public::Limiter::default(),
@@ -1234,6 +1264,112 @@ mod tests {
                 .status,
             404
         );
+    }
+
+    #[test]
+    fn origin_guard_covers_routes_and_limits_each_authenticated_viewer() {
+        let mut f = Fixture::new();
+        let edge = "2001:db8::1".parse().unwrap();
+        let request = |origin: Option<&str>, viewer: &str| {
+            let mut headers = std::collections::BTreeMap::from([
+                ("host".into(), "localhost".into()),
+                ("cloudfront-viewer-address".into(), viewer.into()),
+            ]);
+            if let Some(secret) = origin {
+                headers.insert(super::super::origin::HEADER.into(), secret.into());
+            }
+            http::Request {
+                method: "GET".into(),
+                target: "/api/person/unlock?login=unknown%40example.com".into(),
+                headers,
+                body: vec![],
+            }
+        };
+        // Without edge mode, forwarded headers cannot replace the socket address.
+        let forged = request(None, "198.51.100.9:1234");
+        assert_eq!(
+            f.gateway.client_address(&forged.headers, edge).ok(),
+            Some(edge)
+        );
+        let secret = "ab".repeat(32);
+        f.gateway.origin = Some(super::super::origin::Origin::new(secret.clone()).unwrap());
+        for path in ["/", "/v1/person/unlock", "/p/example/store.json"] {
+            let mut forged = request(None, "198.51.100.9:1234");
+            forged.target = path.into();
+            assert_eq!(f.gateway.handle_from(forged, None, edge).status, 403);
+        }
+        assert_eq!(
+            f.gateway
+                .handle_from(
+                    request(Some(&"ac".repeat(32)), "198.51.100.9:1234"),
+                    None,
+                    edge
+                )
+                .status,
+            403
+        );
+        // Malformed trusted addresses fail closed rather than sharing the edge IP.
+        assert_eq!(
+            f.gateway
+                .handle_from(request(Some(&secret), "invalid"), None, edge)
+                .status,
+            400
+        );
+        for _ in 0..12 {
+            assert_ne!(
+                f.gateway
+                    .handle_from(request(Some(&secret), "198.51.100.9:1234"), None, edge)
+                    .status,
+                429
+            );
+        }
+        // Port changes do not reset a client's window; another viewer has its own.
+        assert_eq!(
+            f.gateway
+                .handle_from(request(Some(&secret), "198.51.100.9:9876"), None, edge)
+                .status,
+            429
+        );
+        assert_ne!(
+            f.gateway
+                .handle_from(request(Some(&secret), "2001:db8::4:4321"), None, edge)
+                .status,
+            429
+        );
+    }
+
+    #[test]
+    fn authenticated_edge_browser_writes_use_only_configured_public_origin() {
+        let mut f = Fixture::new();
+        let secret = "ab".repeat(32);
+        f.gateway.origin = Some(super::super::origin::Origin::new(secret.clone()).unwrap());
+        f.config
+            .extra
+            .insert("publicHost".into(), json!("cloud.layr.ws"));
+        std::fs::write(&f.path, serde_json::to_vec(&f.config).unwrap()).unwrap();
+        for (origin, expected) in [
+            ("https://cloud.layr.ws", 404),
+            ("https://attacker.example", 403),
+            ("https://localhost", 403),
+        ] {
+            let request = http::Request {
+                method: "POST".into(),
+                target: "/api/session/challenge".into(),
+                headers: [
+                    ("host".into(), "localhost".into()),
+                    ("origin".into(), origin.into()),
+                    ("content-type".into(), "application/json".into()),
+                    ("x-layr-origin".into(), secret.clone()),
+                    (
+                        "cloudfront-viewer-address".into(),
+                        "198.51.100.4:1234".into(),
+                    ),
+                ]
+                .into(),
+                body: vec![],
+            };
+            assert_eq!(f.gateway.handle(request, None).status, expected);
+        }
     }
 
     #[test]

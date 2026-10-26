@@ -1,4 +1,4 @@
-//! Bounded HTTP/1.1 and HTTP/2 transport. The socket peer supplies rate-limit identity.
+//! Bounded HTTP/1.1 and HTTP/2 transport. Authenticate the edge before reading bodies.
 use crate::server::{Gateway, Reply, OBJECT_LIMIT};
 use anyhow::{Context, Result};
 use http_body_util::{BodyExt, Full, Limited};
@@ -84,6 +84,9 @@ async fn request(
             return Ok(Reply::error(400, "conflicting host"));
         }
         headers.insert("host".into(), authority.to_string());
+    }
+    if let Err(reply) = gateway.client_address(&headers, peer) {
+        return Ok(reply);
     }
     let method = parts.method.to_string();
     let data = match tokio::time::timeout(
