@@ -44,6 +44,10 @@ Parameters:
     Type: String
   WriterRoleArn:
     Type: String
+  AdditionalStoreRoleArns:
+    Type: CommaDelimitedList
+    Default: ''
+    Description: Additional exact reader and writer role ARNs for other enrolled projects.
   WriteTokenParameter:
     Type: String
     AllowedPattern: '/[A-Za-z0-9_./-]+'
@@ -64,6 +68,7 @@ Rules:
         AssertDescription: Set RunnerInstanceId only on the executor, never on a runner.
 Conditions:
   HasRunner: !Not [!Equals [!Ref RunnerInstanceId, '']]
+  HasAdditionalStores: !Not [!Equals [!Join ['', !Ref AdditionalStoreRoleArns], '']]
 Resources:
   SecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -97,6 +102,12 @@ Resources:
               - Effect: Allow
                 Action: sts:AssumeRole
                 Resource: [!Ref ReaderRoleArn, !Ref WriterRoleArn]
+              - !If
+                - HasAdditionalStores
+                - Effect: Allow
+                  Action: sts:AssumeRole
+                  Resource: !Ref AdditionalStoreRoleArns
+                - !Ref AWS::NoValue
               - Effect: Allow
                 Action: ssm:GetParameter
                 Resource:

@@ -255,6 +255,17 @@ class TemplateTests(unittest.TestCase):
         self.assertEqual(wake["Condition"], {"StringEquals": {"ec2:ResourceTag/layr:kind": "runner"}})
         self.assertLess(len(data.encode()), 16 * 1024)
 
+    def test_additional_project_roles_only_extend_executor_assume_role(self):
+        host = template("executor.yaml")
+        self.assertEqual(host["Parameters"]["AdditionalStoreRoleArns"]["Default"], "")
+        grant = next(item["Fn::If"] for item in statements(host["Resources"]["Role"])
+                     if "Fn::If" in item and item["Fn::If"][0] == "HasAdditionalStores")
+        self.assertEqual(grant, ["HasAdditionalStores", {
+            "Effect": "Allow", "Action": "sts:AssumeRole",
+            "Resource": {"Ref": "AdditionalStoreRoleArns"}}, {"Ref": "AWS::NoValue"}])
+        user_data = host["Resources"]["Instance"]["Properties"]["UserData"]
+        self.assertNotIn("AdditionalStoreRoleArns", str(user_data))
+
     def test_user_data_programs(self):
         for name in ("gateway.yaml", "executor.yaml"):
             code = template(name)["Resources"]["Instance"]["Properties"]["UserData"]["Fn::Base64"]["Fn::Sub"]
