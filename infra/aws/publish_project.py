@@ -78,6 +78,10 @@ def publish(session, project, seed, login=None, invite=None, rehearsal=False):
         raise ValueError('Store prefix differs from project')
     s3 = session.client('s3')
     bucket = outputs['BucketName']
+    existing_descriptor = current(s3, bucket, prefix + '/store.json')
+    seed_descriptor = next(data for relative, data in files if relative == 'store.json')
+    if existing_descriptor is not None and existing_descriptor != seed_descriptor:
+        raise ValueError('Existing store descriptor differs; no objects were written')
     key = 'gateway/projects/' + project + '.json'
     previous = current(s3, ARTIFACTS, key)
     config = json.loads(previous) if previous is not None else {'writeTokenHashes': [], 'gcTokenHashes': []}

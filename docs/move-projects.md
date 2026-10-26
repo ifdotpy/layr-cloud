@@ -235,7 +235,7 @@ Do not overwrite the executor's single-project `profile.env` three times as a su
 
     Each profile holds `project` and `writeTokenParameter` only. Each tick loads a separate root-owned 0600 token into `/run/layr-executor-projects` (tmpfs), then fetches, applies requests, reports pending checks, pushes and writes the index. It removes each token after the project tick. One project's malformed profile, token failure or command failure does not skip later projects; the whole tick reports failure after trying the remaining projects.
 
-18. **igor / agent — enroll both laptop runner machines.** Use the reviewed laptop-runner procedure. Their project policies select the Mac APFS job and Linux privileged jobs locally. Read-only check workers receive neither SSM credentials nor write tokens. Configure `queue.run` and privileged flags only on the intended runner. Leave the AWS executor's runner flags false.
+18. **igor / agent — enroll both laptop runner machines.** Use the reviewed laptop-runner procedure. On the creator, publish the signed job definitions and the `checks.lines`, `checks.changes`, `checks.platforms` and `checks.privileged` selection policy. For the Layr project, run its reviewed `tools/checks/configure.sh` on the creator and push; agree the corresponding jobs for the other two repositories before enabling their runners. A `check.NAME` definition alone does not select a job. Runner-local flags grant execution permission; they do not select jobs. Read-only check workers receive neither SSM credentials nor write tokens. Configure `queue.run` and privileged flags only on the intended runner. Leave the AWS executor's runner flags false.
 
 ### Verify and switch daily work
 

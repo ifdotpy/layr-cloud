@@ -21,6 +21,18 @@ enroller = module('enroll_executor')
 
 
 class ProjectToolsTests(TestCase):
+    def test_different_existing_store_refuses_before_writing_any_ciphertext(self):
+        session = Mock()
+        cf, s3 = Mock(), Mock()
+        session.client.side_effect = lambda name: cf if name == 'cloudformation' else s3
+        cf.describe_stacks.return_value = {'Stacks': [{'Outputs': [
+            {'OutputKey': 'BucketName', 'OutputValue': 'synthetic-bucket'}],
+            'Parameters': [{'ParameterKey': 'Prefix', 'ParameterValue': 'layr'}]}]}
+        files = [('store.json', b'{"project":"owner-project"}'), ('slots/test.age', b'ciphertext')]
+        with patch.object(publisher, 'seed_files', return_value=({'project': 'owner-project'}, files)), patch.object(publisher, 'current', return_value=b'{"project":"different"}'), self.assertRaisesRegex(ValueError, 'descriptor differs'):
+            publisher.publish(session, 'layr', Path('/synthetic'))
+        s3.put_object.assert_not_called()
+
     def test_enrollment_marks_ready_only_after_verified_project_and_keeps_grants_separate(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
