@@ -33,6 +33,48 @@ class ProjectToolsTests(TestCase):
             publisher.publish(session, 'layr', Path('/synthetic'))
         s3.put_object.assert_not_called()
 
+    def test_cdn_seed_uploads_at_most_eight_objects_and_publishes_descriptor_last(self):
+        import threading
+        session, cf, s3 = Mock(), Mock(), Mock()
+        session.client.side_effect = lambda name: cf if name == 'cloudformation' else s3
+        cf.describe_stacks.return_value = {'Stacks': [{'Outputs': [
+            {'OutputKey': key, 'OutputValue': key} for key in
+            ('BucketName', 'ReaderRoleArn', 'WriterRoleArn', 'GcRoleArn')],
+            'Parameters': [{'ParameterKey': 'Prefix', 'ParameterValue': 'm8-final'}]}]}
+        descriptor = {'project': 'synthetic-project', 'recipient': 'synthetic-recipient'}
+        files = [('store.json', json.dumps(descriptor).encode()), *[(f'states/{i}.age', b'cipher') for i in range(16)]]
+        barrier, mutex = threading.Barrier(8), threading.Lock()
+        completed, running, peak = [], 0, 0
+        def upload(client, bucket, key, data):
+            nonlocal running, peak
+            self.assertEqual(bucket, 'BucketName')
+            self.assertTrue(key.startswith('m8-final/'))
+            if key == 'm8-final/store.json':
+                self.assertEqual(len(completed), 16)
+                self.assertEqual(running, 0)
+                completed.append(key)
+                return
+            with mutex:
+                running += 1
+                peak = max(peak, running)
+            barrier.wait(timeout=5)
+            with mutex:
+                running -= 1
+                completed.append(key)
+        missing = publisher.ClientError({'Error': {'Code': 'NoSuchKey'}}, 'GetObject')
+        s3.get_object.side_effect = missing
+        with patch.object(publisher, 'seed_files', return_value=(descriptor, files)), patch.object(publisher, 'current', return_value=None), patch.object(publisher, 'immutable', side_effect=upload):
+            publisher.publish(session, 'cdn-studio', Path('/synthetic'), rehearsal=True)
+        self.assertEqual(peak, 8)
+        self.assertEqual(completed[-1], 'm8-final/store.json')
+        cf.describe_stacks.assert_called_once_with(StackName='layr-store-m8-final')
+        self.assertEqual(s3.put_object.call_args.kwargs['Key'], 'gateway/projects/cdn-studio.json')
+        for project, rehearsal in [('cdn-studio', False), ('layr-studio', True)]:
+            session.reset_mock()
+            with patch.object(publisher, 'seed_files', return_value=(descriptor, files)), self.assertRaisesRegex(ValueError, 'rehearsal'):
+                publisher.publish(session, project, Path('/synthetic'), rehearsal=rehearsal)
+            session.client.assert_not_called()
+
     def test_enrollment_marks_ready_only_after_verified_project_and_keeps_grants_separate(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

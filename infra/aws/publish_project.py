@@ -12,6 +12,7 @@ from pathlib import Path
 import re
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 
 import boto3
 from botocore.exceptions import ClientError
@@ -19,6 +20,7 @@ from botocore.exceptions import ClientError
 ACCOUNT = '134250228509'
 REGION = 'eu-north-1'
 ARTIFACTS = 'layr-bootstrap-artifacts-ik3kxdaezcnd'
+REHEARSALS = ('m1-move', 'cdn-studio')
 
 
 def digest(data):
@@ -68,8 +70,8 @@ def seed_files(seed):
 
 def publish(session, project, seed, login=None, invite=None, rehearsal=False):
     descriptor, files = seed_files(seed)
-    if rehearsal and project != 'm1-move':
-        raise ValueError('Rehearsal is limited to m1-move')
+    if project not in ('layr', 'layr-cloud', 'layr-studio', *REHEARSALS) or rehearsal != (project in REHEARSALS):
+        raise ValueError('Disposable aliases require rehearsal; real projects forbid it')
     prefix = 'm8-final' if rehearsal else project
     stack = session.client('cloudformation').describe_stacks(StackName='layr-store-' + prefix)['Stacks'][0]
     outputs = {row['OutputKey']: row['OutputValue'] for row in stack['Outputs']}
@@ -101,8 +103,12 @@ def publish(session, project, seed, login=None, invite=None, rehearsal=False):
         if person is None:
             raise ValueError('Person must register before publishing its invite')
     # The public descriptor goes last: it is the seed publication boundary.
-    for relative, data in sorted(files, key=lambda item: item[0] == 'store.json'):
+    def upload(item):
+        relative, data = item
         immutable(s3, bucket, prefix + '/' + relative, data)
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        list(pool.map(upload, (item for item in files if item[0] != 'store.json')))
+    immutable(s3, bucket, prefix + '/store.json', seed_descriptor)
     # Re-read after uploading ciphertext so another grant issuer cannot be overwritten.
     try:
         response = s3.get_object(Bucket=ARTIFACTS, Key=key)
@@ -132,7 +138,7 @@ def publish(session, project, seed, login=None, invite=None, rehearsal=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--project', choices=('layr', 'layr-cloud', 'layr-studio', 'm1-move'), required=True)
+    parser.add_argument('--project', choices=('layr', 'layr-cloud', 'layr-studio', *REHEARSALS), required=True)
     parser.add_argument('--rehearsal', action='store_true')
     parser.add_argument('--seed', type=Path, required=True)
     parser.add_argument('--person-login')
@@ -140,8 +146,8 @@ def main():
     args = parser.parse_args()
     if bool(args.person_login) != bool(args.person_invite):
         parser.error('Supply both --person-login and --person-invite')
-    if (args.project == 'm1-move') != args.rehearsal:
-        parser.error('m1-move requires --rehearsal; real projects forbid it')
+    if (args.project in REHEARSALS) != args.rehearsal:
+        parser.error('Disposable aliases require --rehearsal; real projects forbid it')
     session = boto3.Session(profile_name='ifdotpy', region_name=REGION)
     if session.client('sts').get_caller_identity()['Account'] != ACCOUNT:
         raise ValueError('Unexpected AWS account')
