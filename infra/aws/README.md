@@ -20,6 +20,7 @@ Do not infer a successful deployment from a template lint or local test.
 | gateway.yaml | IPv6 network, gateway origin and SSM instance role |
 | cloudfront-certificate.yaml | DNS-validated viewer certificate in us-east-1 |
 | cloudfront.yaml | IPv4/IPv6 distribution and public Route 53 aliases |
+| cloudfront.py | SDK deployment plans with secret handling and replacement checks |
 | executor.yaml | Executor or optional idle-stopping runner and retained btrfs disk |
 | sync.py | Atomic release installation, configuration, DNS and ACME certificate setup |
 | checks.py | Fetch/apply/report/push/index loop and optional runner wake/idle control |
@@ -168,40 +169,33 @@ SDK memory. It must not enter shell arguments, a file, public configuration or c
 The distribution needs the value as its custom header; pass it through the template's NoEcho
 parameter. Do not print full distribution configuration, which contains that header value.
 
-Deploy the viewer certificate in us-east-1:
+Use Python 3 with boto3 for the tracked deployment helper. It checks the account, keeps the origin
+secret in SDK memory, preserves existing stack parameters on update and recovers a named change set
+before retrying. It refuses removal of CloudFormation resources and instance replacement.
+
+Create the secret, then plan the viewer certificate in us-east-1. Read the printed change-set name
+into CERT_CHANGE. Inspection prints only resource names/actions, never parameter values:
 
 ```sh
-aws cloudformation deploy --region us-east-1 --stack-name layr-cloudfront-certificate \
-  --template-file infra/aws/cloudfront-certificate.yaml \
-  --parameter-overrides "Host=$GATEWAY_HOST" "ZoneId=$ZONE_ID" \
-  --no-fail-on-empty-changeset
+python3 infra/aws/cloudfront.py secret
+python3 infra/aws/cloudfront.py certificate-plan
+python3 infra/aws/cloudfront.py certificate-inspect --change "$CERT_CHANGE"
+python3 infra/aws/cloudfront.py certificate-execute --change "$CERT_CHANGE"
+aws cloudformation wait stack-create-complete --region us-east-1 \
+  --stack-name layr-cloudfront-certificate
+export CERT_ARN=$(aws cloudformation describe-stacks --region us-east-1 \
+  --stack-name layr-cloudfront-certificate \
+  --query 'Stacks[0].Outputs[?OutputKey==`CertificateArn`].OutputValue' --output text)
+python3 infra/aws/cloudfront.py gateway-plan
 ```
 
-Use the issued certificate ARN as CertificateArn in `cloudfront.yaml`. Create its change set with
-PublishDns=false initially. A Python/boto3 administration process can create the secret and submit
-its value without writing or printing it:
+Inspect and execute the printed gateway change set using gateway-inspect and gateway-execute.
+After the origin release/certificate converges, plan the front with PublishDns=false initially:
 
-```python
-import boto3, secrets
-from pathlib import Path
-session = boto3.Session(profile_name="ifdotpy", region_name="eu-north-1")
-ssm = session.client("ssm")
-name = "/layr-store/gateway/origin-secret"
-try:
-    ssm.put_parameter(Name=name, Type="SecureString", Value=secrets.token_hex(32), Overwrite=False)
-except ssm.exceptions.ParameterAlreadyExists:
-    pass
-secret = ssm.get_parameter(Name=name, WithDecryption=True)["Parameter"]["Value"]
-# certificate_arn is the nonsecret output of layr-cloudfront-certificate in us-east-1.
-cf = session.client("cloudformation")
-result = cf.create_change_set(
-    StackName="layr-cloudfront", ChangeSetName="initial-front", ChangeSetType="CREATE",
-    ClientToken="layr-cloudfront-initial-front",
-    TemplateBody=Path("infra/aws/cloudfront.yaml").read_text(),
-    Parameters=[{"ParameterKey":k, "ParameterValue":v} for k,v in {
-        "ZoneId":"Z00094863IAG61NP8YENE", "CertificateArn":certificate_arn,
-        "OriginSecret":secret, "PublishDns":"false"}.items()])
-print(result["Id"])
+```sh
+python3 infra/aws/cloudfront.py front-plan --certificate "$CERT_ARN"
+python3 infra/aws/cloudfront.py front-inspect --change "$FRONT_CHANGE"
+python3 infra/aws/cloudfront.py front-execute --change "$FRONT_CHANGE"
 ```
 
 Read the change-set resources before executing it. Wait for the stack and distribution to finish.
