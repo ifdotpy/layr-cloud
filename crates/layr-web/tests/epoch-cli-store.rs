@@ -72,7 +72,7 @@ fn rotated_cli_history_files_and_current_policy_match_native() {
             session.add_part("test",object,&fs::read(root.join(object)).unwrap()).unwrap();
         }
         let file: Value=serde_json::from_str(&session.file("test",&logical,"test.txt").unwrap()).unwrap();
-        assert_eq!(file["text"],json!(fs::read_to_string(fixture.join(format!("{name}.txt"))).unwrap()));
+        assert_eq!(file["text"],json!(fs::read_to_string(fixture.join(format!("{name}.txt"))).unwrap()), "line {name}, state {state}");
     }
     assert_eq!(epochs_read,BTreeSet::from([false,true]),"both root and current file parts must be authenticated");
     session.lock();

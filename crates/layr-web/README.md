@@ -175,3 +175,17 @@ It also checks the access mode and epoch list. The deployed browser caller uses
 `browser.json` from the same fixture to check Settings > Access and both files
 before its single comment. Keep the fixture until all checks finish. Then unmount
 its store, detach its loop device, and remove only that fixture folder.
+
+For the live rotation check, `LAYR_FIXTURE_REMOVED_READER=1` also creates and
+trusts a disposable machine. Its private identity stays in the fixture filesystem.
+`LAYR_FIXTURE_EXECUTOR_ID` and `LAYR_FIXTURE_EXECUTOR_PUBLIC` add the existing
+executor's public identity before rotation.
+
+Build the `epoch_gateway_proof` example with `--features test-tools`. Before
+rotation, run `epoch_gateway_proof capture /run/layr-web-epoch.XXXXXX` with the
+scoped write grant in that fixture's mode 0600 `write-token` file. After rotation,
+update `browser.json` with the current epoch and run
+`epoch_gateway_proof deny /run/layr-web-epoch.XXXXXX project/epochs/E/records/OBJECT`.
+The caller checks that the old read proof cannot fetch or list new ciphertext,
+and that the removed identity cannot open the new challenge. The temporary read
+proof stays in `/run` and is deleted after the refusal checks pass.

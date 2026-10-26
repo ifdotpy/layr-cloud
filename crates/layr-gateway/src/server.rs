@@ -233,6 +233,7 @@ fn list_prefix(prefix: &str) -> bool {
         || index_prefix(prefix)
         || prefix == "keys/"
         || prefix == "history/"
+        || prefix == "files/"
         || matches!(prefix, "claims/" | "claims")
         || matches!(
             prefix,
@@ -372,6 +373,7 @@ impl Gateway {
             let token = bearer(&request);
             let at = auth::now();
             let grant = auth::grant(token, project, false, at);
+            let gc_grant = auth::grant(token, project, true, at);
             let chain = match super::epochs::Chain::load(self, project) {
                 Ok(chain) => chain,
                 Err(_) => return Ok(Reply::error(404, "no such project")),
@@ -452,7 +454,8 @@ impl Gateway {
                 .project(chain.current())
                 .expect("current epoch exists");
             if !scoped_read
-                && !(grant && (bootstrap || create))
+                && !((grant || gc_grant) && bootstrap)
+                && !(grant && create)
                 && !(chain.public(self).unwrap_or(false)
                     || self
                         .visible_in(&current, login, chain.current() != "root")
@@ -503,7 +506,7 @@ impl Gateway {
         }
         if request.method == "GET" && action == "slots" && parts.len() == 5 {
             let name = &parts[4];
-            if machine_slot(name) && (write || read) {
+            if machine_slot(name) && (write || gc || read) {
                 return Ok(
                     match self
                         .storage
@@ -601,7 +604,8 @@ impl Gateway {
                     None if query.is_empty() => String::new(),
                     _ => return Ok(Reply::error(400, "invalid object prefix")),
                 };
-                let role = if read || (login.is_some() && namespace == "root" && prefix == "keys/")
+                let role = if read
+                    || ((login.is_some() || gc) && namespace == "root" && prefix == "keys/")
                 {
                     Role::Reader
                 } else if write
@@ -651,6 +655,7 @@ impl Gateway {
             "GET" => {
                 if !read
                     && !(write && (overlay_key(&key) || super::epochs::discovery(&key)))
+                    && !(gc && namespace == "root" && super::epochs::discovery(&key))
                     && !(login.is_some() && super::epochs::discovery(&key))
                 {
                     return Ok(Reply::error(401, "a read challenge token is required"));
@@ -1182,6 +1187,18 @@ mod tests {
     const EPOCH: &str = "01a12290-0000-7000-8000-000000000002";
 
     #[test]
+    fn release_file_discovery_needs_a_read_proof() {
+        let mut f = Fixture::new();
+        let read = f.read_token();
+        let write = f.token(false);
+        let path = "/v1/p/example/objects?prefix=files%2F";
+        let reply = f.request("GET", path, &read, b"", None);
+        assert_eq!(reply.status, 200);
+        assert_eq!(value(reply), json!({"objects":[]}));
+        assert_eq!(f.request("GET", path, &write, b"", None).status, 401);
+    }
+
+    #[test]
     fn epoch_grants_stage_then_discover_without_reading_new_ciphertext_and_proofs_are_scoped() {
         use layr_store::{keys, person};
         let mut f = Fixture::new();
@@ -1200,6 +1217,10 @@ mod tests {
         let project = f.config.projects["example"].clone();
         let write = f.token(false);
         let root_read = f.read_token();
+        let gc = f.token(true);
+        let other_gc = auth::issue(true, 60_000, auth::now()).unwrap();
+        f.config.projects.get_mut("other").unwrap().gc_token_hashes = vec![auth::hash(&other_gc)];
+        std::fs::write(&f.path, serde_json::to_vec(&f.config).unwrap()).unwrap();
         let next = age::x25519::Identity::generate();
         let descriptor = |recipient: String| {
             serde_json::to_vec(&json!({"format":2,"project":OVERLAY,"recipient":recipient}))
@@ -1307,7 +1328,13 @@ mod tests {
                 .status,
             412
         );
-        for token in ["", "wrong", other_grant.as_str(), expired.as_str()] {
+        for token in [
+            "",
+            "wrong",
+            other_grant.as_str(),
+            other_gc.as_str(),
+            expired.as_str(),
+        ] {
             for (method, path) in [
                 ("GET", "/v1/p/example/store.json".into()),
                 ("GET", format!("{base}/store.json")),
@@ -1315,6 +1342,7 @@ mod tests {
                 ("POST", format!("/v1/p/example/token?epoch={EPOCH}")),
                 ("GET", format!("/v1/p/example/project/epochs/{EPOCH}/{own}")),
                 ("GET", "/v1/p/example/objects?prefix=keys%2F".into()),
+                ("GET", discovery.clone()),
             ] {
                 let hidden = f.request(method, &path, token, b"", None);
                 let absent = f.request(method, "/v1/p/absent/store.json", token, b"", None);
@@ -1329,6 +1357,31 @@ mod tests {
             f.request("GET", &discovery, &write, b"", None).body,
             signed.as_bytes()
         );
+        assert_eq!(
+            f.request("GET", &discovery, &gc, b"", None).body,
+            signed.as_bytes()
+        );
+        assert_eq!(
+            f.request(
+                "GET",
+                "/v1/p/example/objects?prefix=keys%2F",
+                &gc,
+                b"",
+                None
+            )
+            .status,
+            200
+        );
+        for path in [
+            format!("{base}/states/{OVERLAY}/01234567.tree.age"),
+            format!("{base}/history/root.age"),
+        ] {
+            assert_eq!(
+                f.request("GET", &path, &gc, b"", None).status,
+                404,
+                "GC must not read encrypted bytes: {path}"
+            );
+        }
         assert_eq!(
             f.request(
                 "GET",
@@ -3036,7 +3089,9 @@ mod tests {
         let mut f = Fixture::new();
         let read = f.read_token();
         let write = f.token(false);
+        let gc = f.token(true);
         let other = auth::issue(false, 60_000, auth::now()).unwrap();
+        let other_gc = auth::issue(true, 60_000, auth::now()).unwrap();
         let expired = auth::issue(false, 1, auth::now() - 10_000).unwrap();
         f.config
             .projects
@@ -3047,6 +3102,7 @@ mod tests {
         let mut q = f.config.projects["example"].clone();
         q.prefix = "other".into();
         q.write_token_hashes = vec![auth::hash(&other)];
+        q.gc_token_hashes = vec![auth::hash(&other_gc)];
         f.config.projects.insert("other".into(), q);
         std::fs::write(&f.path, serde_json::to_vec(&f.config).unwrap()).unwrap();
         let machine = "machine-01a12290-0000-7000-8000-000000000001.age";
@@ -3076,7 +3132,7 @@ mod tests {
                 )
                 .unwrap();
         }
-        for token in [&write, &read] {
+        for token in [&write, &gc, &read] {
             assert_eq!(
                 f.request("GET", "/v1/p/example/store.json", token, b"", None)
                     .status,
@@ -3099,7 +3155,7 @@ mod tests {
                 200
             );
         }
-        let challenge = value(f.request("GET", "/v1/p/example/challenge", &write, b"", None));
+        let challenge = value(f.request("GET", "/v1/p/example/challenge", &gc, b"", None));
         let sealed = base64::engine::general_purpose::STANDARD
             .decode(challenge["challenge"].as_str().unwrap())
             .unwrap();
@@ -3108,7 +3164,7 @@ mod tests {
             f.request(
                 "POST",
                 "/v1/p/example/token",
-                &write,
+                &gc,
                 json!({"challenge":proof}).to_string().as_bytes(),
                 None
             )
@@ -3120,11 +3176,16 @@ mod tests {
                 .status,
             404
         );
+        assert_eq!(
+            f.request("GET", "/v1/p/example/slots", &gc, b"", None)
+                .status,
+            404
+        );
         let paper = "/v1/p/example/objects/slots/paper.age";
         let reply = f.request("GET", paper, &read, b"", None);
         assert_eq!(reply.status, 200);
         assert_eq!(reply.body, b"encrypted-paper-slot");
-        for token in ["", "invalid", &write, &other, &expired] {
+        for token in ["", "invalid", &write, &gc, &other, &other_gc, &expired] {
             let reply = f.request("GET", paper, token, b"", None);
             let absent = f.request(
                 "GET",
@@ -3169,11 +3230,30 @@ mod tests {
             201
         );
         assert_eq!(f.request("GET", object, &write, b"", None).status, 404);
+        assert_eq!(f.request("GET", object, &gc, b"", None).status, 404);
+        assert_eq!(f.request("DELETE", object, &write, b"", None).status, 404);
+        assert_eq!(
+            f.request(
+                "GET",
+                "/v1/p/example/objects?prefix=records/",
+                &gc,
+                b"",
+                None
+            )
+            .status,
+            404
+        );
         assert_eq!(
             f.request("GET", object, &read, b"", None).body,
             b"ciphertext"
         );
-        for token in ["", "invalid", other.as_str(), expired.as_str()] {
+        for token in [
+            "",
+            "invalid",
+            other.as_str(),
+            other_gc.as_str(),
+            expired.as_str(),
+        ] {
             for action in [
                 "store.json",
                 "challenge",

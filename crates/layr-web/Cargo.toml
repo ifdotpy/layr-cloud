@@ -36,3 +36,7 @@ required-features = ["test-tools"]
 [[example]]
 name = "session_gateway"
 required-features = ["test-tools"]
+
+[[example]]
+name = "epoch_gateway_proof"
+required-features = ["test-tools"]
