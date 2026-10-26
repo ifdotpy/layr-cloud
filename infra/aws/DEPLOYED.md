@@ -1,5 +1,62 @@
 # AWS deployment of Layr Cloud
 
+## M1 preparation, 2026-10-26
+
+Preparation branch: `cloud/move-projects`, from accepted main `4f3eb35`. No real project was imported or enrolled. The active gateway and executor releases remain the CloudFront releases recorded below. The migration procedure is [move-projects.md](../../docs/move-projects.md).
+
+### Store and host IAM
+
+The original `layr-store-layr` stack received epoch and release-file permissions through change set `m1-epoch-release-4f3eb35`. Only Writer and Gc changed, both Modify with Replacement=False. Its prefix and trust parameters were retained.
+
+Two stores were created from the same unchanged `template.yaml` (source `4f3eb35`):
+
+| Stack | Prefix | Bucket |
+| --- | --- | --- |
+| `layr-store-layr` | `layr` | `layr-store-layr-bucket-mg1n1j6rlomt` |
+| `layr-store-layr-cloud` | `layr-cloud` | `layr-store-layr-cloud-bucket-rqsdhssfnnca` |
+| `layr-store-layr-studio` | `layr-studio` | `layr-store-layr-studio-bucket-8xbg6olreskn` |
+
+Both new stacks reached CREATE_COMPLETE using change set `m1-create-4f3eb35`. Each has exact reader/writer/GC roles `arn:aws:iam::134250228509:role/layr-store-{reader,writer,gc}-{prefix}`. Their trust names only the gateway and executor host roles. No instance, volume, hosted zone or KMS key was added. Encryption is SSE-S3 AES256. The two empty buckets and their IAM roles add **$0 fixed monthly cost**, reported to the lead before creation; storage and requests are usage charges. [AWS S3 billing](https://docs.aws.amazon.com/AmazonS3/latest/userguide/GetStartedWithS3.html).
+
+The gateway and executor now assume the exact project roles for the three stores. Change sets `m1-iam-387c250355224473` (gateway) and `m1-iam-312ca3d1f8841c05` (executor) reached UPDATE_COMPLETE after inspection showed only Role Modify, Replacement=False. The executor's GetParameter allow list and explicit-deny exceptions include the exact three names `/layr-store/executor/projects/{layr,layr-cloud,layr-studio}/write-token`, plus the existing single-project parameter. These real-project parameters have not been created.
+
+`project_iam.py` fetches the live original template, preserves all non-Role resources and current parameters, and refuses execution unless every resource change is Role Modify with Replacement=False. Its later source revision also prepares nine exact gateway PutParameter targets (owner, executor and runner for each project). That final gateway permission extension and its matching gateway CLI change are **prepared, not applied**. The live gateway still uses the legacy token parameter names.
+
+### Executor template drift and planned maintenance
+
+The rejected full-template executor plan `cloudfront-f04484382fc364fa` proposed Instance and DataAttachment modifications with conditional replacement. It was not executed. The approved IAM updates used the fetched live template and left both resources unchanged.
+
+The exact pre-existing UserData difference is in the fallback `/usr/local/sbin/layr-executor-transfer` program. The repository adds these three lines between fetch and push; the live CloudFormation template omits them:
+
+```sh
+if [ '${HostKind}' = executor ]; then
+  /opt/layr-executor/current/layr --project "$PROJECT" requests apply --remote origin --json >/dev/null
+fi
+```
+
+The epoch rollout installed request application and service configuration through SSM, so the running software and the stack's historical UserData are separate deployment records. The new multi-project runtime remains uninstalled. It has one public profile and one root-owned 0600 tmpfs grant per project, a single timer, and failure isolation for malformed profiles, token reads and project commands. The legacy single-project path remains available.
+
+- [ ] In a planned maintenance window, reconcile `executor.yaml` UserData with the live stack and installed service programs. Review the new change set's instance and volume-attachment effects with the lead before execution. Do not accept conditional replacement as an IAM update.
+- [ ] After igor's owner steps, publish the validated executor release, enroll only completed projects, install the rendered daemon drop-in/profiles/single timer, and record its live three-project behavior. The drop-in removes the legacy global-token dependency; the new tick refreshes and removes each project token independently.
+
+### Disposable network rehearsal
+
+Synthetic project `01a177aa-a7a5-716c-8774-7f165724c16b`, alias `m1-move`, used only `layr-store-m8-final` and a new APFS RAM disk `/Volumes/LayrM1Smoke`. Source Git history has five commits including a merge. Core `c1d7229` imported it into an encrypted local seed; agents read only this disposable paper key on RAM. No real project paper key or recovery words were created or read.
+
+The public executor identity was trusted through an encrypted machine slot. SSM enrollment command `82c7f0cb-2a62-40c0-81db-b3a7edccfe2f` cloned 21 records and two states through public CloudFront, applied reporter-only policies, pushed, wrote its index and passed fsck. The executor received no paper key.
+
+A fresh, independently trusted Mac clone used `layr+https://cloud.layr.ws/m1-move`, then pushed eight records, one state and one file from that same clone; fsck reported zero problems. The published Chromium site over forced IPv4 passed recovery sign-in, one signature session, an encrypted v2 comment, three viewports, zero axe violations, lock and no storage writes. Request `01a177bf-15ea-7d21-962e-bf9c7e369fd6` was applied exactly once as executor record `01a177bf-2378-76b1-bd23-2f3133dda71f`, digest `555f6a2e52b8da46be6c1844999adc40f08b8bb349d5fde6b98bcdff20bc91d4`. Reapplication returned ignored; SSM proof `5ee917eb-1c42-46de-b6b2-3a2f1d06e112`.
+
+A second synthetic person `m1-ui-7d619c@example.test` exercised the actual Join with an invite form, browser key creation, saved-word confirmation, registration, signature sign-in and lock over Mac IPv4. Its recovery material and invite were written only to the owned RAM disk; browser storage stayed empty. `web/tests/register-deployed.mjs` refuses real login domains and records a mutation attempt before submitting, so a lost response cannot cause a blind retry.
+
+The tracked ciphertext publisher and public hash persistence helpers ran against this disposable alias. The per-command SSM grant loader verified the Mac RAM disk, fetched through CloudFront and removed its private token file. Linux tests covered grant cleanup on caller failure. Runtime tests covered all three profiles, later projects after a failed push, malformed-profile isolation and systemd unit parsing. Latest checks: gateway 39 passed, one environment-dependent MinIO test ignored; infra lint and 68 tests passed.
+
+**Limits and gates:** fresh Cloud clone export to an empty local Git mirror succeeded as a command but retained only one of the source's five commits. Both main trees were `70958e525f01db2eee70a881b32c735c89590e98`. Full history and original commit identity remain blocked on git-history task `work-1793009127566503168-7`; this rehearsal does not prove that gate. Real store creation waits on reviewed paper-tty (`--paper-key-tty`, private-terminal final-word confirmation). Real person pin acceptance waits on site-accept task `work-1793010263212975104-9`; no real person-key file is an allowed substitute.
+
+Runner receipts and final cleanup are still pending. The synthetic fixture remains for the Mac and Linux runner checks; do not treat this preparation section as the completed project move.
+
+## CloudFront deployment, 09:54 UTC
+
 Measured state: 2026-10-26, 09:54 UTC. `https://cloud.layr.ws` serves IPv4 and IPv6 through CloudFront. The guarded gateway includes epoch and streaming release-file routes. Live sign-in, clone/push, encrypted comments, rate limits, 30 MiB object transfer and 128 MiB release transfer passed. The disposable project, person, invite, service grant and private RAM disk were removed. No real project has been imported.
 
 Deployment branch: `cloud/cloudfront`. Gateway production source: `6701b3aa06ce3d41f95f1c6a49f9dac8e4d5c002`, merging epoch main `0c3807f` and release-files main `d349a4f`. Shared gateway crates pin `b41642ab1f4ba4591072886f7ea8153ffced2c57`. The executor retains exact core `01038b931575e1880fbc7b5829fec649720886f1`; the successful fresh Mac clone/push and release transfer used core `c1d7229`.
@@ -45,7 +102,7 @@ The previous gateway remained active while the corrected distribution deployed. 
 | Streaming gateway activation | SSM `f6eb4365-3466-4eee-93ab-891d8b42ea06` |
 | Disposable release-file IAM | `cloudfront-release-files-6701b3a`, only Writer/Gc Modify, Replacement=False, UPDATE_COMPLETE |
 
-The release-file IAM update applies only to `layr-store-m8-final`. The real `layr-store-layr` retains its earlier IAM policy and still needs epoch and release-file IAM changes before the project move.
+The release-file IAM update applies only to `layr-store-m8-final`. At the 09:54 boundary, real `layr-store-layr` still needed epoch and release-file IAM changes. The later M1 preparation section above records their application.
 
 ## Live caller checks
 

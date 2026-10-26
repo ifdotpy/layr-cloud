@@ -266,6 +266,40 @@ class TemplateTests(unittest.TestCase):
         user_data = host["Resources"]["Instance"]["Properties"]["UserData"]
         self.assertNotIn("AdditionalStoreRoleArns", str(user_data))
 
+    def test_executor_ssm_allow_and_deny_exceptions_are_exact_for_three_projects(self):
+        host = template("executor.yaml")
+        rows = statements(host["Resources"]["Role"])
+        allow = next(row["Resource"] for row in rows if row.get("Action") == "ssm:GetParameter")
+        deny = next(row["NotResource"] for row in rows if row.get("Effect") == "Deny")
+        primary = "arn:aws:ssm:eu-north-1:134250228509:parameter/layr-store/executor/write-token"
+        projects = ["arn:aws:ssm:eu-north-1:134250228509:parameter/layr-store/executor/projects/" + name + "/write-token" for name in ["layr", "layr-cloud", "layr-studio"]]
+        def resolve(value, enabled):
+            if isinstance(value, list):
+                return [resolve(v, enabled) for v in value]
+            if not isinstance(value, dict):
+                return value
+            if "Fn::If" in value:
+                return resolve(value["Fn::If"][1 if enabled else 2], enabled)
+            if "Fn::Sub" in value:
+                return primary
+            if "Ref" in value:
+                return projects
+            if "Fn::Join" in value:
+                delimiter, parts = value["Fn::Join"]
+                return delimiter.join(resolve(parts, enabled))
+            if "Fn::Split" in value:
+                delimiter, text = value["Fn::Split"]
+                return resolve(text, enabled).split(delimiter)
+            self.fail(value)
+        self.assertEqual(resolve(allow, True), [primary, *projects])
+        self.assertEqual(resolve(deny, True), [primary, *projects])
+        self.assertEqual(resolve(allow, False), [primary])
+        self.assertEqual(resolve(deny, False), primary)
+        pattern = host["Parameters"]["ProjectWriteTokenParameterArns"]["AllowedPattern"]
+        self.assertTrue(all(re.fullmatch(pattern, name) for name in projects))
+        self.assertIsNone(re.fullmatch(pattern, primary + "*"))
+        self.assertIsNone(re.fullmatch(pattern, "arn:aws:ssm:eu-north-1:134250228509:parameter/layr-store/gateway/session-secret"))
+
     def test_user_data_programs(self):
         for name in ("gateway.yaml", "executor.yaml"):
             code = template(name)["Resources"]["Instance"]["Properties"]["UserData"]["Fn::Base64"]["Fn::Sub"]

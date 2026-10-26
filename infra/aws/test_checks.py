@@ -1,5 +1,6 @@
 """Check the host boundary, including failed-check work and idle shutdown exclusion."""
 import importlib.util
+import contextlib
 import io
 import json
 import os
@@ -122,6 +123,100 @@ class ChecksTests(unittest.TestCase):
                 with self.assertRaises(checks.subprocess.CalledProcessError):
                     checks.tick({'hostKind':'executor'})
             self.assertNotIn(['index','write','origin'],[c[-3:] for c in calls])
+
+    def profiles(self, root):
+        folder = root / 'projects.d'
+        folder.mkdir()
+        for name in ['layr', 'layr-cloud', 'layr-studio']:
+            (folder / (name + '.json')).write_text(json.dumps({
+                'project': name, 'writeTokenParameter': '/layr-store/executor/projects/' + name + '/write-token'}))
+        return folder
+
+    def test_three_projects_get_separate_tokens_and_each_fetch_apply_push_index(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            folder = self.profiles(root)
+            calls = []
+            @contextlib.contextmanager
+            def token(source, profile):
+                yield root / (profile['project'] + '.token')
+            def run(args, **kwargs):
+                calls.append((args, kwargs))
+                return result() if args[0] == checks.RUNUSER else Mock(returncode=0, stdout='')
+            with patch.object(checks, 'PROJECTS', folder), patch.object(checks, 'project_token', token), patch.object(checks.subprocess, 'run', side_effect=run), patch('sys.stdout', new_callable=io.StringIO):
+                checks.tick({'hostKind': 'executor'})
+            for project in ['layr', 'layr-cloud', 'layr-studio']:
+                own = [(a, kw) for a, kw in calls if a[0] == checks.BINARY and a[2] == project]
+                self.assertEqual(own[0][0][-2:], ['fetch', 'origin'])
+                self.assertIn(['requests', 'apply', '--json'], [a[-3:] for a, _ in own])
+                self.assertEqual(own[-2][0][-2:], ['push', 'origin'])
+                self.assertEqual(own[-1][0][-3:], ['index', 'write', 'origin'])
+                self.assertTrue(all(kw['env']['LAYR_GATEWAY_TOKEN_FILE'] == str(root / (project + '.token')) for _, kw in own))
+
+    def test_one_project_failure_does_not_skip_other_projects_or_publish_its_index(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            folder = self.profiles(root)
+            calls = []
+            @contextlib.contextmanager
+            def token(source, profile):
+                yield root / (profile['project'] + '.token')
+            def run(args, **kwargs):
+                calls.append(args)
+                if args[0] == checks.BINARY and args[2] == 'layr-cloud' and args[-2:] == ['push', 'origin']:
+                    raise checks.subprocess.CalledProcessError(128, args)
+                return result() if args[0] == checks.RUNUSER else Mock(returncode=0, stdout='')
+            with patch.object(checks, 'PROJECTS', folder), patch.object(checks, 'project_token', token), patch.object(checks.subprocess, 'run', side_effect=run), patch('sys.stdout', new_callable=io.StringIO), self.assertRaisesRegex(RuntimeError, 'layr-cloud'):
+                checks.tick({'hostKind': 'executor'})
+            self.assertNotIn([checks.BINARY, '--project', 'layr-cloud', 'index', 'write', 'origin'], calls)
+            for name in ['layr', 'layr-studio']:
+                self.assertIn([checks.BINARY, '--project', name, 'index', 'write', 'origin'], calls)
+
+    def test_project_token_requires_tmpfs_exact_ssm_name_and_removes_grant(self):
+        import sys
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / 'tokens'
+            profile = {'project': 'layr', 'writeTokenParameter': '/layr-store/executor/projects/layr/write-token'}
+            ssm = Mock()
+            ssm.get_parameter.return_value = {'Parameter': {'Type': 'SecureString', 'Value': 'synthetic-grant'}}
+            with patch.object(checks, 'TOKEN_ROOT', root), patch.object(checks.subprocess, 'run', return_value=Mock(stdout='tmpfs\n')), patch.dict(sys.modules, {'boto3': Mock(client=Mock(return_value=ssm))}):
+                with checks.project_token({'region': 'eu-north-1'}, profile) as path:
+                    self.assertEqual(path.read_text(), 'synthetic-grant')
+                    self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+                self.assertFalse(path.exists())
+                with self.assertRaises(RuntimeError):
+                    with checks.project_token({'region': 'eu-north-1'}, profile) as path:
+                        raise RuntimeError('project failed')
+                self.assertFalse(path.exists())
+            ssm.get_parameter.assert_called_with(Name=profile['writeTokenParameter'], WithDecryption=True)
+            with patch.object(checks, 'TOKEN_ROOT', root), patch.object(checks.subprocess, 'run', return_value=Mock(stdout='ext4\n')), patch.dict(sys.modules, {'boto3': Mock(client=Mock(return_value=ssm))}), self.assertRaisesRegex(ValueError, 'tmpfs'):
+                with checks.project_token({'region': 'eu-north-1'}, profile):
+                    self.fail('persistent token was accepted')
+
+    def test_project_profile_refuses_another_parameter_or_symlink(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            folder = self.profiles(root)
+            path = folder / 'layr.json'
+            path.write_text(json.dumps({'project': 'layr', 'writeTokenParameter': '/layr-store/gateway/session-secret'}))
+            with patch.object(checks, 'PROJECTS', folder), self.assertRaises(ValueError):
+                checks.project_profiles()
+            path.unlink()
+            path.symlink_to(folder / 'layr-cloud.json')
+            with patch.object(checks, 'PROJECTS', folder), self.assertRaises(ValueError):
+                checks.project_profiles()
+
+    def test_malformed_project_profile_does_not_skip_valid_projects_or_use_legacy(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            folder = self.profiles(root)
+            (folder / 'layr-cloud.json').write_text('{')
+            @contextlib.contextmanager
+            def token(source, profile):
+                yield root / (profile['project'] + '.token')
+            with patch.object(checks, 'PROJECTS', folder), patch.object(checks, 'project_token', token), patch.object(checks, 'tick_project') as tick, patch('sys.stdout', new_callable=io.StringIO), self.assertRaisesRegex(RuntimeError, 'layr-cloud'):
+                checks.tick({'hostKind': 'executor'})
+            self.assertEqual([call.args[1] for call in tick.call_args_list], ['layr-studio', 'layr'])
 
     @unittest.skipUnless(Path('/usr/sbin/runuser').is_file(), 'requires Linux runuser')
     def test_reader_launcher_runs_with_the_restricted_path(self):

@@ -111,20 +111,19 @@ fn command(args: &[String]) -> Result<()> {
         if !config::project_name(project) {
             bail!("invalid gateway project name");
         }
-        let token = auth::issue(gc, auth::duration(&until)?, auth::now())?;
-        config::add_hash(&options.config, project, auth::hash(&token), gc)?;
-        if let Some(parameter) = options.ssm_parameter {
+        if let Some(parameter) = &options.ssm_parameter {
             anyhow::ensure!(
                 rustix::process::geteuid().is_root(),
                 "store service tokens as the gateway administrator"
             );
             anyhow::ensure!(
-                matches!(
-                    parameter.as_str(),
-                    "/layr-store/executor/write-token" | "/layr-store/runner/write-token"
-                ),
+                service_parameter(project, parameter, gc),
                 "unexpected service token parameter"
             );
+        }
+        let token = auth::issue(gc, auth::duration(&until)?, auth::now())?;
+        config::add_hash(&options.config, project, auth::hash(&token), gc)?;
+        if let Some(parameter) = options.ssm_parameter {
             let config = config::ConfigFile::new(options.config.clone()).get()?;
             let region = &config
                 .projects
@@ -145,6 +144,14 @@ fn command(args: &[String]) -> Result<()> {
         bail!("layr-gateway refuses to run as root; use a dedicated service user");
     }
     run(options)
+}
+
+fn service_parameter(project: &str, parameter: &str, gc: bool) -> bool {
+    !gc && config::project_name(project)
+        && (matches!(parameter, "/layr-store/executor/write-token" | "/layr-store/runner/write-token")
+            || ["owner", "executor", "runner"].iter().any(|kind| {
+                parameter == format!("/layr-store/{kind}/projects/{project}/write-token")
+            }))
 }
 
 fn invite_command(args: &[String]) -> Result<()> {
@@ -304,6 +311,23 @@ fn serve(options: Options, storage: std::sync::Arc<aws::Aws>) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn service_token_parameters_bind_the_project_and_refuse_gc_or_other_secrets() {
+        for project in ["layr", "layr-cloud", "layr-studio"] {
+            for kind in ["owner", "executor", "runner"] {
+                let parameter = format!("/layr-store/{kind}/projects/{project}/write-token");
+                assert!(service_parameter(project, &parameter, false));
+                assert!(!service_parameter("different-project", &parameter, false));
+                assert!(!service_parameter(project, &parameter, true));
+            }
+        }
+        for parameter in ["/layr-store/gateway/session-secret", "/layr-store/gateway/origin-secret",
+                          "/layr-store/owner/projects/layr/../layr-cloud/write-token",
+                          "/layr-store/owner/projects/layr/write-token/extra"] {
+            assert!(!service_parameter("layr", parameter, false));
+        }
+        assert!(service_parameter("layr", "/layr-store/executor/write-token", false));
+    }
     #[test]
     fn wildcard_public_private_lan_and_plaintext_tailnet_binds_are_refused() {
         for address in [

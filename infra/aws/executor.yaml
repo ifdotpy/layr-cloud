@@ -48,6 +48,11 @@ Parameters:
     Type: CommaDelimitedList
     Default: ''
     Description: Additional exact reader and writer role ARNs for other enrolled projects.
+  ProjectWriteTokenParameterArns:
+    Type: CommaDelimitedList
+    Default: ''
+    AllowedPattern: '(|arn:aws:ssm:[a-z0-9-]+:[0-9]{12}:parameter/layr-store/executor/projects/[A-Za-z0-9][A-Za-z0-9_-]{0,43}/write-token)'
+    Description: Exact SSM parameter ARNs of the enrolled projects, without wildcards.
   WriteTokenParameter:
     Type: String
     AllowedPattern: '/[A-Za-z0-9_./-]+'
@@ -69,6 +74,7 @@ Rules:
 Conditions:
   HasRunner: !Not [!Equals [!Ref RunnerInstanceId, '']]
   HasAdditionalStores: !Not [!Equals [!Join ['', !Ref AdditionalStoreRoleArns], '']]
+  HasProjectTokens: !Not [!Equals [!Join ['', !Ref ProjectWriteTokenParameterArns], '']]
 Resources:
   SecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -110,11 +116,16 @@ Resources:
                 - !Ref AWS::NoValue
               - Effect: Allow
                 Action: ssm:GetParameter
-                Resource:
-                  - !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${WriteTokenParameter}'
+                Resource: !If
+                  - HasProjectTokens
+                  - !Split [',', !Join [',', [!Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${WriteTokenParameter}', !Join [',', !Ref ProjectWriteTokenParameterArns]]]]
+                  - [!Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${WriteTokenParameter}']
               - Effect: Deny
                 Action: [ssm:GetParameter, ssm:GetParameters, ssm:GetParametersByPath]
-                NotResource: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${WriteTokenParameter}'
+                NotResource: !If
+                  - HasProjectTokens
+                  - !Split [',', !Join [',', [!Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${WriteTokenParameter}', !Join [',', !Ref ProjectWriteTokenParameterArns]]]]
+                  - !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${WriteTokenParameter}'
               - !If
                 - HasRunner
                 - Effect: Allow

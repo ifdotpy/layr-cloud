@@ -2,6 +2,9 @@
 """Host loop for the local checks watcher. No SSH or credentials in command arguments."""
 from __future__ import annotations
 import fcntl
+import contextlib
+import stat
+import tempfile
 import json
 import os
 import re
@@ -15,6 +18,8 @@ BINARY = '/opt/layr-executor/current/layr'
 RUNUSER = '/usr/sbin/runuser'
 SOURCE = Path('/etc/layr-executor/source.json')
 PROFILE = Path('/etc/layr-executor/profile.env')
+PROJECTS = Path('/etc/layr-executor/projects.d')
+TOKEN_ROOT = Path('/run/layr-executor-projects')
 IDLE_SECONDS = 1800
 
 
@@ -51,14 +56,89 @@ def wake_runner(source: dict, pending: int) -> None:
         raise RuntimeError('runner instance is unavailable')
 
 
+def project_profiles(on_error=None) -> list[dict]:
+    profiles = []
+    for path in sorted(PROJECTS.glob('*.json')):
+        try:
+            info = path.lstat()
+            if not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid() or info.st_mode & 0o022:
+                raise ValueError('unsafe executor project profile')
+            profile = json.loads(path.read_text())
+            project = profile.get('project', '')
+            if (not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,43}', project)
+                    or path.name != project + '.json'
+                    or profile.get('writeTokenParameter') != '/layr-store/executor/projects/' + project + '/write-token'):
+                raise ValueError('invalid executor project profile')
+            profiles.append(profile)
+        except Exception as error:
+            if on_error is None:
+                raise
+            on_error(path.stem, error)
+    return profiles
+
+
+@contextlib.contextmanager
+def project_token(source: dict, profile: dict):
+    """Keep each grant in its own root-owned tmpfs file for one project tick."""
+    import boto3
+    TOKEN_ROOT.mkdir(mode=0o700, parents=True, exist_ok=True)
+    info = TOKEN_ROOT.lstat()
+    if (not stat.S_ISDIR(info.st_mode) or info.st_uid != os.geteuid()
+            or stat.S_IMODE(info.st_mode) != 0o700):
+        raise ValueError('unsafe executor token directory')
+    filesystem = subprocess.run(['findmnt', '-n', '-o', 'FSTYPE', '-T', str(TOKEN_ROOT)],
+                                check=True, text=True, capture_output=True).stdout.strip()
+    if filesystem != 'tmpfs':
+        raise ValueError('executor project grants require tmpfs')
+    path = TOKEN_ROOT / (profile['project'] + '.token')
+    path.unlink(missing_ok=True)
+    parameter = boto3.client('ssm', region_name=source['region']).get_parameter(
+        Name=profile['writeTokenParameter'], WithDecryption=True)['Parameter']
+    token = parameter['Value']
+    if parameter['Type'] != 'SecureString' or not token or len(token) > 4096 or any(c.isspace() for c in token):
+        raise ValueError('invalid executor service grant')
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile('w', dir=TOKEN_ROOT, delete=False) as file:
+            temporary = Path(file.name)
+            os.fchmod(file.fileno(), 0o600)
+            file.write(token)
+        os.replace(temporary, path)
+        yield path
+    finally:
+        path.unlink(missing_ok=True)
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
 def tick(source: dict) -> None:
+    failures = []
+    def failed(project, error):
+        failures.append(project)
+        # Do not print exception bodies: SDK and subprocess messages are not a credential contract.
+        print(json.dumps({'project': project, 'status': 'failed',
+                          'errorType': type(error).__name__}), flush=True)
+    profiles = project_profiles(failed)
+    if profiles or failures:
+        for profile in profiles:
+            try:
+                with project_token(source, profile) as token:
+                    tick_project(source, profile['project'], token)
+            except Exception as error:
+                failed(profile['project'], error)
+        if failures:
+            raise RuntimeError('executor projects failed: ' + ', '.join(failures))
+        return
     text = PROFILE.read_text().strip()
     match = re.fullmatch(r'PROJECT=([A-Za-z0-9][A-Za-z0-9_-]{0,43})', text)
     if not match:
         raise ValueError('invalid executor project profile')
-    project = match[1]
+    tick_project(source, match[1], Path('/run/layr-executor-token/write-token'))
+
+
+def tick_project(source: dict, project: str, token_file: Path) -> None:
     env = dict(os.environ, LAYR_ROOT='/var/lib/layr',
-               LAYR_GATEWAY_TOKEN_FILE='/run/layr-executor-token/write-token')
+               LAYR_GATEWAY_TOKEN_FILE=str(token_file))
     subprocess.run([BINARY, '--project', project, 'fetch', 'origin'], env=env, check=True,
                    stdout=subprocess.DEVNULL)
     if source.get('hostKind') != 'runner':

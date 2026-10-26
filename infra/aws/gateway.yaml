@@ -2,6 +2,11 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: Layr store gateway (infra/aws/README.md) - one IPv6-only Graviton public HTTPS host with SSM administration.
 
 Parameters:
+  ProjectWriteTokenParameterArns:
+    Type: CommaDelimitedList
+    Default: ''
+    AllowedPattern: '(|arn:aws:ssm:[a-z0-9-]+:[0-9]{12}:parameter/layr-store/(owner|executor|runner)/projects/[A-Za-z0-9][A-Za-z0-9_-]{0,43}/write-token)'
+    Description: Exact per-project transport parameter ARNs the gateway may write; no wildcard.
   ArtifactsBucket:
     Type: String
     AllowedPattern: '[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]'
@@ -39,6 +44,7 @@ Rules:
         AssertDescription: Set both Host and ZoneId, or leave both empty for a tailnet certificate.
 
 Conditions:
+  HasProjectTokens: !Not [!Equals [!Join ['', !Ref ProjectWriteTokenParameterArns], '']]
   HasZone: !Not [!Equals [!Ref ZoneId, ""]]
 
 Resources:
@@ -149,6 +155,12 @@ Resources:
                   - !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/layr-store/gateway/session-secret"
                   - !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/layr-store/executor/write-token"
                   - !Sub "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/layr-store/runner/write-token"
+              - !If
+                - HasProjectTokens
+                - Effect: Allow
+                  Action: ssm:PutParameter
+                  Resource: !Ref ProjectWriteTokenParameterArns
+                - !Ref AWS::NoValue
               - Effect: Deny
                 Action: [ssm:GetParameter, ssm:GetParameters, ssm:GetParametersByPath]
                 NotResource:
