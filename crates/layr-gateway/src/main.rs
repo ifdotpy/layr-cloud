@@ -297,7 +297,15 @@ fn serve(options: Options, storage: std::sync::Arc<aws::Aws>) -> Result<()> {
         .and_then(|v| v.as_str())
         .map(|region| storage.origin_secret(region).and_then(origin::Origin::new))
         .transpose()?;
+    let cdn = config.extra.get("cdn").map(|value| -> Result<cdn::Signer> {
+        let settings: cdn::Settings = serde_json::from_value(value.clone())?;
+        let public_host = config.extra.get("publicHost").and_then(|v| v.as_str()).unwrap_or(&config.host);
+        settings.validate(public_host)?;
+        let pem = storage.cdn_key(&settings.region, &settings.key_parameter)?;
+        cdn::Signer::new(settings, &pem, public_host)
+    }).transpose()?;
     let gateway = Arc::new(server::Gateway {
+        cdn,
         config: file,
         listen: config.listen,
         proof: auth::Proof::new(),

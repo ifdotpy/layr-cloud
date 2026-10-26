@@ -60,6 +60,9 @@ pub enum Transfer {
 pub struct ListPage { pub entries: Vec<Entry>, pub continuation: Option<String> }
 
 pub trait Storage: Send + Sync {
+    fn object_length(&self, project: &Project, key: &str) -> Result<Option<u64>> {
+        Ok(self.get(project, key, None, object_limit(key))?.map(|object| object.body.len() as u64))
+    }
     fn list_page(&self, project: &Project, prefix: &str, role: Role, continuation: Option<&str>, limit: usize) -> Result<ListPage> {
         if limit == 0 || limit > crate::listing::PAGE { bail!("invalid listing page size"); }
         let mut entries = self.list(project, prefix, role)?;
@@ -143,6 +146,7 @@ impl Reply {
 }
 
 pub struct Gateway {
+    pub cdn: Option<super::cdn::Signer>,
     pub config: Arc<ConfigFile>,
     pub proof: auth::Proof,
     pub storage: Arc<dyn Storage>,
@@ -789,6 +793,11 @@ impl Gateway {
                 {
                     return Ok(Reply::error(401, "a read challenge token is required"));
                 }
+                if read {
+                    if let Some(signer) = &self.cdn {
+                        if let Some(reply) = signer.reply(self, project, name, &key, &request)? { return Ok(reply); }
+                    }
+                }
                 let range = request
                     .header("range")
                     .map(http::Range::parse)
@@ -1275,6 +1284,7 @@ mod tests {
             ));
             std::fs::write(&path, serde_json::to_vec(&config).unwrap()).unwrap();
             let gateway = Gateway {
+                cdn: None,
                 config: Arc::new(ConfigFile::new(path.clone())),
                 proof: auth::Proof::new(),
                 listen: config.listen,
@@ -1946,6 +1956,46 @@ mod tests {
         ] {
             assert!(!object_name(&name), "{name}");
         }
+    }
+
+    #[test]
+    fn cdn_signing_requires_read_authorization_capability_and_existing_immutable_object() {
+        let mut f = Fixture::new(); let project = f.config.projects["example"].clone();
+        f.gateway.cdn = Some(super::super::cdn::test_signer(&project));
+        let read = f.read_token();
+        let request = |key: &str, token: &str, capability: bool, range: bool| {
+            let mut headers: BTreeMap<String,String> = [("host".into(), "localhost".into())].into();
+            if !token.is_empty() { headers.insert("authorization".into(), format!("Bearer {token}")); }
+            if capability { headers.insert("x-layr-cdn".into(), "1".into()); }
+            if range { headers.insert("range".into(), "bytes=0-2".into()); }
+            f.gateway.handle(http::Request { method: "GET".into(), target: format!("/v1/p/example/objects/{key}"), headers, body: vec![] }, None)
+        };
+        for key in [format!("states/{OVERLAY}/12345678.tree.age"),
+            format!("states/{OVERLAY}/12345678.0000.data.age"),
+            layr_store::format::segment_name(OVERLAY, 1, 2), format!("index/paths/{OVERLAY}.age"),
+            format!("index/graph/{OVERLAY}.age"), format!("files/{OVERLAY}.age")] {
+            f.gateway.storage.put(&project, &key, b"cipher".to_vec()).unwrap();
+            let reply = request(&key, &read, true, false);
+            assert_eq!(reply.status, 200, "{key}");
+            assert!(reply.headers.iter().any(|(k,v)| k == "Content-Type" && v == super::super::cdn::CONTENT_TYPE));
+            let body: serde_json::Value = serde_json::from_slice(&reply.body).unwrap();
+            assert_eq!(body["bytes"], 6);
+            assert!(body["url"].as_str().unwrap().starts_with(&format!("https://localhost/o/example/{key}?")));
+            assert!(body["expires"].as_u64().unwrap() <= auth::now()/1000 + 300);
+            assert_eq!(request(&key, &read, false, false).body, b"cipher");
+            assert_eq!(request(&key, "", true, false).status, 401);
+            assert_eq!(request(&key, "invalid", true, false).status, 401);
+        }
+        for key in ["store.json".to_owned(), "history/root.age".to_owned(), format!("slots/machine-{OVERLAY}.age")] {
+            f.gateway.storage.put(&project, &key, b"mutable".to_vec()).unwrap();
+            assert_eq!(request(&key, &read, true, false).body, b"mutable");
+        }
+        let key = format!("states/{OVERLAY}/12345678.tree.age");
+        assert_eq!(request(&key, &read, true, true).body, b"cip");
+        f.gateway.storage.delete(&project, &key).unwrap();
+        assert_eq!(request(&key, &read, true, false).status, 404);
+        let hidden = format!("overlays/{OVERLAY}/keys/{OVERLAY}-{EPOCH}.age");
+        assert_eq!(request(&hidden, "", true, false).body, request(&hidden, "", false, false).body);
     }
 
     #[test]

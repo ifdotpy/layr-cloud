@@ -272,6 +272,15 @@ impl Aws {
             .to_owned())
     }
 
+    pub fn cdn_key(&self, region: &str, parameter: &str) -> Result<String> {
+        if !matches!(parameter, "/layr-store/gateway/cdn-signing-a" | "/layr-store/gateway/cdn-signing-b") {
+            bail!("invalid CDN key parameter");
+        }
+        let value = self.ssm(region, "GetParameter", serde_json::json!({"Name":parameter,"WithDecryption":true}))?;
+        if value["Parameter"]["Type"] != "SecureString" { bail!("CDN key must be a SecureString"); }
+        Ok(value["Parameter"]["Value"].as_str().context("missing CDN key")?.to_owned())
+    }
+
     pub fn session_secret(&self, region: &str) -> Result<[u8; 32]> {
         let value = self.ssm(
             region,
@@ -381,6 +390,13 @@ impl Aws {
 }
 
 impl Storage for Aws {
+    fn object_length(&self, project: &Project, key: &str) -> Result<Option<u64>> {
+        let s3 = self.s3(project, Role::Reader)?;
+        let response = s3.request(Method::HEAD, &project.key(key), &[], &[], Vec::new(), Duration::from_secs(30))?;
+        if response.status().as_u16() == 404 { return Ok(None); }
+        if response.status().as_u16() != 200 { bail!("S3 object existence check failed (HTTP {})", response.status().as_u16()); }
+        Ok(Some(response.headers().get("content-length").context("S3 HEAD omitted object length")?.to_str()?.parse()?))
+    }
     fn get_stream(
         &self,
         project: &Project,

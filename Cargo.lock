@@ -520,6 +520,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e7c1832837b905bbfb5101e07cc24c8deddf52f93225eee6ead5f4d63d53ddcb"
 dependencies = [
  "const-oid 0.9.6",
+ "pem-rfc7468",
  "zeroize",
 ]
 
@@ -1385,6 +1386,7 @@ dependencies = [
  "rand 0.8.8",
  "regex",
  "reqwest",
+ "rsa",
  "rustix",
  "rustls",
  "serde",
