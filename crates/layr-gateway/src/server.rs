@@ -1378,6 +1378,11 @@ mod tests {
             "store.json",
             serde_json::to_vec(&json!({"format":2,"project":OVERLAY,"recipient":project.recipient})).unwrap(),
         ).unwrap();
+        f.gateway.storage.put(
+            project,
+            "slots/person-owner@example.com-0123456789abcdef.age",
+            b"sealed person slot".to_vec(),
+        ).unwrap();
         let binding = json!(["listing", false, project.binding("example"), "keys/"]).to_string();
         let cursor = f.gateway.proof.seal_listing(
             &binding,
