@@ -15,13 +15,23 @@ import tarfile
 from sync import release_files
 
 
-def package(binary, binary_sha256, binary_bytes, site_archive, site_sha256, output):
+def package(binary, binary_sha256, binary_bytes, site_archive, site_sha256, output, site_dir=None):
     program = Path(binary).read_bytes()
     if len(program) != binary_bytes or hashlib.sha256(program).hexdigest() != binary_sha256:
         raise ValueError("Copied gateway differs from the build-machine size or SHA-256")
     old = Path(site_archive).read_bytes()
     previous = release_files(old, site_sha256, "layr-gateway")
     files = {name: data for name, data in previous.items() if name.startswith("site/")}
+    if site_dir is not None:
+        directory = Path(site_dir)
+        if directory.is_symlink() or not directory.is_dir():
+            raise ValueError("Site build must be a directory without symlinks")
+        files = {}
+        for path in sorted(directory.rglob('*')):
+            if path.is_symlink():
+                raise ValueError("Site build contains a symlink")
+            if path.is_file():
+                files['site/' + path.relative_to(directory).as_posix()] = path.read_bytes()
     if "site/index.html" not in files:
         raise ValueError("Site archive lacks index.html")
     site_count = len(files)
@@ -51,9 +61,10 @@ def main():
     parser.add_argument("--site-archive", required=True)
     parser.add_argument("--site-sha256", required=True)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--site-dir", help="Replace site files with this reviewed build; retain the verified executable")
     args = parser.parse_args()
     print(json.dumps(package(args.binary, args.binary_sha256, args.binary_bytes, args.site_archive,
-                             args.site_sha256, args.output), indent=2))
+                             args.site_sha256, args.output, args.site_dir), indent=2))
 
 
 if __name__ == "__main__":

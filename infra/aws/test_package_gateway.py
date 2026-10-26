@@ -9,6 +9,26 @@ from test_sync import program, release
 
 
 class PackagingTests(unittest.TestCase):
+    def test_site_only_release_replaces_assets_and_keeps_the_verified_executable(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            binary = root / 'gateway'
+            binary.write_bytes(program())
+            raw, digest = release(extra={'./site/index.html': b'old', './site/old.js': b'old'})
+            archive = root / 'previous.tgz'
+            archive.write_bytes(raw)
+            site = root / 'dist'
+            site.mkdir()
+            (site / 'index.html').write_bytes(b'new signed-in Accept')
+            (site / 'new.js').write_bytes(b'new script')
+            output = root / 'release.tgz'
+            value = package_gateway.package(binary, hashlib.sha256(program()).hexdigest(), len(program()),
+                                            archive, digest, output, site)
+            files = package_gateway.release_files(output.read_bytes(), value['archiveSha256'], 'layr-gateway')
+            self.assertEqual(files['layr-gateway'], program())
+            self.assertEqual(files['site/index.html'], b'new signed-in Accept')
+            self.assertNotIn('site/old.js', files)
+
     def test_wrong_copied_hash_refuses_publication(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
