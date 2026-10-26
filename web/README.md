@@ -11,7 +11,7 @@ rustup target add wasm32-unknown-unknown
 cargo install wasm-pack --version 0.15.0 --locked
 ```
 
-The Rust model and store dependencies use Layr revision `45080bb53b4de5c84726ac85563c979374308024`.
+The Rust model and store dependencies use the exact Layr revision in `Cargo.toml` and `Cargo.lock`.
 
 ```sh
 cd web
@@ -92,7 +92,11 @@ Unlock authenticates the newest heads index after verifying the writers' initial
 
 The initial record segment must be opened to establish writer trust. A store with a single large initial segment pays that verification cost before its first page. File history reconciles path and ancestry objects against signed states and trees. Blame loads only versions of the selected file, within the shared model's size limits.
 
-Open a public project with `/?project=<gateway-project-name>`. The worker uses the root public manifest and slot, and checks its signer against authenticated writer history before exposing data. Invalid or absent public manifests show “This project is not public” and offer sign-in. Signing in adds personal access and preserves the Public badge. Epoch discovery is a later integration with the shared readers and gateway epoch routes.
+Open a public project with `/?project=<gateway-project-name>`. The worker resolves the current epoch before opening its public manifest and slot. It checks the signer against authenticated writer history before exposing data. Invalid or absent current public manifests show “This project is not public” and offer sign-in. Signing in adds personal access and preserves the Public badge.
+
+For rotated projects, the worker opens only the current reader slot. It authenticates signed discovery against the preserved root records and current encrypted log. Sealed history identities open earlier file objects. A missing current slot never falls back to an earlier slot. An incomplete published rotation fails closed with a rotation-in-progress message. Epoch projects complete that verification before showing their first page; the provisional index path remains available for root stores.
+
+Settings > Access shows the current mode and the epoch list. Person actions use the current epoch's request namespace. Lock clears epoch routes, history identities, cached source paths, and pending request material.
 
 Passkey tests check the salt and PRF bytes. A live authenticator has not been tested.
 
