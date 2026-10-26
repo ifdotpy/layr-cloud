@@ -172,7 +172,7 @@ fn actual_cli_minio_round_trip() {
         token: None,
     };
     let home = Files(
-        std::env::temp_dir().join(format!("layr-gateway-minio-{:016x}", rand::random::<u64>())),
+        PathBuf::from("/run").join(format!("layr-gateway-minio-{:016x}", rand::random::<u64>())),
     );
     fs::create_dir(&home.0).unwrap();
     fs::set_permissions(&home.0, fs::Permissions::from_mode(0o755)).unwrap();
@@ -547,12 +547,14 @@ fn actual_cli_minio_round_trip() {
             .status(),
         404
     );
-    for malformed in [
-        "POST /v1/p/example/token HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\nContent-Length: 0\r\n\r\n",
-        "GET /v1/p/example/objects/records/%2e%2e/store.json HTTP/1.1\r\nHost: localhost\r\n\r\n",
-        "GET /v1/p/example/slots HTTP/1.1\r\nHost: localhost\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n",
+    for (malformed, expected) in [
+        ("POST /v1/p/example/token HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\nContent-Length: 0\r\n\r\n", 415),
+        ("POST /v1/p/example/token HTTP/1.1\r\nHost: localhost\r\nContent-Type: text/plain\r\nContent-Length: 1\r\n\r\n{", 415),
+        ("POST /v1/p/example/token HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: 1\r\n\r\n{", 400),
+        ("GET /v1/p/example/objects/records/%2e%2e/store.json HTTP/1.1\r\nHost: localhost\r\n\r\n", 400),
+        ("GET /v1/p/example/slots HTTP/1.1\r\nHost: localhost\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n", 400),
     ] {
-        assert_eq!(raw(address, &ca, malformed), 400);
+        assert_eq!(raw(address, &ca, malformed), expected, "request: {malformed:?}");
     }
     // Force ListObjectsV2 pagination through the actual HTTP endpoint.
     let bulk = Arc::new(
@@ -580,7 +582,7 @@ fn actual_cli_minio_round_trip() {
         .bearer_auth(&write)
         .send()
         .unwrap();
-    assert_eq!(names.status(), 200);
+    assert_eq!(names.status(), 401);
     assert_eq!(
         request(Method::GET, "/v1/p/example/objects?prefix=slots/")
             .bearer_auth(&write)
@@ -648,6 +650,7 @@ fn cli_store_round_trip(
     let source = home.join("source");
     fs::create_dir(&source).unwrap();
     fs::write(source.join("notes.txt"), b"first state\n").unwrap();
+    let bootstrap = home.join("write-token");
     let run = |root: &Path, cwd: &Path, args: &[&str], token: Option<&Path>| {
         let mut command = Command::new(binary);
         command
@@ -668,7 +671,8 @@ fn cli_store_round_trip(
                 "AWS_SECRET_ACCESS_KEY",
                 std::env::var("LAYR_MINIO_SECRET_KEY").unwrap(),
             );
-        if let Some(token) = token {
+        // Machine callers need the scoped grant to discover their own slot, then prove reads.
+        if let Some(token) = token.or_else(|| bootstrap.exists().then_some(bootstrap.as_path())) {
             command.env("LAYR_GATEWAY_TOKEN_FILE", token);
         }
         let output = command.output().unwrap();
@@ -749,15 +753,103 @@ fn cli_store_round_trip(
         Some(&write_file),
     );
     run(&store, &line, &["push", "gateway", "-q"], Some(&write_file));
+    // A standalone gateway reader signs a person session; tailnet identity is not authorization.
+    let mount_login = "mount-reader@example.test";
+    let person_dir = home.join("mount-person");
+    let person_paper = home.join("mount-person.words");
+    let person_run = |args: &[&str], open: bool| {
+        let mut command = Command::new(binary);
+        command
+            .args(args)
+            .current_dir(&line)
+            .env("LAYR_ROOT", &store)
+            .env("LAYR_PERSON_DIR", &person_dir)
+            .env("LAYR_PERSON_LOGIN", mount_login)
+            .env("AWS_ENDPOINT_URL_S3", endpoint)
+            .env(
+                "AWS_ACCESS_KEY_ID",
+                std::env::var("LAYR_MINIO_ACCESS_KEY").unwrap(),
+            )
+            .env(
+                "AWS_SECRET_ACCESS_KEY",
+                std::env::var("LAYR_MINIO_SECRET_KEY").unwrap(),
+            )
+            .env_remove("LAYR_GATEWAY_TOKEN_FILE")
+            .env_remove("LAYR_PERSON_KEY_FILE");
+        if open {
+            command.env("LAYR_PERSON_KEY_FILE", &person_paper);
+        }
+        let result = command.output().unwrap();
+        assert!(
+            result.status.success(),
+            "disposable person command failed: {}",
+            String::from_utf8_lossy(&result.stderr)
+        );
+    };
     // Standalone WebDAV readers open the gateway and S3 without a local project.
-    for (mount_url, with_aws) in [(&url, false), (&owner_url, true)] {
+    for (mount_url, with_aws, with_session) in [
+        (&url, false, false),
+        (&url, false, true),
+        (&owner_url, true, false),
+    ] {
+        if with_session {
+            person_run(
+                &[
+                    "person",
+                    "keys",
+                    "--paper-key-out",
+                    person_paper.to_str().unwrap(),
+                    "--store",
+                    &format!("s3://{bucket}"),
+                ],
+                false,
+            );
+            let recipient = fs::read_to_string(person_dir.join("recipient.txt")).unwrap();
+            let invite = home.join("mount-invite.age");
+            person_run(
+                &[
+                    "remote",
+                    "grant",
+                    "owner",
+                    "--person",
+                    mount_login,
+                    "--recipient",
+                    recipient.trim(),
+                    "--invite-out",
+                    invite.to_str().unwrap(),
+                ],
+                false,
+            );
+            person_run(
+                &[
+                    "person",
+                    "accept",
+                    "--invite-file",
+                    invite.to_str().unwrap(),
+                    "--remote",
+                    &owner_url,
+                ],
+                true,
+            );
+            for (local, remote) in [("paper.age", "slots/paper.age"), ("index.age", "index.age")] {
+                assert!(s3
+                    .put_new(
+                        &format!("people/{mount_login}/{remote}"),
+                        fs::read(person_dir.join(local)).unwrap()
+                    )
+                    .unwrap());
+            }
+            run(&store, &line, &["push", "owner", "-q"], None);
+        }
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let mount_address = listener.local_addr().unwrap();
         drop(listener);
         let mount_home = home.join(if with_aws {
             "mount-s3-home"
-        } else {
+        } else if with_session {
             "mount-gateway-home"
+        } else {
+            "mount-no-session-home"
         });
         fs::create_dir(&mount_home).unwrap();
         let mount_root = mount_home.join("no-project-store");
@@ -781,6 +873,17 @@ fn cli_store_round_trip(
             .env_remove("AWS_SESSION_TOKEN")
             .stdout(Stdio::from(mount_log.try_clone().unwrap()))
             .stderr(Stdio::from(mount_log));
+        if with_session {
+            command
+                .env("LAYR_PERSON_DIR", &person_dir)
+                .env("LAYR_PERSON_LOGIN", mount_login)
+                .env("LAYR_PERSON_KEY_FILE", &person_paper);
+        } else {
+            command
+                .env_remove("LAYR_PERSON_DIR")
+                .env_remove("LAYR_PERSON_LOGIN")
+                .env_remove("LAYR_PERSON_KEY_FILE");
+        }
         if with_aws {
             command
                 .env(
@@ -794,7 +897,7 @@ fn cli_store_round_trip(
                 .env("AWS_ENDPOINT_URL_S3", endpoint);
         }
         let mount = command.spawn().unwrap();
-        let mount = Server(mount);
+        let mut mount = Server(mount);
         let deadline = Instant::now() + Duration::from_secs(30);
         let reader = Client::builder()
             .no_proxy()
@@ -802,6 +905,31 @@ fn cli_store_round_trip(
             .timeout(Duration::from_secs(3))
             .build()
             .unwrap();
+        if !with_aws && !with_session {
+            while mount.0.try_wait().unwrap().is_none() && Instant::now() < deadline {
+                std::thread::sleep(Duration::from_millis(50));
+            }
+            assert!(
+                mount.0.try_wait().unwrap().is_some(),
+                "unauthenticated mount did not stop"
+            );
+            let detail = fs::read_to_string(mount_home.join("mount.log")).unwrap();
+            assert!(
+                detail.contains("HTTP 401"),
+                "unauthenticated mount must return 401: {detail}"
+            );
+            assert!(
+                reader
+                    .get(format!("http://{mount_address}/main/notes.txt"))
+                    .send()
+                    .map(|r| r.status().as_u16() != 200)
+                    .unwrap_or(true),
+                "unauthenticated mount served a file"
+            );
+            assert!(!mount_root.exists(), "refused mount created a local store");
+            drop(mount);
+            continue;
+        }
         let payload = loop {
             if let Ok(response) = reader
                 .get(format!("http://{mount_address}/main/notes.txt"))
@@ -811,10 +939,18 @@ fn cli_store_round_trip(
                     break response.bytes().unwrap();
                 }
             }
-            assert!(
-                Instant::now() < deadline,
-                "standalone store mount did not serve its state"
-            );
+            let exited = mount.0.try_wait().unwrap().is_some();
+            if exited || Instant::now() >= deadline {
+                let mut detail =
+                    fs::read_to_string(mount_home.join("mount.log")).unwrap_or_default();
+                for private in [&write, &gc, &fs::read_to_string(&paper).unwrap()] {
+                    detail = detail.replace(private.trim(), "[redacted]");
+                }
+                panic!(
+                    "standalone WebDAV mount ({}) did not serve its state: {detail}",
+                    if with_aws { "S3" } else { "gateway" }
+                );
+            }
             std::thread::sleep(Duration::from_millis(100));
         };
         assert_eq!(payload.as_ref(), b"first state\n");
@@ -852,6 +988,9 @@ fn cli_store_round_trip(
         .env("LAYR_PAPER_KEY_FILE", &paper)
         .env_remove("LAYR_PROJECT")
         .env_remove("LAYR_LINE")
+        .env("LAYR_PERSON_DIR", &person_dir)
+        .env("LAYR_PERSON_LOGIN", mount_login)
+        .env("LAYR_PERSON_KEY_FILE", &person_paper)
         .env_remove("LAYR_GATEWAY_TOKEN_FILE")
         .output()
         .unwrap();
@@ -879,9 +1018,21 @@ fn cli_store_round_trip(
         &["save", "-m", "gateway second state", "-q"],
         None,
     );
-    // A seeded machine can publish with only the write grant, without its slot.
+    // A grant cannot bootstrap a machine whose exact project slot was removed.
     let slot = format!("cli/slots/machine-{}.age", own["id"].as_str().unwrap());
+    let saved_slot = s3.get(&slot).unwrap().unwrap();
     s3.delete(&slot).unwrap();
+    let denied = Command::new(binary)
+        .args(["push", "origin", "-q"])
+        .current_dir(&copy)
+        .env("LAYR_ROOT", &replica)
+        .env("LAYR_GATEWAY_CA_FILE", ca)
+        .env("LAYR_GATEWAY_TOKEN_FILE", &write_file)
+        .output()
+        .unwrap();
+    assert!(!denied.status.success());
+    assert!(String::from_utf8_lossy(&denied.stderr).contains("HTTP 404"));
+    assert!(s3.put_new(&slot, saved_slot).unwrap());
     run(
         &replica,
         &copy,
@@ -903,6 +1054,18 @@ fn cli_store_round_trip(
         None,
     );
     run(&replica, &copy, &["fetch", "origin", "-q"], None);
+    // End the standalone mount fixture before the legacy root-store GC checks.
+    s3.delete(&format!(
+        "cli/slots/{}",
+        layr_store::person::slot_name(
+            mount_login,
+            fs::read_to_string(person_dir.join("recipient.txt"))
+                .unwrap()
+                .trim()
+        )
+        .unwrap()
+    ))
+    .unwrap();
     run(
         &replica,
         &copy,
@@ -941,7 +1104,8 @@ fn cli_store_round_trip(
             );
         }
     }
-    person_gateway_round_trip(binary, &store, &line, &url, home, ca);
+    fs::set_permissions(&write_file, fs::Permissions::from_mode(0o600)).unwrap();
+    person_gateway_round_trip(binary, &store, &line, &url, home, ca, s3);
     fs::write(home.join("caller-login"), "owner@example.com").unwrap();
     fs::set_permissions(&write_file, fs::Permissions::from_mode(0o600)).unwrap();
     {
@@ -1111,11 +1275,9 @@ fn cli_store_round_trip(
             &["remote", "add", "gateway", &url],
             Some(&write_file),
         );
-        s3.delete(&format!(
-            "cli/slots/machine-{}.age",
-            writer["id"].as_str().unwrap()
-        ))
-        .unwrap();
+        // The parent-project slot permits bootstrap; no overlay slot is granted.
+        let parent_slot = format!("cli/slots/machine-{}.age", writer["id"].as_str().unwrap());
+        assert!(s3.get(&parent_slot).unwrap().is_some());
         run(
             &writer_root,
             &writer_line,
@@ -1181,6 +1343,29 @@ fn cli_store_round_trip(
     }
 }
 
+// Test adapter for the production single-use registration-invite issuer.
+struct InviteStore<'a>(&'a S3);
+impl super::person_support::Bucket for InviteStore<'_> {
+    fn list(&self, prefix: &str) -> anyhow::Result<Vec<String>> {
+        Ok(self.0.list(prefix)?.into_iter().map(|o| o.key).collect())
+    }
+    fn get(&self, key: &str) -> anyhow::Result<Option<Vec<u8>>> {
+        self.0.get(key)
+    }
+    fn put_new(&self, key: &str, body: Vec<u8>) -> anyhow::Result<bool> {
+        self.0.put_new(key, body)
+    }
+    fn put(&self, key: &str, body: Vec<u8>) -> anyhow::Result<()> {
+        let response = self
+            .0
+            .request(Method::PUT, key, &[], &[], body, Duration::from_secs(10))?;
+        anyhow::ensure!(response.status().is_success(), "test person write failed");
+        Ok(())
+    }
+    fn delete(&self, key: &str) -> anyhow::Result<()> {
+        self.0.delete(key)
+    }
+}
 fn person_gateway_round_trip(
     binary: &Path,
     owner_root: &Path,
@@ -1188,6 +1373,7 @@ fn person_gateway_round_trip(
     url: &str,
     home: &Path,
     ca: &Path,
+    s3: &S3,
 ) {
     let site = url.strip_prefix("layr+").unwrap();
     let owner_dir = home.join("owner-person");
@@ -1195,24 +1381,40 @@ fn person_gateway_round_trip(
     let carol_dir = home.join("carol-person");
     let carol_words = home.join("carol-words");
     let carol_root = owner_root.join("person-carol-root");
+    // Each CLI process keeps its own session in RAM. Respect the real 12/min bootstrap limit.
+    let pacing = std::cell::RefCell::new((Instant::now(), 0));
+    let pace = || {
+        let mut state = pacing.borrow_mut();
+        if state.1 == 4 {
+            let remaining = Duration::from_secs(61).saturating_sub(state.0.elapsed());
+            if !remaining.is_zero() {
+                std::thread::sleep(remaining);
+            }
+            *state = (Instant::now(), 0);
+        }
+        state.1 += 1;
+    };
     let call = |who: &str, root: &Path, dir: &Path, words: &Path, args: &[&str]| {
-        fs::write(home.join("caller-login"), who).unwrap();
-        Command::new(binary)
+        pace();
+        let mut command = Command::new(binary);
+        command
             .args(args)
             .current_dir(line)
             .env("LAYR_ROOT", root)
             .env("LAYR_PERSON_DIR", dir)
-            .env("LAYR_PERSON_KEY_FILE", words)
-            .env("LAYR_PERSON_LOGIN", "forged@example.com")
+            .env("LAYR_PERSON_LOGIN", who)
             .env("LAYR_GATEWAY_CA_FILE", ca)
+            .env("LAYR_GATEWAY_TOKEN_FILE", home.join("write-token"))
             .env_remove("LAYR_PAPER_KEY_FILE")
             .env_remove("LAYR_PROJECT")
             .env_remove("LAYR_LINE")
-            .env_remove("LAYR_GATEWAY_TOKEN_FILE")
             .env_remove("AWS_ACCESS_KEY_ID")
             .env_remove("AWS_SECRET_ACCESS_KEY")
-            .output()
-            .unwrap()
+            .env_remove("LAYR_PERSON_KEY_FILE");
+        if words.exists() {
+            command.env("LAYR_PERSON_KEY_FILE", words);
+        }
+        command.output().unwrap()
     };
     let ok = |output: std::process::Output| {
         assert!(
@@ -1231,6 +1433,7 @@ fn person_gateway_round_trip(
             &carol_words,
         ),
     ] {
+        let invite = super::session::invite(&InviteStore(s3), "people/", who, auth::now()).unwrap();
         ok(call(
             who,
             root,
@@ -1241,6 +1444,8 @@ fn person_gateway_round_trip(
                 "keys",
                 "--site",
                 site,
+                "--invite",
+                &invite,
                 "--paper-key-out",
                 words.to_str().unwrap(),
             ],
@@ -1266,23 +1471,121 @@ fn person_gateway_round_trip(
     assert_eq!(carol["login"], "carol@example.com");
     let owner_recipient = owner["recipient"].as_str().unwrap();
     let carol_recipient = carol["recipient"].as_str().unwrap();
-    let refused = call(
+    // The trusted local owner first grants its own person slot through the storage transport.
+    let local_grant = |who: &str, recipient: &str, invite: &Path| {
+        Command::new(binary)
+            .args([
+                "remote",
+                "grant",
+                "owner",
+                "--person",
+                who,
+                "--recipient",
+                recipient,
+                "--invite-out",
+                invite.to_str().unwrap(),
+            ])
+            .current_dir(line)
+            .env("LAYR_ROOT", owner_root)
+            .env("LAYR_PERSON_LOGIN", "owner@example.com")
+            .env(
+                "AWS_ENDPOINT_URL_S3",
+                std::env::var("LAYR_MINIO_ENDPOINT").unwrap(),
+            )
+            .env(
+                "AWS_ACCESS_KEY_ID",
+                std::env::var("LAYR_MINIO_ACCESS_KEY").unwrap(),
+            )
+            .env(
+                "AWS_SECRET_ACCESS_KEY",
+                std::env::var("LAYR_MINIO_SECRET_KEY").unwrap(),
+            )
+            .env_remove("LAYR_PERSON_KEY_FILE")
+            .env_remove("LAYR_GATEWAY_TOKEN_FILE")
+            .output()
+            .unwrap()
+    };
+    let first = local_grant(
+        "carol@example.com",
+        carol_recipient,
+        &home.join("refused-invite.age"),
+    );
+    assert!(!first.status.success());
+    assert!(String::from_utf8_lossy(&first.stderr).contains("grant yourself first"));
+    let self_invite = home.join("owner-invite.age");
+    ok(local_grant(
+        "owner@example.com",
+        owner_recipient,
+        &self_invite,
+    ));
+    ok(call(
         "owner@example.com",
         owner_root,
         &owner_dir,
         &owner_words,
         &[
-            "remote",
-            "grant",
-            "gateway",
-            "--person",
-            "carol@example.com",
-            "--recipient",
-            carol_recipient,
+            "person",
+            "accept",
+            "--invite-file",
+            self_invite.to_str().unwrap(),
         ],
-    );
-    assert!(!refused.status.success());
-    assert!(String::from_utf8_lossy(&refused.stderr).contains("grant yourself first"));
+    ));
+    let index = std::fs::read(owner_dir.join("index.age")).unwrap();
+    let response = s3
+        .request(
+            Method::PUT,
+            "people/owner@example.com/index.age",
+            &[],
+            &[],
+            index,
+            Duration::from_secs(10),
+        )
+        .unwrap();
+    assert!(response.status().is_success());
+    let client = Client::builder()
+        .no_proxy()
+        .add_root_certificate(reqwest::Certificate::from_pem(&fs::read(ca).unwrap()).unwrap())
+        .build()
+        .unwrap();
+    let origin = reqwest::Url::parse(site).unwrap();
+    let view = |who: &str, dir: &Path, words: &Path| {
+        pace();
+        let paper =
+            layr_store::keys::identity_from_paper(fs::read_to_string(words).unwrap().trim())
+                .unwrap();
+        let identity =
+            layr_store::keys::open_slot(&fs::read(dir.join("paper.age")).unwrap(), &paper).unwrap();
+        let public = fs::read_to_string(dir.join("signing-public.txt")).unwrap();
+        let signing = layr_store::person::open_signing_key(
+            &identity,
+            &fs::read(dir.join("signing.age")).unwrap(),
+            &public,
+        )
+        .unwrap();
+        let challenge: serde_json::Value = client
+            .get(origin.join("/api/session/challenge").unwrap())
+            .query(&[("login", who)])
+            .send()
+            .unwrap()
+            .json()
+            .unwrap();
+        let value = challenge["challenge"].as_str().unwrap();
+        let signature = layr_store::session::sign(who, value, &signing).unwrap();
+        let session: serde_json::Value = client
+            .post(origin.join("/api/session").unwrap())
+            .json(&json!({"login":who,"challenge":value,"signature":signature}))
+            .send()
+            .unwrap()
+            .json()
+            .unwrap();
+        let response = client
+            .get(origin.join("/api/person").unwrap())
+            .bearer_auth(session["token"].as_str().unwrap())
+            .send()
+            .unwrap();
+        assert_eq!(response.status(), 200);
+        response.json::<serde_json::Value>().unwrap()
+    };
     ok(call(
         "owner@example.com",
         owner_root,
@@ -1298,21 +1601,7 @@ fn person_gateway_round_trip(
             owner_recipient,
         ],
     ));
-    let client = Client::builder()
-        .no_proxy()
-        .add_root_certificate(reqwest::Certificate::from_pem(&fs::read(ca).unwrap()).unwrap())
-        .build()
-        .unwrap();
-    let origin = reqwest::Url::parse(url.strip_prefix("layr+").unwrap()).unwrap();
-    let view = || {
-        client
-            .get(origin.join("/api/person").unwrap())
-            .send()
-            .unwrap()
-            .json::<serde_json::Value>()
-            .unwrap()
-    };
-    let record = view();
+    let record = view("owner@example.com", &owner_dir, &owner_words);
     let id = record["inbox"][0]["id"].as_str().unwrap();
     ok(call(
         "owner@example.com",
@@ -1321,39 +1610,24 @@ fn person_gateway_round_trip(
         &owner_words,
         &["person", "accept", "--site", site, "--invite", id],
     ));
-    ok(call(
-        "owner@example.com",
-        owner_root,
-        &owner_dir,
-        &owner_words,
-        &[
-            "remote",
-            "grant",
-            "gateway",
-            "--person",
-            "carol@example.com",
-            "--recipient",
-            carol_recipient,
-        ],
-    ));
-    let again = ok(call(
-        "owner@example.com",
-        owner_root,
-        &owner_dir,
-        &owner_words,
-        &[
-            "remote",
-            "grant",
-            "gateway",
-            "--person",
-            "carol@example.com",
-            "--recipient",
-            carol_recipient,
-        ],
-    ));
-    assert!(again.contains("already granted"));
-    fs::write(home.join("caller-login"), "carol@example.com").unwrap();
-    let record = view();
+    for _ in 0..2 {
+        ok(call(
+            "owner@example.com",
+            owner_root,
+            &owner_dir,
+            &owner_words,
+            &[
+                "remote",
+                "grant",
+                "gateway",
+                "--person",
+                "carol@example.com",
+                "--recipient",
+                carol_recipient,
+            ],
+        ));
+    }
+    let record = view("carol@example.com", &carol_dir, &carol_words);
     assert_eq!(record["inbox"].as_array().unwrap().len(), 2);
     let id = record["inbox"][0]["id"].as_str().unwrap();
     ok(call(
@@ -1374,11 +1648,24 @@ fn person_gateway_round_trip(
         fs::read(carol_root.join("projects/person-copy/lines/main/notes.txt")).unwrap(),
         b"second state\n"
     );
-    fs::write(home.join("caller-login"), "stranger@example.com").unwrap();
     for action in ["store.json", "slots", "challenge", "objects", "other/path"] {
-        let target = origin.join(&format!("/v1/p/cli/{action}")).unwrap();
-        assert_eq!(client.get(target).send().unwrap().status(), 404);
+        assert_eq!(
+            client
+                .get(origin.join(&format!("/v1/p/cli/{action}")).unwrap())
+                .send()
+                .unwrap()
+                .status(),
+            404
+        );
     }
+    assert_eq!(
+        client
+            .get(origin.join("/api/person").unwrap())
+            .send()
+            .unwrap()
+            .status(),
+        401
+    );
     assert_eq!(
         client
             .post(origin.join("/api/people/carol@example.com/inbox").unwrap())
@@ -1389,4 +1676,5 @@ fn person_gateway_round_trip(
             .status(),
         403
     );
+    println!("PASS signed native person registration, first-person refusal, invites, clone and anonymous refusal");
 }

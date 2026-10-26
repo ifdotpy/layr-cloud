@@ -15,7 +15,7 @@ wasm-pack build crates/layr-web --target web --out-dir ../../web/wasm --release 
 
 The web build can run the same command through `node scripts/build-model-wasm.mjs`.
 Do not commit the generated `web/wasm` package.
-`Cargo.toml` pins the model and store to Layr revision `466f120f0846da86f63028bbec9eabb2fa69581f`.
+`Cargo.toml` and `Cargo.lock` pin the model and store to the exact Layr revision used by this build.
 
 Run the native checks:
 
@@ -154,3 +154,38 @@ LAYR_WEB_HIDDEN_FIXTURE=/path/hidden-fixture \
 LAYR_WEB_HIDDEN_ORACLE=/path/oracles/hidden \
 cargo test -p layr-web --lib --test hidden-cli-store -- --include-ignored
 ```
+
+## Rotated store verification
+
+Run `tests/make-epoch-cli-fixture.sh` in this crate as root in the disposable VM.
+Set `LAYR_BIN`, `LAYR_PREPARE_PERSON`, a unique `LAYR_FIXTURE_LOGIN`, and a unique
+`LAYR_FIXTURE_ALIAS`. Set `LAYR_FIXTURE_ROTATE=1` for a local rotated fixture.
+The script keeps all fixture keys, recovery words, and store files under `/run`.
+It prints the owned fixture path after successful creation.
+
+Set `LAYR_WEB_EPOCH_FIXTURE` to that path and run:
+
+```sh
+cargo test -p layr-web --test epoch-cli-store -- --ignored
+```
+
+The native caller authenticates discovery, sealed root history, current records,
+and file parts from both epochs. It compares file bytes with native CLI output.
+It also checks the access mode and epoch list. The deployed browser caller uses
+`browser.json` from the same fixture to check Settings > Access and both files
+before its single comment. Keep the fixture until all checks finish. Then unmount
+its store, detach its loop device, and remove only that fixture folder.
+
+For the live rotation check, `LAYR_FIXTURE_REMOVED_READER=1` also creates and
+trusts a disposable machine. Its private identity stays in the fixture filesystem.
+`LAYR_FIXTURE_EXECUTOR_ID` and `LAYR_FIXTURE_EXECUTOR_PUBLIC` add the existing
+executor's public identity before rotation.
+
+Build the `epoch_gateway_proof` example with `--features test-tools`. Before
+rotation, run `epoch_gateway_proof capture /run/layr-web-epoch.XXXXXX` with the
+scoped write grant in that fixture's mode 0600 `write-token` file. After rotation,
+update `browser.json` with the current epoch and run
+`epoch_gateway_proof deny /run/layr-web-epoch.XXXXXX project/epochs/E/records/OBJECT`.
+The caller checks that the old read proof cannot fetch or list new ciphertext,
+and that the removed identity cannot open the new challenge. The temporary read
+proof stays in `/run` and is deleted after the refusal checks pass.

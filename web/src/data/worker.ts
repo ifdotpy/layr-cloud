@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 import init, { Session } from '../../wasm/layr_web';
 import { uuidV7 } from './requests';
+import { epochRoute } from './epochs';
 import { Gateway, HttpError, fromBase64 } from './gateway';
 
 const scope = self as unknown as DedicatedWorkerGlobalScope;
@@ -9,6 +10,8 @@ let session: Session | undefined;
 let gateway: Gateway | undefined;
 let timer: ReturnType<typeof setTimeout>;
 const routes = new Map<string, {gateway: string; prefix: string}>();
+const historyPrefixes = new Map<string,string[]>();
+const objectSources = new Map<string,string>();
 const aliases = new Map<string, string>();
 const attempts = new Map<string, string>();
 const loaded = new Set<string>();
@@ -24,15 +27,41 @@ function lock() {
   clearTimeout(timer);
   session?.lock(); session?.free(); session = undefined;
   gateway?.lock(); gateway = undefined;
-  routes.clear(); aliases.clear(); attempts.clear(); loaded.clear(); requestEnvelopes.clear(); requestOutcomes.clear(); publicProjects.clear();
+  routes.clear(); historyPrefixes.clear(); objectSources.clear(); aliases.clear(); attempts.clear(); loaded.clear(); requestEnvelopes.clear(); requestOutcomes.clear(); publicProjects.clear();
 }
 function touch() { clearTimeout(timer); timer = setTimeout(() => { lock(); scope.postMessage({ locked: true }); scope.close(); }, idleMs); }
 function current() { if (!session || !gateway) throw new Error('Your session is locked.'); return { session, gateway }; }
 function route(name: string) { const route = routes.get(name); if (!route) throw new Error('The store route is absent.'); return route; }
 function proof(name: string) { return (bytes: Uint8Array) => current().session.challenge(route(name).gateway, bytes); }
+function sourceObject(name: string, key: string) {
+  return objectSources.get(`${name}/${key}`) ?? route(name).prefix + key;
+}
 async function objectBytes(name: string, key: string) {
   const target = route(name), {gateway} = current();
-  return publicProjects.has(target.gateway) ? gateway.publicObject(target.gateway, target.prefix + key) : gateway.object(target.gateway, target.prefix + key, proof(name));
+  const known = objectSources.get(`${name}/${key}`);
+  const candidates=known ? [known] : [target.prefix + key, ...(historyPrefixes.get(name) ?? []).map(prefix=>prefix+key)];
+  for (let i=0;i<candidates.length;i++) {
+    try {
+      const bytes = publicProjects.has(target.gateway) ? await gateway.publicObject(target.gateway,candidates[i]) : await gateway.object(target.gateway,candidates[i],proof(name));
+      objectSources.set(`${name}/${key}`,candidates[i]); return bytes;
+    } catch(error) { if (!(error instanceof HttpError) || error.status!==404 || i===candidates.length-1) throw error; }
+  }
+  throw new Error('The object is unavailable.');
+}
+async function loadEpochHistory(name:string, epochs:{prefix:string; history:string[]}, anonymous=false) {
+  if (!epochs.prefix) return;
+  const {session,gateway}=current(), target=route(name);
+  historyPrefixes.set(name,epochs.history.slice().reverse().map(epoch=>epoch==='root' ? '' : `project/epochs/${epoch}/`));
+  for (const epoch of epochs.history) {
+    const key=`${epochs.prefix}history/${epoch}.age`;
+    const bytes=anonymous ? await gateway.publicObject(target.gateway,key) : await gateway.object(target.gateway,key,proof(name));
+    session.add_epoch_history(name,epoch,bytes);
+  }
+  const records=anonymous ? await gateway.publicList(target.gateway,'records/') : await gateway.list(target.gateway,'records/',proof(name));
+  for (const entry of records) {
+    const bytes=anonymous ? await gateway.publicObject(target.gateway,entry.key) : await gateway.object(target.gateway,entry.key,proof(name));
+    session.add_root_segment(name,entry.key,bytes);
+  }
 }
 async function listObjects(name: string, prefix: string) {
   const target = route(name);
@@ -45,12 +74,13 @@ async function loadStore(name: string) {
   for (const entry of (await listObjects(name, 'records/')).sort((a,b) => b.key.localeCompare(a.key))) {
     const bytes = await objectBytes(name, entry.key);
     if (current().session !== session) throw new Error('Your session changed.');
-    session.add_segment(name, entry.key, bytes);
+    session.add_segment(name, sourceObject(name,entry.key), bytes);
   }
   session.finish_records(name);
 }
 async function loadStoreFast(name: string): Promise<boolean> {
   const {session} = current();
+  if (historyPrefixes.has(name)) { await loadStore(name); return false; }
   let found;
   try { found = await listObjects(name, 'index/heads/'); }
   catch { await loadStore(name); return false; }
@@ -59,8 +89,10 @@ async function loadStoreFast(name: string): Promise<boolean> {
   try {
     // Bootstrap complete prefixes from each writer, never an index-provided key.
     const records = await listObjects(name, 'records/');
-    for (const entry of records.filter(entry => /\/0*1-[0-9]+\.age$/.test(entry.key)))
-      session.add_segment(name, entry.key, await objectBytes(name, entry.key));
+    for (const entry of records.filter(entry => /\/0*1-[0-9]+\.age$/.test(entry.key))) {
+      const bytes=await objectBytes(name,entry.key);
+      session.add_segment(name,sourceObject(name,entry.key),bytes);
+    }
     session.finish_records(name);
     const latest = new Map<string, string>();
     for (const entry of found) {
@@ -69,13 +101,13 @@ async function loadStoreFast(name: string): Promise<boolean> {
     }
     for (const object of latest.values()) {
       const bytes = await objectBytes(name, object);
-      try { session.add_heads(name, object, bytes); }
+      try { session.add_heads(name, sourceObject(name,object), bytes); }
       catch (error) {
         if (completeRecords) throw error;
         // A later signed machine.trust record can authorize a new index writer.
         // Authenticate complete history before deciding that its cache is invalid.
         await loadStore(name); completeRecords = true;
-        session.add_heads(name, object, bytes);
+        session.add_heads(name, sourceObject(name,object), bytes);
       }
     }
     if (session.use_heads(name)) {
@@ -112,8 +144,14 @@ async function complete(name: string) { await refreshing.get(name); }
 async function locateTree(name: string, state: string): Promise<string | undefined> {
   const id = `${name}/${state}`;
   if (!attempts.has(id)) {
-    for (const entry of await listObjects(name, `states/${state}/`)) {
-      if (/\/[a-f0-9]{8}\.tree\.age$/.test(entry.key)) { attempts.set(id, entry.key); break; }
+    const target=route(name), {gateway}=current();
+    for (const prefix of [target.prefix,...(historyPrefixes.get(name) ?? [])]) {
+      const entries=publicProjects.has(target.gateway) ? await gateway.publicList(target.gateway,`${prefix}states/${state}/`) : await gateway.list(target.gateway,`${prefix}states/${state}/`,proof(name));
+      const entry=entries.find(entry=>/\/[a-f0-9]{8}\.tree\.age$/.test(entry.key));
+      if (entry) {
+        const logical=entry.key.slice(prefix.length);
+        objectSources.set(`${name}/${logical}`,entry.key); attempts.set(id,logical); break;
+      }
     }
   }
   return attempts.get(id);
@@ -134,15 +172,18 @@ async function loadTree(name: string, object: string, seen: Set<string>): Promis
   seen.add(id);
   const { session } = current();
   const bytes = await objectBytes(name, object);
-  const base: string | null = JSON.parse(session.tree_base(name, object, bytes));
+  const base: string | null = JSON.parse(session.tree_base(name, sourceObject(name,object), bytes));
   if (base) await loadTree(name, base, seen);
-  session.install_tree(name, object, bytes); loaded.add(id);
+  session.install_tree(name, sourceObject(name,object), bytes); loaded.add(id);
 }
 async function parts(name: string, object: string, path: string): Promise<void> {
   const { session } = current();
   const source = JSON.parse(session.file_location(name, object, path));
   const keys: string[] = JSON.parse(session.file_parts(source.name, source.object, path));
-  for (const key of keys) session.add_part(source.name, key, await objectBytes(source.name, key));
+  for (const key of keys) {
+    const bytes=await objectBytes(source.name,key);
+    session.add_part(source.name,sourceObject(source.name,key),bytes);
+  }
 }
 async function unlock(method: string, args: unknown[], base: string) {
   lock();
@@ -176,9 +217,13 @@ async function loadProjects() {
     for (const name of await gateway.projects()) {
       const descriptor = await gateway.descriptor(name);
       if (!pins.includes(descriptor.project)) continue;
-      const project = session.open_store(name, JSON.stringify(descriptor), await gateway.slot(name, slotName));
-      aliases.set(project, name);
-      routes.set(name, {gateway: name, prefix: ''});
+      const discovery=await gateway.discovery(name), epochs=epochRoute(descriptor,discovery);
+      gateway.setEpoch(name,epochs.epoch);
+      const project=epochs.prefix
+        ? session.open_epoch_store(name,JSON.stringify(descriptor),JSON.stringify(discovery),JSON.stringify(await gateway.descriptor(name,epochs.prefix)),await gateway.slot(name,slotName,epochs.prefix))
+        : session.open_store(name,JSON.stringify(descriptor),await gateway.slot(name,slotName));
+      aliases.set(project,name); routes.set(name,{gateway:name,prefix:epochs.prefix});
+      await loadEpochHistory(name,epochs);
       const loadOverlays = async () => {
       const overlayObjects = await gateway.list(name, 'overlays/', proof(name));
       const overlayKeys = new Set(overlayObjects.map(entry => entry.key));
@@ -230,7 +275,6 @@ async function registerPerson(invite: string) {
   session.refresh_person(JSON.stringify(await gateway.person()));
   await loadProjects(); registration = undefined; touch();
 }
-// TODO(modes-rotation): resolve keys/ and project/epochs/ with shared readers and gateway epoch routes.
 async function openPublic(project: string, base: string) {
   if (!session || !gateway) { await init(); gateway = new Gateway(base); session = new Session(); }
   const descriptor = await gateway.publicDescriptor(project);
@@ -238,12 +282,17 @@ async function openPublic(project: string, base: string) {
   if (existing && publicProjects.has(route(existing).gateway)) return descriptor.project;
   if (existing) {
     await complete(existing);
-    session.mark_public(existing, await gateway.publicManifest(project));
+    session.mark_public(existing, await gateway.publicManifest(project,route(existing).prefix));
     return descriptor.project;
   }
-  const id = session.open_public_store(project, JSON.stringify(descriptor), await gateway.publicManifest(project), await gateway.publicObject(project, 'slots/public.age'));
-  publicProjects.add(project); aliases.set(id, project); routes.set(project, {gateway:project,prefix:''});
-  try { await loadStore(project); touch(); return id; }
+  const discovery=await gateway.discovery(project,true), epochs=epochRoute(descriptor,discovery);
+  gateway.setEpoch(project,epochs.epoch);
+  const manifest=await gateway.publicManifest(project,epochs.prefix), slot=await gateway.publicObject(project,epochs.prefix+'slots/public.age');
+  const id=epochs.prefix
+    ? session.open_public_epoch_store(project,JSON.stringify(descriptor),JSON.stringify(discovery),JSON.stringify(await gateway.publicDescriptor(project,epochs.prefix)),manifest,slot)
+    : session.open_public_store(project,JSON.stringify(descriptor),manifest,slot);
+  publicProjects.add(project); aliases.set(id,project); routes.set(project,{gateway:project,prefix:epochs.prefix});
+  try { await loadEpochHistory(project,epochs,true); await loadStore(project); touch(); return id; }
   catch(error) { publicProjects.delete(project); aliases.delete(id); routes.delete(project); lock(); throw error; }
 }
 async function fileHistory(method: string, project: string, state: string, path: string) {
@@ -260,7 +309,7 @@ async function fileHistory(method: string, project: string, state: string, path:
         // Missing optional objects are a normal cache miss; malformed ones discard it.
         const objects = await listObjects(name, key);
         if (!objects.some(object => object.key === key)) continue;
-        try { session.add_history_index(name, key, await objectBytes(name, key)); }
+        try { const bytes=await objectBytes(name,key); session.add_history_index(name,sourceObject(name,key),bytes); }
         catch { session.discard_index(name); cacheFailed = true; break; }
       }
     }

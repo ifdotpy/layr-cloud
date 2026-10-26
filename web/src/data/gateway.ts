@@ -16,6 +16,14 @@ export class HttpError extends Error {
   constructor(readonly status: number, message: string) { super(message); }
 }
 export class Gateway {
+  private epochs = new Map<string,string>();
+  setEpoch(project: string, epoch: string) {
+    if (epoch !== "root" && !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(epoch)) throw new Error("Invalid epoch.");
+    if (this.epochs.get(project) !== epoch) this.tokens.delete(project);
+    this.epochs.set(project,epoch);
+  }
+  private epochQuery(project: string) { const epoch=this.epochs.get(project); return epoch && epoch !== "root" ? `?epoch=${epoch}` : ""; }
+  private currentPrefix(project: string) { const epoch=this.epochs.get(project); return epoch && epoch !== "root" ? `project/epochs/${epoch}/` : ""; }
   private tokens = new Map<string, { token: string; expires: number }>();
   private personSession?: {login: string; token: string; expires: number};
   private signer?: {login: string; sign: (challenge: string) => string};
@@ -84,26 +92,26 @@ export class Gateway {
     await this.request(`/api/person?login=${encodeURIComponent(login)}`, {method:'PUT',headers:{'content-type':'application/json',authorization:`Bearer ${invite}`},body});
   }
   async putRequest(project: string, id: string, envelope: string): Promise<void> {
-    await this.personRequest(this.route(project, `objects/requests/${encodeURIComponent(id)}.json`), {
+    await this.personRequest(this.route(project, `objects/${this.currentPrefix(project)}requests/${encodeURIComponent(id)}.json`), {
       method: 'PUT', headers: {'content-type': 'application/json'}, body: envelope,
     });
   }
   async requestObject(project: string, id: string, decrypt: (bytes: Uint8Array) => string): Promise<string> {
-    return (await this.authorized(project, `objects/requests/${encodeURIComponent(id)}.json`, decrypt)).text();
+    return (await this.authorized(project, `objects/${this.currentPrefix(project)}requests/${encodeURIComponent(id)}.json`, decrypt)).text();
   }
   async projects(): Promise<string[]> { return (await (await this.personRequest('/api/projects')).json()).projects; }
   private route(project: string, path: string): string { return `/v1/p/${encodeURIComponent(project)}/${path}`; }
-  async descriptor(project: string): Promise<Descriptor> {
-    return (await this.personRequest(this.route(project, 'store.json'))).json();
+  async descriptor(project: string, prefix = ""): Promise<Descriptor> {
+    return (await this.personRequest(this.route(project, prefix ? `objects/${prefix}store.json` : "store.json"))).json();
   }
-  async slot(project: string, name: string): Promise<Uint8Array> {
-    return new Uint8Array(await (await this.personRequest(this.route(project, `slots/${encodeURIComponent(name)}`))).arrayBuffer());
+  async slot(project: string, name: string, prefix = ""): Promise<Uint8Array> {
+    return new Uint8Array(await (await this.personRequest(this.route(project, `${prefix}slots/${encodeURIComponent(name)}`))).arrayBuffer());
   }
   private async token(project: string, decrypt: (bytes: Uint8Array) => string): Promise<string> {
     const old = this.tokens.get(project);
     if (old && old.expires > Date.now() + 5000) return old.token;
-    const { challenge } = await (await this.personRequest(this.route(project, 'challenge'))).json();
-    const response = await this.personRequest(this.route(project, 'token'), {
+    const { challenge } = await (await this.personRequest(this.route(project, 'challenge' + this.epochQuery(project)))).json();
+    const response = await this.personRequest(this.route(project, 'token' + this.epochQuery(project)), {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ challenge: decrypt(fromBase64(challenge)) }),
     });
@@ -125,6 +133,17 @@ export class Gateway {
     const result = await (await this.authorized(project, `objects?prefix=${encodeURIComponent(prefix)}`, decrypt)).json();
     return result.objects;
   }
+  async discovery(project: string, anonymous = false): Promise<Record<string,string>> {
+    const entries = anonymous ? await this.publicList(project, 'keys/') : (await (await this.personRequest(this.route(project,'objects?prefix=keys%2F'))).json()).objects as ObjectEntry[];
+    if (entries.length > 128) throw new Error('Too many project epochs.');
+    const records: Record<string,string> = {};
+    for (const {key} of entries) {
+      if (!/^keys\/[0-9a-f-]{36}-[0-9a-f-]{36}\.json$/.test(key)) throw new Error('Invalid epoch discovery object.');
+      const response = anonymous ? await this.request(this.publicRoute(project,key)) : await this.personRequest(this.route(project,`objects/${key}`));
+      records[key] = await response.text();
+    }
+    return records;
+  }
   async signedObject(project: string, key: string, decrypt: (bytes: Uint8Array) => string): Promise<Uint8Array> {
     if (!/^overlays\/[^/]+\/keys\/[^/]+\.json$/.test(key)) throw new Error('Invalid overlay key object.');
     return new Uint8Array(await (await this.authorized(project, `objects/${key.split('/').map(encodeURIComponent).join('/')}`, decrypt)).arrayBuffer());
@@ -141,8 +160,8 @@ export class Gateway {
     return result;
   }
   private publicRoute(project: string, path: string): string { return `/p/${encodeURIComponent(project)}/${path}`; }
-  async publicDescriptor(project: string): Promise<Descriptor> { return (await this.request(this.publicRoute(project, 'store.json'))).json(); }
-  async publicManifest(project: string): Promise<Uint8Array> { return new Uint8Array(await (await this.request(this.publicRoute(project, 'public.json'))).arrayBuffer()); }
+  async publicDescriptor(project: string, prefix = ''): Promise<Descriptor> { return (await this.request(this.publicRoute(project, prefix + 'store.json'))).json(); }
+  async publicManifest(project: string, prefix = ''): Promise<Uint8Array> { return new Uint8Array(await (await this.request(this.publicRoute(project, prefix + 'public.json'))).arrayBuffer()); }
   async publicList(project: string, prefix: string): Promise<ObjectEntry[]> {
     return (await (await this.request(this.publicRoute(project, `objects?prefix=${encodeURIComponent(prefix)}`))).json()).objects;
   }
@@ -150,5 +169,5 @@ export class Gateway {
     if (!key.endsWith('.age') || key.split('/').some(part => !part || part === '.' || part === '..')) throw new Error('Invalid ciphertext object.');
     return new Uint8Array(await (await this.request(this.publicRoute(project, key.split('/').map(encodeURIComponent).join('/')))).arrayBuffer());
   }
-  lock(): void { this.generation++; this.personSession = undefined; this.signer = undefined; this.signingIn = undefined; this.tokens.clear(); this.ciphertext.clear(); this.bytes = 0; }
+  lock(): void { this.generation++; this.personSession = undefined; this.signer = undefined; this.signingIn = undefined; this.tokens.clear(); this.epochs.clear(); this.ciphertext.clear(); this.bytes = 0; }
 }

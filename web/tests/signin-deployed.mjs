@@ -38,6 +38,17 @@ try{
  await page.goto(origin);await page.getByLabel('Login',{exact:true}).fill(fixture.login);
  await page.getByLabel('24 recovery words',{exact:true}).fill(words);await page.getByRole('button',{name:'Unlock with recovery words',exact:true}).click();
  await expect(page.locator('#main-content').getByRole('heading',{name:'Projects',exact:true})).toBeVisible({timeout:60000});assert.equal(exchanges,1);
+ if(fixture.epoch){
+  await page.goto(`${origin}/#/project/${fixture.project}/settings/access`);
+  const epochs=page.getByRole('table',{name:'Project epochs',exact:true});
+  await expect(epochs).toBeVisible({timeout:60000});
+  await expect(epochs.getByRole('row')).toHaveCount(3);
+  await expect(epochs.getByRole('row').filter({hasText:fixture.epoch})).toContainText('Current');
+  for(const [line,text] of Object.entries(fixture.code_lines || {})){
+   await page.goto(`${origin}/#/project/${fixture.project}/code?line=${encodeURIComponent(line)}&path=test.txt`);
+   for(const part of String(text).trim().split('\n'))await expect(page.locator('#main-content')).toContainText(part,{timeout:60000});
+  }
+ }
  await page.goto(`${origin}/#/project/${fixture.project}/change/${fixture.change}/overview`);
  await expect(page.getByRole('heading',{name:'Conversation',exact:true})).toBeVisible({timeout:60000});
  if(readOnly && process.env.LAYR_WEB_LIVE_DRAFT==='1'){
@@ -54,10 +65,10 @@ try{
  await conversation.getByLabel('Comment',{exact:true}).last().fill(text);
  const send=conversation.getByRole('button',{name:'Send comment',exact:true}).last();
  await expect(send).toBeEnabled({timeout:15000});
- const delivered=page.waitForResponse(response=>response.request().method()==='PUT'&&/\/objects\/requests\/[^/]+\.json$/.test(new URL(response.url()).pathname));
+ const delivered=page.waitForResponse(response=>response.request().method()==='PUT'&&/\/objects\/(?:project\/epochs\/[0-9a-f-]{36}\/)?requests\/[^/]+\.json$/.test(new URL(response.url()).pathname));
  await send.click();
  const response=await delivered;assert.equal(response.status(),201);wire=JSON.parse(response.request().postData());requestId=wire.id;
- assert.equal(wire.v,2);assert.equal(wire.r,undefined);assert.equal(wire.action,undefined);assert(!JSON.stringify(wire).includes(text));
+ assert.equal(wire.v,2);if(fixture.epoch)assert.equal(wire.epoch,fixture.epoch);assert.equal(wire.r,undefined);assert.equal(wire.action,undefined);assert(!JSON.stringify(wire).includes(text));
  await writeFile(path.join(output,'delivery.json'),JSON.stringify({origin,phase,requestId,version:wire.v,comment:text,delivered:true,applied:false},null,2));
  await expect(conversation.locator('article.comment').filter({hasText:text})).toBeVisible({timeout:180000});
  }

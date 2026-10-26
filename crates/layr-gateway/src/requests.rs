@@ -14,10 +14,13 @@ use layr_store::{
 
 pub fn path(name: &str) -> Option<(bool, &str)> {
     static PATTERN: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-        regex::Regex::new(r"\Arequests/(claims/)?([0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.json\z").unwrap()
+        regex::Regex::new(r"\A(requests/(claims/)?|claims/)([0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.json\z").unwrap()
     });
     let matched = PATTERN.captures(name)?;
-    Some((matched.get(1).is_some(), matched.get(2)?.as_str()))
+    Some((
+        matched.get(2).is_some() || name.starts_with("claims/"),
+        matched.get(3)?.as_str(),
+    ))
 }
 
 impl Gateway {
@@ -28,6 +31,7 @@ impl Gateway {
         key: &str,
         claim: bool,
         id: &str,
+        epoch: &str,
         login: Option<&str>,
         write: bool,
     ) -> Result<Reply> {
@@ -97,10 +101,10 @@ impl Gateway {
                     ))
                 }
             };
-            if value.epoch != "root" {
+            if value.epoch != epoch {
                 return Ok(Reply::error(
                     400,
-                    "project epoch requests are not supported by this gateway yet",
+                    "person request epoch does not match its namespace",
                 ));
             }
             let config = self.config.get()?;

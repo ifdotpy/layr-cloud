@@ -1,3 +1,4 @@
+import {epochRoute} from '../src/data/epochs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
@@ -46,6 +47,7 @@ function worker(options: { hidden?: boolean; slot?: boolean; foreign?: boolean; 
     overlay_inputs() { return '[]'; }
   }
   class Gateway {
+    discovery(){return {};} setEpoch(){}
     unlock(){return this.person();} signIn(){}
     async person() { return { recipient: 'person' }; }
     async projects() { return ['store']; }
@@ -66,7 +68,7 @@ function worker(options: { hidden?: boolean; slot?: boolean; foreign?: boolean; 
     lock() {}
   }
   const scope = { onmessage: (_event: unknown) => {}, postMessage: (message: Parameters<typeof resolve>[0]) => resolve(message), close() {} };
-  vm.runInNewContext(source, { self: scope, Session, Gateway, HttpError:class extends Error{}, init: async () => {}, setTimeout: () => 1, clearTimeout() {}, Uint8Array, Date, Error });
+  vm.runInNewContext(source, { self: scope, Session, Gateway, epochRoute, HttpError:class extends Error{}, init: async () => {}, setTimeout: () => 1, clearTimeout() {}, Uint8Array, Date, Error });
   let id = 0;
   const request = (method: string) => new Promise<Parameters<typeof resolve>[0]>(done => {
     resolve = done;

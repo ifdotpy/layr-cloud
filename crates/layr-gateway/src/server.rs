@@ -4,7 +4,7 @@ use super::{
     auth,
     config::{ConfigFile, Project},
 };
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use base64::Engine;
 use layr_store::http;
 use serde_json::json;
@@ -193,8 +193,14 @@ fn overlay_epoch(name: &str) -> Option<&str> {
 
 pub fn object_name(name: &str) -> bool {
     name.len() <= 1024
-        && (store_object(name)
+        && (matches!(name, "store.json" | "public.json")
+            || store_object(name)
             || index_object(name)
+            || super::epochs::discovery(name)
+            || name
+                .strip_prefix("history/")
+                .and_then(|s| s.strip_suffix(".age"))
+                .is_some_and(|e| e == "root" || layr_store::format::is_uuid(e))
             || super::requests::path(name).is_some()
             || overlay_key(name)
             || hidden_overlay_key(name)
@@ -226,6 +232,10 @@ fn list_prefix(prefix: &str) -> bool {
     if prefix.is_empty()
         || store_prefix(prefix)
         || index_prefix(prefix)
+        || prefix == "keys/"
+        || prefix == "history/"
+        || prefix == "files/"
+        || matches!(prefix, "claims/" | "claims")
         || matches!(
             prefix,
             "requests" | "requests/" | "requests/claims" | "requests/claims/"
@@ -345,7 +355,7 @@ impl Gateway {
             .split('/')
             .map(decode)
             .collect::<Option<Vec<_>>>();
-        let Some(parts) = parts else {
+        let Some(mut parts) = parts else {
             return Ok(Reply::error(400, "invalid path encoding"));
         };
         if parts.first().is_some_and(|p| p == "p") {
@@ -374,25 +384,112 @@ impl Gateway {
                 ));
             }
         }
+        let mut scoped_project = None;
+        let mut epoch_chain = None;
+        let mut namespace = String::from("root");
+        let mut scoped_query = None;
+        let mut scoped_read = false;
         if parts.len() >= 3 && parts[0] == "v1" && parts[1] == "p" {
             let Some(project) = config.projects.get(&parts[2]) else {
                 return Ok(Reply::error(404, "no such project"));
             };
             let token = bearer(&request);
-            let read = self
-                .proof
-                .valid("read", &project.binding(&parts[2]), token, auth::now());
+            let at = auth::now();
+            let grant = auth::grant(token, project, false, at);
+            let gc_grant = auth::grant(token, project, true, at);
+            let chain = match super::epochs::Chain::load(self, project) {
+                Ok(chain) => chain,
+                Err(_) => return Ok(Reply::error(404, "no such project")),
+            };
+            // Validate segments before rewriting: decoding must never turn one segment
+            // containing a slash into a different canonical route.
+            let canonical = parts
+                .iter()
+                .all(|part| safe_part(part) || person_slot_part(part));
+            if canonical {
+                let offset = if parts.get(3).is_some_and(|p| p == "objects") {
+                    4
+                } else {
+                    3
+                };
+                let object = parts[offset..].join("/");
+                if let Some((epoch, inner)) = super::epochs::split(&object) {
+                    namespace = epoch.to_owned();
+                    let inner = inner.split('/').map(str::to_owned).collect::<Vec<_>>();
+                    parts.truncate(offset);
+                    parts.extend(inner);
+                    if offset == 4
+                        && parts.len() == 5
+                        && parts[4] == "store.json"
+                        && request.method == "GET"
+                    {
+                        parts[3] = "store.json".into();
+                        parts.truncate(4);
+                    }
+                } else if parts.len() == 4
+                    && matches!(parts[3].as_str(), "slots" | "challenge" | "token")
+                {
+                    if let Some(epoch) = query
+                        .strip_prefix("epoch=")
+                        .filter(|e| layr_store::format::is_uuid(e))
+                    {
+                        namespace = epoch.to_owned();
+                        scoped_query = Some(String::new());
+                    }
+                } else if parts.len() == 4 && parts[3] == "objects" {
+                    if let Some(prefix) = query
+                        .strip_prefix("prefix=")
+                        .filter(|_| !query.contains('&'))
+                        .and_then(decode)
+                    {
+                        if let Some((epoch, inner)) = super::epochs::split(&prefix) {
+                            namespace = epoch.to_owned();
+                            let mut url = reqwest::Url::parse("https://gateway.invalid/")?;
+                            url.query_pairs_mut().append_pair("prefix", inner);
+                            scoped_query = url.query().map(str::to_owned);
+                        }
+                    }
+                }
+            }
+            let Some(view) = chain.project(&namespace).or_else(|| {
+                (grant
+                    && request.method == "PUT"
+                    && parts.get(3).is_some_and(|p| p == "objects")
+                    && layr_store::format::is_uuid(&namespace))
+                .then(|| chain.staging(&namespace))
+            }) else {
+                return Ok(Reply::error(404, "no such project"));
+            };
+            scoped_read = chain.reads(&self.proof, &parts[2], &namespace, token, at);
+            let discovery = (parts.len() == 4
+                && parts[3] == "objects"
+                && !query.contains('&')
+                && query.strip_prefix("prefix=").and_then(decode).as_deref() == Some("keys/"))
+                || (parts.len() > 4
+                    && parts[3] == "objects"
+                    && super::epochs::discovery(&parts[4..].join("/")));
             let bootstrap = (parts.len() == 4
-                && parts
-                    .get(3)
-                    .is_some_and(|p| matches!(p.as_str(), "store.json" | "challenge" | "token")))
-                || (parts.len() == 5 && parts[3] == "slots" && machine_slot(&parts[4]));
+                && matches!(parts[3].as_str(), "store.json" | "challenge" | "token"))
+                || (parts.len() == 5 && parts[3] == "slots" && machine_slot(&parts[4]))
+                || discovery;
             let create = request.method == "PUT" && parts.get(3).is_some_and(|p| p == "objects");
-            let grant = auth::grant(token, project, false, auth::now());
-            if !read && !(grant && (bootstrap || create)) && !self.visible(project, login)? {
+            let current = chain
+                .project(chain.current())
+                .expect("current epoch exists");
+            if !scoped_read
+                && !((grant || gc_grant) && bootstrap)
+                && !(grant && create)
+                && !(chain.public(self).unwrap_or(false)
+                    || self
+                        .visible_in(&current, login, chain.current() != "root")
+                        .unwrap_or(false))
+            {
                 return Ok(Reply::error(404, "no such project"));
             }
+            scoped_project = Some(view);
+            epoch_chain = Some(chain);
         }
+        let query = scoped_query.as_deref().unwrap_or(query);
         if request.method != "GET" && request.method != "HEAD" {
             let json = parts.get(3).is_some_and(|p| p == "token");
             if let Some(reply) = other_site(&request, json, public_host) {
@@ -409,7 +506,10 @@ impl Gateway {
             return Ok(Reply::error(404, "no such route"));
         }
         let name = &parts[2];
-        let Some(project) = config.projects.get(name) else {
+        let Some(project) = scoped_project
+            .as_ref()
+            .or_else(|| config.projects.get(name))
+        else {
             return Ok(Reply::error(404, "no such project"));
         };
         let action = &parts[3];
@@ -420,7 +520,7 @@ impl Gateway {
             .and_then(|s| s.strip_prefix("Bearer "))
             .unwrap_or("");
         let at = auth::now();
-        let read = self.proof.valid("read", &binding, token, at);
+        let read = scoped_read;
         let write = auth::grant(token, project, false, at);
         let gc = auth::grant(token, project, true, at);
         let empty = |status| Reply::bytes(status, Vec::new(), "application/json");
@@ -429,7 +529,7 @@ impl Gateway {
         }
         if request.method == "GET" && action == "slots" && parts.len() == 5 {
             let name = &parts[4];
-            if machine_slot(name) && (write || read) {
+            if machine_slot(name) && (write || gc || read) {
                 return Ok(
                     match self
                         .storage
@@ -527,13 +627,12 @@ impl Gateway {
                     None if query.is_empty() => String::new(),
                     _ => return Ok(Reply::error(400, "invalid object prefix")),
                 };
-                let role = if read {
+                let role = if read
+                    || ((login.is_some() || gc) && namespace == "root" && prefix == "keys/")
+                {
                     Role::Reader
                 } else if write
-                    && (prefix.starts_with("records/")
-                        || prefix.starts_with("states/")
-                        || overlay_keys_prefix(&prefix)
-                        || prefix.starts_with("requests/"))
+                    && (overlay_keys_prefix(&prefix) || (namespace == "root" && prefix == "keys/"))
                 {
                     Role::Writer
                 } else {
@@ -548,7 +647,10 @@ impl Gateway {
                 }
                 let objects: Vec<_> = objects
                     .into_iter()
-                    .map(|e| json!({"key":e.key,"modified":e.modified}))
+                    .filter(|e| e.key.starts_with(&prefix))
+                    .filter(|e| super::epochs::split(&e.key).is_none_or(|(epoch, _)|
+                        epoch_chain.as_ref().is_some_and(|chain| chain.reads(&self.proof, name, epoch, token, at))))
+                    .map(|e| json!({"key":if namespace == "root" {e.key} else {format!("project/epochs/{namespace}/{}",e.key)},"modified":e.modified}))
                     .collect();
                 return Ok(Reply::json(200, json!({"objects":objects})));
             }
@@ -559,12 +661,26 @@ impl Gateway {
             return Ok(Reply::error(400, "object requests have no query"));
         }
         let key = parts[4..].join("/");
-        if !object_name(&key) && !(request.method == "GET" && key == "store.json") {
+        if !object_name(&key)
+            && !(key == "store.json" && (request.method == "GET" || namespace != "root"))
+        {
             return Ok(Reply::error(400, "invalid object name"));
+        }
+        if namespace != "root" && super::epochs::discovery(&key) {
+            return Ok(Reply::error(400, "discovery belongs to the root namespace"));
+        }
+        if (namespace == "root" && key.starts_with("claims/"))
+            || (namespace != "root" && key.starts_with("requests/claims/"))
+        {
+            return Ok(Reply::error(400, "claim namespace differs"));
         }
         match request.method.as_str() {
             "GET" => {
-                if !read && !(write && overlay_key(&key)) {
+                if !read
+                    && !(write && (overlay_key(&key) || super::epochs::discovery(&key)))
+                    && !(gc && namespace == "root" && super::epochs::discovery(&key))
+                    && !(login.is_some() && super::epochs::discovery(&key))
+                {
                     return Ok(Reply::error(401, "a read challenge token is required"));
                 }
                 let range = request
@@ -590,11 +706,82 @@ impl Gateway {
                 )
             }
             "PUT" => {
+                if matches!(key.as_str(), "store.json" | "public.json") {
+                    if !write {
+                        return Ok(Reply::error(403, "a write token is required"));
+                    }
+                    if request.body.len() > JSON_LIMIT {
+                        return Ok(Reply::error(413, "metadata is too large"));
+                    }
+                    if key == "store.json" {
+                        let descriptor =
+                            serde_json::from_slice::<layr_store::format::Descriptor>(&request.body);
+                        let anchor = config.projects.get(name).context("project disappeared")?;
+                        let root_descriptor = self
+                            .storage
+                            .get(anchor, "store.json", None, JSON_LIMIT)?
+                            .map(|o| {
+                                serde_json::from_slice::<layr_store::format::Descriptor>(&o.body)
+                            })
+                            .transpose()?;
+                        let published = epoch_chain
+                            .as_ref()
+                            .and_then(|chain| chain.project(&namespace));
+                        let valid = descriptor.is_ok_and(|d| {
+                            d.format == 2
+                                && layr_store::format::is_uuid(&d.project)
+                                && layr_store::keys::valid_recipient(&d.recipient)
+                                && root_descriptor
+                                    .as_ref()
+                                    .is_none_or(|root| d.project == root.project)
+                                && published
+                                    .as_ref()
+                                    .is_none_or(|scope| d.recipient == scope.recipient)
+                        });
+                        if !valid {
+                            return Ok(Reply::error(400, "invalid store descriptor"));
+                        }
+                    } else {
+                        let Some(descriptor) =
+                            self.storage.get(project, "store.json", None, JSON_LIMIT)?
+                        else {
+                            return Ok(Reply::error(404, "store is not initialized"));
+                        };
+                        let descriptor: layr_store::format::Descriptor =
+                            serde_json::from_slice(&descriptor.body)?;
+                        if layr_store::public::Manifest::parse(&request.body, &descriptor).is_err()
+                        {
+                            return Ok(Reply::error(400, "invalid public manifest"));
+                        }
+                    }
+                }
+                if super::epochs::discovery(&key) {
+                    let Some(descriptor) =
+                        self.storage.get(project, "store.json", None, JSON_LIMIT)?
+                    else {
+                        return Ok(Reply::error(404, "store is not initialized"));
+                    };
+                    let descriptor: layr_store::format::Descriptor =
+                        serde_json::from_slice(&descriptor.body)?;
+                    if super::epochs::key_record(&key, &request.body, &descriptor.project).is_err()
+                    {
+                        return Ok(Reply::error(400, "invalid epoch discovery record"));
+                    }
+                }
                 if let Some((claim, id)) = super::requests::path(&key) {
-                    return self.put_request(&request, project, &key, claim, id, login, write);
+                    if namespace != "root" && super::epochs::discovery(&key) {
+                        return Ok(Reply::error(400, "discovery belongs to the root namespace"));
+                    }
+                    if (namespace == "root" && key.starts_with("claims/"))
+                        || (namespace != "root" && key.starts_with("requests/claims/"))
+                    {
+                        return Ok(Reply::error(400, "claim namespace differs"));
+                    }
+                    return self
+                        .put_request(&request, project, &key, claim, id, &namespace, login, write);
                 }
                 if key.starts_with("slots/") {
-                    if !read {
+                    if !read && !(namespace != "root" && write) {
                         return Ok(Reply::error(
                             403,
                             "slot writes require a read challenge token",
@@ -700,6 +887,19 @@ fn read_json(request: &http::Request, limit: usize) -> Result<serde_json::Value>
 }
 impl Gateway {
     fn visible(&self, project: &Project, login: Option<&str>) -> Result<bool> {
+        let chain = super::epochs::Chain::load(self, project)?;
+        if chain.public(self).unwrap_or(false) {
+            return Ok(true);
+        }
+        self.visible_in(
+            &chain
+                .project(chain.current())
+                .expect("current epoch exists"),
+            login,
+            chain.current() != "root",
+        )
+    }
+    fn visible_in(&self, project: &Project, login: Option<&str>, strict: bool) -> Result<bool> {
         let slots = self.storage.list(project, "slots/", Role::Reader)?;
         if slots.len() > 1024 {
             bail!("too many store slots");
@@ -708,7 +908,7 @@ impl Gateway {
             .iter()
             .filter_map(|entry| layr_store::person::slot_login(entry.key.strip_prefix("slots/")?))
             .collect();
-        Ok(people.is_empty() || login.is_some_and(|login| people.contains(&login)))
+        Ok((!strict && people.is_empty()) || login.is_some_and(|login| people.contains(&login)))
     }
     fn api(
         &self,
@@ -832,6 +1032,12 @@ mod tests {
             Ok(())
         }
     }
+    fn memory_key(project: &Project, key: &str) -> String {
+        match project.prefix.split_once("/project/epochs/") {
+            Some((_, epoch)) => format!("project/epochs/{}/{key}", epoch.trim_end_matches('/')),
+            None => key.to_owned(),
+        }
+    }
     impl Storage for Memory {
         fn people(
             &self,
@@ -842,13 +1048,14 @@ mod tests {
 
         fn get(
             &self,
-            _: &Project,
+            project: &Project,
             key: &str,
             range: Option<http::Range>,
             _: usize,
         ) -> Result<Option<Object>> {
             let objects = self.0.lock().unwrap();
-            let Some(body) = objects.get(key) else {
+            let key = memory_key(project, key);
+            let Some(body) = objects.get(&key) else {
                 return Ok(None);
             };
             Ok(Some(match range {
@@ -870,29 +1077,32 @@ mod tests {
                 },
             }))
         }
-        fn list(&self, _: &Project, prefix: &str, _: Role) -> Result<Vec<Entry>> {
+        fn list(&self, project: &Project, prefix: &str, _: Role) -> Result<Vec<Entry>> {
+            let root = memory_key(project, "");
+            let prefix = memory_key(project, prefix);
             Ok(self
                 .0
                 .lock()
                 .unwrap()
                 .keys()
-                .filter(|s| s.starts_with(prefix))
+                .filter(|s| s.starts_with(&prefix))
                 .map(|s| Entry {
-                    key: s.clone(),
+                    key: s.strip_prefix(&root).unwrap().to_string(),
                     modified: 0,
                 })
                 .collect())
         }
-        fn put(&self, _: &Project, key: &str, body: Vec<u8>) -> Result<bool> {
+        fn put(&self, project: &Project, key: &str, body: Vec<u8>) -> Result<bool> {
+            let key = memory_key(project, key);
             let mut objects = self.0.lock().unwrap();
-            if objects.contains_key(key) {
+            if objects.contains_key(&key) {
                 return Ok(false);
             }
             objects.insert(key.into(), body);
             Ok(true)
         }
-        fn delete(&self, _: &Project, key: &str) -> Result<()> {
-            self.0.lock().unwrap().remove(key);
+        fn delete(&self, project: &Project, key: &str) -> Result<()> {
+            self.0.lock().unwrap().remove(&memory_key(project, key));
             Ok(())
         }
     }
@@ -1005,6 +1215,449 @@ mod tests {
 
     const OVERLAY: &str = "01a12290-0000-7000-8000-000000000001";
     const EPOCH: &str = "01a12290-0000-7000-8000-000000000002";
+
+    #[test]
+    fn release_file_discovery_needs_a_read_proof() {
+        let mut f = Fixture::new();
+        let read = f.read_token();
+        let write = f.token(false);
+        let path = "/v1/p/example/objects?prefix=files%2F";
+        let reply = f.request("GET", path, &read, b"", None);
+        assert_eq!(reply.status, 200);
+        assert_eq!(value(reply), json!({"objects":[]}));
+        assert_eq!(f.request("GET", path, &write, b"", None).status, 401);
+    }
+
+    #[test]
+    fn epoch_grants_stage_then_discover_without_reading_new_ciphertext_and_proofs_are_scoped() {
+        use layr_store::{keys, person};
+        let mut f = Fixture::new();
+        let expired = auth::issue(false, 1, 0).unwrap();
+        f.config
+            .projects
+            .get_mut("example")
+            .unwrap()
+            .write_token_hashes
+            .push(auth::hash(&expired));
+        let other_grant = auth::issue(false, 60_000, auth::now()).unwrap();
+        let mut other = f.config.projects["example"].clone();
+        other.write_token_hashes = vec![auth::hash(&other_grant)];
+        f.config.projects.insert("other".into(), other);
+        std::fs::write(&f.path, serde_json::to_vec(&f.config).unwrap()).unwrap();
+        let project = f.config.projects["example"].clone();
+        let write = f.token(false);
+        let root_read = f.read_token();
+        let gc = f.token(true);
+        let other_gc = auth::issue(true, 60_000, auth::now()).unwrap();
+        f.config.projects.get_mut("other").unwrap().gc_token_hashes = vec![auth::hash(&other_gc)];
+        std::fs::write(&f.path, serde_json::to_vec(&f.config).unwrap()).unwrap();
+        let next = age::x25519::Identity::generate();
+        let descriptor = |recipient: String| {
+            serde_json::to_vec(&json!({"format":2,"project":OVERLAY,"recipient":recipient}))
+                .unwrap()
+        };
+        f.gateway
+            .storage
+            .put(
+                &project,
+                "store.json",
+                descriptor(project.recipient.clone()),
+            )
+            .unwrap();
+        f.gateway
+            .storage
+            .put(
+                &project,
+                "slots/person-owner@example.com-0123456789abcdef.age",
+                b"root person slot".to_vec(),
+            )
+            .unwrap();
+        f.gateway
+            .storage
+            .put(&project, "records/root.age", b"old ciphertext".to_vec())
+            .unwrap();
+        let base = format!("/v1/p/example/objects/project/epochs/{EPOCH}");
+        assert_eq!(
+            f.request(
+                "PUT",
+                &format!("{base}/store.json"),
+                &write,
+                &descriptor(next.to_public().to_string()),
+                None
+            )
+            .status,
+            201
+        );
+        assert_eq!(
+            f.request("GET", &format!("{base}/store.json"), &write, b"", None)
+                .status,
+            404
+        );
+        let own = format!("slots/machine-{OVERLAY}.age");
+        assert_eq!(
+            f.request(
+                "PUT",
+                &format!("{base}/{own}"),
+                &write,
+                b"sealed machine slot",
+                None
+            )
+            .status,
+            201
+        );
+        assert_eq!(
+            f.request(
+                "PUT",
+                &format!("{base}/history/root.age"),
+                &write,
+                b"sealed history",
+                None
+            )
+            .status,
+            201
+        );
+        assert_eq!(
+            f.request(
+                "PUT",
+                &format!("{base}/states/{OVERLAY}/01234567.tree.age"),
+                &write,
+                b"new ciphertext",
+                None
+            )
+            .status,
+            201
+        );
+        let identity = keys::generate_identity();
+        let signing = person::make_signing_keys(&keys::recipient_of(&identity).unwrap()).unwrap();
+        let signing =
+            person::open_signing_key(&identity, &signing.sealed, &signing.public_key).unwrap();
+        let key = layr_store::epochs::Key {
+            project: OVERLAY.into(),
+            parent: "root".into(),
+            parent_recipient: project.recipient.clone(),
+            epoch: EPOCH.into(),
+            recipient: next.to_public().to_string(),
+            mode: layr_store::epochs::Mode::Private,
+            readers_hash: "0".repeat(64),
+        };
+        let record = json!({"id":OVERLAY,"project":OVERLAY,"op":"project.key","data":key});
+        let body = serde_json::to_vec(&record).unwrap();
+        let signed = format!(
+            "{{\"r\":{},\"s\":\"{}\"}}",
+            String::from_utf8(body.clone()).unwrap(),
+            keys::sign_bytes(&body, &signing)
+        );
+        let discovery = format!("/v1/p/example/objects/keys/{EPOCH}-{OVERLAY}.json");
+        assert_eq!(
+            f.request("PUT", &discovery, &write, signed.as_bytes(), None)
+                .status,
+            201
+        );
+        assert_eq!(
+            f.request("PUT", &discovery, &write, signed.as_bytes(), None)
+                .status,
+            412
+        );
+        for token in [
+            "",
+            "wrong",
+            other_grant.as_str(),
+            other_gc.as_str(),
+            expired.as_str(),
+        ] {
+            for (method, path) in [
+                ("GET", "/v1/p/example/store.json".into()),
+                ("GET", format!("{base}/store.json")),
+                ("GET", format!("/v1/p/example/challenge?epoch={EPOCH}")),
+                ("POST", format!("/v1/p/example/token?epoch={EPOCH}")),
+                ("GET", format!("/v1/p/example/project/epochs/{EPOCH}/{own}")),
+                ("GET", "/v1/p/example/objects?prefix=keys%2F".into()),
+                ("GET", discovery.clone()),
+            ] {
+                let hidden = f.request(method, &path, token, b"", None);
+                let absent = f.request(method, "/v1/p/absent/store.json", token, b"", None);
+                assert_eq!(
+                    (hidden.status, hidden.headers, hidden.body),
+                    (absent.status, absent.headers, absent.body),
+                    "{path}"
+                );
+            }
+        }
+        assert_eq!(
+            f.request("GET", &discovery, &write, b"", None).body,
+            signed.as_bytes()
+        );
+        assert_eq!(
+            f.request("GET", &discovery, &gc, b"", None).body,
+            signed.as_bytes()
+        );
+        assert_eq!(
+            f.request(
+                "GET",
+                "/v1/p/example/objects?prefix=keys%2F",
+                &gc,
+                b"",
+                None
+            )
+            .status,
+            200
+        );
+        for path in [
+            format!("{base}/states/{OVERLAY}/01234567.tree.age"),
+            format!("{base}/history/root.age"),
+        ] {
+            assert_eq!(
+                f.request("GET", &path, &gc, b"", None).status,
+                404,
+                "GC must not read encrypted bytes: {path}"
+            );
+        }
+        assert_eq!(
+            f.request(
+                "GET",
+                "/v1/p/example/objects?prefix=keys%2F",
+                &write,
+                b"",
+                None
+            )
+            .status,
+            200
+        );
+        for token in ["", "wrong", root_read.as_str()] {
+            let hidden = f.request(
+                "GET",
+                &format!("{base}/states/{OVERLAY}/01234567.tree.age"),
+                token,
+                b"",
+                None,
+            );
+            let absent = f.request("GET", "/v1/p/absent/store.json", token, b"", None);
+            assert_eq!(
+                (hidden.status, hidden.headers, hidden.body),
+                (absent.status, absent.headers, absent.body)
+            );
+        }
+        assert_eq!(
+            f.request(
+                "GET",
+                &format!("/v1/p/example/project/epochs/{EPOCH}/{own}"),
+                &write,
+                b"",
+                None
+            )
+            .status,
+            200
+        );
+        assert_eq!(
+            f.request(
+                "GET",
+                &format!("/v1/p/example/slots?epoch={EPOCH}"),
+                &write,
+                b"",
+                None
+            )
+            .status,
+            404
+        );
+        assert_eq!(
+            f.request("GET", &format!("{base}/store.json"), &write, b"", None)
+                .status,
+            200
+        );
+        let challenge = f.request(
+            "GET",
+            &format!("/v1/p/example/challenge?epoch={EPOCH}"),
+            &write,
+            b"",
+            None,
+        );
+        assert_eq!(challenge.status, 200);
+        let challenge: serde_json::Value = serde_json::from_slice(&challenge.body).unwrap();
+        let sealed = base64::engine::general_purpose::STANDARD
+            .decode(challenge["challenge"].as_str().unwrap())
+            .unwrap();
+        assert!(age::decrypt(&f.identity, &sealed).is_err());
+        let clear = String::from_utf8(age::decrypt(&next, &sealed).unwrap()).unwrap();
+        let body = json!({"challenge":clear}).to_string();
+        assert_eq!(
+            f.request("POST", "/v1/p/example/token", &write, body.as_bytes(), None)
+                .status,
+            401
+        );
+        let token = f.request(
+            "POST",
+            &format!("/v1/p/example/token?epoch={EPOCH}"),
+            &write,
+            body.as_bytes(),
+            None,
+        );
+        assert_eq!(token.status, 200);
+        let token: serde_json::Value = serde_json::from_slice(&token.body).unwrap();
+        let read = token["token"].as_str().unwrap();
+        assert_eq!(
+            f.request("GET", &format!("{base}/history/root.age"), read, b"", None)
+                .body,
+            b"sealed history"
+        );
+        assert_eq!(
+            f.request(
+                "GET",
+                "/v1/p/example/objects/records/root.age",
+                read,
+                b"",
+                None
+            )
+            .body,
+            b"old ciphertext"
+        );
+        let listed = f.request(
+            "GET",
+            &format!("/v1/p/example/objects?prefix=project%2Fepochs%2F{EPOCH}%2Fstates%2F"),
+            read,
+            b"",
+            None,
+        );
+        assert_eq!(listed.status, 200);
+        let listed: serde_json::Value = serde_json::from_slice(&listed.body).unwrap();
+        assert_eq!(
+            listed["objects"][0]["key"],
+            format!("project/epochs/{EPOCH}/states/{OVERLAY}/01234567.tree.age")
+        );
+        let old_listing = f.request(
+            "GET",
+            "/v1/p/example/objects?prefix=",
+            &root_read,
+            b"",
+            None,
+        );
+        assert_eq!(old_listing.status, 200);
+        assert!(!String::from_utf8(old_listing.body)
+            .unwrap()
+            .contains("project/epochs/"));
+        // Opening an existing epoch does not change its discovery key's earlier mode.
+        let root_descriptor = layr_store::format::Descriptor {
+            format: 2,
+            project: OVERLAY.into(),
+            recipient: project.recipient.clone(),
+        };
+        let root_manifest = layr_store::public::Manifest::new(
+            &root_descriptor,
+            keys::generate_identity(),
+            OVERLAY.into(),
+            &signing,
+        )
+        .unwrap();
+        f.gateway
+            .storage
+            .put(
+                &project,
+                "public.json",
+                serde_json::to_vec(&root_manifest).unwrap(),
+            )
+            .unwrap();
+        assert_eq!(
+            f.request("GET", "/p/example/store.json", "", b"", None)
+                .status,
+            404,
+            "an old public opener cannot expose a private current epoch"
+        );
+        let mut scoped = project.clone();
+        scoped.prefix = format!("{}/project/epochs/{EPOCH}", project.prefix);
+        scoped.recipient = next.to_public().to_string();
+        let current_descriptor = layr_store::format::Descriptor {
+            format: 2,
+            project: OVERLAY.into(),
+            recipient: scoped.recipient.clone(),
+        };
+        let manifest = layr_store::public::Manifest::new(
+            &current_descriptor,
+            keys::generate_identity(),
+            OVERLAY.into(),
+            &signing,
+        )
+        .unwrap();
+        f.gateway
+            .storage
+            .put(
+                &scoped,
+                "public.json",
+                serde_json::to_vec(&manifest).unwrap(),
+            )
+            .unwrap();
+        assert_eq!(
+            f.request(
+                "GET",
+                &format!("/p/example/project/epochs/{EPOCH}/states/{OVERLAY}/01234567.tree.age"),
+                "",
+                b"",
+                None
+            )
+            .status,
+            200
+        );
+        let later = "01a12290-0000-7000-8000-000000000003";
+        let later_recipient = keys::recipient_of(&keys::generate_identity()).unwrap();
+        let next_base = format!("/v1/p/example/objects/project/epochs/{later}");
+        assert_eq!(
+            f.request(
+                "PUT",
+                &format!("{next_base}/store.json"),
+                &write,
+                &descriptor(later_recipient.clone()),
+                None
+            )
+            .status,
+            201
+        );
+        let later_key = layr_store::epochs::Key {
+            project: OVERLAY.into(),
+            parent: EPOCH.into(),
+            parent_recipient: scoped.recipient.clone(),
+            epoch: later.into(),
+            recipient: later_recipient,
+            mode: layr_store::epochs::Mode::Private,
+            readers_hash: "0".repeat(64),
+        };
+        let record = serde_json::to_vec(
+            &json!({"id":OVERLAY,"project":OVERLAY,"op":"project.key","data":later_key}),
+        )
+        .unwrap();
+        let signed = format!(
+            "{{\"r\":{},\"s\":\"{}\"}}",
+            String::from_utf8(record.clone()).unwrap(),
+            keys::sign_bytes(&record, &signing)
+        );
+        assert_eq!(
+            f.request(
+                "PUT",
+                &format!("/v1/p/example/objects/keys/{later}-{OVERLAY}.json"),
+                &write,
+                signed.as_bytes(),
+                None
+            )
+            .status,
+            201
+        );
+        for path in [
+            "/p/example/store.json".to_string(),
+            format!("/p/example/project/epochs/{EPOCH}/store.json"),
+            format!("/p/example/project/epochs/{later}/store.json"),
+        ] {
+            assert_eq!(f.request("GET", &path, "", b"", None).status, 404, "{path}");
+        }
+        let hidden = f.request(
+            "GET",
+            &format!("{next_base}/history/{EPOCH}.age"),
+            read,
+            b"",
+            None,
+        );
+        let absent = f.request("GET", "/v1/p/absent/store.json", read, b"", None);
+        assert_eq!(
+            (hidden.status, hidden.headers, hidden.body),
+            (absent.status, absent.headers, absent.body)
+        );
+    }
 
     #[test]
     fn signed_index_objects_require_writer_create_and_reader_proof_and_refuse_gc() {
@@ -1874,6 +2527,136 @@ mod tests {
                 400
             );
         }
+        // The same envelope is accepted only in its exact published epoch namespace.
+        let next = keys::generate_identity();
+        let next_recipient = keys::recipient_of(&next).unwrap();
+        let mut scoped = project.clone();
+        scoped.prefix = format!("{}/project/epochs/{EPOCH}", project.prefix);
+        scoped.recipient = next_recipient.clone();
+        f.gateway
+            .storage
+            .put(
+                &scoped,
+                "store.json",
+                serde_json::to_vec(
+                    &json!({"format":2,"project":project_id,"recipient":next_recipient}),
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        f.gateway
+            .storage
+            .put(
+                &scoped,
+                "slots/person-ann@example.com-0123456789abcdef.age",
+                b"own sealed slot".to_vec(),
+            )
+            .unwrap();
+        let epoch_key = layr_store::epochs::Key {
+            project: project_id.into(),
+            parent: "root".into(),
+            parent_recipient: project.recipient.clone(),
+            epoch: EPOCH.into(),
+            recipient: next_recipient.clone(),
+            mode: layr_store::epochs::Mode::Private,
+            readers_hash: "0".repeat(64),
+        };
+        let record = json!({"id":id,"project":project_id,"op":"project.key","data":epoch_key});
+        let record = serde_json::to_vec(&record).unwrap();
+        let publication = format!(
+            "{{\"r\":{},\"s\":\"{}\"}}",
+            String::from_utf8(record.clone()).unwrap(),
+            keys::sign_bytes(&record, &key)
+        );
+        f.gateway
+            .storage
+            .put(
+                &project,
+                &format!("keys/{EPOCH}-{id}.json"),
+                publication.into_bytes(),
+            )
+            .unwrap();
+        let epoch_path = format!("/v1/p/example/objects/project/epochs/{EPOCH}/requests/{id}.json");
+        let epoch_body = request::seal_for_epoch(&plaintext, EPOCH, &next_recipient, &key).unwrap();
+        assert_eq!(
+            raw(Some(login), "PUT", &epoch_path, "", body.clone()).status,
+            400
+        );
+        assert_eq!(
+            raw(Some(login), "PUT", &base, "", epoch_body.clone()).status,
+            400
+        );
+        assert_eq!(
+            raw(Some(login), "PUT", &epoch_path, "", epoch_body.clone()).status,
+            201
+        );
+        assert_eq!(
+            raw(Some(login), "PUT", &epoch_path, "", epoch_body.clone()).status,
+            412
+        );
+        let challenge = value(f.request(
+            "GET",
+            &format!("/v1/p/example/challenge?epoch={EPOCH}"),
+            &write,
+            b"",
+            None,
+        ));
+        let clear = keys::decrypt(
+            &next,
+            &B64.decode(challenge["challenge"].as_str().unwrap())
+                .unwrap(),
+        )
+        .unwrap();
+        let proof = json!({"challenge":String::from_utf8(clear).unwrap()}).to_string();
+        let epoch_read = value(f.request(
+            "POST",
+            &format!("/v1/p/example/token?epoch={EPOCH}"),
+            &write,
+            proof.as_bytes(),
+            None,
+        ));
+        let epoch_read = epoch_read["token"].as_str().unwrap();
+        assert_eq!(
+            raw(None, "GET", &epoch_path, epoch_read, vec![]).body,
+            epoch_body
+        );
+        assert_eq!(raw(None, "GET", &epoch_path, &read, vec![]).status, 404);
+        let epoch_claim = format!("/v1/p/example/objects/project/epochs/{EPOCH}/claims/{id}.json");
+        let claim_body = claim.sign(&key).unwrap().to_bytes().unwrap();
+        assert_eq!(
+            raw(None, "PUT", &epoch_claim, &write, claim_body.clone()).status,
+            201
+        );
+        assert_eq!(
+            raw(None, "PUT", &epoch_claim, &write, claim_body.clone()).status,
+            412
+        );
+        assert_eq!(
+            raw(None, "GET", &epoch_claim, epoch_read, vec![]).body,
+            claim_body
+        );
+        assert_eq!(
+            raw(
+                None,
+                "PUT",
+                &format!("/v1/p/example/objects/project/epochs/{EPOCH}/requests/claims/{id}.json"),
+                &write,
+                claim_body
+            )
+            .status,
+            400
+        );
+        assert_eq!(
+            raw(
+                None,
+                "GET",
+                &format!("/v1/p/example/objects/claims/{id}.json"),
+                epoch_read,
+                vec![]
+            )
+            .status,
+            400
+        );
     }
 
     #[test]
@@ -2067,7 +2850,7 @@ mod tests {
                     None
                 )
                 .status,
-                200
+                401
             );
         }
         for prefix in ["", "slots/", "records", "states"] {
@@ -2442,7 +3225,9 @@ mod tests {
         let mut f = Fixture::new();
         let read = f.read_token();
         let write = f.token(false);
+        let gc = f.token(true);
         let other = auth::issue(false, 60_000, auth::now()).unwrap();
+        let other_gc = auth::issue(true, 60_000, auth::now()).unwrap();
         let expired = auth::issue(false, 1, auth::now() - 10_000).unwrap();
         f.config
             .projects
@@ -2453,6 +3238,7 @@ mod tests {
         let mut q = f.config.projects["example"].clone();
         q.prefix = "other".into();
         q.write_token_hashes = vec![auth::hash(&other)];
+        q.gc_token_hashes = vec![auth::hash(&other_gc)];
         f.config.projects.insert("other".into(), q);
         std::fs::write(&f.path, serde_json::to_vec(&f.config).unwrap()).unwrap();
         let machine = "machine-01a12290-0000-7000-8000-000000000001.age";
@@ -2482,7 +3268,7 @@ mod tests {
                 )
                 .unwrap();
         }
-        for token in [&write, &read] {
+        for token in [&write, &gc, &read] {
             assert_eq!(
                 f.request("GET", "/v1/p/example/store.json", token, b"", None)
                     .status,
@@ -2505,7 +3291,7 @@ mod tests {
                 200
             );
         }
-        let challenge = value(f.request("GET", "/v1/p/example/challenge", &write, b"", None));
+        let challenge = value(f.request("GET", "/v1/p/example/challenge", &gc, b"", None));
         let sealed = base64::engine::general_purpose::STANDARD
             .decode(challenge["challenge"].as_str().unwrap())
             .unwrap();
@@ -2514,7 +3300,7 @@ mod tests {
             f.request(
                 "POST",
                 "/v1/p/example/token",
-                &write,
+                &gc,
                 json!({"challenge":proof}).to_string().as_bytes(),
                 None
             )
@@ -2526,11 +3312,16 @@ mod tests {
                 .status,
             404
         );
+        assert_eq!(
+            f.request("GET", "/v1/p/example/slots", &gc, b"", None)
+                .status,
+            404
+        );
         let paper = "/v1/p/example/objects/slots/paper.age";
         let reply = f.request("GET", paper, &read, b"", None);
         assert_eq!(reply.status, 200);
         assert_eq!(reply.body, b"encrypted-paper-slot");
-        for token in ["", "invalid", &write, &other, &expired] {
+        for token in ["", "invalid", &write, &gc, &other, &other_gc, &expired] {
             let reply = f.request("GET", paper, token, b"", None);
             let absent = f.request(
                 "GET",
@@ -2575,11 +3366,30 @@ mod tests {
             201
         );
         assert_eq!(f.request("GET", object, &write, b"", None).status, 404);
+        assert_eq!(f.request("GET", object, &gc, b"", None).status, 404);
+        assert_eq!(f.request("DELETE", object, &write, b"", None).status, 404);
+        assert_eq!(
+            f.request(
+                "GET",
+                "/v1/p/example/objects?prefix=records/",
+                &gc,
+                b"",
+                None
+            )
+            .status,
+            404
+        );
         assert_eq!(
             f.request("GET", object, &read, b"", None).body,
             b"ciphertext"
         );
-        for token in ["", "invalid", other.as_str(), expired.as_str()] {
+        for token in [
+            "",
+            "invalid",
+            other.as_str(),
+            other_gc.as_str(),
+            expired.as_str(),
+        ] {
             for action in [
                 "store.json",
                 "challenge",

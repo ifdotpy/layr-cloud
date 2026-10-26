@@ -151,6 +151,8 @@ export interface ProbeResult {
  * Missing optional fields mean unknown, not zero. No fake display metadata is added.
  */
 export interface Project {
+  access_mode?: "private" | "service" | "public";
+  epochs?: {epoch:string; parent?:string; mode?:string; time?:number; current:boolean}[];
   id: Id;
   name: string;
   public?: boolean;

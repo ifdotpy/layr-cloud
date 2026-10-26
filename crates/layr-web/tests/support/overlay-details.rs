@@ -205,6 +205,7 @@ fn visible_cli_overlay_details_match_cli_json_and_paths() {
     session.stores.insert(
         "test::secrets".into(),
         Store {
+            epochs: None,
             cache: index::Cache::default(),
             identity,
             descriptor: format::Descriptor {
@@ -372,6 +373,7 @@ fn routed_patterns_come_from_readable_own_settings() {
     session.stores.insert(
         "test::secret".into(),
         Store {
+            epochs: None,
             cache: index::Cache::default(),
             identity,
             descriptor: format::Descriptor {

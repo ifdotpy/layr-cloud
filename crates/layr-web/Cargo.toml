@@ -8,8 +8,8 @@ publish.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-layr-store = { git = "https://github.com/ifdotpy/layr", rev = "34ad8c0e9e31b4898ec3b98cbbd33ad6f30c41bf", default-features = false, features = ["wasm"] }
-layr-model = { git = "https://github.com/ifdotpy/layr", rev = "34ad8c0e9e31b4898ec3b98cbbd33ad6f30c41bf" }
+layr-store = { git = "https://github.com/ifdotpy/layr", rev = "01038b931575e1880fbc7b5829fec649720886f1", default-features = false, features = ["wasm"] }
+layr-model = { git = "https://github.com/ifdotpy/layr", rev = "01038b931575e1880fbc7b5829fec649720886f1" }
 anyhow = "1"
 base64 = "0.22"
 ed25519-dalek = { version = "2", features = ["rand_core"] }
@@ -35,4 +35,8 @@ required-features = ["test-tools"]
 
 [[example]]
 name = "session_gateway"
+required-features = ["test-tools"]
+
+[[example]]
+name = "epoch_gateway_proof"
 required-features = ["test-tools"]

@@ -92,6 +92,14 @@ impl Session {
         if !p.machine.is_empty() {
             view["policy"] = json!(p.access_policy(now, false));
         }
+        let latest_mode = records
+            .iter()
+            .filter(|r| r.op == "project.mode" && store.cache.trusted.contains_key(&r.machine))
+            .max_by_key(|r| (r.time, &r.machine, r.seq))
+            .and_then(|r| r.data["mode"].as_str());
+        view["access_mode"] = json!(latest_mode.unwrap_or("private"));
+        view["epochs"] = json!(std::iter::once(json!({"epoch":"root","current":store.epochs.is_none()}))
+            .chain(records.iter().filter(|r| r.op == "project.key").map(|r|json!({"epoch":r.data["epoch"],"parent":r.data["parent"],"mode":r.data["mode"],"time":r.time,"current":store.epochs.as_ref().is_some_and(|e|r.data["epoch"]==e.epoch())}))).collect::<Vec<_>>());
         view["public"] = json!(store.cache.public.is_some());
         Ok(view)
     }

@@ -89,6 +89,9 @@ async fn request(
         return Ok(reply);
     }
     let method = parts.method.to_string();
+    if matches!(method.as_str(), "GET" | "HEAD") && headers.contains_key("transfer-encoding") {
+        return Ok(Reply::error(400, "GET and HEAD cannot use Transfer-Encoding"));
+    }
     let data = match tokio::time::timeout(
         Duration::from_secs(120),
         Limited::new(body, OBJECT_LIMIT).collect(),
