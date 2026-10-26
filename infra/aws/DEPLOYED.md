@@ -718,3 +718,23 @@ sampler spanning this request measured gateway RSS rising from 7,188,480 to
 9,236,480 bytes, with a peak of 36 threads. These are window maxima, sampled in
 the live gateway process; they are not a four-batch saturation measurement.
 Full cold and warm clone measurements and the final cleanup readback remain pending.
+
+The next cold clone was interrupted by the host disk guard at 23:40 UTC when
+another build reduced host free space below 20 GiB. Its 5,581 HTTP responses were
+all 200; no complete clone timing or host CPU/egress delta is claimed. That partial
+run also exposed small batches in the CLI restore caller. A 131-commit fixture with
+129 sibling commits and a merge reproduced the defect over real loopback TLS:
+the previous CLI made 133 batch requests, three single-key signing requests and
+three duplicate ciphertext reads. It made no direct ciphertext GETs. The earlier
+counter classified signing and direct GETs together, so those old route counts
+cannot be called direct ciphertext reads.
+
+Client correction `62339b2e9af70408e53397241e19e56d2bd13bc0`, rebased onto
+main `43a11e1`, plans tree and data keys together and retains up to 64 MiB of
+verified compressed tree frames. The Linux clone regression restored all 131 exact
+Git IDs using batches of 2, 256 and 5 keys, with zero single-key signing requests,
+direct ciphertext GETs, duplicate signed keys or duplicate ciphertext reads.
+Expired prepared links are renewed. The store unit suite passed 46 tests;
+t19 passed 25, t49 passed 28 and t56 passed five. See
+`benchmarks/cdn/clone-window-regression.json`. Full cold/warm measurements with
+this client remain pending.

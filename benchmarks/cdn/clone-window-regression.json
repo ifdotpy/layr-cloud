@@ -1,0 +1,50 @@
+{
+  "clientSource": "62339b2e9af70408e53397241e19e56d2bd13bc0",
+  "base": "43a11e1",
+  "monitor": "1d758cb4-b669-5ede-ad8c-e9305d22b447",
+  "transport": "real CLI clone over loopback TLS, trusted fresh machine,131commit signed DAG with129siblings+merge",
+  "commits": 131,
+  "batchCount": 3,
+  "batchSizes": [
+    2,
+    256,
+    5
+  ],
+  "stateBatchCount": 2,
+  "directGetCount": 0,
+  "singleSignCount": 0,
+  "uniqueCiphertextKeys": 263,
+  "duplicateCiphertextReads": 0,
+  "duplicateSignedKeys": 0,
+  "t19": {
+    "passed": 25,
+    "failed": 0
+  },
+  "t49": {
+    "passed": 28,
+    "failed": 0
+  },
+  "t56": {
+    "passed": 5,
+    "failed": 0
+  },
+  "storeUnit": {
+    "passed": 46,
+    "failed": 0,
+    "ignored": 5,
+    "monitor": "fccb7182-58c2-501f-b4db-6ffd80f5e666"
+  },
+  "negativeControl": {
+    "source": "b1b1a0dc56b4fc763f0602067b9029b7e59b1718",
+    "binarySha256": "932bbff62e1ee2770ede9326045e19f0ade809ce801c216f10f8f678b2337817",
+    "platform": "Mac APFS",
+    "monitor": "944333cc-7179-5d8b-aea3-84f1e05865a1",
+    "result": "EXPECTED FAIL after successful clone",
+    "batchCount": 133,
+    "stateBatchCount": 132,
+    "singleSignCount": 3,
+    "directGetCount": 0,
+    "duplicateCiphertextReads": 3,
+    "duplicateSignedKeys": 0
+  }
+}

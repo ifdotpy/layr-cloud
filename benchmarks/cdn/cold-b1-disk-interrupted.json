@@ -1,0 +1,30 @@
+{
+  "observedUTC": "2026-10-26T23:51:28.519137+00:00",
+  "complete": false,
+  "stoppedBy": "host disk guard SIGTERM below20GiB",
+  "guardMonitor": "e0f75a66-1dd8-5618-b643-3592dfad779e",
+  "clientSource": "b1b1a0dc56b4fc763f0602067b9029b7e59b1718",
+  "clientBinarySha256": "932bbff62e1ee2770ede9326045e19f0ade809ce801c216f10f8f678b2337817",
+  "requests": 5581,
+  "statuses": {
+    "200": 5581
+  },
+  "classes": {
+    "gateway:store.json": 6,
+    "gateway:list:keys": 1,
+    "gateway:slots": 1,
+    "gateway:challenge": 2,
+    "gateway:token": 2,
+    "gateway:list:records": 1,
+    "gateway:cdn-batch": 1171,
+    "cdn:records": 57,
+    "gateway:list:states": 15,
+    "cdn:states": 3350,
+    "gateway:objects:states": 975
+  },
+  "cache": {
+    "miss": 2432,
+    "hit": 975
+  },
+  "limitation": "Old gateway:objects counter does not distinguish single-key signing from direct ciphertext. No full clone timing or host delta is claimed."
+}
