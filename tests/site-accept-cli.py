@@ -4,7 +4,7 @@
 Run in the fixture created by site-accept-gateway.py after invites-live.mjs.
 Only synthetic fixture credentials in the disposable VM are read.
 """
-import json,subprocess
+import json,subprocess,secrets
 from pathlib import Path
 import boto3
 from botocore.config import Config
@@ -29,7 +29,8 @@ invite_id=Path(invites[0]['Key']).stem
 run(['person','accept','--site',state['site'],'--invite',invite_id],readenv)
 print('PASS unchanged CLI accepts next gateway invite after browser acceptance')
 # Machine slot gives this synthetic machine access; person pin still comes from the browser-written index.
-run(['clone',state['url'],'browser-copy','-q'],readenv,cwd=str(h))
-copy=Path(state['root'])/'projects/browser-copy/lines/main/notes.txt'
+name='browser-copy-'+secrets.token_hex(4)
+run(['clone',state['url'],name,'-q'],readenv,cwd=str(h))
+copy=Path(state['root'])/'projects'/name/'lines/main/notes.txt'
 assert copy.read_text()=='browser accepted this project\n'
 print('PASS person CLI reads the project content through gateway and MinIO')
