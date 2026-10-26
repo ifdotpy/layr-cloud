@@ -1,5 +1,17 @@
 # AWS deployment of Layr Cloud
 
+## Project-grant epoch discovery, 2026-10-26 19:38 UTC
+
+A private project with person slots refused the ec8ba0f CLI's initial `prefix=keys%2F&limit=1000` listing with HTTP 404. The grant discovery check accepted only the older single-parameter query. This stopped trusted machines before they could open their own slot and exchange a read proof.
+
+Gateway source `76a1b23520ccc1a9f7e82f3c4d8d2fffb8787dac` (`cloud/grant-key-discovery`) uses the existing strict listing parser and requires the exact `keys/` prefix. It accepts only `prefix`, the supported `limit=1000`, and a bounded continuation; it refuses unknown or duplicate parameters, other prefixes and a continuation without the page limit. Grant scope remains the same project. The full gateway suite passed 46 tests; the external MinIO CLI test was ignored. Tests cover a private person-slot fixture, write and GC grants, valid signed continuations, extra parameters, wrong prefixes, invalid grants and a real published epoch key.
+
+Only the gateway program changed. Release archive SHA-256 is `596b33b785a5d56f36e5fef43720c900ec16f30f273a1ec9a16c71da54415ae8`; the static ARM64 musl program is 7,615,376 bytes with SHA-256 `538f5e6518f5590b37d697a130941bd79327da0ffee95c31688f34ac439aedeb`. Its build-machine SHA and size, host `--help`, and origin SecureString read passed before activation. All nine existing site assets and sync SHA-256 `3bc33961d321125f5e762f58634942fc5f6971153edce54614914eee925e37d9` remain byte-identical. CDN signing remains disabled.
+
+Public HTTPS tests with the disposable project's write grant returned 200 for the paginated discovery query in either parameter order, 404 for an extra parameter or a records prefix, and 400 for a forged continuation. The running process matched the program SHA. Direct origin and forged viewer headers remained 403; the authenticated origin returned 200 with certificate verification. Readback at 19:40:52 UTC confirmed six protected DNS records and the prototype unchanged, all three real stores empty, persistent origin/session secrets retained, IPv6 origin and 120-second timeout retained, and relay ports closed. The disposable CDN fixture remains active for measurements; a fresh trusted-machine clone through the write-grant path follows this deployment.
+
+Public receipts: [deployment](evidence/grant-key-discovery-deployment-public.json), [release](evidence/grant-key-discovery-release-public.json), [unit checks](evidence/grant-key-discovery-unit-pass.json), [live query checks](evidence/grant-key-discovery-live-probe.json), and [protected state](evidence/grant-key-discovery-protected-state.json).
+
 ## M1 preparation, 2026-10-26 11:06 UTC
 
 Preparation branch: `cloud/move-projects`, from accepted main `4f3eb35`. No real project was imported or enrolled. The executor binary remains the CloudFront release recorded below. A site-only gateway archive now contains the accepted site source `fb6b424`; the verified gateway binary and sync program are unchanged. The migration procedure is [move-projects.md](../../docs/move-projects.md).

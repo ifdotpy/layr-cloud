@@ -1,0 +1,11 @@
+{
+  "archiveSha256": "596b33b785a5d56f36e5fef43720c900ec16f30f273a1ec9a16c71da54415ae8",
+  "binarySha256": "538f5e6518f5590b37d697a130941bd79327da0ffee95c31688f34ac439aedeb",
+  "binaryBytes": 7615376,
+  "siteArchiveSha256": "555c625bbca5bd0f03647f2e62dd198c2ff27498b2f69af3c99598ad87df036c",
+  "siteFiles": 9,
+  "syncSha256": "3bc33961d321125f5e762f58634942fc5f6971153edce54614914eee925e37d9",
+  "source": "76a1b23520ccc1a9f7e82f3c4d8d2fffb8787dac",
+  "siteAndSyncByteIdentical": true,
+  "priorArchiveSha256": "555c625bbca5bd0f03647f2e62dd198c2ff27498b2f69af3c99598ad87df036c"
+}

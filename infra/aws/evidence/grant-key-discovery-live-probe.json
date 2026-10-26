@@ -1,0 +1,27 @@
+{
+  "transport": "public HTTPS CloudFront",
+  "grant": "synthetic own-project write grant, RAM only",
+  "results": [
+    {
+      "query": "prefix=keys%2F&limit=1000",
+      "status": 200
+    },
+    {
+      "query": "limit=1000&prefix=keys%2F",
+      "status": 200
+    },
+    {
+      "query": "prefix=keys%2F&limit=1000&extra=value",
+      "status": 404
+    },
+    {
+      "query": "prefix=records%2F&limit=1000",
+      "status": 404
+    },
+    {
+      "query": "prefix=keys%2F&limit=1000&continuation=forged",
+      "status": 400
+    }
+  ],
+  "passed": true
+}

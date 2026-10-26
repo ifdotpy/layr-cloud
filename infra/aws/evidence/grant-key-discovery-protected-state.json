@@ -1,0 +1,21 @@
+{
+  "time": "2026-10-26T19:40:52.011737+00:00",
+  "distribution": "E3SU1MYTKJEE06",
+  "domain": "d960l4aujuosg.cloudfront.net",
+  "deployed": true,
+  "protectedDNSUnchanged": 6,
+  "prototypeUnchanged": true,
+  "cloudAliases": [
+    "A",
+    "AAAA"
+  ],
+  "originIPv6Only": true,
+  "originReadTimeout": 120,
+  "gatewayCacheDisabled": true,
+  "cdnFixtureStillActive": true,
+  "threeRealStoresEmpty": true,
+  "priorM3ParametersAbsent": true,
+  "persistentSecretsPreserved": true,
+  "priorM3RAMDiskDetached": true,
+  "relayPortsClosed": true
+}

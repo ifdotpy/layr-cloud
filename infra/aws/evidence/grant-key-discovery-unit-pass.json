@@ -1,0 +1,10 @@
+{
+  "source": "76a1b23520ccc1a9f7e82f3c4d8d2fffb8787dac",
+  "passed": 46,
+  "failed": 0,
+  "ignored": 1,
+  "ignoredReason": "external MinIO CLI fixture",
+  "completedUtc": "2026-10-26T19:36:51Z",
+  "command": "cargo test --locked -p layr-gateway -- --test-threads=1",
+  "monitor": "44f0078a-de00-5432-8e7f-cd73086a4cdc"
+}
