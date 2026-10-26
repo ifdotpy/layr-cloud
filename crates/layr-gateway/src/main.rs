@@ -1,6 +1,7 @@
 //! Public IPv6 object gateway. It runs independently of the local Layr service and store.
 
 mod auth;
+mod cdn;
 mod aws;
 mod config;
 mod decoy;
