@@ -605,3 +605,32 @@ keys through both routes, accept exactly 100,000 scanned keys, reject 100,001,
 follow an empty filtered public page, reject modified or cross-route/prefix
 continuations, and enforce an 8 MiB bound during JSON serialization. Person and
 slot limits remain unchanged. Deployment evidence follows after activation.
+
+
+### Object listing release activated
+
+Source `6c9a9ef2f57fa3dca13e498d8258f6f8fc4f96b2` was built from an immutable
+Git archive for aarch64 Linux musl. The stripped build-machine executable measured
+7,615,376 bytes, SHA-256
+`37c0a9a55020fcd2ffea0075941bec7a3b068061c82a84a66b45f2087fdee526`.
+The copied executable passed size, SHA-256 and ELF validation before packaging.
+Archive `555c625bbca5bd0f03647f2e62dd198c2ff27498b2f69af3c99598ad87df036c`
+retains the nine accepted site files and sync SHA-256
+`3bc33961d321125f5e762f58634942fc5f6971153edce54614914eee925e37d9`.
+
+Candidate preflight SSM `516fbc0a-384f-406e-a7bd-3760e47f511d` passed with the
+previous release still active. Activation ran 14:34:48–14:34:57 UTC through SSM
+`d5849feb-0d1c-42c4-bfec-dc724176468e`, with the prior manifest and release retained
+for rollback. The running process hash and installed archive matched. Direct
+origin and forged viewer-header requests returned 403; authenticated origin HTTPS
+returned 200 with certificate verification. All nine published asset hashes matched.
+The bulk-list tests use the gateway's actual route handler with controlled storage;
+no bulk-list traffic or synthetic project was added to the now-empty AWS stores.
+
+Final readback at 14:35:25 UTC (gateway SSM
+`96e9efa4-5252-47ad-9aac-6459b3329432`): gateway and sync timer active, project
+configuration empty, public IPv4 and IPv6 HTTPS 200 with certificate verification
+0, direct/forged origin 403. All three real stores and the disposable store remain
+empty; fixture parameters remain absent; persistent secrets remain present; the
+RAM disk remains detached. Protected DNS, prototype distribution and CloudFront
+settings match the 14:15:37 cleanup readback.
