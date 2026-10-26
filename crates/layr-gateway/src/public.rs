@@ -15,16 +15,29 @@ use std::{
 
 const WINDOW: Duration = Duration::from_secs(60);
 const REQUESTS: u32 = 600;
+const AUTHENTICATED_REQUESTS: u32 = 3000;
 const CLIENTS: usize = 4096;
 
+#[derive(Eq, PartialEq, Hash)]
+enum Client {
+    Address(IpAddr),
+    Credential(String),
+}
+
 #[derive(Default)]
-pub struct Limiter(Mutex<HashMap<IpAddr, (Instant, u32)>>);
+pub struct Limiter(Mutex<HashMap<Client, (Instant, u32)>>);
 
 impl Limiter {
     pub fn allow(&self, peer: IpAddr, now: Instant) -> bool {
         self.allow_count(peer, now, REQUESTS)
     }
     pub fn allow_count(&self, peer: IpAddr, now: Instant, requests: u32) -> bool {
+        self.allow_client(Client::Address(peer), now, requests)
+    }
+    pub fn allow_credential(&self, token: &str, now: Instant) -> bool {
+        self.allow_client(Client::Credential(crate::auth::hash(token)), now, AUTHENTICATED_REQUESTS)
+    }
+    fn allow_client(&self, peer: Client, now: Instant, requests: u32) -> bool {
         let Ok(mut clients) = self.0.lock() else {
             return false;
         };

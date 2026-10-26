@@ -4,6 +4,13 @@ Clients reach `https://cloud.layr.ws` over IPv4 or IPv6 through CloudFront. Clou
 with verified HTTPS to the IPv6-only gateway at `origin.cloud.layr.ws`. Person identity comes from
 a signature session. The gateway requires the secret origin header before serving any route or
 trusting `CloudFront-Viewer-Address` for rate limits. It reads that secret from SSM at startup.
+Valid person sessions, project grants and read proofs each have a 3,000-request/minute
+budget keyed by the credential hash. Anonymous requests and refused authentication share
+a 600-request/minute budget per viewer IP. Person unlock, session challenge and session
+exchange also retain the separate 12-request/minute IP budget. A 429 response supplies
+`Retry-After: 60`. People and agents sharing an IP do not share authenticated budgets;
+processes using the same credential do. Runner sync uses a 120-second interval with jitter.
+
 
 Tailscale is optional. The gateway permits TCP 443 from `::/0`; the AWS origin-facing prefix list
 currently covers IPv4 only, so it cannot restrict this IPv6 origin. Executor and runner hosts have

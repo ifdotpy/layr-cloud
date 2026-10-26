@@ -359,13 +359,66 @@ impl Gateway {
         };
         let authenticated = self.sessions.login(bearer(&request), auth::now());
         let login = authenticated.as_deref();
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
         let config = self.config.get()?;
-        if !self.public_limit.allow(peer, std::time::Instant::now()) {
-            let mut reply = Reply::error(429, "request rate exceeded");
-            reply.headers.push(("Retry-After".into(), "60".into()));
-            return Ok(reply);
+        let token = bearer(&request);
+        let mut chain = None;
+        let project = request.target.split('?').next()
+            .and_then(|path| path.strip_prefix("/v1/p/"))
+            .and_then(|path| path.split('/').next())
+            .and_then(decode)
+            .filter(|alias| safe_part(alias))
+            .and_then(|alias| config.projects.get(&alias).map(|project| (alias, project)));
+        let mut unavailable = false;
+        let credential = login.is_some() || project.as_ref().is_some_and(|(alias, project)| {
+            let at = auth::now();
+            if auth::grant(token, project, false, at) || auth::grant(token, project, true, at)
+                || self.proof.valid("read", &project.binding(alias), token, at) {
+                return true;
+            }
+            if token.starts_with("read.") && token.len() <= 180 {
+                // Reuse discovery for routing; do not list epochs twice for a read proof.
+                match super::epochs::Chain::load(self, project) {
+                    Ok(loaded) => {
+                        let valid = loaded.reads(&self.proof, alias, "root", token, at);
+                        chain = Some(loaded);
+                        valid
+                    }
+                    Err(_) => { unavailable = true; false }
+                }
+            } else { false }
+        });
+        let now = std::time::Instant::now();
+        let allowed = if credential {
+            self.public_limit.allow_credential(token, now)
+        } else {
+            self.public_limit.allow(peer, now)
+        };
+        if !allowed { return Ok(Self::rate_exceeded()); }
+        if unavailable { return Ok(Reply::error(404, "no such project")); }
+        let reply = self.route_checked(request, login, peer, &config, chain)?;
+        // Valid credentials do not move refused authentication out of the IP budget.
+        if credential && matches!(reply.status, 401 | 403 | 404)
+            && !self.public_limit.allow(peer, std::time::Instant::now()) {
+            return Ok(Self::rate_exceeded());
         }
+        Ok(reply)
+    }
+
+    fn rate_exceeded() -> Reply {
+        let mut reply = Reply::error(429, "request rate exceeded");
+        reply.headers.push(("Retry-After".into(), "60".into()));
+        reply
+    }
+
+    fn route_checked(
+        &self,
+        request: http::Request,
+        login: Option<&str>,
+        peer: std::net::IpAddr,
+        config: &super::config::Config,
+        mut preloaded: Option<super::epochs::Chain>,
+    ) -> Result<Reply> {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
         if config.listen != self.listen {
             return Ok(Reply::error(
                 503,
@@ -445,7 +498,7 @@ impl Gateway {
             let at = auth::now();
             let grant = auth::grant(token, project, false, at);
             let gc_grant = auth::grant(token, project, true, at);
-            let chain = match super::epochs::Chain::load(self, project) {
+            let chain = match preloaded.take().map(Ok).unwrap_or_else(|| super::epochs::Chain::load(self, project)) {
                 Ok(chain) => chain,
                 Err(_) => return Ok(Reply::error(404, "no such project")),
             };
@@ -2090,6 +2143,52 @@ mod tests {
                 .status,
             404
         );
+    }
+
+    #[test]
+    fn credentials_on_one_ip_have_independent_budgets_and_anonymous_failures_stay_limited() {
+        let mut f = Fixture::new();
+        let first = f.token(false);
+        let second = f.token(false);
+        let project = f.config.projects.get("example").unwrap();
+        f.gateway.storage.put(project, "store.json", b"{}".to_vec()).unwrap();
+        // Invalid bearer strings all share the anonymous viewer budget.
+        for n in 0..600 {
+            assert_ne!(f.request("GET", "/missing", &format!("forged-{n}"), b"", None).status, 429);
+        }
+        let denied = f.request("GET", "/missing", "another-forgery", b"", None);
+        assert_eq!(denied.status, 429);
+        assert!(denied.headers.contains(&("Retry-After".into(), "60".into())));
+        for viewer in ["198.51.100.1:1000", "198.51.100.2:2000"] {
+            let forged = http::Request {
+                method: "GET".into(), target: "/missing".into(), body: vec![],
+                headers: BTreeMap::from([
+                    ("host".into(), "localhost".into()),
+                    ("cloudfront-viewer-address".into(), viewer.into()),
+                    ("x-forwarded-for".into(), viewer.into()),
+                ]),
+            };
+            assert_eq!(f.gateway.handle(forged, None).status, 429);
+        }
+        for _ in 0..3000 {
+            assert_eq!(f.request("GET", "/v1/p/example/store.json", &first, b"", None).status, 200);
+            assert_eq!(f.request("GET", "/v1/p/example/store.json", &second, b"", None).status, 200);
+        }
+        assert_eq!(f.request("GET", "/v1/p/example/store.json", &first, b"", None).status, 429);
+        assert_eq!(f.request("GET", "/v1/p/example/store.json", &second, b"", None).status, 429);
+        // A valid session also remains usable after this IP's anonymous budget is gone.
+        let site = f.path.with_extension("site");
+        std::fs::create_dir(&site).unwrap();
+        std::fs::write(site.join("index.html"), b"site").unwrap();
+        f.config.extra.insert("siteDir".into(), json!(site));
+        std::fs::write(&f.path, serde_json::to_vec(&f.config).unwrap()).unwrap();
+        let session = f.gateway.sessions.test_token("reader@example.com");
+        assert_eq!(f.request("GET", "/", &session, b"", None).status, 200);
+        // A revoked grant is refused by the IP budget, even though it used to be valid.
+        f.config.projects.get_mut("example").unwrap().write_token_hashes.clear();
+        std::fs::write(&f.path, serde_json::to_vec(&f.config).unwrap()).unwrap();
+        assert_eq!(f.request("GET", "/v1/p/example/store.json", &first, b"", None).status, 429);
+        std::fs::remove_dir_all(site).unwrap();
     }
 
     #[test]

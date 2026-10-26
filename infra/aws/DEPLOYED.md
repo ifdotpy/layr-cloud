@@ -387,3 +387,68 @@ confirms that managed AllViewerExceptHostHeader supplies the generated address i
 that policy is retained and a dual-SAN origin certificate is unnecessary. The origin certificate
 covers `origin.cloud.layr.ws`. Direct origin traffic and a forged viewer header without the secret
 both returned 403, while an authenticated origin request returned verified HTTPS 200.
+
+## Full-suite laptop cloud fixture (2026-10-26, in progress)
+
+The lead authorized a separate disposable fixture after the M1 preparation stage was merged.
+At 11:21 UTC, `m3-suite` was published in the empty `layr-store-m8-final` store. Its project ID is
+`01a177f1-4bd0-7029-b488-6f00793f9798`. The imported source is the exact tree of core
+`97bcb6a77c390c97ee48460722ae0a14b17b9c04`, Git tree
+`26d18d5d28f1b12341f5a2fc5e674b0559202494`. Its one synthetic Git commit contains that full
+source tree; this fixture does not claim to test the separate Git-history gate. Main state:
+`01a177f1-4ecb-70e3-97c8-7e563fe0b2ab`.
+
+The creator CLI was built from that exact source on the Mac: 74,929,144 bytes, SHA-256
+`37e4ba68cec005a9a90bb54ba82a6257cde13e79a9192d047dcbf9035f45c9ef`.
+The creator ran `tools/checks/configure.sh` and signed all five definitions, the main-line and
+change selections, platform restrictions and resource limits. Linux selects `unit`, `integration`,
+`overlayfs-ext4` and `overlayfs-xfs`; macOS selects `apfs`. The three integration/filesystem Linux
+jobs require privileged execution. Both existing laptop runner public identities have encrypted
+machine slots. Main is protected, and the synthetic person is a pinned maintainer.
+
+SSM command `909278ed-4fb5-45fc-b1e3-c6b71d0831f7` issued a disposable runner grant and person
+registration invite. Registration through public HTTPS returned 200. Credentials remain in SSM
+or private files on the owned APFS RAM disk; runner VM transport files use tmpfs. The AWS
+executor was not enrolled. At 11:24 UTC the owner fetched through CloudFront and verified its
+signature chain with zero problems. A fresh browser context opened the published site, decrypted
+`tools/checks/configure.sh`, opened Checks and locked successfully. Browser storage remained
+empty. Runner execution, independent result verification and cleanup are pending.
+
+The first automatic cloud APFS job failed with exit 101: Cargo reported 130 passed and one
+failure in `collection_keeps_complete_reused_and_young_parts`, at `writer.rs:720` during
+concurrent upload and collection (`NoSuchFile`). Its signed record is
+`01a177f5-92a2-7649-b68f-253f687d21ef`, full-envelope SHA-256
+`b0fd6d27d06ae15d4ebad25535fc25cef544bbe18dea9f6084bf6cd6b19cb90d` (export line, no newline).
+The retained log is `derived/check-v1/01a177f5-9265-7636-979a-c97747f5a3eb`.
+Independent owner fetch and signature verification passed at 11:26 UTC. The failure remains
+recorded while the runner worker investigates; the full-suite acceptance has not passed.
+
+At 11:30 UTC, the published Checks page also showed the failed APFS result for the exact main
+state. The browser proof verified the command row, decrypted source, signature sign-in, lock and
+empty browser storage. The row uses the full command as its label because the recorded argv has
+a shell wrapper; the first test incorrectly expected the short check name and was corrected.
+The lead authorized one reseed with the tested GC fix after the current Linux jobs finish. The
+original signed failure and its log remain evidence; the current source stays fixed until then.
+
+
+At 12:03 UTC the runner worker confirmed that all four original Linux checks passed and their
+signed attestations reached the Mac. Initial owner fetch at 12:14 UTC returned HTTP 429 before
+any reseed mutation. Mac sync and the Linux sync timer paused at 12:15:34 UTC. After the
+60-second retry interval, owner fetch received 80 records and four states; verification found
+three signer chains and zero problems. The creator then performed the single authorized
+reseed, preserving the original main as its parent. Corrected source:
+`e74ceff3e74babd8bf24e2a06c25ec600deb64f9`, exact exported Git tree
+`8572e78f15a3377840578c028dbb7e9c15187a75`, new main
+`01a17824-b887-7026-bd2f-ab273a0351f8`. Main protection was restored before publication.
+The push delivered seven records, one state and three changed files (1,412 bytes). Automatic
+transports resumed at 12:19:42 UTC: Mac every 120 seconds; Linux every 120 seconds plus 0–30
+seconds of jitter. Check watchers stayed active, and the original jobs were not rerun.
+
+The old gateway applied 600 requests/minute to every request from a viewer IP. Four 15-second
+sync cycles leave only 150 requests per cycle for one process, before other agents or a browser.
+Observed 429s establish that this combined full-source workload exceeded the shared-IP budget.
+The separate 12/minute limit covers person unlock, session challenge and session exchange;
+grant-based object transport does not use it. The lead authorized per-credential 3,000/minute
+limits while retaining anonymous/failed-authentication 600/IP and person-bootstrap 12/IP.
+Gateway implementation and deployment verification are in progress. Request measurement uses
+a separate local counting CLI build; no core branch is changed.
