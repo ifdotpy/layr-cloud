@@ -110,3 +110,22 @@ test('epoch read proofs and requests use the current namespace and renewal clear
   assert.equal(exchanges,2);assert(paths.includes('/v1/p/p/challenge'));
  }finally{globalThis.fetch=previous;}
 });
+
+test('acceptance index and inbox writes use the person session and preserve the CAS body',async()=>{
+ const previous=globalThis.fetch;const calls:{path:string;method?:string;body?:BodyInit|null}[]=[];
+ globalThis.fetch=async(input,init={})=>{
+  const path=String(input);
+  if(path.startsWith('/api/session/challenge'))return Response.json({challenge:'session'});
+  if(path==='/api/session')return Response.json({login:'ann@example.com',token:'person',expires:Date.now()+60000});
+  assert.equal(new Headers(init.headers).get('authorization'),'Bearer person');
+  assert.equal(new Headers(init.headers).get('content-type'),'application/json');
+  calls.push({path,method:init.method,body:init.body});return Response.json({saved:true});
+ };
+ try{
+  const gateway=new Gateway();await gateway.signIn('ann@example.com',()=> 'signature');
+  const body=JSON.stringify({data:'ciphertext',previous:'sha256'});
+  await gateway.putPersonIndex(body);await gateway.removeInvite('1793010000000-00000001');
+  assert.deepEqual(calls,[{path:'/api/person/index',method:'PUT',body},{path:'/api/person/inbox/1793010000000-00000001',method:'DELETE',body:undefined}]);
+  gateway.lock();await assert.rejects(gateway.putPersonIndex(body),/Sign in/);
+ }finally{globalThis.fetch=previous;}
+});

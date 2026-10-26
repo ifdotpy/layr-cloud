@@ -106,6 +106,7 @@ export class ModelSource implements DataSource {
   machines(): Promise<Machine[]> { return this.call('machines'); }
   stores(): Promise<Store[]> { return this.call('stores'); }
   you(): Promise<You> { return this.call('you'); }
+  acceptInvite(id: string): Promise<string> { return this.call('acceptInvite',[id]); }
   screens(project: string, base: string, head: string): Promise<ScreenDiff[]> { return this.call('screens', [project, base, head]); }
   async lock(): Promise<void> { this.stop(); }
   dispose(): void { this.stop(); removeEventListener('pagehide', this.onClose); for (const event of this.activityEvents) removeEventListener(event, this.onActivity); }

@@ -325,7 +325,7 @@ export interface Store {
 export interface You {
   login?: string;
   recipient?: string;
-  invites: { project: string; role?: string }[];
+  invites: { id?: string; project: string; role?: string }[];
   /** Invalid pending invites do not grant access or block accepted project pins. */
   invite_errors?: { id: string; reason: string }[];
   disk: { store: string; address?: string; locked: boolean; path?: string }[];
@@ -463,6 +463,7 @@ export interface DataSource {
   machines(): Promise<Machine[]>;
   stores(): Promise<Store[]>;
   you(): Promise<You>;
+  acceptInvite?(id: string): Promise<string>;
   /** Screen bytes and structure come from stored probe outputs, never from running a probe. */
   screens(project: Id, base: Id, head: Id): Promise<ScreenDiff[]>;
   /** Canonical version patch comparison. Content loads only for an exact path. */
