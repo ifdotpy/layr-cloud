@@ -199,7 +199,7 @@ test('busy responses retry the identical envelope and stop without another burst
  finally {globalThis.fetch=previous;Math.random=random;}
 });
 
-test('batch signing uses 256-key requests and eight CDN reads with one proof',async()=>{
+test('batch signing halves a deadline batch and uses eight CDN reads with one proof',async()=>{
  const previous=globalThis.fetch;let batches:number[]=[],active=0,peak=0,proofs=0;
  const keys=Array.from({length:300},(_,i)=>`files/01a177aa-a7a5-716c-8774-${i.toString(16).padStart(12,'0')}.age`),positions=new Map(keys.map((key,i)=>[key,i]));
  globalThis.fetch=async(input,init={})=>{
@@ -211,6 +211,7 @@ test('batch signing uses 256-key requests and eight CDN reads with one proof',as
   if(path==='/v1/p/project/cdn'){
    assert.equal(init.method,'POST');assert.equal(headers.get('authorization'),'Bearer read');
    const body=JSON.parse(String(init.body));assert.equal(body.epoch,'root');assert.ok(body.keys.length<=256);batches.push(body.keys.length);
+   if(body.keys.length===256)return Response.json({error:'request timed out'},{status:408});
    const expires=Math.floor(Date.now()/1000)+300;
    return Response.json({objects:body.keys.map((key:string)=>({status:200,bytes:1,expires,url:`https://layr.example/o/project/${key}?Expires=${expires}&Signature=abc&Key-Pair-Id=K123&Hash-Algorithm=SHA256`}))});
   }
@@ -221,6 +222,6 @@ test('batch signing uses 256-key requests and eight CDN reads with one proof',as
  try {
   const gateway=new Gateway();await gateway.signIn('ann@example.com',()=> 'signature');
   const result=await gateway.verifiedObjects('project',keys,()=> 'proof',bodies=>bodies.map(body=>body[0]));
-  assert.deepEqual(result,keys.map((_,i)=>i%256));assert.deepEqual(batches,[256,44]);assert.equal(proofs,1);assert.equal(peak,8);
+  assert.deepEqual(result,keys.map((_,i)=>i%256));assert.deepEqual(batches,[256,128,128,44]);assert.equal(proofs,1);assert.equal(peak,8);
  }finally{globalThis.fetch=previous;}
 });

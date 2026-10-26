@@ -243,7 +243,9 @@ export class Gateway {
       const epoch = scoped?.[1] ?? 'root', relative = scoped?.[2] ?? key;
       const group = groups.get(epoch) ?? []; group.push({key, relative}); groups.set(epoch, group);
     }
-    for (const [epoch, entries] of groups) {
+    for (const [epoch, group] of groups) {
+      const prepare = async(entries: {key:string; relative:string}[]): Promise<void> => {
+      try {
       const response = await this.signingRequest(() => this.authorized(project, 'cdn', decrypt, false, {
         method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({epoch, keys:entries.map(entry=>entry.relative)}),
       }));
@@ -260,8 +262,16 @@ export class Gateway {
         catch { this.batchLinks.set(`${project}/${entry.key}`, false); continue; }
         this.batchLinks.set(`${project}/${entry.key}`, link);
       }
+      } catch (error) {
+        if (!(error instanceof HttpError) || error.status !== 408 || entries.length <= 1) throw error;
+        const half = Math.ceil(entries.length / 2);
+        await prepare(entries.slice(0,half)); await prepare(entries.slice(half));
+      }
+      };
+      await prepare(group);
     }
   }
+
   /** The callback must verify all supplied objects before it publishes a result. */
   async verifiedObjects<T>(project: string, keys: string[], decrypt: (bytes: Uint8Array) => string,
     verify: (bytes: Uint8Array[], retry: boolean) => T | Promise<T>, maximum?: number, readObject?: (key: string, direct: boolean) => Promise<Uint8Array>): Promise<T> {

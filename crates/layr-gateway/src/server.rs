@@ -684,26 +684,34 @@ impl Gateway {
         if let Some((epoch, keys)) = batch {
             if !read { return Ok(Reply::error(401, "a read challenge token is required")); }
             let mut objects = Vec::with_capacity(keys.len());
-            for key in keys {
+            for chunk in keys.chunks(16) {
                 if std::time::Instant::now() >= deadline { return Ok(Reply::error(408, "request timed out")); }
-                let mut headers = request.headers.clone(); headers.insert("x-layr-cdn".into(), "1".into());
-                let prefix = if epoch == "root" { String::new() } else { format!("project/epochs/{epoch}/") };
-                // Reuse the single GET's route and authorization checks. Metadata mode
-                // replaces the final body read with HEAD; no requested body is fetched.
-                let reply = self.route_checked(http::Request {
-                    method: "GET".into(), target: format!("/v1/p/{name}/objects/{prefix}{key}"), headers, body: Vec::new(),
-                }, login, peer, config, epoch_chain.clone(), true).unwrap_or_else(|error| {
-                    if let Some(error) = error.downcast_ref::<http::Error>() { return Reply::error(error.status,error.message); }
-                    eprintln!("layr-gateway: request failed: {error:#}");
-                    Reply::error(502,"storage request failed")
-                });
-                let value = if reply.status == 200 {
+                let replies=std::thread::scope(|scope| {
+                    let tasks:Vec<_>=chunk.iter().map(|key| {
+                        let chain=epoch_chain.clone();let epoch=&epoch;let request=&request;
+                        scope.spawn(move || {
+                            let mut headers=request.headers.clone();headers.insert("x-layr-cdn".into(),"1".into());
+                            let prefix=if epoch=="root" {String::new()} else {format!("project/epochs/{epoch}/")};
+                            // Reuse the single GET's checks, but HEAD rather than read the body.
+                            self.route_checked(http::Request {method:"GET".into(),target:format!("/v1/p/{name}/objects/{prefix}{key}"),headers,body:Vec::new()},login,peer,config,chain,true)
+                                .unwrap_or_else(|error| {
+                                    if let Some(error)=error.downcast_ref::<http::Error>() {return Reply::error(error.status,error.message);}
+                                    eprintln!("layr-gateway: request failed: {error:#}");Reply::error(502,"storage request failed")
+                                })
+                        })
+                    }).collect();
+                    tasks.into_iter().map(|task|task.join().map_err(|_|anyhow::anyhow!("batch check worker failed"))).collect::<Result<Vec<_>>>()
+                })?;
+                if std::time::Instant::now() >= deadline { return Ok(Reply::error(408,"request timed out")); }
+                for reply in replies {
+                    let value = if reply.status == 200 {
                     let mut value: serde_json::Value = serde_json::from_slice(&reply.body)?;
                     value.as_object_mut().expect("metadata object").insert("status".into(), json!(200)); value
                 } else {
                     json!({"status":reply.status,"error":serde_json::from_slice::<serde_json::Value>(&reply.body)?})
                 };
                 objects.push(value);
+                }
             }
             return Ok(Reply::json(200, json!({"objects":objects})));
         }

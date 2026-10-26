@@ -1,0 +1,12 @@
+{
+  "observedUTC": "2026-10-26T23:05:27.915287+00:00",
+  "region": "eu-north-1",
+  "host": "gateway nano same region",
+  "keys": 256,
+  "operation": "S3 HEAD only; no object bodies",
+  "serialSeconds": 4.895464640998398,
+  "parallel16Seconds": 0.7124437349993968,
+  "serialMedianHeadSeconds": 0.018099184497259557,
+  "serialMaxHeadSeconds": 0.09902923699701205,
+  "orderedLengthsIdentical": true
+}
