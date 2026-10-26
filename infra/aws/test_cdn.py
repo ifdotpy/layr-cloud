@@ -7,6 +7,22 @@ import cdn
 
 
 class CdnTests(unittest.TestCase):
+    def test_dns_dependency_updates_require_identical_definitions(self):
+        cf = Mock()
+        base = cdn.source_template('cloudfront.yaml')
+        cf.get_template.return_value = {'TemplateBody': base}
+        changes = {'Changes': [{'ResourceChange': {'LogicalResourceId': 'A',
+            'Action': 'Modify', 'Replacement': 'False'}}]}
+        cdn.validate_changes(cf, 'layr-cloudfront', 'change', changes)
+        other = copy.deepcopy(base)
+        other['Resources']['A']['Properties']['Name'] = 'other.example'
+        cf.get_template.side_effect = [{'TemplateBody': base}, {'TemplateBody': other}]
+        with self.assertRaises(ValueError):
+            cdn.validate_changes(cf, 'layr-cloudfront', 'change', changes)
+        changes['Changes'][0]['ResourceChange']['LogicalResourceId'] = 'Instance'
+        with self.assertRaises(ValueError):
+            cdn.validate_changes(cf, 'layr-cloudfront', 'change', changes)
+
     def test_canned_signature_is_path_exact_and_verifies_with_library_rsa_sha256(self):
         import base64
         from urllib.parse import parse_qs, urlsplit

@@ -176,6 +176,13 @@ def probe(session, receipt):
         state = {'bucket': store['bucket'], 'prefix': store['prefix'],
                  'key': 'states/' + str(uuid.uuid4()) + '/12345678.0000.data.age'}
         receipt.write_text(json.dumps(state))
+    cf = session.client('cloudformation')
+    outputs = {row['OutputKey']: row['OutputValue'] for row in
+               cf.describe_stacks(StackName='layr-cloudfront')['Stacks'][0]['Outputs']}
+    parameter = session.client('ssm').get_parameter(Name=KEY_PARAMETERS['a'], WithDecryption=True)['Parameter']
+    if parameter['Type'] != 'SecureString':
+        raise ValueError('Signing key is not a SecureString')
+    private = serialization.load_pem_private_key(parameter['Value'].encode(), password=None)
     body = hashlib.sha256(b'Public disposable CloudFront RSA SHA256 probe').digest() * 128
     s3 = session.client('s3'); key = state['prefix'] + '/' + state['key']
     try:
@@ -188,13 +195,6 @@ def probe(session, receipt):
         if existing['Body'].read() != body:
             raise ValueError('Existing probe object differs')
         state['version'] = existing['VersionId']; receipt.write_text(json.dumps(state))
-    cf = session.client('cloudformation')
-    outputs = {row['OutputKey']: row['OutputValue'] for row in
-               cf.describe_stacks(StackName='layr-cloudfront')['Stacks'][0]['Outputs']}
-    parameter = session.client('ssm').get_parameter(Name=KEY_PARAMETERS['a'], WithDecryption=True)['Parameter']
-    if parameter['Type'] != 'SecureString':
-        raise ValueError('Signing key is not a SecureString')
-    private = serialization.load_pem_private_key(parameter['Value'].encode(), password=None)
     base = 'https://cloud.layr.ws/o/cdn-studio/' + state['key']
     def fetch(url):
         try:
@@ -268,6 +268,30 @@ def plan(session, stack, template):
     return {'stack': stack, 'change': change, 'status': 'PLANNED'}
 
 
+def validate_changes(cf, stack, change, result):
+    allowed = {'layr-cloudfront': {'Distribution', 'CdnOac', 'CdnCache', 'CdnRouter',
+                                  'CdnKeys', 'CdnPublicKeyA', 'CdnPublicKeyB'}}
+    names = allowed.get(stack, {'BucketPolicy'} if stack in
+        ['layr-store-' + name for name in ('layr', 'layr-cloud', 'layr-studio', 'm8-final')] else set())
+    for row in result.get('Changes', []):
+        resource = row['ResourceChange']
+        name = resource['LogicalResourceId']
+        # Distribution dependencies can flag aliases even when their definitions do not change.
+        if stack == 'layr-cloudfront' and name in ('A', 'AAAA'):
+            before = cf.get_template(StackName=stack)['TemplateBody']
+            after = cf.get_template(StackName=stack, ChangeSetName=change)['TemplateBody']
+            before = yaml.load(before, Loader=Loader) if isinstance(before, str) else before
+            after = yaml.load(after, Loader=Loader) if isinstance(after, str) else after
+            if (resource['Action'] != 'Modify' or resource.get('Replacement') != 'False'
+                    or before['Resources'][name] != after['Resources'][name]):
+                raise ValueError('DNS resource definition changed')
+            continue
+        if name not in names or resource['Action'] == 'Remove':
+            raise ValueError('Unexpected resource change')
+        if name in ('Distribution', 'BucketPolicy') and resource['Action'] == 'Modify' and resource.get('Replacement') != 'False':
+            raise ValueError('Refusing replacement of an existing distribution or bucket policy')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('operation', choices=['plan-front', 'plan-store', 'inspect', 'execute', 'probe'])
@@ -299,14 +323,7 @@ def main():
             parser.error('--change is required')
         cf = session.client('cloudformation')
         result = inspect(cf, args.stack, args.change)
-        allowed = {'layr-cloudfront': {'Distribution', 'CdnOac', 'CdnCache', 'CdnRouter',
-                                      'CdnKeys', 'CdnPublicKeyA', 'CdnPublicKeyB'}}
-        names = allowed.get(args.stack, {'BucketPolicy'} if args.stack in
-            ['layr-store-' + name for name in ('layr', 'layr-cloud', 'layr-studio', 'm8-final')] else set())
-        for row in result.get('Changes', []):
-            resource = row['ResourceChange']
-            if resource['LogicalResourceId'] not in names or resource['Action'] == 'Remove':
-                raise ValueError('Unexpected resource change')
+        validate_changes(cf, args.stack, args.change, result)
         if args.operation == 'execute':
             execute(cf, args.stack, args.change)
 
