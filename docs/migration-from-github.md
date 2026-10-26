@@ -31,3 +31,9 @@ GitHub stays only as an optional Git mirror (`layr git push github main`).
 1. Wave 1, in parallel: M5 Releases and Lines on the site; M2 core in `layr` (signing keys, requests, apply and refusal, comments); M3 checks on the executor; M8 deploy.
 2. Wave 2: M2 in the browser; M4 release files; `store-index` (large stores, blame).
 3. Wave 3: M7 public projects; M6 Studio agents; move the three projects; GitHub becomes a mirror.
+
+## Decisions of 2026-10-26 (igor)
+
+- IPv4 access: CloudFront in front of the gateway (docs/cloudfront-front-design.md).
+- M3 checks: a Linux VM on igor's laptop is the privileged runner for now, not the AWS `layr-runner`. The Mac host runs the APFS job.
+- M6 agents: Studio agents use a skill with the real `layr` CLI now. Improve the skill and the CLI where agents need it.
