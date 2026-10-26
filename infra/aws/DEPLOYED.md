@@ -208,3 +208,19 @@ AllViewerExceptHostHeader `b689b0a8-53d0-40ab-baf2-68738e2966ac`. The template n
 IDs. Before planning any front change set, the deployment helper lists AWS managed policies and
 checks the IDs against their names. A missing or mismatched policy fails before reading the
 origin secret or creating a change set. CloudFormation lint and all 51 infrastructure tests passed.
+
+CloudFront's documented maximum request-body size is 64 GB. This exceeds the 512 MiB release-file
+limit plus age encryption overhead, so no CLI limit change is needed. See the
+[AWS CloudFront quotas](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/cloudfront-limits.html).
+The configured origin response timeout is 120 seconds; live acceptance and transfer evidence follows
+when the distribution and streaming release endpoint are verified.
+
+The corrected distribution `E3SU1MYTKJEE06` (`d960l4aujuosg.cloudfront.net`) reached Deployed.
+At 09:42:05 UTC the guarded candidate was activated. At 09:42:20 UTC a Mac `curl -4` request
+with the real `cloud.layr.ws` SNI and Host, connected to the distribution before the DNS switch,
+returned HTTP 200, certificate verification 0, peer `18.244.102.119` and CloudFront response headers.
+The gateway requires a valid CloudFront-Viewer-Address before serving any route. This live result
+confirms that managed AllViewerExceptHostHeader supplies the generated address in this deployment;
+that policy is retained and a dual-SAN origin certificate is unnecessary. The origin certificate
+covers `origin.cloud.layr.ws`. Direct origin traffic and a forged viewer header without the secret
+both returned 403, while an authenticated origin request returned verified HTTPS 200.
