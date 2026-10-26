@@ -1,0 +1,84 @@
+{
+  "phase": "before",
+  "started": 1793043719.288834,
+  "complete": true,
+  "authentication": "scoped write grant and own trusted machine slot",
+  "binarySha256": "51891a2b96354d77d9295c56cbf6c8005b07f924beb3921e1c2267f62524906f",
+  "hostBefore": {
+    "time": 1793043716.698094,
+    "pid": 21224,
+    "startTicks": 9616661,
+    "cpuTicks": 8,
+    "ticksPerSecond": 100,
+    "binarySha256": "538f5e6518f5590b37d697a130941bd79327da0ffee95c31688f34ac439aedeb",
+    "interfaces": {
+      "ens5": {
+        "rx_bytes": 2119950769,
+        "tx_bytes": 2272566296,
+        "rx_packets": 4171669,
+        "tx_packets": 3753877
+      }
+    },
+    "load": [
+      0.02734375,
+      0.0244140625,
+      0.0
+    ]
+  },
+  "exitCode": 0,
+  "seconds": 9971.038,
+  "completedAt": 1793053690.327162,
+  "maxRssBytes": 6228312064,
+  "hostAfter": {
+    "time": 1793053693.376652,
+    "pid": 21224,
+    "startTicks": 9616661,
+    "cpuTicks": 6985,
+    "ticksPerSecond": 100,
+    "binarySha256": "538f5e6518f5590b37d697a130941bd79327da0ffee95c31688f34ac439aedeb",
+    "interfaces": {
+      "ens5": {
+        "rx_bytes": 2875388444,
+        "tx_bytes": 3071914257,
+        "rx_packets": 4851173,
+        "tx_packets": 4665239
+      }
+    },
+    "load": [
+      0.13232421875,
+      0.04296875,
+      0.0126953125
+    ]
+  },
+  "requests": {
+    "total": 30915,
+    "classes": {
+      "gateway:store.json": 8,
+      "gateway:list:keys": 1,
+      "gateway:slots": 1,
+      "gateway:challenge": 15,
+      "gateway:token": 15,
+      "gateway:list:records": 1,
+      "gateway:objects:records": 57,
+      "gateway:list:states": 15,
+      "gateway:objects:states": 30798,
+      "gateway:objects:slots": 2,
+      "gateway:list:other": 2
+    },
+    "statuses": {
+      "200": 30913,
+      "201": 1,
+      "412": 1
+    },
+    "cdnCache": {},
+    "declaredBytes": 595208095,
+    "gatewayDeclaredBytes": 595208095
+  },
+  "git": {
+    "originalCommits": 7965,
+    "restoredCommits": 7965,
+    "allIdsIdentical": true,
+    "tip": "eec4c6d136da146a5d3d659575c1baf2d93849f8",
+    "tree": "f73d8a3b174dae65889605159ff2e9d98657bb57"
+  }
+}
