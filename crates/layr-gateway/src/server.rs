@@ -576,8 +576,8 @@ impl Gateway {
             scoped_read = chain.reads(&self.proof, &parts[2], &namespace, token, at);
             let discovery = (parts.len() == 4
                 && parts[3] == "objects"
-                && !query.contains('&')
-                && query.strip_prefix("prefix=").and_then(decode).as_deref() == Some("keys/"))
+                && crate::listing::Options::parse(query)
+                    .is_ok_and(|options| options.prefix == "keys/"))
                 || (parts.len() > 4
                     && parts[3] == "objects"
                     && super::epochs::discovery(&parts[4..].join("/")));
@@ -1384,6 +1384,56 @@ mod tests {
     const EPOCH: &str = "01a12290-0000-7000-8000-000000000002";
 
     #[test]
+    fn grant_epoch_discovery_accepts_only_strict_listing_options() {
+        let mut f = Fixture::new();
+        let write = f.token(false);
+        let gc = f.token(true);
+        let project = &f.config.projects["example"];
+        f.gateway.storage.put(
+            project,
+            "store.json",
+            serde_json::to_vec(&json!({"format":2,"project":OVERLAY,"recipient":project.recipient})).unwrap(),
+        ).unwrap();
+        let binding = json!(["listing", false, project.binding("example"), "keys/"]).to_string();
+        let cursor = f.gateway.proof.seal_listing(
+            &binding,
+            &json!({"position":format!("keys/{EPOCH}-{OVERLAY}.json"),"seen":1}).to_string(),
+            auth::now(),
+        );
+        for token in [&write, &gc] {
+            for query in [
+                "prefix=keys%2F".to_string(),
+                "prefix=keys%2F&limit=1000".to_string(),
+                "limit=1000&prefix=keys%2F".to_string(),
+                format!("prefix=keys%2F&limit=1000&continuation={cursor}"),
+            ] {
+                let reply = f.request("GET", &format!("/v1/p/example/objects?{query}"), token, b"", None);
+                assert_eq!(reply.status, 200, "{query}");
+                assert_eq!(value(reply)["objects"], json!([]));
+            }
+            for query in [
+                "prefix=keys%2F&limit=1000&extra=value",
+                "prefix=keys%2F&limit=1000&epoch=root",
+                "prefix=keys%2F&prefix=records%2F&limit=1000",
+                "prefix=keys%2F&limit=1000&limit=1000",
+                "prefix=keys%2F&limit=999",
+                "prefix=keys%2F&continuation=opaque",
+                "prefix=records%2F&limit=1000",
+                "prefix=keys%2Fchild%2F&limit=1000",
+                "limit=1000",
+            ] {
+                assert_eq!(f.request("GET", &format!("/v1/p/example/objects?{query}"), token, b"", None).status, 404, "{query}");
+            }
+        }
+        let path = "/v1/p/example/objects?prefix=keys%2F&limit=1000";
+        for token in ["", "invalid"] {
+            assert_eq!(f.request("GET", path, token, b"", None).status, 404);
+        }
+        assert_eq!(f.request("GET", "/v1/p/other/objects?prefix=keys%2F&limit=1000", &write, b"", None).status, 404);
+        assert_eq!(f.request("GET", "/v1/p/example/objects?prefix=keys%2F&limit=1000&continuation=forged", &write, b"", None).status, 400);
+    }
+
+    #[test]
     fn release_file_discovery_needs_a_read_proof() {
         let mut f = Fixture::new();
         let read = f.read_token();
@@ -1563,6 +1613,20 @@ mod tests {
             f.request("GET", &discovery, &gc, b"", None).body,
             signed.as_bytes()
         );
+        for token in [&write, &gc] {
+            let page = f.request(
+                "GET",
+                "/v1/p/example/objects?prefix=keys%2F&limit=1000",
+                token,
+                b"",
+                None,
+            );
+            assert_eq!(page.status, 200);
+            let page = value(page);
+            assert_eq!(page["objects"].as_array().unwrap().len(), 1);
+            assert_eq!(page["objects"][0]["key"], format!("keys/{EPOCH}-{OVERLAY}.json"));
+            assert_eq!(page["continuation"], serde_json::Value::Null);
+        }
         assert_eq!(
             f.request(
                 "GET",
