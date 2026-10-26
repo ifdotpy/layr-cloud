@@ -131,6 +131,20 @@ impl Proof {
         };
         self.mac(binding, text).verify_slice(&signature).is_ok()
     }
+    pub fn seal_listing(&self, binding: &str, payload: &str, at: u64) -> String {
+        let payload = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(payload);
+        self.sign("listing", binding, at + READ_LIFE_MS, &payload)
+    }
+    pub fn open_listing(&self, binding: &str, token: &str, at: u64) -> Option<String> {
+        if token.len() > 8192 { return None; }
+        let parts: Vec<_> = token.split('.').collect();
+        if parts.len() != 4 || parts[0] != "listing" { return None; }
+        let expiry = parts[1].parse::<u64>().ok()?;
+        if expiry <= at || expiry - at > READ_LIFE_MS { return None; }
+        let (text, signature) = token.rsplit_once('.')?;
+        self.mac(binding, text).verify_slice(&hex::decode(signature).ok()?).ok()?;
+        String::from_utf8(base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(parts[2]).ok()?).ok()
+    }
     pub fn challenge(&self, binding: &str, recipient: &str, at: u64) -> Result<String> {
         let proof = self.sign("challenge", binding, at + READ_LIFE_MS, &random());
         let recipient = recipient

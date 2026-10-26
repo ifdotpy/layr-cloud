@@ -588,3 +588,20 @@ prototype distribution unchanged; disposable store empty; all three real stores 
 fixture parameters absent; persistent secrets preserved; no relay ports open. Public Mac
 IPv4 HTTPS returned 200 with certificate verification 0. No real-project creation, recovery
 key handling or executor enrollment occurred. M1 step 4 remains for Igor's coordinated steps.
+
+
+### Gateway object listing preparation (2026-10-26)
+
+The server and the Git bridge worker agreed on `prefix`, `limit=1000` and optional
+`continuation`, with response `{objects, continuation: string|null}`. Private and
+public routes retain their existing authorization and key validation. The S3
+backend reads one ListObjectsV2 page per HTTP page. Continuations authenticate the
+project, prefix, route, scanned count and backend position; they expire after ten
+minutes and after a process restart. Filtered public pages can be empty and still
+carry a continuation. Prefix-only clients retain complete bounded responses.
+
+Gateway tests: 45 passed, one external MinIO test ignored. Tests traverse 15,000
+keys through both routes, accept exactly 100,000 scanned keys, reject 100,001,
+follow an empty filtered public page, reject modified or cross-route/prefix
+continuations, and enforce an 8 MiB bound during JSON serialization. Person and
+slot limits remain unchanged. Deployment evidence follows after activation.
