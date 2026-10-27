@@ -1,0 +1,83 @@
+{
+  "complete": false,
+  "stoppedBy": "approved host disk guard below12GiB, SIGTERM",
+  "monitor": "177c10b8-7999-53f7-9e6f-2cc77b740522",
+  "savedResult": {
+    "phase": "after-cold",
+    "started": 1793059885.451658,
+    "complete": false,
+    "authentication": "scoped write grant and own trusted machine slot",
+    "binarySha256": "fc3d730b8d26b79e79508c09e2e8b342614d2a9aa93c954cbd87d797b2ff2b20",
+    "hostBefore": {
+      "time": 1793059883.4508579,
+      "pid": 24060,
+      "startTicks": 10977624,
+      "cpuTicks": 4333,
+      "ticksPerSecond": 100,
+      "binarySha256": "2079206158c79b64c7bcdb62944d4a0b2af7f54dc80db1dcbbfade23b2a0bff1",
+      "interfaces": {
+        "ens5": {
+          "rx_bytes": 3228961026,
+          "tx_bytes": 3426263715,
+          "rx_packets": 4976272,
+          "tx_packets": 4983284
+        }
+      },
+      "load": [
+        0.0,
+        0.00439453125,
+        0.0009765625
+      ]
+    }
+  },
+  "requests": 8185,
+  "statuses": {
+    "200": 8185
+  },
+  "classes": {
+    "gateway:store.json": 6,
+    "gateway:list:keys": 1,
+    "gateway:slots": 1,
+    "gateway:challenge": 4,
+    "gateway:token": 4,
+    "gateway:list:records": 1,
+    "gateway:cdn-batch": 40,
+    "cdn:records": 57,
+    "gateway:list:states": 15,
+    "cdn:states": 8056
+  },
+  "batchSizes": {
+    "8": 7,
+    "1": 1,
+    "256": 14,
+    "255": 18
+  },
+  "singleSigning": 0,
+  "directCiphertextGETs": 0,
+  "cdnReads": 8113,
+  "uniqueCdnKeys": 8113,
+  "duplicateCdnReads": 0,
+  "cache": {
+    "miss": 8113
+  },
+  "cloneLogBytes": 0,
+  "noCloneProcess": true,
+  "diskSamples": 39,
+  "diskStart": {
+    "observedUTC": "2026-10-27T00:11:20.411958+00:00",
+    "hostFreeBytes": 38034046976,
+    "startMinimumBytes": 26843545600,
+    "stopFloorBytes": 12884901888,
+    "event": "start"
+  },
+  "diskStop": {
+    "observedUTC": "2026-10-27T00:49:08.533593+00:00",
+    "hostFreeBytes": 12061061120,
+    "startMinimumBytes": 26843545600,
+    "stopFloorBytes": 12884901888,
+    "event": "stop",
+    "reason": "below12GiB",
+    "signal": "SIGTERM"
+  },
+  "minimumObservedHostFreeBytes": 12061061120
+}
