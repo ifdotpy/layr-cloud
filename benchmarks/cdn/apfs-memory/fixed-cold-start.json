@@ -1,0 +1,53 @@
+{
+  "observedUTC": "2026-10-27T12:45:32.356125+00:00",
+  "state": "running",
+  "source": "29207984bb203670f84b3a579c7cc8d194044746",
+  "binarySha256": "c845e12b3ec40da447da5dfaedef9113d58e5543a593289352269b717e511798",
+  "guardStart": {
+    "observedUTC": "2026-10-27T12:44:51.059950+00:00",
+    "hostFreeBytes": 54697381888,
+    "startMinimumBytes": 42949672960,
+    "stopFloorBytes": 12884901888,
+    "event": "start"
+  },
+  "freshRam": {
+    "device": "/dev/disk22",
+    "mount": "/Volumes/LayrCdnBench",
+    "image": "ram://50331648",
+    "startedUTC": "2026-10-27T12:43:52.159063+00:00",
+    "complete": true,
+    "allPrivateCopiesVerified": true,
+    "identitiesUnchangedByFormatUpgrade": true
+  },
+  "ownPrefixInvalidation": {
+    "id": "I8MP0XV174232HXZHA5WN7O8DT",
+    "callerReference": "cdn-studio-cold-fixed-2920798-20261027",
+    "distribution": "E3SU1MYTKJEE06",
+    "paths": [
+      "/o/cdn-studio/*",
+      "/m8-final/*"
+    ],
+    "started": "2026-10-27T12:43:58.629959+00:00",
+    "status": "Completed",
+    "completed": "2026-10-27T12:44:20.158489+00:00"
+  },
+  "preflight": {
+    "observedUTC": "2026-10-27T12:44:39.723615+00:00",
+    "transport": "public HTTPS cloud.layr.ws",
+    "reads": [
+      {
+        "read": "anonymous site",
+        "status": 200
+      },
+      {
+        "read": "anonymous public unlock",
+        "status": 200
+      },
+      {
+        "read": "authenticated fixture discovery",
+        "status": 200
+      }
+    ]
+  },
+  "outputPolicy": "Fresh24GiB RAM volume for clone, temp files and request/result files. No original measurement overwritten."
+}

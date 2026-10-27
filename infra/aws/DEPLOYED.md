@@ -848,3 +848,13 @@ and runner-policy suites also passed. The case-name suite used a separate RAM AP
 volume, then detached it. Cross-platform tests require a Linux VM and were not run
 during this Mac-only check. The service suite requires root and was not run.
 See `benchmarks/cdn/apfs-memory/checks.json`.
+
+
+The approved fixed cold run started at 12:44:51 UTC with 50.94 GiB host space free.
+The request-counter binary comes from `29207984bb203670f84b3a579c7cc8d194044746`
+and has SHA-256 `c845e12b3ec40da447da5dfaedef9113d58e5543a593289352269b717e511798`.
+The two disposable prefixes were invalidated first. Site, public unlock and
+authenticated discovery requests returned 200. The run uses a fresh 24 GiB RAM
+volume and a 12 GiB host stop floor, with minute-by-minute space records.
+No complete timing or fixed large-history RSS result is claimed yet.
+See `benchmarks/cdn/apfs-memory/fixed-cold-start.json`.
