@@ -775,3 +775,14 @@ or replacing the current descriptor/configuration. No such AWS change or seed wa
 made. The three real stores and `cdn-studio` remain unchanged by this decision.
 The large clone remains stopped until the lead confirms at least 60 GiB host space.
 The latest partial run and its minute-by-minute disk evidence remain preserved.
+
+Formatting-only core commit `c38a031` passed the repository rustfmt checks for all
+eight Rust files changed by the CDN branch. On 2026-10-27 at 01:53 UTC, its full
+core unit suite passed 120 tests, with six helpers ignored. T58 restored the exact
+131-commit fixture through TLS with batches of 2, 256 and 5 keys, zero direct object
+GETs, zero single-key signing requests and no duplicate signed keys or ciphertext
+reads. The one Linux build target was deleted after testing. The approved test-only
+disk limits were 20 GiB at start and a 12 GiB stop floor; host free space after
+cleanup and trim was 22 GiB. See `benchmarks/cdn/formatted-core-c38a031-tests.json`.
+This formatting commit did not replace the Mac binary used in the preserved large
+clone attempts.

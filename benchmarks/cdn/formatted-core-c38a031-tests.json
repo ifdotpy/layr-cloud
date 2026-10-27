@@ -1,0 +1,50 @@
+{
+  "source": "c38a03118f499f0d087f21ff350fae345b3bc4c4",
+  "formattingOnlyParent": "62339b2e9af70408e53397241e19e56d2bd13bc0",
+  "sourceArchiveSha256": "0507a270a5e92df2f007659dd2f35cef250363a67d37cccf34d23d28c857f082",
+  "monitor": "3a9402b9-6a5b-58cb-af69-9b3d85c0ae1b",
+  "unitTests": {
+    "passed": 120,
+    "failed": 0,
+    "ignored": 6
+  },
+  "rustfmt": {
+    "status": "PASS",
+    "changedRustFiles": 8,
+    "monitor": "8398ce17-ab58-53a3-9d38-f6d1e767e5c1"
+  },
+  "t58": {
+    "status": "PASS",
+    "commits": 131,
+    "batchCount": 3,
+    "batchSizes": [
+      2,
+      256,
+      5
+    ],
+    "stateBatchCount": 2,
+    "directGetCount": 0,
+    "singleSignCount": 0,
+    "uniqueCiphertextKeys": 263,
+    "duplicateCiphertextReads": 0,
+    "duplicateSignedKeys": 0
+  },
+  "buildStart": [
+    {
+      "startedUTC": "2026-10-27T01:51:39.188650+00:00",
+      "hostFreeBytes": 24090505216,
+      "startMinimumBytes": 21474836480,
+      "stopFloorBytes": 12884901888,
+      "source": "c38a031"
+    }
+  ],
+  "cleanup": {
+    "observedUTC": "2026-10-27T01:52:59.879026+00:00",
+    "source": "c38a031",
+    "exitCode": 0,
+    "target": "/root/cdn-target",
+    "targetDeleted": true
+  },
+  "largeClone": "held until lead confirms at least60GiB host free",
+  "measuredMacBinaryUnchanged": "fc3d730b8d26b79e79508c09e2e8b342614d2a9aa93c954cbd87d797b2ff2b20"
+}
