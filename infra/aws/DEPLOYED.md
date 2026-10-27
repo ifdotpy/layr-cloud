@@ -738,3 +738,27 @@ Expired prepared links are renewed. The store unit suite passed 46 tests;
 t19 passed 25, t49 passed 28 and t56 passed five. See
 `benchmarks/cdn/clone-window-regression.json`. Full cold/warm measurements with
 this client remain pending.
+
+### Cost basis for the clone comparison
+
+The comparison uses marginal pay-as-you-go rates before account allowances,
+credits or negotiated discounts. The AWS price catalogs captured for this task
+were published on 2026-10-15 for S3 and 2026-10-19 for CloudFront:
+[S3 eu-north-1 catalog](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonS3/current/eu-north-1/index.json)
+and [CloudFront catalog](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonCloudFront/current/index.json).
+
+| Item | Rate used |
+| --- | ---: |
+| S3 Stockholm GET or HEAD | $0.0004 per 1,000 requests |
+| S3 Stockholm PUT or LIST | $0.005 per 1,000 requests |
+| CloudFront Europe HTTPS requests, including proxy requests | $0.012 per 10,000 requests |
+| CloudFront Europe internet transfer, first 10 TiB pricing tier | $0.085 per GB |
+| CloudFront Functions after the monthly two-million-execution allowance | $0.10 per million executions |
+
+Batch signing reduces gateway HTTP requests, but still checks object existence
+with an S3 HEAD for each signed key. Each cold CDN miss also reads the object from
+S3. A cache hit avoids that object GET, while still requiring a valid signed link.
+Both gateway and CDN client requests pass through CloudFront and incur its viewer
+request rate. A measured response-byte total is not the AWS bill: host interface
+counters also include other traffic, and account allowance usage is unknown.
+Final cold/warm counts and the corresponding estimate remain pending.

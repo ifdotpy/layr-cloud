@@ -1,0 +1,64 @@
+{
+  "savedResult": {
+    "phase": "after-cold",
+    "started": 1793058855.5480409,
+    "complete": false,
+    "authentication": "scoped write grant and own trusted machine slot",
+    "binarySha256": "fc3d730b8d26b79e79508c09e2e8b342614d2a9aa93c954cbd87d797b2ff2b20",
+    "hostBefore": {
+      "time": 1793058853.5636537,
+      "pid": 24060,
+      "startTicks": 10977624,
+      "cpuTicks": 2399,
+      "ticksPerSecond": 100,
+      "binarySha256": "2079206158c79b64c7bcdb62944d4a0b2af7f54dc80db1dcbbfade23b2a0bff1",
+      "interfaces": {
+        "ens5": {
+          "rx_bytes": 3219360554,
+          "tx_bytes": 3416129848,
+          "rx_packets": 4965598,
+          "tx_packets": 4969811
+        }
+      },
+      "load": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "requests": 3505,
+  "statuses": {
+    "200": 3505
+  },
+  "classes": {
+    "gateway:store.json": 6,
+    "gateway:list:keys": 1,
+    "gateway:slots": 1,
+    "gateway:challenge": 2,
+    "gateway:token": 2,
+    "gateway:list:records": 1,
+    "gateway:cdn-batch": 22,
+    "cdn:records": 57,
+    "gateway:list:states": 15,
+    "cdn:states": 3398
+  },
+  "batchSizes": {
+    "8": 7,
+    "1": 1,
+    "256": 5,
+    "255": 9
+  },
+  "singleSigning": 0,
+  "directCiphertextGETs": 0,
+  "cdnReads": 3455,
+  "uniqueCdnKeys": 3455,
+  "duplicateCdnReads": 0,
+  "cache": {
+    "miss": 3455
+  },
+  "cloneLogBytes": 0,
+  "noCloneProcess": true,
+  "stoppedBy": "host disk guard below20GiB; SIGTERM; no fullcloneclaim",
+  "monitor": "48b21a58-9efe-57eb-a0b4-6bf6253bb936"
+}
