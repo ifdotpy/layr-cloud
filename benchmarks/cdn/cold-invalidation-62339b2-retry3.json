@@ -1,0 +1,12 @@
+{
+  "id": "IAC7V8SLI0Q7KX91YMKCVI9YA6",
+  "callerReference": "cdn-studio-cold-62339b2-retry3-20261027",
+  "distribution": "E3SU1MYTKJEE06",
+  "paths": [
+    "/o/cdn-studio/*",
+    "/m8-final/*"
+  ],
+  "started": "2026-10-27T08:51:04.509852+00:00",
+  "status": "Completed",
+  "completed": "2026-10-27T08:51:26.590830+00:00"
+}

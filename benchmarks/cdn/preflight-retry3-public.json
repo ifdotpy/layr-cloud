@@ -1,0 +1,18 @@
+{
+  "observedUTC": "2026-10-27T08:52:08.233382+00:00",
+  "transport": "public HTTPS cloud.layr.ws",
+  "reads": [
+    {
+      "read": "anonymous site",
+      "status": 200
+    },
+    {
+      "read": "anonymous public unlock",
+      "status": 200
+    },
+    {
+      "read": "authenticated fixture discovery",
+      "status": 200
+    }
+  ]
+}

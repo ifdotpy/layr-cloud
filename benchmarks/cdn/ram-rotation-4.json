@@ -1,0 +1,11 @@
+{
+  "started": 1793091060.050245,
+  "complete": true,
+  "oldDevice": "/dev/disk20",
+  "purpose": "discard interrupted cold clones; preserve all fixture and machine private material on verified RAM holder",
+  "allPrivateCopiesVerified": true,
+  "detachRequested": true,
+  "oldDetached": true,
+  "newDevice": "/dev/disk20",
+  "completed": 1793091079.019223
+}
