@@ -762,3 +762,16 @@ Both gateway and CDN client requests pass through CloudFront and incur its viewe
 request rate. A measured response-byte total is not the AWS bill: host interface
 counters also include other traffic, and account allowance usage is unknown.
 Final cold/warm counts and the corresponding estimate remain pending.
+
+### Interim small-store measurement decision (2026-10-27)
+
+The 392-commit source is available at Git ID
+`c1d7229a30aa808fedc0274e961b2f38e7cc2f7d`. The interim measurement was skipped
+under the requirement to retain the existing disposable store, alias and data.
+One store descriptor binds one project identity and recipient. Adding another line
+or state would retain the existing 7,965-commit ancestry in a full clone; cloning
+imports every line. An isolated smaller project would require a separate namespace
+or replacing the current descriptor/configuration. No such AWS change or seed was
+made. The three real stores and `cdn-studio` remain unchanged by this decision.
+The large clone remains stopped until the lead confirms at least 60 GiB host space.
+The latest partial run and its minute-by-minute disk evidence remain preserved.

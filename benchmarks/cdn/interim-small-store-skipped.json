@@ -1,0 +1,17 @@
+{
+  "observedUTC": "2026-10-27T00:54:46.564155+00:00",
+  "label": "interim, small store",
+  "status": "skipped",
+  "sourceGit": "c1d7229a30aa808fedc0274e961b2f38e7cc2f7d",
+  "sourceCommits": 392,
+  "reason": "Existing disposable prefix and CDN alias bind one project. Adding another line/state keeps all current large history in clone; an isolated small project requires a different namespace or changing the existing descriptor/config. Both are outside the final constraints.",
+  "evidence": [
+    "src/store_remote/mod.rs Store::descriptor project binding",
+    "src/store_remote/mod.rs Store::clone_into imports all lines",
+    "src/store_remote/reader.rs required_states traverses every line ancestry"
+  ],
+  "awsChanges": 0,
+  "largeCloneCondition": "Wait for lead confirmation of at least60GiB host free",
+  "formatOnlyCoreCommit": "c38a031",
+  "unitAndT58Monitor": "3556b91b-4639-5b0a-a5c6-1727ce41a9a2"
+}
