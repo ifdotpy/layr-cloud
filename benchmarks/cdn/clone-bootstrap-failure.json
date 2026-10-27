@@ -1,0 +1,11 @@
+{
+  "coreRevision": "ec8ba0fb17389e5064045b07961be84c7e422ba0",
+  "gatewayBinarySha256": "37c0a9a55020fcd2ffea0075941bec7a3b068061c82a84a66b45f2087fdee526",
+  "complete": false,
+  "seconds": 1.595,
+  "requests": 5,
+  "historyObjectsDownloaded": 0,
+  "failure": "HTTP404 paginated prefix=keys/ discovery before read proof with scoped write grant",
+  "sourceCause": "server.rs discovery matches prefix=keys/ only when query has no ampersand; paginated CLI adds limit=1000. Person-authenticated visibility is a supported independent route.",
+  "workaround": "Use the synthetic registered person with accepted store pin and no transport write token for the clone benchmark."
+}

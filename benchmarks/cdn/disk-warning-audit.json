@@ -1,0 +1,13 @@
+{
+  "observedUtc": "2026-10-26T21:58:25Z",
+  "complete": false,
+  "exitCode": null,
+  "process": [
+    "56821 02:16:26   0.3 4762800 S"
+  ],
+  "enospcInLog": false,
+  "requestCount": 29773,
+  "lastRequestStatus": 200,
+  "lastRequestUnix": 1793051905.4887369,
+  "stateDirectories": 7731
+}

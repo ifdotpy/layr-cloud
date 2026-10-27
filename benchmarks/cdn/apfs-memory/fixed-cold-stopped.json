@@ -1,0 +1,43 @@
+{
+  "observedUTC": "2026-10-27T13:36:29.785677+00:00",
+  "complete": false,
+  "stoppedBy": "Explicit user development pause, via lead",
+  "source": "29207984bb203670f84b3a579c7cc8d194044746",
+  "binarySha256": "c845e12b3ec40da447da5dfaedef9113d58e5543a593289352269b717e511798",
+  "started": 1793105095.893782,
+  "elapsedAtStopApproxSeconds": 3093.892,
+  "requestCount": 8904,
+  "routes": {
+    "gateway:store.json": 6,
+    "gateway:list:keys": 1,
+    "gateway:slots": 1,
+    "gateway:challenge": 5,
+    "gateway:token": 5,
+    "gateway:list:records": 1,
+    "gateway:cdn-batch": 43,
+    "cdn:records": 57,
+    "gateway:list:states": 15,
+    "cdn:states": 8770
+  },
+  "statuses": {
+    "200": 8904
+  },
+  "cdnCache": {
+    "miss": 8827
+  },
+  "batchSizes": {
+    "8": 7,
+    "1": 1,
+    "256": 16,
+    "255": 19
+  },
+  "cdnUniqueObjectKeys": 8827,
+  "cdnDuplicateObjectReads": 0,
+  "diskSamples": 51,
+  "hostFreeBytesAtStart": 54697381888,
+  "hostMinimumFreeBytesSampled": 13993275392,
+  "noCompleteCloneTimeOrPeakRssClaim": true,
+  "gitIdsAndFsck": "Not completed; no claim",
+  "warmClone": "Not started",
+  "AWSChangesOnStop": false
+}

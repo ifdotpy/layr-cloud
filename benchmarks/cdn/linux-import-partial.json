@@ -1,0 +1,13 @@
+{
+  "observedFailureUtc": "2026-10-26T18:29:00Z",
+  "source": "ec8ba0fb17389e5064045b07961be84c7e422ba0",
+  "gitTip": "eec4c6d136da146a5d3d659575c1baf2d93849f8",
+  "expectedCommits": 7965,
+  "complete": false,
+  "error": "ENOSPC",
+  "filesystem": "btrfs",
+  "deviceCapacityBytes": 4294967296,
+  "metadataProfile": "DUP",
+  "finalStateCount": null,
+  "failedProjectRemovedByCli": true
+}

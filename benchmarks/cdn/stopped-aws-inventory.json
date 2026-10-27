@@ -1,0 +1,63 @@
+{
+  "observedUTC": "2026-10-27T13:37:41.980907+00:00",
+  "source": "Saved templates and deployment receipts; no AWS API calls during stop or cleanup",
+  "createdForCloudFront": {
+    "stacks": [
+      "layr-cloudfront",
+      "layr-cloudfront-certificate"
+    ],
+    "distribution": "E3SU1MYTKJEE06",
+    "domain": "d960l4aujuosg.cloudfront.net",
+    "publicAlias": "cloud.layr.ws A and AAAA",
+    "originAlias": "origin.cloud.layr.ws AAAA",
+    "viewerCertificate": "arn:aws:acm:us-east-1:134250228509:certificate/c354e7b8-747f-4ab9-9524-260e89c34802",
+    "cdnResources": {
+      "CdnPublicKeyA": {
+        "type": "AWS::CloudFront::PublicKey",
+        "name": "layr-cdn-a-b5e2c35d3c87"
+      },
+      "CdnPublicKeyB": {
+        "type": "AWS::CloudFront::PublicKey",
+        "name": "layr-cdn-b-b3d248fda687"
+      },
+      "CdnKeys": {
+        "type": "AWS::CloudFront::KeyGroup",
+        "name": "layr-cdn"
+      },
+      "CdnOac": {
+        "type": "AWS::CloudFront::OriginAccessControl",
+        "name": "layr-cdn-s3"
+      },
+      "CdnCache": {
+        "type": "AWS::CloudFront::CachePolicy",
+        "name": "layr-immutable-ciphertext"
+      },
+      "CdnRouter": {
+        "type": "AWS::CloudFront::Function",
+        "name": "layr-cdn-origin"
+      }
+    },
+    "ssmParameters": [
+      "/layr-store/gateway/cdn-signing-a",
+      "/layr-store/gateway/cdn-signing-b"
+    ]
+  },
+  "disposableFixtureLeftInExistingStore": {
+    "stack": "layr-store-m8-final",
+    "bucket": "layr-store-m8-final-bucket-noitqelxwhmd",
+    "prefix": "m8-final/",
+    "alias": "cdn-studio",
+    "project": "01a17979-d63f-7058-b6d5-f663339ec328",
+    "fixtureParameters": [
+      "/layr-store/runner/write-token",
+      "/layr-store/invites/cdn-studio/token",
+      "/layr-store/owner/projects/cdn-studio/write-token"
+    ]
+  },
+  "existingHostsUpdatedNotCreatedByCdn": {
+    "gateway": "i-04da10c290655544f",
+    "executor": "i-0df29a43f3b810a82"
+  },
+  "liveGatewaySource": "0c4ef44934fb604ca0f89b0023c350880f9596ff",
+  "AWSUnchangedDuringStop": true
+}

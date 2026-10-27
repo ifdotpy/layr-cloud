@@ -1,0 +1,14 @@
+{
+  "observedUtc": "2026-10-26T21:59:16Z",
+  "removed": [
+    "/private/tmp/layr-cloudfront-cli-01038b9/target",
+    "/private/tmp/layr-cloudfront-fixture-target",
+    "/Users/igor/Projects/layr-desk/.worktrees/codex-agents/7d619c2a-3ee2-52b8-ad33-355a9bf1cbdb/target",
+    "/private/tmp/layr-cdn-build/seed2-ciphertext.tar",
+    "/private/tmp/layr-cdn-build/trusted-ciphertext.tar"
+  ],
+  "freeBytesBefore": 17672896512,
+  "freeBytesAfter": 27048153088,
+  "cloneFilesPreserved": true,
+  "vmNotStarted": true
+}

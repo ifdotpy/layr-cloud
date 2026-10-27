@@ -1,0 +1,37 @@
+{
+  "checkpointedStates": 4864,
+  "quarantinedFiles": 99,
+  "validFiles": 98,
+  "truncatedFiles": [
+    {
+      "state": "",
+      "bytes": 262144,
+      "sha256": "7923605a7594340bdc043f6b39b4b1e21ffeaca12e07c6964297754b07804ff7",
+      "error": "truncated JSON after ENOSPC"
+    }
+  ],
+  "examples": [
+    {
+      "state": "01a1797f-1dd9-7455-87e3-1d957905c1b8",
+      "attempt": "3a9e9f6c",
+      "actualDepth": 10,
+      "discoveredIndexDepth": 31
+    },
+    {
+      "state": "01a1797f-16b2-7474-871b-90c0ead89f3d",
+      "attempt": "db1a7c6d",
+      "actualDepth": 16,
+      "discoveredIndexDepth": 31
+    },
+    {
+      "state": "01a1797f-1e06-72b0-94a8-36e8b86f3acb",
+      "attempt": "11007a28",
+      "actualDepth": 11,
+      "discoveredIndexDepth": 31
+    }
+  ],
+  "coreRevision": "ec8ba0f",
+  "error": "local pushed tree identity differs",
+  "remoteObjectsChanged": false,
+  "reason": "Remote discovery uses fallback depth31 but cached file retains its actual uncheckpointed depth"
+}

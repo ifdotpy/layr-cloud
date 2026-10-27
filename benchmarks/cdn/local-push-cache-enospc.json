@@ -1,0 +1,21 @@
+{
+  "observedUtc": "2026-10-26T18:53:50Z",
+  "coreRevision": "ec8ba0fb17389e5064045b07961be84c7e422ba0",
+  "gitTip": "eec4c6d136da146a5d3d659575c1baf2d93849f8",
+  "importedCommits": 7965,
+  "importComplete": true,
+  "pushComplete": false,
+  "filesystem": "Btrfs single data and metadata",
+  "filesystemCapacityBytes": 10737418240,
+  "localPushTreeCache": {
+    "files": 4964,
+    "logicalBytes": 3609737016
+  },
+  "encryptedStoreAtFailure": {
+    "ageFiles": 9354,
+    "logicalBytes": 304438661
+  },
+  "impact": "A full-history push exhausted a 10 GiB fixture volume after a successful import. The local push tree cache was over eleven times the encrypted ciphertext written so far. These are partial push sizes, not final store sizes.",
+  "workaround": "Move only verified age ciphertext and public store.json to a disposable VM disk, keep synthetic private keys on RAM, bind mount the same store path, enable zstd filesystem compression on local public pushed-tree cache, then resume the existing push.",
+  "coreFix": "Assigned separately by lead; no change to the core push cache in this CDN branch."
+}

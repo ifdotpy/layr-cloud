@@ -1,0 +1,20 @@
+{
+  "source": "ec8ba0fb17389e5064045b07961be84c7e422ba0",
+  "sourceGit": "eec4c6d136da146a5d3d659575c1baf2d93849f8",
+  "gitCommits": 7965,
+  "started": "2026-10-26T17:25:42.534861+00:00",
+  "exitObserved": "2026-10-26T18:16:16+00:00",
+  "filesystem": "APFS on owned RAM volume",
+  "capacityBytes": 4085211136,
+  "lastCheckpoint": {
+    "observed": "2026-10-26T17:56:15+00:00",
+    "stateDirectories": 2899,
+    "elapsedSeconds": 1833
+  },
+  "projectRemainsAfterFailure": false,
+  "exit": 128,
+  "reason": "ENOSPC",
+  "complete": false,
+  "restartedOverPartial": false,
+  "note": "The CLI removed the failed import project automatically; no final state count is available."
+}

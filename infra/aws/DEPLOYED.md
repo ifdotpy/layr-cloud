@@ -858,3 +858,19 @@ authenticated discovery requests returned 200. The run uses a fresh 24 GiB RAM
 volume and a 12 GiB host stop floor, with minute-by-minute space records.
 No complete timing or fixed large-history RSS result is claimed yet.
 See `benchmarks/cdn/apfs-memory/fixed-cold-start.json`.
+
+
+### Development pause and local retirement (2026-10-27)
+
+The user paused all development at 13:35 UTC. The fixed cold clone was stopped
+before completion. Its 8,904 recorded responses were all 200, with 8,827 unique
+CDN objects and no repeated ciphertext reads. No complete clone time, peak RSS,
+Git ID comparison or fsck result is claimed for this interrupted run. The warm
+clone did not start. The small partial result is
+`benchmarks/cdn/apfs-memory/fixed-cold-stopped.json`.
+
+All AWS resources remain as deployed. Local retirement does not roll back the
+CDN gateway, modify CloudFront or remove any store or SSM parameter. The resource
+names from saved deployment receipts are in `benchmarks/cdn/stopped-aws-inventory.json`.
+The fixed core branch remains `cloud/cdn-client` at `2920798`. The deployed browser
+harness is saved for future work, but its live run remains incomplete.

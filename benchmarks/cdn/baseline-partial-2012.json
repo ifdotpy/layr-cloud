@@ -1,0 +1,27 @@
+{
+  "observedUtc": "2026-10-26T20:12:19Z",
+  "processes": [
+    "56821 30:20  11.5 1337216 R"
+  ],
+  "requests": 7480,
+  "lastStatus": 200,
+  "statuses": {
+    "200": 7480
+  },
+  "classes": {
+    "gateway:store.json": 6,
+    "gateway:list:keys": 1,
+    "gateway:slots": 1,
+    "gateway:challenge": 4,
+    "gateway:token": 4,
+    "gateway:list:records": 1,
+    "gateway:objects:records": 57,
+    "gateway:list:states": 15,
+    "gateway:objects:states": 7391
+  },
+  "stateDirectories": 2079,
+  "availableBytes": 22487764992,
+  "lastRequestWrittenUnix": 1793045539.8908973,
+  "complete": false,
+  "note": "Observed after the monitor quiet alert; the process and new HTTP requests were active. This is not a completed clone measurement."
+}
