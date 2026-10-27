@@ -1,0 +1,13 @@
+{
+  "source": "29207984bb203670f84b3a579c7cc8d194044746",
+  "binarySha256": "c845e12b3ec40da447da5dfaedef9113d58e5543a593289352269b717e511798",
+  "t58Passed": true,
+  "batchSizes": [
+    2,
+    256,
+    5
+  ],
+  "uniqueCiphertextKeys": 263,
+  "duplicateCiphertextReads": 0,
+  "purpose": "Confirm the large-clone request-counter build preserves t58 transport behavior."
+}

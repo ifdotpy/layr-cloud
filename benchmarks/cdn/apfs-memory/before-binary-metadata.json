@@ -1,0 +1,10 @@
+[
+  {
+    "label": "main-before",
+    "binarySha256": "c90d3047acfb5acf3d2ac1dccd6d2cadb06268b411522525f2c3ee5d444eb915"
+  },
+  {
+    "label": "cdn-before",
+    "binarySha256": "2de0c853fff8bf03d5f04d88b1b6f15af350ed783319c5f0470f8ff0f835a39c"
+  }
+]

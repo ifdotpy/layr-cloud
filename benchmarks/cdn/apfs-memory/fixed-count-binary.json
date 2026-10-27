@@ -1,0 +1,9 @@
+{
+  "source": "29207984bb203670f84b3a579c7cc8d194044746",
+  "gatewayBeforeSha256": "d7af25f52ff2bd625b8ed0e3e9a4c14f46804c4ee58ad5e62f44149d7c76e431",
+  "gatewayAfterSha256": "9ac275b37faea2a7723bbab1bfdc4fa7d7675d2f739ea573a169f33e3c9bb26b",
+  "sendCalls": 10,
+  "scope": "Request counters only. URL, headers, aliases, object IDs, and credentials excluded. Object identity represented only by SHA256.",
+  "binarySha256": "c845e12b3ec40da447da5dfaedef9113d58e5543a593289352269b717e511798",
+  "binaryPath": "/Volumes/LayrCdnRead/rss-evidence/layr-fixed-count-mac"
+}
