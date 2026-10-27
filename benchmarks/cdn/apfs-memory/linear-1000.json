@@ -1,0 +1,174 @@
+{
+  "observedUTC": "2026-10-27T11:51:05.174891+00:00",
+  "fixture": {
+    "commits": 1000,
+    "filesPerTree": 2001,
+    "shape": "linear",
+    "gitTip": "81b2c49ef9de0d94d8b0c2315a3b27d8a70415e5",
+    "transport": "loopback HTTPS; synthetic archive; all build, test and temporary outputs on RAM"
+  },
+  "mainBase": "a85d32b3d3558704aec512eedcca97f07f1ce454",
+  "cdnBase": "2da757367c8a74fda267547a8d23bdd9e1f2b418",
+  "decodedScanCacheLimitBytes": 268435456,
+  "accounting": "Conservative BTree node, entry, string capacity and index charge; caller Arc holders and transient scans are outside the retained-cache bound. Actual process peaks measured separately.",
+  "instrumentation": "Only decoded-cache hit/miss/insert/eviction counters; same model for before and after. Root package cleaned before each variant build.",
+  "comparisons": [
+    {
+      "label": "main-before",
+      "commits": 1000,
+      "filesPerTree": 2001,
+      "seconds": 228.236,
+      "peakRssBytes": 1450196992,
+      "counts": {
+        "http": 3001,
+        "direct": 2986
+      },
+      "batchSizes": [],
+      "uniqueCiphertextKeys": 2026,
+      "duplicateCiphertextReads": 960,
+      "allGitIdsIdentical": true,
+      "fsckPassed": true,
+      "cache": {
+        "events": {
+          "miss": 1000,
+          "insert": 1000,
+          "hit": 4000
+        },
+        "peakRetainedBytes": 985384734,
+        "peakEntries": 1000,
+        "last": {
+          "event": "hit",
+          "retainedBytes": 985384734,
+          "entries": 1000
+        }
+      }
+    },
+    {
+      "label": "cdn-before",
+      "commits": 1000,
+      "filesPerTree": 2001,
+      "seconds": 202.951,
+      "peakRssBytes": 1448198144,
+      "counts": {
+        "http": 15,
+        "batch": 12,
+        "state_batch": 8
+      },
+      "batchSizes": [
+        8,
+        8,
+        8,
+        2,
+        256,
+        256,
+        256,
+        256,
+        256,
+        256,
+        256,
+        208
+      ],
+      "uniqueCiphertextKeys": 2026,
+      "duplicateCiphertextReads": 0,
+      "allGitIdsIdentical": true,
+      "fsckPassed": true,
+      "cache": {
+        "events": {
+          "miss": 1000,
+          "insert": 1000,
+          "hit": 4000
+        },
+        "peakRetainedBytes": 985382768,
+        "peakEntries": 1000,
+        "last": {
+          "event": "hit",
+          "retainedBytes": 985382768,
+          "entries": 1000
+        }
+      }
+    },
+    {
+      "label": "main-after",
+      "commits": 1000,
+      "filesPerTree": 2001,
+      "seconds": 173.741,
+      "peakRssBytes": 1083998208,
+      "counts": {
+        "http": 3001,
+        "direct": 2986
+      },
+      "batchSizes": [],
+      "uniqueCiphertextKeys": 2026,
+      "duplicateCiphertextReads": 960,
+      "allGitIdsIdentical": true,
+      "fsckPassed": true,
+      "cache": {
+        "events": {
+          "miss": 2000,
+          "insert": 2000,
+          "hit": 3000,
+          "evict": 1728
+        },
+        "peakRetainedBytes": 268024130,
+        "peakEntries": 272,
+        "last": {
+          "event": "insert",
+          "retainedBytes": 268024116,
+          "entries": 272
+        }
+      }
+    },
+    {
+      "label": "cdn-after",
+      "commits": 1000,
+      "filesPerTree": 2001,
+      "seconds": 193.958,
+      "peakRssBytes": 1035960320,
+      "counts": {
+        "http": 15,
+        "batch": 12,
+        "state_batch": 8
+      },
+      "batchSizes": [
+        8,
+        8,
+        8,
+        2,
+        256,
+        256,
+        256,
+        256,
+        256,
+        256,
+        256,
+        208
+      ],
+      "uniqueCiphertextKeys": 2026,
+      "duplicateCiphertextReads": 0,
+      "allGitIdsIdentical": true,
+      "fsckPassed": true,
+      "cache": {
+        "events": {
+          "miss": 2000,
+          "insert": 2000,
+          "hit": 3000,
+          "evict": 1728
+        },
+        "peakRetainedBytes": 268023582,
+        "peakEntries": 272,
+        "last": {
+          "event": "insert",
+          "retainedBytes": 268023572,
+          "entries": 272
+        }
+      }
+    }
+  ],
+  "limits": [
+    "One paired local run per variant; timings do not establish a general performance improvement.",
+    "After eviction, both variants incur 1000 additional cache misses and inserts; no additional remote ciphertext reads. Both retain 60% cache hits versus 80% before.",
+    "Large-history RSS target and final cold/warm public-HTTPS measurements remain pending.",
+    "Full original large baseline peak RSS6228312064B; original unbounded CDN peak8432091136B. These histories and measurements differ from this synthetic fixture."
+  ],
+  "timingScope": "Elapsed clone plus Git ID comparison and fsck in the same harness; no concurrent test/build load."
+}

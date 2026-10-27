@@ -1,0 +1,14 @@
+[
+  {
+    "label": "main-after",
+    "sha256": "8420e0469077ce3c527cd6a20bcdc310a769dbb8090920a669e56733cad4e133",
+    "cacheLimitBytes": 268435456,
+    "instrumentation": "cache hit/miss/eviction counters only"
+  },
+  {
+    "label": "cdn-after",
+    "sha256": "590a794a3dead267b65719b12a6f19f94af44d85182b3e6982719d115054b3fc",
+    "cacheLimitBytes": 268435456,
+    "instrumentation": "cache hit/miss/eviction counters only"
+  }
+]

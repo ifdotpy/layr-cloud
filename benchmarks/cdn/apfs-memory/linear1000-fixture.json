@@ -1,0 +1,14 @@
+{
+  "complete": true,
+  "fixture": "/Volumes/LayrCdnRead/rss-linear1000",
+  "commits": 1000,
+  "filesPerTree": 2001,
+  "shape": "linear",
+  "tip": "81b2c49ef9de0d94d8b0c2315a3b27d8a70415e5",
+  "replicas": [
+    "main-before",
+    "cdn-before",
+    "main-after",
+    "cdn-after"
+  ]
+}

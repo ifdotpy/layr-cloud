@@ -1,0 +1,10 @@
+{
+  "observedUTC": "2026-10-27T11:31:18.050023+00:00",
+  "event": "unbounded decoded APFS cache exceeded512MiB",
+  "cache": {
+    "event": "insert",
+    "retainedBytes": 684842397,
+    "entries": 695
+  },
+  "accounting": "conservative tree/node/string capacity model; excludes transient caller buffers"
+}

@@ -1,0 +1,160 @@
+{
+  "observedUTC": "2026-10-27T11:53:26.428453+00:00",
+  "productionBinarySha256": "61c3f6fcbbfd3ed7fbbfafa3a10784a2df48fa382857fa1fdde5536a25228970",
+  "productionHasDiagnosticCounters": false,
+  "checks": {
+    "core-unit-fixed-v2": {
+      "passed": true,
+      "summary": [
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 170 filtered out; finished in 0.02s",
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 170 filtered out; finished in 0.00s",
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 170 filtered out; finished in 0.00s",
+        "test result: ok. 137 passed; 0 failed; 34 ignored; 0 measured; 0 filtered out; finished in 6.18s"
+      ]
+    },
+    "apfs-unit-fixed": {
+      "passed": true,
+      "summary": [
+        "test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 153 filtered out; finished in 0.14s"
+      ]
+    },
+    "thin-unit-fixed": {
+      "passed": true,
+      "summary": [
+        "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 166 filtered out; finished in 12.98s"
+      ]
+    },
+    "t58-fixed": {
+      "passed": true,
+      "summary": [
+        "t58-cdn-clone-batches.sh: 1 passed, 0 failed"
+      ]
+    },
+    "t19-fixed": {
+      "passed": true,
+      "summary": [
+        "t19-remote-store.sh: 25 passed, 0 failed"
+      ]
+    },
+    "t49-fixed": {
+      "passed": true,
+      "summary": [
+        "t49-git-history.sh: 28 passed, 0 failed"
+      ]
+    },
+    "t56-fixed": {
+      "passed": true,
+      "summary": [
+        "t56-push-cache-retry.sh: 5 passed, 0 failed"
+      ]
+    },
+    "apfs-local-fixed": {
+      "passed": true,
+      "summary": [
+        "apfs-local.sh: 26 passed, 0 failed"
+      ]
+    },
+    "apfs-checks-ram": {
+      "passed": true,
+      "summary": [
+        "PASS: macOS main, approval, exact version, withdrawal, failed attestation and retained log"
+      ]
+    },
+    "apfs-runner-policy-ram": {
+      "passed": true,
+      "summary": [
+        "PASS: clone can fetch; creator checks and protection ignore runner-local overrides"
+      ]
+    },
+    "apfs-status-fixed": {
+      "passed": true,
+      "summary": [
+        "9 status comparisons passed"
+      ]
+    },
+    "apfs-add-fixed": {
+      "passed": true,
+      "summary": [
+        "PASS dry run preserves the index",
+        "PASS selected file and restored nanosecond time",
+        "PASS missing path leaves staged bytes intact",
+        "PASS ignored path reports failure",
+        "PASS forced ignored path",
+        "PASS update excludes new files",
+        "PASS directory to link and directory rename",
+        "PASS link to directory",
+        "PASS mmap falls back to snapshots",
+        "PASS both histories pass fsck"
+      ]
+    },
+    "apfs-status-cache-fixed": {
+      "passed": true,
+      "summary": [
+        "29 status comparisons passed"
+      ]
+    },
+    "apfs-index-fixed": {
+      "passed": true,
+      "summary": [
+        "PASS database failure restores the same staged tree",
+        "PASS process death restores the index on the next command",
+        "PASS commit publishes the original index inode without a tree clone",
+        "PASS empty commit keeps the original index"
+      ]
+    },
+    "apfs-thin-fixed": {
+      "passed": true,
+      "summary": [
+        "PASS a commit stores only its changes",
+        "PASS mv after a thin add keeps the staged change",
+        "PASS a line made from a thin head has the complete content",
+        "PASS automatic states are thin, and an unchanged folder makes none",
+        "PASS gc removes unused views and shortens long chains",
+        "PASS a changed file with two names makes a complete state",
+        "PASS copies succeed while files change",
+        "PASS a merge of thin states matches the line, and fsck passes"
+      ]
+    },
+    "apfs-case-prepared-fixed": {
+      "passed": true,
+      "summary": [
+        "PASS init refuses README and Readme",
+        "PASS git clone refuses README and Readme",
+        "PASS git clone refuses Readme that a later commit adds",
+        "PASS git clone refuses one name in two Unicode forms",
+        "PASS a peer sync refuses README and Readme",
+        "PASS a peer sync applies a folder renamed to another case",
+        "PASS a rename that changes only case keeps the new name",
+        "PASS mv with a change of case",
+        "PASS a folder staged with one case and renamed back",
+        "PASS reset --hard across a change of case",
+        "PASS reset --hard refuses a blocked case change and changes nothing",
+        "PASS hard links",
+        "PASS a merge of NOTES and notes refuses and changes nothing",
+        "PASS fsck"
+      ]
+    }
+  },
+  "notRun": [
+    {
+      "test": "apfs-cross.py",
+      "reason": "Requires Linux VM; current work is restricted to Mac and RAM."
+    },
+    {
+      "test": "apfs-service.sh",
+      "reason": "Requires root and a second user; current checks ran as the Mac owner."
+    }
+  ],
+  "testFixtureCorrection": {
+    "file": "tests/cdn_gateway.py",
+    "cause": "Eight parallel TLS connects exceeded the default five-connection server accept queue on Mac. Reproduced ECONNRESET and one direct fallback with16/17 CDN requests received.",
+    "change": "Set the loopback server accept queue to32; all original fallback and request-count assertions passed."
+  },
+  "tempControl": "Bare macOS mktemp ignores TMPDIR. Two shell suites cleaned their initial small default-temp roots, then passed again with a Bash mktemp wrapper that supplies an explicit RAM path.",
+  "coreCacheCommit": "566519addec3d342afa920a37f3edd1ecf1dbf9b",
+  "coreTip": "29207984bb203670f84b3a579c7cc8d194044746",
+  "caseVolume": {
+    "type": "dedicated1GiB RAM APFS with case-insensitive names",
+    "detachedAfterCheck": true
+  }
+}

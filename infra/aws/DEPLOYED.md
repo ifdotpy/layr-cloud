@@ -717,7 +717,7 @@ completed before the timed interval. No signed ciphertext was fetched. A ten-mil
 sampler spanning this request measured gateway RSS rising from 7,188,480 to
 9,236,480 bytes, with a peak of 36 threads. These are window maxima, sampled in
 the live gateway process; they are not a four-batch saturation measurement.
-Full cold and warm clone measurements and the final cleanup readback remain pending.
+The original full cold clone completed on 2026-10-27. The warm clone, fixed-client cold clone and final cleanup readback remain pending.
 
 The next cold clone was interrupted by the host disk guard at 23:40 UTC when
 another build reduced host free space below 20 GiB. Its 5,581 HTTP responses were
@@ -736,8 +736,8 @@ Git IDs using batches of 2, 256 and 5 keys, with zero single-key signing request
 direct ciphertext GETs, duplicate signed keys or duplicate ciphertext reads.
 Expired prepared links are renewed. The store unit suite passed 46 tests;
 t19 passed 25, t49 passed 28 and t56 passed five. See
-`benchmarks/cdn/clone-window-regression.json`. Full cold/warm measurements with
-this client remain pending.
+`benchmarks/cdn/clone-window-regression.json`. The completed original cold result is
+`benchmarks/cdn/after-cold.json`. Later measurements use the APFS memory correction described below.
 
 ### Cost basis for the clone comparison
 
@@ -773,8 +773,8 @@ or state would retain the existing 7,965-commit ancestry in a full clone; clonin
 imports every line. An isolated smaller project would require a separate namespace
 or replacing the current descriptor/configuration. No such AWS change or seed was
 made. The three real stores and `cdn-studio` remain unchanged by this decision.
-The large clone remains stopped until the lead confirms at least 60 GiB host space.
-The latest partial run and its minute-by-minute disk evidence remain preserved.
+The lead confirmed 62 GiB free on 2026-10-27 at 08:50 UTC. The next full cold clone
+completed. Earlier interrupted runs and their minute-by-minute disk evidence remain preserved.
 
 Formatting-only core commit `c38a031` passed the repository rustfmt checks for all
 eight Rust files changed by the CDN branch. On 2026-10-27 at 01:53 UTC, its full
@@ -786,3 +786,65 @@ disk limits were 20 GiB at start and a 12 GiB stop floor; host free space after
 cleanup and trim was 22 GiB. See `benchmarks/cdn/formatted-core-c38a031-tests.json`.
 This formatting commit did not replace the Mac binary used in the preserved large
 clone attempts.
+
+
+### APFS decoded scan cache correction (2026-10-27)
+
+The original large cold clone restored all 7,965 exact Git IDs and passed full Git
+fsck in 6,412.804 seconds. It made 203 gateway requests, including 67 batch requests.
+Its 15,090 CDN reads included 15,002 misses and 88 hits. There were no direct
+ciphertext GETs. The 88 repeated CDN reads exceeded the 64 MiB tree-frame cache.
+The gateway used 79.84 CPU seconds and sent 37,220,156 bytes through its host interface.
+That interface measurement includes other traffic. See `benchmarks/cdn/after-cold.json`.
+
+The client peak RSS was 8,432,091,136 bytes. The saved main baseline peak was
+6,228,312,064 bytes. An existing APFS cache retained every decoded sealed scan for
+the process lifetime. This behavior affected both clients. The retained scan maps
+increased with the number of restored states. Their lookup also searched a vector.
+The unchanged saved-scan files on disk already provide a way to reload old scans.
+
+Core commit `566519addec3d342afa920a37f3edd1ecf1dbf9b` contains only the APFS correction.
+Commit `29207984bb203670f84b3a579c7cc8d194044746` separately corrects the TLS test server accept queue.
+The correction uses a map index and a least-recently-used cache with a named
+256 MiB limit. Its byte charge includes conservative estimates for map nodes,
+entry storage, string capacity and both indexes. Existing Arc holders remain valid
+after eviction. The cache limit excludes those holders and transient caller buffers.
+Actual process RSS is measured separately.
+
+The comparison used one immutable linear history with 1,000 commits and 2,001 files
+per tree. The main base was `a85d32b`. The CDN branch was rebased onto that base.
+Each variant used a fresh store, the same loopback TLS server and the same counters.
+Builds, temporary files and clone outputs used RAM. Measurement binaries added only
+cache counters. Each clone preserved all Git IDs and passed full Git fsck.
+
+| Variant | Clone and Git verification seconds | Peak RSS bytes | Cache hits | Cache misses | Peak retained scan bytes |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Main, unbounded | 228.236 | 1,450,196,992 | 4,000 | 1,000 | 985,384,734 |
+| Main, bounded | 173.741 | 1,083,998,208 | 3,000 | 2,000 | 268,024,130 |
+| CDN, unbounded | 202.951 | 1,448,198,144 | 4,000 | 1,000 | 985,382,768 |
+| CDN, bounded | 193.958 | 1,035,960,320 | 3,000 | 2,000 | 268,023,582 |
+
+Each bounded run evicted 1,728 entries and retained at most 272 scans. Eviction
+added 1,000 cache misses and inserts to each clone. The hit ratio changed from
+80% to 60% for both restore orders. The CDN parents-first order had the same miss
+count as main. Remote request counts did not increase. The CDN variants each read
+2,026 unique ciphertext objects without duplicates or direct ciphertext GETs.
+This single paired run showed no timing regression. It does not establish a general
+speed improvement. See `benchmarks/cdn/apfs-memory/linear-1000.json`.
+
+These results demonstrate the retained-cache bound on this fixture. Full public
+HTTPS clones with the fixed binary remain necessary to verify the large-history
+RSS target. The warm clone remains held until the host has at least 40 GiB free.
+The fixed read path also requires a new cold clone. The existing original cold
+result remains preserved.
+
+
+The fixed production binary passed 137 core unit tests, 18 APFS unit tests and
+five thin-layer unit tests. The APFS and thin-layer runs included ignored volume
+tests. T19 passed 25 checks, t49 passed 28, t56 passed five and t58 passed its
+131-commit clone regression. The local APFS suite passed 26 checks. The status,
+status-cache, selective-add, index-recovery, thin-state, case-name, check-runner
+and runner-policy suites also passed. The case-name suite used a separate RAM APFS
+volume, then detached it. Cross-platform tests require a Linux VM and were not run
+during this Mac-only check. The service suite requires root and was not run.
+See `benchmarks/cdn/apfs-memory/checks.json`.
