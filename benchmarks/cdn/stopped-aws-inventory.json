@@ -38,6 +38,7 @@
       }
     },
     "ssmParameters": [
+      "/layr-store/gateway/origin-secret",
       "/layr-store/gateway/cdn-signing-a",
       "/layr-store/gateway/cdn-signing-b"
     ]
@@ -52,12 +53,14 @@
       "/layr-store/runner/write-token",
       "/layr-store/invites/cdn-studio/token",
       "/layr-store/owner/projects/cdn-studio/write-token"
-    ]
+    ],
+    "syntheticPersonLogin": "cdn-studio-7d619c@example.test"
   },
   "existingHostsUpdatedNotCreatedByCdn": {
     "gateway": "i-04da10c290655544f",
     "executor": "i-0df29a43f3b810a82"
   },
   "liveGatewaySource": "0c4ef44934fb604ca0f89b0023c350880f9596ff",
-  "AWSUnchangedDuringStop": true
+  "AWSUnchangedDuringStop": true,
+  "existingArtifactBucketWithUploadedReleases": "layr-bootstrap-artifacts-ik3kxdaezcnd"
 }

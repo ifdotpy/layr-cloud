@@ -1,0 +1,66 @@
+{
+  "startedUTC": "2026-10-27T13:38:54.449356+00:00",
+  "volumes": [
+    {
+      "name": "LayrCdnBench",
+      "device": "/dev/disk22",
+      "detachedAndDestroyed": true
+    },
+    {
+      "name": "LayrCdnRead",
+      "device": "/dev/disk20",
+      "detachedAndDestroyed": true
+    },
+    {
+      "name": "LayrCdnKeys",
+      "device": "/dev/disk18",
+      "detachedAndDestroyed": true
+    }
+  ],
+  "deletedTemporaryPaths": [
+    "/private/tmp/layr-cdn-build",
+    "/private/tmp/layr-cdn-count-62339b2",
+    "/private/tmp/layr-cdn-count-after",
+    "/private/tmp/layr-cdn-count-b1b1a0d",
+    "/private/tmp/layr-cdn-count-batch-after",
+    "/private/tmp/layr-cdn-count-before",
+    "/private/tmp/layr-cloudfront-admin.py",
+    "/private/tmp/layr-cloudfront-baseline.json",
+    "/private/tmp/layr-cloudfront-build",
+    "/private/tmp/layr-cloudfront-cli-01038b9",
+    "/private/tmp/layr-cloudfront-cli-b41642a",
+    "/private/tmp/layr-cloudfront-cli-c1d7229",
+    "/private/tmp/layr-cloudfront-fixture-tools",
+    "/private/tmp/layr-cloudfront-tools"
+  ],
+  "AWSCalls": 0,
+  "complete": true,
+  "machinesBefore": {
+    "layr-cdn": "running",
+    "layr-dev": "stopped",
+    "layr-pc": "running",
+    "layr-runner": "stopped",
+    "litos-a": "stopped",
+    "litos-b": "stopped",
+    "litos-c": "stopped",
+    "litos-d": "stopped",
+    "litos-e": "stopped",
+    "litos-f": "stopped",
+    "litos-ostree": "stopped"
+  },
+  "machinesAfter": {
+    "layr-dev": "stopped",
+    "layr-pc": "running",
+    "layr-runner": "stopped",
+    "litos-a": "stopped",
+    "litos-b": "stopped",
+    "litos-c": "stopped",
+    "litos-d": "stopped",
+    "litos-e": "stopped",
+    "litos-f": "stopped",
+    "litos-ostree": "stopped"
+  },
+  "deletedOrbMachine": "layr-cdn",
+  "otherMachinesPreserved": true,
+  "completedUTC": "2026-10-27T13:38:59.031037+00:00"
+}

@@ -874,3 +874,13 @@ CDN gateway, modify CloudFront or remove any store or SSM parameter. The resourc
 names from saved deployment receipts are in `benchmarks/cdn/stopped-aws-inventory.json`.
 The fixed core branch remains `cloud/cdn-client` at `2920798`. The deployed browser
 harness is saved for future work, but its live run remains incomplete.
+
+
+Local retirement completed at 13:38:59 UTC. The three RAM volumes
+`LayrCdnBench`, `LayrCdnRead` and `LayrCdnKeys` were detached and destroyed.
+All 14 task paths matching `/tmp/layr-cdn-*` and `/tmp/layr-cloudfront-*` were
+removed. The Mac build targets were already removed or disappeared with RAM.
+The owned OrbStack machine `layr-cdn` was deleted. The names and states of all
+other machines remained unchanged. The clone, task monitors and space watch are
+stopped. No private key or identity was copied into the evidence repository.
+No AWS call was made during retirement. See `benchmarks/cdn/local-retirement.json`.
