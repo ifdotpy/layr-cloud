@@ -1,0 +1,111 @@
+{
+  "phase": "after-cold",
+  "started": 1793091152.056973,
+  "complete": true,
+  "authentication": "scoped write grant and own trusted machine slot",
+  "binarySha256": "fc3d730b8d26b79e79508c09e2e8b342614d2a9aa93c954cbd87d797b2ff2b20",
+  "hostBefore": {
+    "time": 1793091150.0429492,
+    "pid": 24060,
+    "startTicks": 10977624,
+    "cpuTicks": 8714,
+    "ticksPerSecond": 100,
+    "binarySha256": "2079206158c79b64c7bcdb62944d4a0b2af7f54dc80db1dcbbfade23b2a0bff1",
+    "interfaces": {
+      "ens5": {
+        "rx_bytes": 3251055867,
+        "tx_bytes": 3459950667,
+        "rx_packets": 5024065,
+        "tx_packets": 5039732
+      }
+    },
+    "load": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "exitCode": 0,
+  "seconds": 6412.804,
+  "completedAt": 1793097564.860536,
+  "maxRssBytes": 8432091136,
+  "hostAfter": {
+    "time": 1793097567.9473805,
+    "pid": 24060,
+    "startTicks": 10977624,
+    "cpuTicks": 16698,
+    "ticksPerSecond": 100,
+    "binarySha256": "2079206158c79b64c7bcdb62944d4a0b2af7f54dc80db1dcbbfade23b2a0bff1",
+    "interfaces": {
+      "ens5": {
+        "rx_bytes": 3274090071,
+        "tx_bytes": 3497170823,
+        "rx_packets": 5065501,
+        "tx_packets": 5092935
+      }
+    },
+    "load": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "requests": {
+    "total": 15293,
+    "classes": {
+      "gateway:store.json": 8,
+      "gateway:list:keys": 1,
+      "gateway:slots": 1,
+      "gateway:challenge": 9,
+      "gateway:token": 9,
+      "gateway:list:records": 1,
+      "gateway:cdn-batch": 67,
+      "cdn:records": 57,
+      "gateway:list:states": 15,
+      "cdn:states": 15033,
+      "gateway:objects:states": 88,
+      "gateway:objects:slots": 2,
+      "gateway:list:other": 2
+    },
+    "statuses": {
+      "200": 15291,
+      "201": 1,
+      "412": 1
+    },
+    "cdnCache": {
+      "miss": 15002,
+      "hit": 88
+    },
+    "declaredBytes": 379180081,
+    "gatewayDeclaredBytes": 10245013,
+    "gatewayCount": 203,
+    "gatewaySingleSigning": 88,
+    "gatewayDirectCiphertextGets": 0,
+    "batchSizes": {
+      "8": 7,
+      "1": 1,
+      "256": 27,
+      "255": 31,
+      "128": 1
+    },
+    "cdnUniqueObjectKeys": 15002,
+    "cdnDuplicateObjectReads": 88,
+    "cdnHitRatio": 0.005831676607024519
+  },
+  "source": "62339b2e9af70408e53397241e19e56d2bd13bc0",
+  "gatewayCpuSeconds": 79.84,
+  "hostEgressBytes": 37220156,
+  "git": {
+    "originalCommits": 7965,
+    "restoredCommits": 7965,
+    "allIdsIdentical": true,
+    "tip": "eec4c6d136da146a5d3d659575c1baf2d93849f8",
+    "tree": "f73d8a3b174dae65889605159ff2e9d98657bb57"
+  },
+  "verification": {
+    "allGitIdsCompared": 7965,
+    "gitFsckFull": "passed",
+    "proof": "Measurement runner requires identical Git IDs, expected tip/tree and successful git fsck --full before writing complete:true",
+    "runner": "/tmp/layr-cdn-build/clone-measure-window.py"
+  }
+}
